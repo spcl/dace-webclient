@@ -237,8 +237,10 @@ function memlet_tree(graph, edge, root_only = false) {
                 if (ge.dst_connector == 'IN_' + cname)
                     curedge = ge;
             });
-            if (curedge)
+            if (curedge) {
                 result.unshift(curedge);
+                source = src(curedge);
+            }
         }
     } else if (propagate_backward) {
         let dest = dst(curedge);
@@ -250,8 +252,10 @@ function memlet_tree(graph, edge, root_only = false) {
                 if (ge.src_connector == 'OUT_' + cname)
                     curedge = ge;
             });
-            if (curedge)
+            if (curedge) {
                 result.unshift(curedge);
+                dest = dst(curedge);
+            }
         }
     }
 
@@ -263,8 +267,8 @@ function memlet_tree(graph, edge, root_only = false) {
         let children = [];
         if (propagate_forward) {
             let next_node = dst(edge);
-            if (!(next_node instanceof EntryNode) &&
-                    edge.dst_connector && edge.dst_connector.startsWith('IN_'))
+            if (!(next_node instanceof EntryNode) ||
+                    !edge.dst_connector || !edge.dst_connector.startsWith('IN_'))
                 return;
             let conn = edge.dst_connector.substring(3);
             graph.outEdges(next_node.id).forEach(e => {
