@@ -210,7 +210,7 @@ class Edge extends SDFGElement {
         }
 
         let style = this.strokeStyle();
-        if (style !== 'black')
+        if (style !== 'black' && style !== 'orange')
             renderer.tooltip = (c) => this.tooltip(c, renderer);
         if (this.parent_id == null && style === 'black') {  // Interstate edge
             style = '#86add9';
@@ -309,7 +309,16 @@ class Connector extends SDFGElement {
         ctx.closePath();
         ctx.strokeStyle = this.strokeStyle();
         ctx.stroke();
-        ctx.fillStyle = "#f0fdff";
+        if (this.data.name.startsWith("IN_") || this.data.name.startsWith("OUT_")) {
+            let cname = this.data.name;
+            if (cname.startsWith("IN_"))
+                cname = cname.substring(3);
+            else
+                cname = cname.substring(4);
+            ctx.fillStyle = "#d1eff690";
+        } else
+            ctx.fillStyle = "#f0fdff";
+            
         if (ctx.pdf) { // PDFs do not support stroke and fill on the same object
             ctx.beginPath();
             drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
