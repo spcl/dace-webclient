@@ -303,22 +303,31 @@ class Edge extends SDFGElement {
 
 class Connector extends SDFGElement {
     draw(renderer, ctx, mousepos) {
+        let scope_connector = (this.data.name.startsWith("IN_") || this.data.name.startsWith("OUT_"));
         let topleft = this.topleft();
         ctx.beginPath();
         drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
         ctx.closePath();
         ctx.strokeStyle = this.strokeStyle();
-        ctx.stroke();
-        if (this.data.name.startsWith("IN_") || this.data.name.startsWith("OUT_")) {
+        if (scope_connector) {
             let cname = this.data.name;
             if (cname.startsWith("IN_"))
                 cname = cname.substring(3);
             else
                 cname = cname.substring(4);
-            ctx.fillStyle = "#d1eff690";
-        } else
+
+            ctx.lineWidth = 0.4;
+            ctx.stroke();
+            ctx.lineWidth = 1.0;
+            let color = "c1dfe690";
+            if (ctx.pdf) // PDFs do not support transparent fill colors
+                color = "c1dfe6";
+            ctx.fillStyle = "#" + color;
+        } else {
+            ctx.stroke();
             ctx.fillStyle = "#f0fdff";
-            
+        }
+
         if (ctx.pdf) { // PDFs do not support stroke and fill on the same object
             ctx.beginPath();
             drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
