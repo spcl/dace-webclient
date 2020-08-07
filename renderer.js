@@ -1282,6 +1282,16 @@ class SDFGRenderer {
         }
     }
 
+    visible_elements() {
+        let curx = this.canvas_manager.mapPixelToCoordsX(0);
+        let cury = this.canvas_manager.mapPixelToCoordsY(0);
+        let endx = this.canvas_manager.mapPixelToCoordsX(this.canvas.width);
+        let endy = this.canvas_manager.mapPixelToCoordsY(this.canvas.height);
+        let curw = endx - curx;
+        let curh = endy - cury;
+        return this.elements_in_rect(curx, cury, curw, curh);
+    }
+
     // Returns a dictionary of SDFG elements in a given rectangle. Used for
     // selection, rendering, localized transformations, etc.
     // The output is a dictionary of lists of dictionaries. The top-level keys are:
