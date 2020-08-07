@@ -77,6 +77,9 @@ class State extends SDFGElement {
                                     visible_rect.y + visible_rect.h)};
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
+        if (!ctx.lod)
+            clamped = {x: topleft.x, y: topleft.y,
+                       w: this.width, h: this.height};
         
         ctx.fillStyle = "#deebf7";
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);

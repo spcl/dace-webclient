@@ -197,7 +197,11 @@ function traverse_sdfg_scopes(sdfg, func, post_subscope_func=null) {
  **/
 function memlet_tree(graph, edge, root_only = false) {
     let result = [];
-    let graph_edges = graph.edges();
+    let graph_edges = {};
+    graph.edges().forEach(e => {
+       graph_edges[e.name] = e;
+    });
+
 
     function src(e) {
         let ge = graph_edges[e.id];
@@ -229,7 +233,10 @@ function memlet_tree(graph, edge, root_only = false) {
     let curedge = edge;
     if (propagate_forward) {
         let source = src(curedge);
-        while(source instanceof EntryNode && curedge.src_connector) {
+        while(source instanceof EntryNode && curedge && curedge.src_connector) {
+            if (source.attributes().is_collapsed)
+                break;
+
             let cname = curedge.src_connector.substring(4);  // Remove OUT_
             curedge = null;
             graph.inEdges(source.id).forEach(e => {
@@ -244,7 +251,7 @@ function memlet_tree(graph, edge, root_only = false) {
         }
     } else if (propagate_backward) {
         let dest = dst(curedge);
-        while(dest instanceof ExitNode && curedge.dst_connector) {
+        while(dest instanceof ExitNode && curedge && curedge.dst_connector) {
             let cname = curedge.dst_connector.substring(3);  // Remove IN_
             curedge = null;
             graph.outEdges(dest.id).forEach(e => {
@@ -269,6 +276,8 @@ function memlet_tree(graph, edge, root_only = false) {
             let next_node = dst(edge);
             if (!(next_node instanceof EntryNode) ||
                     !edge.dst_connector || !edge.dst_connector.startsWith('IN_'))
+                return;
+            if (next_node.attributes().is_collapsed)
                 return;
             let conn = edge.dst_connector.substring(3);
             graph.outEdges(next_node.id).forEach(e => {
