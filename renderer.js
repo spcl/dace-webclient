@@ -1289,7 +1289,15 @@ class SDFGRenderer {
         let endy = this.canvas_manager.mapPixelToCoordsY(this.canvas.height);
         let curw = endx - curx;
         let curh = endy - cury;
-        return this.elements_in_rect(curx, cury, curw, curh);
+        let elements_light = {
+            states: [],
+            nodes: [],
+        };
+        this.do_for_intersected_elements(curx, cury, curw, curh, (type, e, obj) => {
+            if (type === 'nodes' || type === 'states')
+                elements_light[type].push(Number(e.id));
+        });
+        return elements_light;
     }
 
     // Returns a dictionary of SDFG elements in a given rectangle. Used for
@@ -1698,8 +1706,19 @@ class SDFGRenderer {
             dirty |= this.external_mouse_handler(evtype, event, { x: comp_x_func(event), y: comp_y_func(event) }, elements,
                 this, foreground_elem);
 
-        if (dirty)
+        if (dirty) {
             this.draw_async();
+            
+            // TODO: this is inefficient and causes lag. Do this better.
+            // If a listener in VSCode is present, update it about the new
+            // viewport and tell it to re-sort the shown transformations.
+            if (vscode) {
+                vscode.postMessage({
+                    type: 'sortTransformations',
+                    visibleElements: JSON.stringify(this.visible_elements()),
+                });
+            }
+        }
 
         return false;
     }
