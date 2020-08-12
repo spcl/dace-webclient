@@ -1282,6 +1282,24 @@ class SDFGRenderer {
         }
     }
 
+    visible_elements() {
+        let curx = this.canvas_manager.mapPixelToCoordsX(0);
+        let cury = this.canvas_manager.mapPixelToCoordsY(0);
+        let endx = this.canvas_manager.mapPixelToCoordsX(this.canvas.width);
+        let endy = this.canvas_manager.mapPixelToCoordsY(this.canvas.height);
+        let curw = endx - curx;
+        let curh = endy - cury;
+        let elements = {
+            states: [],
+            nodes: [],
+        };
+        this.do_for_intersected_elements(curx, cury, curw, curh, (type, e, obj) => {
+            if (type === 'nodes' || type === 'states')
+                elements[type].push(Number(e.id));
+        });
+        return elements;
+    }
+
     // Returns a dictionary of SDFG elements in a given rectangle. Used for
     // selection, rendering, localized transformations, etc.
     // The output is a dictionary of lists of dictionaries. The top-level keys are:
@@ -1688,8 +1706,18 @@ class SDFGRenderer {
             dirty |= this.external_mouse_handler(evtype, event, { x: comp_x_func(event), y: comp_y_func(event) }, elements,
                 this, foreground_elem);
 
-        if (dirty)
+        if (dirty) {
             this.draw_async();
+
+            // If a listener in VSCode is present, update it about the new
+            // viewport and tell it to re-sort the shown transformations.
+            if (vscode) {
+                vscode.postMessage({
+                    type: 'sortTransformations',
+                    visibleElements: JSON.stringify(this.visible_elements()),
+                });
+            }
+        }
 
         return false;
     }
