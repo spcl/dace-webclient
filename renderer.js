@@ -1289,15 +1289,15 @@ class SDFGRenderer {
         let endy = this.canvas_manager.mapPixelToCoordsY(this.canvas.height);
         let curw = endx - curx;
         let curh = endy - cury;
-        let elements_light = {
+        let elements = {
             states: [],
             nodes: [],
         };
         this.do_for_intersected_elements(curx, cury, curw, curh, (type, e, obj) => {
             if (type === 'nodes' || type === 'states')
-                elements_light[type].push(Number(e.id));
+                elements[type].push(Number(e.id));
         });
-        return elements_light;
+        return elements;
     }
 
     // Returns a dictionary of SDFG elements in a given rectangle. Used for
