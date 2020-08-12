@@ -110,7 +110,7 @@ function find_recursive(graph, query, results, case_sensitive) {
 
 function sidebar_set_title(title) {
     // Modify sidebar header
-    document.getElementById("sidebar-header").innerText = 'Search Results for "' + query + '"';
+    document.getElementById("sidebar-header").innerText = 'Search Results for "' + title + '"';
 }
 
 function sidebar_get_contents() {
