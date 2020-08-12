@@ -1708,8 +1708,7 @@ class SDFGRenderer {
 
         if (dirty) {
             this.draw_async();
-            
-            // TODO: this is inefficient and causes lag. Do this better.
+
             // If a listener in VSCode is present, update it about the new
             // viewport and tell it to re-sort the shown transformations.
             if (vscode) {
