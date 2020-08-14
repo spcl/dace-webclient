@@ -1711,11 +1711,15 @@ class SDFGRenderer {
 
             // If a listener in VSCode is present, update it about the new
             // viewport and tell it to re-sort the shown transformations.
-            if (vscode) {
-                vscode.postMessage({
-                    type: 'sortTransformations',
-                    visibleElements: JSON.stringify(this.visible_elements()),
-                });
+            try {
+                if (vscode) {
+                    vscode.postMessage({
+                        type: 'sortTransformations',
+                        visibleElements: JSON.stringify(this.visible_elements()),
+                    });
+                }
+            } catch (ex) {
+                // Do nothing
             }
         }
 

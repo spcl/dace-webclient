@@ -286,6 +286,13 @@ class Edge extends SDFGElement {
         // NOTE: Setting this.width/height will disrupt dagre in self-edges
     }
 
+    label() {
+        // Memlet
+        if (this.data.attributes.subset !== undefined)
+            return "";
+        return super.label();
+    }
+
     intersect(x, y, w = 0, h = 0) {
         // First, check bounding box
         if (!super.intersect(x, y, w, h))

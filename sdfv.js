@@ -110,7 +110,7 @@ function find_recursive(graph, query, results, case_sensitive) {
 
 function sidebar_set_title(title) {
     // Modify sidebar header
-    document.getElementById("sidebar-header").innerText = 'Search Results for "' + title + '"';
+    document.getElementById("sidebar-header").innerText = title;
 }
 
 function sidebar_get_contents() {
@@ -153,7 +153,7 @@ function fill_info(elem) {
 }
 
 function find_in_graph(renderer, sdfg, query, case_sensitive=false) {
-    sidebar_set_title(query);
+    sidebar_set_title('Search Results for "' + query + '"');
 
     let results = [];
     if (!case_sensitive)
