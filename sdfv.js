@@ -133,7 +133,7 @@ function fill_info(elem) {
     html += "<hr />";
 
     for (let attr of Object.entries(elem.attributes())) {
-        if (attr[0] === "layout" || attr[0] === "sdfg" || attr[0].startsWith("_meta_")) continue;
+        if (attr[0] === "layout" || attr[0] === "sdfg" || attr[0] === "_arrays" || attr[0].startsWith("_meta_")) continue;
         html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
         html += sdfg_property_to_string(attr[1], renderer.view_settings()) + "</p>";
     }
