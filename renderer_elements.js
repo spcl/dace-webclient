@@ -65,6 +65,20 @@ class SDFGElement {
     }
 }
 
+// SDFG as an element (to support properties)
+class SDFG extends SDFGElement {
+    constructor(sdfg) {
+        super(sdfg, -1, sdfg);
+    }
+
+    set_layout() {
+    }
+
+    label() {
+        return this.data.attributes.name;
+    }
+}
+
 class State extends SDFGElement {
     draw(renderer, ctx, mousepos) {
         let topleft = this.topleft();
@@ -911,7 +925,7 @@ function ptLineDistance(p, line1, line2) {
 }
 
 var SDFGElements = {
-    SDFGElement: SDFGElement, State: State, Node: Node, Edge: Edge, Connector: Connector, AccessNode: AccessNode,
+    SDFGElement: SDFGElement, SDFG: SDFG, State: State, Node: Node, Edge: Edge, Connector: Connector, AccessNode: AccessNode,
     ScopeNode: ScopeNode, EntryNode: EntryNode, ExitNode: ExitNode, MapEntry: MapEntry, MapExit: MapExit,
     ConsumeEntry: ConsumeEntry, ConsumeExit: ConsumeExit, EmptyTasklet: EmptyTasklet, Tasklet: Tasklet, Reduce: Reduce,
     PipelineEntry: PipelineEntry, PipelineExit: PipelineExit, NestedSDFG: NestedSDFG, LibraryNode: LibraryNode

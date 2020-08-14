@@ -257,16 +257,13 @@ function mouse_event(evtype, event, mousepos, elements, renderer, elem) {
     if (evtype === 'click' || evtype === 'dblclick') {
         if (renderer.menu)
             renderer.menu.destroy();
-        if (elem) {
-            sidebar_set_title(elem.type() + " " + elem.label());
-
-            fill_info(elem);
-
-            sidebar_show();
-        } else {
-            sidebar_get_contents().innerHTML = "";
-            sidebar_set_title("Nothing selected");
-        }
+        if (!elem)
+            elem = new SDFG(renderer.sdfg);
+            
+        sidebar_set_title(elem.type() + " " + elem.label());
+        fill_info(elem);
+        sidebar_show();
+        
     }
 }
 
