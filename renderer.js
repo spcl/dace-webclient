@@ -1040,7 +1040,7 @@ class SDFGRenderer {
             d.className = 'button hidden';
             if (vscode)
                 vscode.postMessage({
-                    type: 'exitPreview',
+                    type: 'getCurrentSdfg',
                 });
         };
         d.title = 'Exit preview';
