@@ -34,6 +34,28 @@ h1,h2,h3,h4,h5,h6{font-family:"Segoe UI",Arial,sans-serif;font-weight:400;margin
     background-color: silver;
 }
 
+.clearfix {
+  clear: both;
+}
+
+pre.code {
+  margin-top: 0;
+  margin-bottom: 0;
+  display: block;
+  white-space: pre-wrap;
+}
+
+pre.code code {
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-right: auto;
+  padding: .3rem;
+  display: block;
+  color: #966;
+  border-radius: 3px;
+  background-color: #eee;
+}
+
 .sidebar-inner {
   display: block;
   margin-left: 15px;

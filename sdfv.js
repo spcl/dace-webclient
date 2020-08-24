@@ -273,7 +273,6 @@ function close_menu() {
 
 
 function init_menu() {
-    console.log('here');
     var right = document.getElementById('sidebar');
     var bar = document.getElementById('dragbar');
 
