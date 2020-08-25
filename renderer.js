@@ -925,6 +925,9 @@ class SDFGRenderer {
         this.drag_second_start = null; // Null if two touch points are not activated
         this.external_mouse_handler = on_mouse_event;
 
+        // Selection related fields
+        this.selected_elements = [];
+
         this.init_elements(user_transform);
     }
 
@@ -1294,8 +1297,19 @@ class SDFGRenderer {
             nodes: [],
         };
         this.do_for_intersected_elements(curx, cury, curw, curh, (type, e, obj) => {
-            if (type === 'nodes' || type === 'states')
-                elements[type].push(Number(e.id));
+            if (type === 'nodes') {
+                elements.nodes.push({
+                    sdfg_id: Number(e.sdfg_id),
+                    state_id: Number(e.state),
+                    id: Number(e.id),
+                });
+            } else if (type === 'states') {
+                elements.states.push({
+                    sdfg_id: Number(e.sdfg_id),
+                    state_id: -1,
+                    id: Number(e.id),
+                });
+            }
         });
         return elements;
     }
@@ -1320,14 +1334,14 @@ class SDFGRenderer {
 
     do_for_intersected_elements(x, y, w, h, func) {
         // Traverse nested SDFGs recursively
-        function traverse_recursive(g, sdfg_name) {
+        function traverse_recursive(g, sdfg_name, sdfg_id) {
             g.nodes().forEach(state_id => {
                 let state = g.node(state_id);
                 if (!state) return;
 
                 if (state.intersect(x, y, w, h)) {
                     // States
-                    func('states', { sdfg: sdfg_name, id: state_id }, state);
+                    func('states', { sdfg: sdfg_name, sdfg_id: sdfg_id, id: state_id }, state);
 
                     if (state.data.state.attributes.is_collapsed)
                         return;
@@ -1339,24 +1353,26 @@ class SDFGRenderer {
                         let node = ng.node(node_id);
                         if (node.intersect(x, y, w, h)) {
                             // Selected nodes
-                            func('nodes', { sdfg: sdfg_name, state: state_id, id: node_id }, node);
+                            func('nodes', { sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, id: node_id }, node);
 
                             // If nested SDFG, traverse recursively
                             if (node.data.node.type === "NestedSDFG")
-                                traverse_recursive(node.data.graph, node.data.node.attributes.sdfg.attributes.name);
+                                traverse_recursive(node.data.graph,
+                                    node.data.node.attributes.sdfg.attributes.name,
+                                    node.data.node.attributes.sdfg.sdfg_list_id);
                         }
                         // Connectors
                         node.in_connectors.forEach((c, i) => {
                             if (c.intersect(x, y, w, h))
                                 func('connectors', {
-                                    sdfg: sdfg_name, state: state_id, node: node_id,
+                                    sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, node: node_id,
                                     connector: i, conntype: "in"
                                 }, c);
                         });
                         node.out_connectors.forEach((c, i) => {
                             if (c.intersect(x, y, w, h))
                                 func('connectors', {
-                                    sdfg: sdfg_name, state: state_id, node: node_id,
+                                    sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, node: node_id,
                                     connector: i, conntype: "out"
                                 }, c);
                         });
@@ -1366,7 +1382,7 @@ class SDFGRenderer {
                     ng.edges().forEach(edge_id => {
                         let edge = ng.edge(edge_id);
                         if (edge.intersect(x, y, w, h)) {
-                            func('edges', { sdfg: sdfg_name, state: state_id, id: edge.id }, edge);
+                            func('edges', { sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, id: edge.id }, edge);
                         }
                     });
                 }
@@ -1376,13 +1392,14 @@ class SDFGRenderer {
             g.edges().forEach(isedge_id => {
                 let isedge = g.edge(isedge_id);
                 if (isedge.intersect(x, y, w, h)) {
-                    func('isedges', { sdfg: sdfg_name, id: isedge.id }, isedge);
+                    func('isedges', { sdfg: sdfg_name, sdfg_id: sdfg_id, id: isedge.id }, isedge);
                 }
             });
         }
 
         // Start with top-level SDFG
-        traverse_recursive(this.graph, this.sdfg.attributes.name);
+        traverse_recursive(this.graph, this.sdfg.attributes.name,
+            this.sdfg.sdfg_list_id);
     }
 
     for_all_sdfg_elements(func) {
@@ -1702,6 +1719,41 @@ class SDFGRenderer {
             }
         }
 
+        if (evtype === 'click') {
+            if (foreground_elem) {
+                if (event.ctrlKey) {
+                    // Ctrl + click on an object, add it, or remove it from the
+                    // selection if it was previously in it.
+                    if (this.selected_elements.includes(foreground_elem)) {
+                        foreground_elem.stroke_color = null;
+                        this.selected_elements = this.selected_elements.filter(
+                            (el) => {
+                                return el !== foreground_elem;
+                            }
+                        );
+                    } else {
+                        this.selected_elements.push(foreground_elem);
+                    }
+                } else {
+                    // Clicked an element, select it and nothing else.
+                    this.selected_elements.forEach((el) => {
+                        el.stroke_color = null;
+                    });
+                    this.selected_elements = [foreground_elem];
+                }
+            } else {
+                // Clicked nothing, clear the selection.
+                this.selected_elements.forEach((el) => {
+                    el.stroke_color = null;
+                });
+                this.selected_elements = [];
+            }
+            dirty = true;
+        }
+        this.selected_elements.forEach((el) => {
+            el.stroke_color = 'red';
+        });
+
         if (this.external_mouse_handler)
             dirty |= this.external_mouse_handler(evtype, event, { x: comp_x_func(event), y: comp_y_func(event) }, elements,
                 this, foreground_elem);
@@ -1713,9 +1765,34 @@ class SDFGRenderer {
             // viewport and tell it to re-sort the shown transformations.
             try {
                 if (vscode) {
+                    function clean_selected(selected_elements) {
+                        let elems = {
+                            states: [],
+                            nodes: [],
+                        };
+                        selected_elements.forEach((el) => {
+                            if (el.data.node)
+                                elems.nodes.push({
+                                    sdfg_id: el.sdfg.sdfg_list_id,
+                                    state_id: el.parent_id,
+                                    id: el.id,
+                                });
+                            else if (el.data.state)
+                                elems.states.push({
+                                    sdfg_id: el.sdfg.sdfg_list_id,
+                                    state_id: -1,
+                                    id: el.id,
+                                });
+                        });
+                        return elems;
+                    }
+
                     vscode.postMessage({
                         type: 'sortTransformations',
                         visibleElements: JSON.stringify(this.visible_elements()),
+                        selectedElements: JSON.stringify(
+                            clean_selected(this.selected_elements)
+                        ),
                     });
                 }
             } catch (ex) {
