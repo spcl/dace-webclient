@@ -1041,7 +1041,7 @@ class SDFGRenderer {
         let box_select_btn = document.createElement('button');
         box_select_btn.className = 'button';
         box_select_btn.innerHTML =
-            '<i class="material-icons">select_all</i>';
+            '<i class="material-icons">border_style</i>';
         box_select_btn.style = 'padding-bottom: 0px; user-select: none';
         box_select_btn.onclick = () => {
             this.box_select_mode = !this.box_select_mode;
@@ -1051,7 +1051,7 @@ class SDFGRenderer {
                 box_select_btn.title = 'Exit box select mode';
             } else {
                 box_select_btn.innerHTML =
-                    '<i class="material-icons">select_all</i>';
+                    '<i class="material-icons">border_style</i>';
                 box_select_btn.title = 'Enter box select mode';
             }
         };
@@ -1281,11 +1281,13 @@ class SDFGRenderer {
             this.ctx.beginPath();
             // TODO: change stroke width based on zoom level, i.e. make it wider
             // when zoomed out, so the selection box is still visible.
-            this.ctx.strokeStyle = 'red';
+            this.ctx.setLineDash([2, 3]);
+            this.ctx.strokeStyle = 'grey';
             this.ctx.rect(this.box_select_rect.x_start, this.box_select_rect.y_start,
                 this.box_select_rect.x_end - this.box_select_rect.x_start,
                 this.box_select_rect.y_end - this.box_select_rect.y_start);
             this.ctx.stroke();
+            this.ctx.setLineDash([]);
         }
 
         this.on_post_draw();
@@ -1330,28 +1332,24 @@ class SDFGRenderer {
         let curh = endy - cury;
         let elements = [];
         this.do_for_intersected_elements(curx, cury, curw, curh, (type, e, obj) => {
-            if (type === 'nodes') {
-                elements.push({
-                    type: 'node',
-                    sdfg_id: Number(e.sdfg_id),
-                    state_id: Number(e.state),
-                    id: Number(e.id),
-                });
-            } else if (type === 'states') {
-                elements.push({
-                    type: 'state',
-                    sdfg_id: Number(e.sdfg_id),
-                    state_id: -1,
-                    id: Number(e.id),
-                });
-            } else {
-                elements.push({
-                    type: 'edge',
-                    sdfg_id: Number(e.sdfg_id),
-                    state_id: -1,
-                    id: Number(e.id),
-                });
-            }
+            let state_id = e.state ? Number(e.state) : -1;
+            let el_type = 'other';
+            if (type === 'nodes')
+                el_type = 'node';
+            else if (type === 'states')
+                el_type = 'state';
+            else if (type === 'edges')
+                el_type = 'edge';
+            else if (type === 'isedges')
+                el_type = 'isedge';
+            else if (type === 'connectors')
+                el_type = 'connector';
+            elements.push({
+                type: el_type,
+                sdfg_id: Number(e.sdfg_id),
+                state_id: state_id,
+                id: Number(e.id),
+            });
         });
         return elements;
     }
