@@ -1292,19 +1292,25 @@ class SDFGRenderer {
         let endy = this.canvas_manager.mapPixelToCoordsY(this.canvas.height);
         let curw = endx - curx;
         let curh = endy - cury;
-        let elements = {
-            states: [],
-            nodes: [],
-        };
+        let elements = [];
         this.do_for_intersected_elements(curx, cury, curw, curh, (type, e, obj) => {
             if (type === 'nodes') {
-                elements.nodes.push({
+                elements.push({
+                    type: 'node',
                     sdfg_id: Number(e.sdfg_id),
                     state_id: Number(e.state),
                     id: Number(e.id),
                 });
             } else if (type === 'states') {
-                elements.states.push({
+                elements.push({
+                    type: 'state',
+                    sdfg_id: Number(e.sdfg_id),
+                    state_id: -1,
+                    id: Number(e.id),
+                });
+            } else {
+                elements.push({
+                    type: 'edge',
                     sdfg_id: Number(e.sdfg_id),
                     state_id: -1,
                     id: Number(e.id),
@@ -1766,19 +1772,26 @@ class SDFGRenderer {
             try {
                 if (vscode) {
                     function clean_selected(selected_elements) {
-                        let elems = {
-                            states: [],
-                            nodes: [],
-                        };
+                        let elems = [];
                         selected_elements.forEach((el) => {
+                            console.log(el);
                             if (el.data.node)
-                                elems.nodes.push({
+                                elems.push({
+                                    type: 'node',
                                     sdfg_id: el.sdfg.sdfg_list_id,
                                     state_id: el.parent_id,
                                     id: el.id,
                                 });
                             else if (el.data.state)
-                                elems.states.push({
+                                elems.push({
+                                    type: 'state',
+                                    sdfg_id: el.sdfg.sdfg_list_id,
+                                    state_id: -1,
+                                    id: el.id,
+                                });
+                            else
+                                elems.push({
+                                    type: 'edge',
                                     sdfg_id: el.sdfg.sdfg_list_id,
                                     state_id: -1,
                                     id: el.id,
