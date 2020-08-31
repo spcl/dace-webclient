@@ -920,11 +920,17 @@ class SDFGRenderer {
 
         // Mouse-related fields
         this.move_mode = false;
+        this.box_select_rect = null;
+        this.box_select_mode = false;
         this.mousepos = null; // Last position of the mouse pointer (in canvas coordinates)
         this.realmousepos = null; // Last position of the mouse pointer (in pixel coordinates)
+        this.dragging = false;
         this.drag_start = null; // Null if the mouse/touch is not activated
         this.drag_second_start = null; // Null if two touch points are not activated
         this.external_mouse_handler = on_mouse_event;
+
+        // Selection related fields
+        this.selected_elements = [];
 
         this.init_elements(user_transform);
     }
@@ -1014,38 +1020,60 @@ class SDFGRenderer {
         this.toolbar.appendChild(d);
 
         // Enter object moving mode
-        d = document.createElement('button');
-        d.className = 'button';
-        d.innerHTML = '<i class="material-icons">open_with</i>';
-        d.style = 'padding-bottom: 0px; user-select: none';
-        d.onclick = () => {
+        let move_mode_btn = document.createElement('button');
+        move_mode_btn.className = 'button';
+        move_mode_btn.innerHTML = '<i class="material-icons">open_with</i>';
+        move_mode_btn.style = 'padding-bottom: 0px; user-select: none';
+        move_mode_btn.onclick = () => {
             this.move_mode = !this.move_mode;
             if (this.move_mode) {
-                d.innerHTML = '<i class="material-icons">done</i>';
-                d.title = 'Exit object moving mode';
+                move_mode_btn.innerHTML = '<i class="material-icons">done</i>';
+                move_mode_btn.title = 'Exit object moving mode';
             } else {
-                d.innerHTML = '<i class="material-icons">open_with</i>';
-                d.title = 'Enter object moving mode';
+                move_mode_btn.innerHTML =
+                    '<i class="material-icons">open_with</i>';
+                move_mode_btn.title = 'Enter object moving mode';
             }
         };
-        d.title = 'Enter object moving mode';
-        this.toolbar.appendChild(d);
+        move_mode_btn.title = 'Enter object moving mode';
+        this.toolbar.appendChild(move_mode_btn);
+
+        // Enter box selection mode
+        let box_select_btn = document.createElement('button');
+        box_select_btn.className = 'button';
+        box_select_btn.innerHTML =
+            '<i class="material-icons">border_style</i>';
+        box_select_btn.style = 'padding-bottom: 0px; user-select: none';
+        box_select_btn.onclick = () => {
+            this.box_select_mode = !this.box_select_mode;
+            if (this.box_select_mode) {
+                box_select_btn.innerHTML =
+                    '<i class="material-icons">done</i>';
+                box_select_btn.title = 'Exit box select mode';
+            } else {
+                box_select_btn.innerHTML =
+                    '<i class="material-icons">border_style</i>';
+                box_select_btn.title = 'Enter box select mode';
+            }
+        };
+        box_select_btn.title = 'Enter box select mode';
+        this.toolbar.appendChild(box_select_btn);
 
         // Exit previewing mode
-        d = document.createElement('button');
-        d.id = 'exit-preview-button';
-        d.className = 'button hidden';
-        d.innerHTML = '<i class="material-icons">close</i>';
-        d.style = 'padding-bottom: 0px; user-select: none';
-        d.onclick = () => {
-            d.className = 'button hidden';
+        let exit_preview_btn = document.createElement('button');
+        exit_preview_btn.id = 'exit-preview-button';
+        exit_preview_btn.className = 'button hidden';
+        exit_preview_btn.innerHTML = '<i class="material-icons">close</i>';
+        exit_preview_btn.style = 'padding-bottom: 0px; user-select: none';
+        exit_preview_btn.onclick = () => {
+            exit_preview_btn.className = 'button hidden';
             if (vscode)
                 vscode.postMessage({
-                    type: 'exitPreview',
+                    type: 'getCurrentSdfg',
                 });
         };
-        d.title = 'Exit preview';
-        this.toolbar.appendChild(d);
+        exit_preview_btn.title = 'Exit preview';
+        this.toolbar.appendChild(exit_preview_btn);
 
         this.container.append(this.toolbar);
         // End of buttons
@@ -1250,6 +1278,19 @@ class SDFGRenderer {
 
         draw_sdfg(this, ctx, g, this.mousepos);
 
+        if (this.box_select_rect) {
+            this.ctx.beginPath();
+            // TODO: change stroke width based on zoom level, i.e. make it wider
+            // when zoomed out, so the selection box is still visible.
+            this.ctx.setLineDash([2, 3]);
+            this.ctx.strokeStyle = 'grey';
+            this.ctx.rect(this.box_select_rect.x_start, this.box_select_rect.y_start,
+                this.box_select_rect.x_end - this.box_select_rect.x_start,
+                this.box_select_rect.y_end - this.box_select_rect.y_start);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+        }
+
         this.on_post_draw();
     }
 
@@ -1290,13 +1331,26 @@ class SDFGRenderer {
         let endy = this.canvas_manager.mapPixelToCoordsY(this.canvas.height);
         let curw = endx - curx;
         let curh = endy - cury;
-        let elements = {
-            states: [],
-            nodes: [],
-        };
+        let elements = [];
         this.do_for_intersected_elements(curx, cury, curw, curh, (type, e, obj) => {
-            if (type === 'nodes' || type === 'states')
-                elements[type].push(Number(e.id));
+            let state_id = e.state ? Number(e.state) : -1;
+            let el_type = 'other';
+            if (type === 'nodes')
+                el_type = 'node';
+            else if (type === 'states')
+                el_type = 'state';
+            else if (type === 'edges')
+                el_type = 'edge';
+            else if (type === 'isedges')
+                el_type = 'isedge';
+            else if (type === 'connectors')
+                el_type = 'connector';
+            elements.push({
+                type: el_type,
+                sdfg_id: Number(e.sdfg_id),
+                state_id: state_id,
+                id: Number(e.id),
+            });
         });
         return elements;
     }
@@ -1321,14 +1375,14 @@ class SDFGRenderer {
 
     do_for_intersected_elements(x, y, w, h, func) {
         // Traverse nested SDFGs recursively
-        function traverse_recursive(g, sdfg_name) {
+        function traverse_recursive(g, sdfg_name, sdfg_id) {
             g.nodes().forEach(state_id => {
                 let state = g.node(state_id);
                 if (!state) return;
 
                 if (state.intersect(x, y, w, h)) {
                     // States
-                    func('states', { sdfg: sdfg_name, id: state_id }, state);
+                    func('states', { sdfg: sdfg_name, sdfg_id: sdfg_id, id: state_id }, state);
 
                     if (state.data.state.attributes.is_collapsed)
                         return;
@@ -1340,24 +1394,26 @@ class SDFGRenderer {
                         let node = ng.node(node_id);
                         if (node.intersect(x, y, w, h)) {
                             // Selected nodes
-                            func('nodes', { sdfg: sdfg_name, state: state_id, id: node_id }, node);
+                            func('nodes', { sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, id: node_id }, node);
 
                             // If nested SDFG, traverse recursively
                             if (node.data.node.type === "NestedSDFG")
-                                traverse_recursive(node.data.graph, node.data.node.attributes.sdfg.attributes.name);
+                                traverse_recursive(node.data.graph,
+                                    node.data.node.attributes.sdfg.attributes.name,
+                                    node.data.node.attributes.sdfg.sdfg_list_id);
                         }
                         // Connectors
                         node.in_connectors.forEach((c, i) => {
                             if (c.intersect(x, y, w, h))
                                 func('connectors', {
-                                    sdfg: sdfg_name, state: state_id, node: node_id,
+                                    sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, node: node_id,
                                     connector: i, conntype: "in"
                                 }, c);
                         });
                         node.out_connectors.forEach((c, i) => {
                             if (c.intersect(x, y, w, h))
                                 func('connectors', {
-                                    sdfg: sdfg_name, state: state_id, node: node_id,
+                                    sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, node: node_id,
                                     connector: i, conntype: "out"
                                 }, c);
                         });
@@ -1367,7 +1423,7 @@ class SDFGRenderer {
                     ng.edges().forEach(edge_id => {
                         let edge = ng.edge(edge_id);
                         if (edge.intersect(x, y, w, h)) {
-                            func('edges', { sdfg: sdfg_name, state: state_id, id: edge.id }, edge);
+                            func('edges', { sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, id: edge.id }, edge);
                         }
                     });
                 }
@@ -1377,13 +1433,14 @@ class SDFGRenderer {
             g.edges().forEach(isedge_id => {
                 let isedge = g.edge(isedge_id);
                 if (isedge.intersect(x, y, w, h)) {
-                    func('isedges', { sdfg: sdfg_name, id: isedge.id }, isedge);
+                    func('isedges', { sdfg: sdfg_name, sdfg_id: sdfg_id, id: isedge.id }, isedge);
                 }
             });
         }
 
         // Start with top-level SDFG
-        traverse_recursive(this.graph, this.sdfg.attributes.name);
+        traverse_recursive(this.graph, this.sdfg.attributes.name,
+            this.sdfg.sdfg_list_id);
     }
 
     for_all_sdfg_elements(func) {
@@ -1515,7 +1572,7 @@ class SDFGRenderer {
         };
     }
 
-    on_mouse_event(event, comp_x_func, comp_y_func, evtype = "click") {
+    on_mouse_event(event, comp_x_func, comp_y_func, evtype = "other") {
         let dirty = false; // Whether to redraw at the end
 
         if (evtype === "mousedown" || evtype === "touchstart") {
@@ -1535,6 +1592,8 @@ class SDFGRenderer {
             this.realmousepos = { x: event.clientX, y: event.clientY };
 
             if (this.drag_start && event.buttons & 1) {
+                this.dragging = true;
+
                 // Only accept the primary mouse button as dragging source
                 if (this.move_mode) {
                     if (this.last_dragged_element) {
@@ -1559,6 +1618,18 @@ class SDFGRenderer {
                         }
                         return true;
                     }
+                } else if (this.box_select_mode) {
+                    this.box_select_rect = {
+                        x_start: comp_x_func(this.drag_start),
+                        y_start: comp_y_func(this.drag_start),
+                        x_end: this.mousepos.x,
+                        y_end: this.mousepos.y,
+                    };
+
+                    // Mark for redraw and stop propagation
+                    dirty = true;
+                    this.draw_async();
+                    return false;
                 } else {
                     this.canvas_manager.translate(event.movementX,
                         event.movementY);
@@ -1703,9 +1774,81 @@ class SDFGRenderer {
             }
         }
 
+        let ends_drag = false;
+        if (evtype === 'click') {
+            if (this.dragging) {
+                // This click ends a drag.
+                this.dragging = false;
+                ends_drag = true;
+
+                if (this.box_select_rect) {
+                    let elements_in_selection = [];
+                    let start_x = Math.min(this.box_select_rect.x_start,
+                        this.box_select_rect.x_end);
+                    let end_x = Math.max(this.box_select_rect.x_start,
+                        this.box_select_rect.x_end);
+                    let start_y = Math.min(this.box_select_rect.y_start,
+                        this.box_select_rect.y_end);
+                    let end_y = Math.max(this.box_select_rect.y_start,
+                        this.box_select_rect.y_end);
+                    let w = end_x - start_x;
+                    let h = end_y - start_y;
+                    this.do_for_intersected_elements(start_x, start_y, w, h,
+                        (type, e, obj) => elements_in_selection.push(obj));
+                    if (event.shiftKey) {
+                        elements_in_selection.forEach((el) => {
+                            if (!this.selected_elements.includes(el))
+                                this.selected_elements.push(el);
+                        });
+                    } else {
+                        this.selected_elements.forEach((el) => {
+                            el.stroke_color = null;
+                        });
+                        this.selected_elements = elements_in_selection;
+                    }
+                    this.box_select_rect = null;
+                    dirty = true;
+                }
+            } else {
+                if (foreground_elem) {
+                    if (event.ctrlKey) {
+                        // Ctrl + click on an object, add it, or remove it from
+                        // the selection if it was previously in it.
+                        if (this.selected_elements.includes(foreground_elem)) {
+                            foreground_elem.stroke_color = null;
+                            this.selected_elements =
+                                this.selected_elements.filter((el) => {
+                                    return el !== foreground_elem;
+                                });
+                        } else {
+                            this.selected_elements.push(foreground_elem);
+                        }
+                    } else if (event.shiftKey) {
+                        // TODO: Implement shift-clicks for path selection.
+                    } else {
+                        // Clicked an element, select it and nothing else.
+                        this.selected_elements.forEach((el) => {
+                            el.stroke_color = null;
+                        });
+                        this.selected_elements = [foreground_elem];
+                    }
+                } else {
+                    // Clicked nothing, clear the selection.
+                    this.selected_elements.forEach((el) => {
+                        el.stroke_color = null;
+                    });
+                    this.selected_elements = [];
+                }
+                dirty = true;
+            }
+        }
+        this.selected_elements.forEach((el) => {
+            el.stroke_color = 'red';
+        });
+
         if (this.external_mouse_handler)
             dirty |= this.external_mouse_handler(evtype, event, { x: comp_x_func(event), y: comp_y_func(event) }, elements,
-                this, foreground_elem);
+                this, foreground_elem, ends_drag);
 
         if (dirty) {
             this.draw_async();
@@ -1714,9 +1857,36 @@ class SDFGRenderer {
             // viewport and tell it to re-sort the shown transformations.
             try {
                 if (vscode) {
+                    function clean_selected(selected_elements) {
+                        let elems = [];
+                        selected_elements.forEach((el) => {
+                            let parent_id =
+                                el.parent_id === null ? -1 : el.parent_id;
+                            let type = 'other';
+                            if (el.data.node)
+                                type = 'node';
+                            else if (el.data.state)
+                                type = 'state';
+                            else if (el.data.type === 'InterstateEdge')
+                                type = 'isedge';
+                            else if (el.data.type === 'Memlet')
+                                type = 'edge';
+                            elems.push({
+                                type: type,
+                                sdfg_id: el.sdfg.sdfg_list_id,
+                                state_id: parent_id,
+                                id: el.id,
+                            });
+                        });
+                        return elems;
+                    }
+
                     vscode.postMessage({
                         type: 'sortTransformations',
                         visibleElements: JSON.stringify(this.visible_elements()),
+                        selectedElements: JSON.stringify(
+                            clean_selected(this.selected_elements)
+                        ),
                     });
                 }
             } catch (ex) {

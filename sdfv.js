@@ -255,8 +255,9 @@ function outline(renderer, sdfg) {
     sidebar_show();
 }
 
-function mouse_event(evtype, event, mousepos, elements, renderer, elem) {
-    if (evtype === 'click' || evtype === 'dblclick') {
+function mouse_event(evtype, event, mousepos, elements, renderer, elem,
+    ends_drag) {
+    if ((evtype === 'click' && !ends_drag) || evtype === 'dblclick') {
         if (renderer.menu)
             renderer.menu.destroy();
         if (!elem)
@@ -275,7 +276,6 @@ function close_menu() {
 
 
 function init_menu() {
-    console.log('here');
     var right = document.getElementById('sidebar');
     var bar = document.getElementById('dragbar');
 
