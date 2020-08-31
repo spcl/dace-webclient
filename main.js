@@ -1,3 +1,4 @@
+// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
 var base_url = "//" + window.location.host;
 
 window.base_url = base_url;

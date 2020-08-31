@@ -1,3 +1,5 @@
+// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+
 var fr;
 var file = null;
 var renderer = null;

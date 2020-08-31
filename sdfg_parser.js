@@ -1,3 +1,5 @@
+// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+
 class SDFG_Parser {
     constructor(sdfg) {
         this._sdfg = sdfg;
