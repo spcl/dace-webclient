@@ -1,3 +1,5 @@
+// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+
 class SDFGElement {
     // Parent ID is the state ID, if relevant
     constructor(elem, elem_id, sdfg, parent_id = null) {

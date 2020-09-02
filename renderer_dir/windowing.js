@@ -1,3 +1,4 @@
+// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
 import {ObjectHelper} from "./datahelper.js"
 // Contains resources used to provide a "native" multi-window interface
 

@@ -1,3 +1,5 @@
+// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+
 function find_exit_for_entry(nodes, entry_node) {
     for(let n of nodes) {
         if(n.type.endsWith("Exit") && parseInt(n.scope_entry) == entry_node.id) {

@@ -1,3 +1,4 @@
+// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
