@@ -1850,7 +1850,7 @@ class SDFGRenderer {
 
         if (this.external_mouse_handler)
             dirty |= this.external_mouse_handler(evtype, event, { x: comp_x_func(event), y: comp_y_func(event) }, elements,
-                this, foreground_elem, ends_drag);
+                this, this.selected_elements, ends_drag);
 
         if (dirty) {
             this.draw_async();
