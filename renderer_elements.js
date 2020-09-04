@@ -19,7 +19,19 @@ class SDFGElement {
         this.height = this.data.layout.height;
     }
 
-    draw(renderer, ctx, mousepos) { }
+    draw(renderer, ctx, mousepos, debug_draw = false) {}
+
+    debug_draw(renderer, ctx, mousepos) {
+        // Print the center and bounding box in debug mode.
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 1, 0, 2 * Math.PI, false);
+        ctx.fillStyle = 'red';
+        ctx.fill();
+        ctx.strokeStyle = 'red';
+        ctx.stroke();
+        ctx.strokeRect(this.x - (this.width / 2.0), this.y - (this.height / 2.0),
+            this.width, this.height);
+    }
 
     attributes() {
         return this.data.attributes;
@@ -65,6 +77,27 @@ class SDFGElement {
                 (y + h >= this.y - this.height / 2.0);
         }
     }
+
+    contained_in(x, y, w = 0, h = 0) {
+        if (w === 0 || h === 0)
+            return false;
+
+        var box_start_x = x;
+        var box_end_x = x + w;
+        var box_start_y = y;
+        var box_end_y = y + h;
+
+        var el_start_x = this.x - (this.width / 2.0);
+        var el_end_x = this.x + (this.width / 2.0);
+        var el_start_y = this.y - (this.height / 2.0);
+        var el_end_y = this.y + (this.height / 2.0);
+
+        return box_start_x <= el_start_x &&
+            box_end_x >= el_end_x &&
+            box_start_y <= el_start_y &&
+            box_end_y >= el_end_y;
+    }
+
 }
 
 // SDFG as an element (to support properties)
@@ -82,7 +115,7 @@ class SDFG extends SDFGElement {
 }
 
 class State extends SDFGElement {
-    draw(renderer, ctx, mousepos) {
+    draw(renderer, ctx, mousepos, debug_draw = false) {
         let topleft = this.topleft();
         let visible_rect = renderer.visible_rect;
         let clamped = {x: Math.max(topleft.x, visible_rect.x),
@@ -112,22 +145,13 @@ class State extends SDFGElement {
             ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
         }
 
-        // If collapsed, draw a "+" sign in the middle
-        if (this.data.state.attributes.is_collapsed) {
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y - LINEHEIGHT);
-            ctx.lineTo(this.x, this.y + LINEHEIGHT);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(this.x - LINEHEIGHT, this.y);
-            ctx.lineTo(this.x + LINEHEIGHT, this.y);
-            ctx.stroke();
-        }
-
         ctx.strokeStyle = "black";
+
+        if (debug_draw)
+            super.debug_draw(renderer, ctx, mousepos, debug_draw);
     }
 
-    simple_draw(renderer, ctx, mousepos) {
+    simple_draw(renderer, ctx, mousepos, debug_draw = false) {
         // Fast drawing function for small states
         let topleft = this.topleft();
 
@@ -150,6 +174,9 @@ class State extends SDFGElement {
 
         ctx.font = oldfont;
         */
+
+        if (debug_draw)
+            super.debug_draw(renderer, ctx, mousepos);
     }
 
     tooltip(container) {
@@ -170,7 +197,7 @@ class State extends SDFGElement {
 }
 
 class Node extends SDFGElement {
-    draw(renderer, ctx, mousepos) {
+    draw(renderer, ctx, mousepos, debug_draw = false) {
         let topleft = this.topleft();
         ctx.fillStyle = "white";
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
@@ -179,14 +206,20 @@ class Node extends SDFGElement {
         ctx.fillStyle = "black";
         let textw = ctx.measureText(this.label()).width;
         ctx.fillText(this.label(), this.x - textw / 2, this.y + LINEHEIGHT / 4);
+
+        if (debug_draw)
+            super.debug_draw(renderer, ctx, mousepos);
     }
 
-    simple_draw(renderer, ctx, mousepos) {
+    simple_draw(renderer, ctx, mousepos, debug_draw = false) {
         // Fast drawing function for small nodes
         let topleft = this.topleft();
         ctx.fillStyle = "white";
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
         ctx.fillStyle = "black";
+
+        if (debug_draw)
+            super.debug_draw(renderer, ctx, mousepos);
     }
 
     label() {
@@ -208,7 +241,7 @@ class Node extends SDFGElement {
 }
 
 class Edge extends SDFGElement {
-    draw(renderer, ctx, mousepos) {
+    draw(renderer, ctx, mousepos, debug_draw = false) {
         let edge = this;
 
         ctx.beginPath();
@@ -253,6 +286,9 @@ class Edge extends SDFGElement {
 
         ctx.fillStyle = "black";
         ctx.strokeStyle = "black";
+
+        if (debug_draw)
+            super.debug_draw(renderer, ctx, mousepos);
     }
 
     tooltip(container, renderer) {
@@ -328,7 +364,7 @@ class Edge extends SDFGElement {
 }
 
 class Connector extends SDFGElement {
-    draw(renderer, ctx, mousepos) {
+    draw(renderer, ctx, mousepos, debug_draw = false) {
         let scope_connector = (this.data.name.startsWith("IN_") || this.data.name.startsWith("OUT_"));
         let topleft = this.topleft();
         ctx.beginPath();
@@ -364,6 +400,9 @@ class Connector extends SDFGElement {
         ctx.strokeStyle = "black";
         if (this.strokeStyle() !== 'black')
             renderer.tooltip = (c) => this.tooltip(c);
+
+        if (debug_draw)
+            super.debug_draw(renderer, ctx, mousepos);
     }
 
     attributes() {
@@ -383,7 +422,7 @@ class Connector extends SDFGElement {
 }
 
 class AccessNode extends Node {
-    draw(renderer, ctx, mousepos) {
+    draw(renderer, ctx, mousepos, debug_draw = false) {
         let topleft = this.topleft();
         ctx.beginPath();
         drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
@@ -418,11 +457,14 @@ class AccessNode extends Node {
         ctx.fillStyle = "black";
         var textmetrics = ctx.measureText(this.label());
         ctx.fillText(this.label(), this.x - textmetrics.width / 2.0, this.y + LINEHEIGHT / 4.0);
+
+        if (debug_draw)
+            super.debug_draw(renderer, ctx, mousepos);
     }
 }
 
 class ScopeNode extends Node {
-    draw(renderer, ctx, mousepos) {
+    draw(renderer, ctx, mousepos, debug_draw = false) {
         let draw_shape;
         if (this.data.node.attributes.is_collapsed) {
             draw_shape = () => drawHexagon(ctx, this.x, this.y, this.width, this.height);
@@ -451,6 +493,9 @@ class ScopeNode extends Node {
             this.close_label(renderer), this.x, this.y,
             this.width, this.height,
             SCOPE_LOD);
+
+        if (debug_draw)
+            super.debug_draw(renderer, ctx, mousepos);
     }
 
     far_label() {
@@ -519,7 +564,7 @@ class EmptyTasklet extends Node {
 }
 
 class Tasklet extends Node {
-    draw(renderer, ctx, mousepos) {
+    draw(renderer, ctx, mousepos, debug_draw = false) {
         let topleft = this.topleft();
         drawOctagon(ctx, topleft, this.width, this.height);
         ctx.strokeStyle = this.strokeStyle();
@@ -568,11 +613,14 @@ class Tasklet extends Node {
 
         let textmetrics = ctx.measureText(this.label());
         ctx.fillText(this.label(), this.x - textmetrics.width / 2.0, this.y + LINEHEIGHT / 2.0);
+
+        if (debug_draw)
+            super.debug_draw(renderer, ctx, mousepos);
     }
 }
 
 class Reduce extends Node {
-    draw(renderer, ctx, mousepos) {
+    draw(renderer, ctx, mousepos, debug_draw = false) {
         let topleft = this.topleft();
         let draw_shape = () => {
             ctx.beginPath();
@@ -596,11 +644,14 @@ class Reduce extends Node {
             this.label(), this.x, this.y - this.height * 0.2,
             this.width, this.height,
             SCOPE_LOD);
+
+        if (debug_draw)
+            super.debug_draw(renderer, ctx, mousepos);
     }
 }
 
 class NestedSDFG extends Node {
-    draw(renderer, ctx, mousepos) {
+    draw(renderer, ctx, mousepos, debug_draw = false) {
         if (this.data.node.attributes.is_collapsed) {
             let topleft = this.topleft();
             drawOctagon(ctx, topleft, this.width, this.height);
@@ -621,10 +672,11 @@ class NestedSDFG extends Node {
         }
 
         // Draw square around nested SDFG
-        super.draw(renderer, ctx, mousepos);
+        super.draw(renderer, ctx, mousepos, debug_draw);
+        // Debug draw already gets handled by the super.draw call.
 
         // Draw nested graph
-        draw_sdfg(renderer, ctx, this.data.graph, mousepos);
+        draw_sdfg(renderer, ctx, this.data.graph, mousepos, debug_draw);
     }
 
     set_layout() {
@@ -674,7 +726,7 @@ class LibraryNode extends Node {
         ctx.lineTo(topleft.x + this.width, topleft.y + hexseg);
     }
 
-    draw(renderer, ctx, mousepos) {
+    draw(renderer, ctx, mousepos, debug_draw = false) {
         ctx.fillStyle = "white";
         this._path(ctx);
         ctx.fill();
@@ -686,19 +738,22 @@ class LibraryNode extends Node {
         ctx.fillStyle = "black";
         let textw = ctx.measureText(this.label()).width;
         ctx.fillText(this.label(), this.x - textw / 2, this.y + LINEHEIGHT / 4);
+
+        if (debug_draw)
+            super.debug_draw(renderer, ctx, mousepos);
     }
 }
 
 //////////////////////////////////////////////////////
 
 // Draw an entire SDFG
-function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
+function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos, debug_draw = false) {
     let ppp = renderer.canvas_manager.points_per_pixel();
 
     // Render state machine
     let g = sdfg_dagre;
     if (!ctx.lod || ppp < EDGE_LOD)
-        g.edges().forEach(e => { g.edge(e).draw(renderer, ctx, mousepos); });
+        g.edges().forEach(e => { g.edge(e).draw(renderer, ctx, mousepos, debug_draw); });
 
 
     visible_rect = renderer.visible_rect;
@@ -708,14 +763,14 @@ function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
         let node = g.node(v);
 
         if (ctx.lod && (ppp >= STATE_LOD || node.width / ppp < STATE_LOD)) {
-            node.simple_draw(renderer, ctx, mousepos);
+            node.simple_draw(renderer, ctx, mousepos, debug_draw);
             return;
         }
         // Skip invisible states
         if (ctx.lod && !node.intersect(visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h))
             return;
 
-        node.draw(renderer, ctx, mousepos);
+        node.draw(renderer, ctx, mousepos, debug_draw);
 
         let ng = node.data.graph;
 
@@ -726,13 +781,13 @@ function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
                 if (ctx.lod && !n.intersect(visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h))
                     return;
                 if (ctx.lod && ppp >= NODE_LOD) {
-                    n.simple_draw(renderer, ctx, mousepos);
+                    n.simple_draw(renderer, ctx, mousepos, debug_draw);
                     return;
                 }
 
-                n.draw(renderer, ctx, mousepos);
-                n.in_connectors.forEach(c => { c.draw(renderer, ctx, mousepos); });
-                n.out_connectors.forEach(c => { c.draw(renderer, ctx, mousepos); });
+                n.draw(renderer, ctx, mousepos, debug_draw);
+                n.in_connectors.forEach(c => { c.draw(renderer, ctx, mousepos, debug_draw); });
+                n.out_connectors.forEach(c => { c.draw(renderer, ctx, mousepos, debug_draw); });
             });
             if (ctx.lod && ppp >= EDGE_LOD)
                 return;
@@ -740,7 +795,7 @@ function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
                 let edge = ng.edge(e);
                 if (ctx.lod && !edge.intersect(visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h))
                     return;
-                ng.edge(e).draw(renderer, ctx, mousepos);
+                ng.edge(e).draw(renderer, ctx, mousepos, debug_draw);
             });
         }
     });
