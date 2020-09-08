@@ -147,6 +147,18 @@ class State extends SDFGElement {
             ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
         }
 
+        // If collapsed, draw a "+" sign in the middle
+        if (this.data.state.attributes.is_collapsed) {
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y - LINEHEIGHT);
+            ctx.lineTo(this.x, this.y + LINEHEIGHT);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(this.x - LINEHEIGHT, this.y);
+            ctx.lineTo(this.x + LINEHEIGHT, this.y);
+            ctx.stroke();
+        }
+
         ctx.strokeStyle = "black";
     }
 
