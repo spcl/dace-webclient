@@ -1629,7 +1629,8 @@ class SDFGRenderer {
 
     on_mouse_event(event, comp_x_func, comp_y_func, evtype = "other") {
         let dirty = false; // Whether to redraw at the end
-        let resort_transform = false; // Whether to re-sort at the end
+        // Whether the set of visible or selected elements changed
+        let element_focus_changed = false;
 
         if (evtype === "mousedown" || evtype === "touchstart") {
             this.drag_start = event;
@@ -1684,14 +1685,14 @@ class SDFGRenderer {
 
                     // Mark for redraw and resort
                     dirty = true;
-                    resort_transform = true;
+                    element_focus_changed = true;
                 } else {
                     this.canvas_manager.translate(event.movementX,
                         event.movementY);
 
                     // Mark for redraw and resort
                     dirty = true;
-                    resort_transform = true;
+                    element_focus_changed = true;
                 }
             } else {
                 this.drag_start = null;
@@ -1746,7 +1747,7 @@ class SDFGRenderer {
             let y = event.clientY - br.y;
             this.canvas_manager.scale(event.deltaY > 0 ? 0.9 : 1.1, x, y);
             dirty = true;
-            resort_transform = true;
+            element_focus_changed = true;
         }
         // End of mouse-move/touch-based events
 
@@ -1826,7 +1827,7 @@ class SDFGRenderer {
                 // Re-layout SDFG
                 this.relayout();
                 dirty = true;
-                resort_transform = true;
+                element_focus_changed = true;
             }
         }
 
@@ -1867,7 +1868,7 @@ class SDFGRenderer {
                     }
                     this.box_select_rect = null;
                     dirty = true;
-                    resort_transform = true;
+                    element_focus_changed = true;
                 }
             } else {
                 if (foreground_elem) {
@@ -1900,7 +1901,7 @@ class SDFGRenderer {
                     this.selected_elements = [];
                 }
                 dirty = true;
-                resort_transform = true;
+                element_focus_changed = true;
             }
         }
         this.selected_elements.forEach((el) => {
@@ -1915,7 +1916,7 @@ class SDFGRenderer {
             this.draw_async();
         }
 
-        if (resort_transform) {
+        if (element_focus_changed) {
             // If a listener in VSCode is present, update it about the new
             // viewport and tell it to re-sort the shown transformations.
             try {
