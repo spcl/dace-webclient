@@ -896,7 +896,8 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list) {
 }
 
 class SDFGRenderer {
-    constructor(sdfg, container, on_mouse_event = null, user_transform = null) {
+    constructor(sdfg, container, on_mouse_event = null, user_transform = null,
+                debug_draw = false) {
         // DIODE/SDFV-related fields
         this.sdfg = sdfg;
         this.sdfg_list = {};
@@ -932,6 +933,9 @@ class SDFGRenderer {
         // Selection related fields
         this.selected_elements = [];
 
+        // Draw debug aids.
+        this.debug_draw = debug_draw;
+
         this.init_elements(user_transform);
     }
 
@@ -958,6 +962,21 @@ class SDFGRenderer {
         this.canvas = document.createElement('canvas');
         this.canvas.style = 'background-color: inherit';
         this.container.append(this.canvas);
+
+        if (this.debug_draw) {
+            this.dbg_info_box = document.createElement('div');
+            this.dbg_info_box.style =
+                'position: absolute;' +
+                'bottom: .5rem;' +
+                'right: .5rem;' +
+                'background-color: black;' +
+                'padding: .3rem';
+            this.dbg_mouse_coords = document.createElement('span');
+            this.dbg_mouse_coords.style = 'color: white; font-size: 1rem;';
+            this.dbg_mouse_coords.innerText = 'x: N/A / y: N/A';
+            this.dbg_info_box.appendChild(this.dbg_mouse_coords);
+            this.container.appendChild(this.dbg_info_box);
+        }
 
         // Add buttons
         this.toolbar = document.createElement('div');
@@ -1262,6 +1281,32 @@ class SDFGRenderer {
         });
     }
 
+    // Draw a debug grid on the canvas to indicate coordinates.
+    debug_draw_grid(curx, cury, endx, endy, grid_width = 100) {
+        var lim_x_min = Math.floor(curx / grid_width) * grid_width;
+        var lim_x_max = Math.ceil(endx / grid_width) * grid_width;
+        var lim_y_min = Math.floor(cury / grid_width) * grid_width;
+        var lim_y_max = Math.ceil(endy / grid_width) * grid_width;
+        for (var i = lim_x_min; i <= lim_x_max; i += grid_width) {
+            this.ctx.moveTo(i, lim_y_min);
+            this.ctx.lineTo(i, lim_y_max);
+        }
+        for (var i = lim_y_min; i <= lim_y_max; i += grid_width) {
+            this.ctx.moveTo(lim_x_min, i);
+            this.ctx.lineTo(lim_x_max, i);
+        }
+        this.ctx.strokeStyle = 'yellow';
+        this.ctx.stroke();
+
+        // Draw the zero-point.
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, 10, 0, 2 * Math.PI, false);
+        this.ctx.fillStyle = 'red';
+        this.ctx.fill();
+        this.ctx.strokeStyle = 'red';
+        this.ctx.stroke();
+    }
+
     // Render SDFG
     draw(dt) {
         let ctx = this.ctx;
@@ -1276,7 +1321,7 @@ class SDFGRenderer {
 
         this.on_pre_draw();
 
-        draw_sdfg(this, ctx, g, this.mousepos);
+        draw_sdfg(this, ctx, g, this.mousepos, this.debug_draw);
 
         if (this.box_select_rect) {
             this.ctx.beginPath();
@@ -1289,6 +1334,16 @@ class SDFGRenderer {
                 this.box_select_rect.y_end - this.box_select_rect.y_start);
             this.ctx.stroke();
             this.ctx.setLineDash([]);
+        }
+
+        if (this.debug_draw) {
+            this.debug_draw_grid(curx, cury, endx, endy, 100);
+            if (this.mousepos) {
+                this.dbg_mouse_coords.innerText = 'x: ' + Math.floor(this.mousepos.x) +
+                    ' / y: ' + Math.floor(this.mousepos.y);
+            } else {
+                this.dbg_mouse_coords.innerText = 'x: N/A / y: N/A';
+            }
         }
 
         this.on_post_draw();
@@ -1574,6 +1629,8 @@ class SDFGRenderer {
 
     on_mouse_event(event, comp_x_func, comp_y_func, evtype = "other") {
         let dirty = false; // Whether to redraw at the end
+        // Whether the set of visible or selected elements changed
+        let element_focus_changed = false;
 
         if (evtype === "mousedown" || evtype === "touchstart") {
             this.drag_start = event;
@@ -1626,18 +1683,16 @@ class SDFGRenderer {
                         y_end: this.mousepos.y,
                     };
 
-                    // Mark for redraw and stop propagation
+                    // Mark for redraw and resort
                     dirty = true;
-                    this.draw_async();
-                    return false;
+                    element_focus_changed = true;
                 } else {
                     this.canvas_manager.translate(event.movementX,
                         event.movementY);
 
-                    // Mark for redraw
+                    // Mark for redraw and resort
                     dirty = true;
-                    this.draw_async();
-                    return false;
+                    element_focus_changed = true;
                 }
             } else {
                 this.drag_start = null;
@@ -1692,6 +1747,7 @@ class SDFGRenderer {
             let y = event.clientY - br.y;
             this.canvas_manager.scale(event.deltaY > 0 ? 0.9 : 1.1, x, y);
             dirty = true;
+            element_focus_changed = true;
         }
         // End of mouse-move/touch-based events
 
@@ -1771,6 +1827,7 @@ class SDFGRenderer {
                 // Re-layout SDFG
                 this.relayout();
                 dirty = true;
+                element_focus_changed = true;
             }
         }
 
@@ -1794,7 +1851,10 @@ class SDFGRenderer {
                     let w = end_x - start_x;
                     let h = end_y - start_y;
                     this.do_for_intersected_elements(start_x, start_y, w, h,
-                        (type, e, obj) => elements_in_selection.push(obj));
+                        (type, e, obj) => {
+                            if (obj.contained_in(start_x, start_y, w, h))
+                                elements_in_selection.push(obj);
+                        });
                     if (event.shiftKey) {
                         elements_in_selection.forEach((el) => {
                             if (!this.selected_elements.includes(el))
@@ -1808,6 +1868,7 @@ class SDFGRenderer {
                     }
                     this.box_select_rect = null;
                     dirty = true;
+                    element_focus_changed = true;
                 }
             } else {
                 if (foreground_elem) {
@@ -1840,6 +1901,7 @@ class SDFGRenderer {
                     this.selected_elements = [];
                 }
                 dirty = true;
+                element_focus_changed = true;
             }
         }
         this.selected_elements.forEach((el) => {
@@ -1848,11 +1910,13 @@ class SDFGRenderer {
 
         if (this.external_mouse_handler)
             dirty |= this.external_mouse_handler(evtype, event, { x: comp_x_func(event), y: comp_y_func(event) }, elements,
-                this, foreground_elem, ends_drag);
+                this, this.selected_elements, ends_drag);
 
         if (dirty) {
             this.draw_async();
+        }
 
+        if (element_focus_changed) {
             // If a listener in VSCode is present, update it about the new
             // viewport and tell it to re-sort the shown transformations.
             try {

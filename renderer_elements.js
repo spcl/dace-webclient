@@ -19,7 +19,21 @@ class SDFGElement {
         this.height = this.data.layout.height;
     }
 
-    draw(renderer, ctx, mousepos) { }
+    draw(renderer, ctx, mousepos) {}
+
+    debug_draw(renderer, ctx) {
+        if (renderer.debug_draw) {
+            // Print the center and bounding box in debug mode.
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 1, 0, 2 * Math.PI, false);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+            ctx.strokeStyle = 'red';
+            ctx.stroke();
+            ctx.strokeRect(this.x - (this.width / 2.0), this.y - (this.height / 2.0),
+                this.width, this.height);
+        }
+    }
 
     attributes() {
         return this.data.attributes;
@@ -65,6 +79,27 @@ class SDFGElement {
                 (y + h >= this.y - this.height / 2.0);
         }
     }
+
+    contained_in(x, y, w = 0, h = 0) {
+        if (w === 0 || h === 0)
+            return false;
+
+        var box_start_x = x;
+        var box_end_x = x + w;
+        var box_start_y = y;
+        var box_end_y = y + h;
+
+        var el_start_x = this.x - (this.width / 2.0);
+        var el_end_x = this.x + (this.width / 2.0);
+        var el_start_y = this.y - (this.height / 2.0);
+        var el_end_y = this.y + (this.height / 2.0);
+
+        return box_start_x <= el_start_x &&
+            box_end_x >= el_end_x &&
+            box_start_y <= el_start_y &&
+            box_end_y >= el_end_y;
+    }
+
 }
 
 // SDFG as an element (to support properties)
@@ -698,7 +733,11 @@ function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
     // Render state machine
     let g = sdfg_dagre;
     if (!ctx.lod || ppp < EDGE_LOD)
-        g.edges().forEach(e => { g.edge(e).draw(renderer, ctx, mousepos); });
+        g.edges().forEach(e => {
+            let edge = g.edge(e);
+            edge.draw(renderer, ctx, mousepos);
+            edge.debug_draw(renderer, ctx);
+        });
 
 
     visible_rect = renderer.visible_rect;
@@ -709,6 +748,7 @@ function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
 
         if (ctx.lod && (ppp >= STATE_LOD || node.width / ppp < STATE_LOD)) {
             node.simple_draw(renderer, ctx, mousepos);
+            node.debug_draw(renderer, ctx);
             return;
         }
         // Skip invisible states
@@ -716,6 +756,7 @@ function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
             return;
 
         node.draw(renderer, ctx, mousepos);
+        node.debug_draw(renderer, ctx);
 
         let ng = node.data.graph;
 
@@ -727,12 +768,20 @@ function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
                     return;
                 if (ctx.lod && ppp >= NODE_LOD) {
                     n.simple_draw(renderer, ctx, mousepos);
+                    n.debug_draw(renderer, ctx);
                     return;
                 }
 
                 n.draw(renderer, ctx, mousepos);
-                n.in_connectors.forEach(c => { c.draw(renderer, ctx, mousepos); });
-                n.out_connectors.forEach(c => { c.draw(renderer, ctx, mousepos); });
+                n.debug_draw(renderer, ctx);
+                n.in_connectors.forEach(c => {
+                    c.draw(renderer, ctx, mousepos);
+                    c.debug_draw(renderer, ctx);
+                });
+                n.out_connectors.forEach(c => {
+                    c.draw(renderer, ctx, mousepos);
+                    c.debug_draw(renderer, ctx);
+                });
             });
             if (ctx.lod && ppp >= EDGE_LOD)
                 return;
@@ -740,7 +789,8 @@ function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
                 let edge = ng.edge(e);
                 if (ctx.lod && !edge.intersect(visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h))
                     return;
-                ng.edge(e).draw(renderer, ctx, mousepos);
+                edge.draw(renderer, ctx, mousepos);
+                edge.debug_draw(renderer, ctx);
             });
         }
     });

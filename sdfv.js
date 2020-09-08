@@ -4,7 +4,7 @@ var fr;
 var file = null;
 var renderer = null;
 
-function init_sdfv(sdfg, user_transform = null) {
+function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
     $('input[type="file"]').change(function(e){
         if (e.target.files.length < 1)
             return;
@@ -34,7 +34,7 @@ function init_sdfv(sdfg, user_transform = null) {
 
     if (sdfg !== null)
         renderer = new SDFGRenderer(sdfg, document.getElementById('contents'),
-                                    mouse_event, user_transform);
+                                    mouse_event, user_transform, debug_draw);
 }
 
 function reload_file() {
@@ -255,16 +255,26 @@ function outline(renderer, sdfg) {
     sidebar_show();
 }
 
-function mouse_event(evtype, event, mousepos, elements, renderer, elem,
-    ends_drag) {
+function mouse_event(evtype, event, mousepos, elements, renderer,
+    selected_elements, ends_drag) {
     if ((evtype === 'click' && !ends_drag) || evtype === 'dblclick') {
         if (renderer.menu)
             renderer.menu.destroy();
-        if (!elem)
-            elem = new SDFG(renderer.sdfg);
+        var element;
+        if (selected_elements.length === 0)
+            element = new SDFG(renderer.sdfg);
+        else if (selected_elements.length === 1)
+            element = selected_elements[0];
+        else
+            element = null;
             
-        sidebar_set_title(elem.type() + " " + elem.label());
-        fill_info(elem);
+        if (element !== null) {
+            sidebar_set_title(element.type() + " " + element.label());
+            fill_info(element);
+        } else {
+            close_menu();
+            sidebar_set_title("Multiple elements selected");
+        }
         sidebar_show();
         
     }
