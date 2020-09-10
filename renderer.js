@@ -960,19 +960,19 @@ class SDFGRenderer {
     init_elements(user_transform) {
 
         this.canvas = document.createElement('canvas');
-        this.canvas.style = 'background-color: inherit';
+        this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
 
         if (this.debug_draw) {
             this.dbg_info_box = document.createElement('div');
-            this.dbg_info_box.style =
-                'position: absolute;' +
-                'bottom: .5rem;' +
-                'right: .5rem;' +
-                'background-color: black;' +
-                'padding: .3rem';
+            this.dbg_info_box.style.position = 'absolute';
+            this.dbg_info_box.style.bottom = '.5rem';
+            this.dbg_info_box.style.right = '.5rem';
+            this.dbg_info_box.style.backgroundColor = 'black';
+            this.dbg_info_box.style.padding = '.3rem';
             this.dbg_mouse_coords = document.createElement('span');
-            this.dbg_mouse_coords.style = 'color: white; font-size: 1rem;';
+            this.dbg_mouse_coords.style.color = 'white';
+            this.dbg_mouse_coords.style.fontSize = '1rem';
             this.dbg_mouse_coords.innerText = 'x: N/A / y: N/A';
             this.dbg_info_box.appendChild(this.dbg_mouse_coords);
             this.container.appendChild(this.dbg_info_box);
@@ -1069,10 +1069,12 @@ class SDFGRenderer {
                 box_select_btn.innerHTML =
                     '<i class="material-icons">done</i>';
                 box_select_btn.title = 'Exit box select mode';
+                this.canvas.style.cursor = 'default';
             } else {
                 box_select_btn.innerHTML =
                     '<i class="material-icons">border_style</i>';
                 box_select_btn.title = 'Enter box select mode';
+                this.canvas.style.cursor = 'crosshair';
             }
         };
         box_select_btn.title = 'Enter box select mode';
@@ -1764,13 +1766,26 @@ class SDFGRenderer {
         let foreground_elem = elements_under_cursor.foreground_elem;
 
         // Change mouse cursor accordingly
-        if (total_elements > 0) {
-            if (this.move_mode && this.drag_start)
+        if (this.box_select_mode) {
+            this.canvas.style.cursor = 'crosshair';
+        } else if (total_elements > 0) {
+            if (this.move_mode && this.drag_start) {
                 this.canvas.style.cursor = 'grabbing';
-            else if (this.move_mode)
+            } else if (this.move_mode) {
                 this.canvas.style.cursor = 'grab';
-            else
-                this.canvas.style.cursor = 'pointer';
+            } else {
+                // Hovering over an element while not in any specific mode.
+                if ((foreground_elem.data.state &&
+                     foreground_elem.data.state.attributes.is_collapsed) ||
+                    (foreground_elem.data.node &&
+                     foreground_elem.data.node.attributes.is_collapsed)) {
+                    // This is a collapsed node or state, show with the cursor
+                    // shape that this can be expanded.
+                    this.canvas.style.cursor = 'alias';
+                } else {
+                    this.canvas.style.cursor = 'pointer';
+                }
+            }
         } else {
             this.canvas.style.cursor = 'auto';
         }
