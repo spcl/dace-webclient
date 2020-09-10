@@ -978,6 +978,18 @@ class SDFGRenderer {
             this.container.appendChild(this.dbg_info_box);
         }
 
+        // Add an info box for interaction hints to the bottom left of the
+        // canvas.
+        this.interaction_info_box = document.createElement('div');
+        this.interaction_info_box.style.position = 'absolute';
+        this.interaction_info_box.style.bottom = '.5rem',
+        this.interaction_info_box.style.left = '.5rem',
+        this.interaction_info_box.style.padding = '.3rem';
+        this.interaction_info_text = document.createElement('span');
+        this.interaction_info_text.innerHTML = '';
+        this.interaction_info_box.appendChild(this.interaction_info_text);
+        this.container.appendChild(this.interaction_info_box);
+
         // Add buttons
         this.toolbar = document.createElement('div');
         this.toolbar.style = 'position:absolute; top:10px; left: 10px;';
@@ -1048,10 +1060,12 @@ class SDFGRenderer {
             if (this.move_mode) {
                 move_mode_btn.innerHTML = '<i class="material-icons">done</i>';
                 move_mode_btn.title = 'Exit object moving mode';
+                this.interaction_info_text.innerHTML = 'Middle Mouse: Pan view';
             } else {
                 move_mode_btn.innerHTML =
                     '<i class="material-icons">open_with</i>';
                 move_mode_btn.title = 'Enter object moving mode';
+                this.interaction_info_text.innerHTML = '';
             }
         };
         move_mode_btn.title = 'Enter object moving mode';
@@ -1069,12 +1083,17 @@ class SDFGRenderer {
                 box_select_btn.innerHTML =
                     '<i class="material-icons">done</i>';
                 box_select_btn.title = 'Exit box select mode';
-                this.canvas.style.cursor = 'default';
+                this.canvas.style.cursor = 'crosshair';
+                this.interaction_info_text.innerHTML =
+                    'Shift: Add to selection<br>' +
+                    'Ctrl: Remove from selection<br>' +
+                    'Middle Mouse: Pan view';
             } else {
                 box_select_btn.innerHTML =
                     '<i class="material-icons">border_style</i>';
                 box_select_btn.title = 'Enter box select mode';
-                this.canvas.style.cursor = 'crosshair';
+                this.canvas.style.cursor = 'default';
+                this.interaction_info_text.innerHTML = '';
             }
         };
         box_select_btn.title = 'Enter box select mode';
@@ -1650,10 +1669,10 @@ class SDFGRenderer {
             this.mousepos = { x: comp_x_func(event), y: comp_y_func(event) };
             this.realmousepos = { x: event.clientX, y: event.clientY };
 
+            // Only accept the primary mouse button as dragging source
             if (this.drag_start && event.buttons & 1) {
                 this.dragging = true;
 
-                // Only accept the primary mouse button as dragging source
                 if (this.move_mode) {
                     if (this.last_dragged_element) {
                         this.canvas.style.cursor = 'grabbing';
@@ -1696,6 +1715,12 @@ class SDFGRenderer {
                     dirty = true;
                     element_focus_changed = true;
                 }
+            } else if (this.drag_start && event.buttons & 4) {
+                // Pan the view with the middle mouse button
+                this.dragging = true;
+                this.canvas_manager.translate(event.movementX, event.movementY);
+                dirty = true;
+                element_focus_changed = true;
             } else {
                 this.drag_start = null;
                 if (event.buttons & 1 || event.buttons & 4)
