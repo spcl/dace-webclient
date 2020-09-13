@@ -1036,6 +1036,13 @@ class SDFGRenderer {
             this.toolbar.appendChild(d);
         } catch (ex) { }
 
+        let in_vscode = false;
+        try {
+            vscode;
+            if (vscode)
+                in_vscode = true;
+        } catch (ex) { }
+
         // Zoom to fit
         d = document.createElement('button');
         d.className = 'button';
@@ -1097,20 +1104,22 @@ class SDFGRenderer {
         this.toolbar.appendChild(box_select_btn);
 
         // Exit previewing mode
-        let exit_preview_btn = document.createElement('button');
-        exit_preview_btn.id = 'exit-preview-button';
-        exit_preview_btn.className = 'button hidden';
-        exit_preview_btn.innerHTML = '<i class="material-icons">close</i>';
-        exit_preview_btn.style = 'padding-bottom: 0px; user-select: none';
-        exit_preview_btn.onclick = () => {
+        if (in_vscode) {
+            let exit_preview_btn = document.createElement('button');
+            exit_preview_btn.id = 'exit-preview-button';
             exit_preview_btn.className = 'button hidden';
-            if (vscode)
-                vscode.postMessage({
-                    type: 'getCurrentSdfg',
-                });
-        };
-        exit_preview_btn.title = 'Exit preview';
-        this.toolbar.appendChild(exit_preview_btn);
+            exit_preview_btn.innerHTML = '<i class="material-icons">close</i>';
+            exit_preview_btn.style = 'padding-bottom: 0px; user-select: none';
+            exit_preview_btn.onclick = () => {
+                exit_preview_btn.className = 'button hidden';
+                if (vscode)
+                    vscode.postMessage({
+                        type: 'getCurrentSdfg',
+                    });
+            };
+            exit_preview_btn.title = 'Exit preview';
+            this.toolbar.appendChild(exit_preview_btn);
+        }
 
         this.container.append(this.toolbar);
         // End of buttons
