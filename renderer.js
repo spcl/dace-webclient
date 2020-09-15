@@ -139,6 +139,19 @@ class CanvasManager {
         this.indices = [];
     }
 
+    isBlank() {
+        const ctx = this.canvas.getContext('2d');
+        let topleft = ctx.getImageData(0,0,1,1).data;
+        if (topleft[0] != 0 || topleft[1] != 0 || topleft[2] != 0 || topleft[3] != 255)
+            return false;
+
+        const pixelBuffer = new Uint32Array(
+            ctx.getImageData(0, 0, this.canvas.width, this.canvas.height).data.buffer
+        );
+
+        return !pixelBuffer.some(color => color !== 0xff000000);
+    }
+
     scale(diff, x = 0, y = 0) {
         this.stopAnimation();
         if (this.request_scale || this.contention > 0) {
@@ -146,6 +159,11 @@ class CanvasManager {
         }
         this.contention++;
         this.request_scale = true;
+        if(this.isBlank()) {
+            this.renderer.bgcolor = 'black';
+            this.renderer.zoom_to_view();
+            diff = 0.01;
+        }
 
         this.scale_origin.x = x;
         this.scale_origin.y = y;
