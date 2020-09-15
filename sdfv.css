@@ -136,6 +136,21 @@ pre.code code {
   display: none;
 }
 
+.invalid_popup {
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  font-size: 1rem;
+  font-family: "Segoe UI", Arial, sans-serif;
+  padding: .2rem .4rem;
+  border-radius: 4px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  position: absolute;
+  display: none;
+}
+
 #contextmenu {
   position: absolute;
   background-color: #fdfdfd;

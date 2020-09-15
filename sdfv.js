@@ -180,6 +180,88 @@ function find_in_graph(renderer, sdfg, query, case_sensitive=false) {
     sidebar_show();
 }
 
+function recursive_find_graph(graph, sdfg_id) {
+    let found = undefined;
+    graph.nodes().forEach(n_id => {
+        let n = graph.node(n_id);
+        if (n && n.sdfg.sdfg_list_id === sdfg_id) {
+            found = graph;
+            return found;
+        } else if (n && n.data.graph) {
+            found = recursive_find_graph(n.data.graph, sdfg_id);
+            if (found)
+                return found;
+        }
+    });
+    return found;
+}
+
+function find_graph_element(graph, type, sdfg_id, state_id=-1, el_id=-1) {
+    let requested_graph;
+    switch (type) {
+        case 'edge':
+            requested_graph = recursive_find_graph(graph, sdfg_id);
+            if (requested_graph) {
+                let state = undefined;
+                requested_graph.nodes().forEach(s_id => {
+                    if (Number(s_id) === state_id) {
+                        state = requested_graph.node(s_id);
+                        return;
+                    }
+                });
+                if (state) {
+                    let edge = undefined;
+                    state.data.graph.edges().forEach(e_id => {
+                        if (Number(e_id.name) === el_id) {
+                            edge = state.data.graph.edge(e_id);
+                            return;
+                        }
+                    });
+                    return edge;
+                }
+            }
+            break;
+        case 'state':
+            requested_graph = recursive_find_graph(graph, sdfg_id);
+            if (requested_graph) {
+                let state = undefined;
+                requested_graph.nodes().forEach(s_id => {
+                    if (Number(s_id) === state_id) {
+                        state = requested_graph.node(s_id);
+                        return;
+                    }
+                });
+                return state;
+            }
+            break;
+        case 'node':
+            requested_graph = recursive_find_graph(graph, sdfg_id);
+            if (requested_graph) {
+                let state = undefined;
+                requested_graph.nodes().forEach(s_id => {
+                    if (Number(s_id) === state_id) {
+                        state = requested_graph.node(s_id);
+                        return;
+                    }
+                });
+                if (state) {
+                    let node = undefined;
+                    state.data.graph.nodes().forEach(n_id => {
+                        if (Number(n_id) === el_id) {
+                            node = state.data.graph.node(n_id);
+                            return;
+                        }
+                    });
+                    return node;
+                }
+            }
+            break;
+        default:
+            return undefined;
+    }
+    return undefined;
+}
+
 function outline(renderer, sdfg) {
     sidebar_set_title('SDFG Outline');
 

@@ -1125,6 +1125,26 @@ class SDFGRenderer {
         this.tooltip_container.onmouseover = () => this.tooltip_container.style.display = "none";
         this.container.appendChild(this.tooltip_container);
 
+        // HTML container for error popovers with invalid SDFGs
+        this.error_popover_container = document.createElement('div');
+        this.error_popover_container.innerHTML = '';
+        this.error_popover_container.className = 'invalid_popup';
+        this.error_popover_text = document.createElement('div');
+        let error_popover_dismiss = document.createElement('button');
+        let that = this;
+        error_popover_dismiss.onclick = () => {
+            that.sdfg.error = undefined;
+            that.error_popover_text.innerText = '';
+            that.error_popover_container.style.display = 'none';
+        };
+        error_popover_dismiss.style.float = 'right';
+        error_popover_dismiss.style.cursor = 'pointer';
+        error_popover_dismiss.style.color = 'white';
+        error_popover_dismiss.innerHTML = '<i class="material-icons">close</i>';
+        this.error_popover_container.appendChild(error_popover_dismiss);
+        this.error_popover_container.appendChild(this.error_popover_text);
+        this.container.appendChild(this.error_popover_container);
+
         this.ctx = this.canvas.getContext("2d");
 
         // Translation/scaling management
@@ -1346,15 +1366,14 @@ class SDFGRenderer {
 
         if (this.box_select_rect) {
             this.ctx.beginPath();
-            // TODO: change stroke width based on zoom level, i.e. make it wider
-            // when zoomed out, so the selection box is still visible.
-            this.ctx.setLineDash([2, 3]);
+            let old_line_width = this.ctx.lineWidth;
+            this.ctx.lineWidth = this.canvas_manager.points_per_pixel();
             this.ctx.strokeStyle = 'grey';
             this.ctx.rect(this.box_select_rect.x_start, this.box_select_rect.y_start,
                 this.box_select_rect.x_end - this.box_select_rect.x_start,
                 this.box_select_rect.y_end - this.box_select_rect.y_start);
             this.ctx.stroke();
-            this.ctx.setLineDash([]);
+            this.ctx.lineWidth = old_line_width;
         }
 
         if (this.debug_draw) {
@@ -1397,6 +1416,44 @@ class SDFGRenderer {
             this.tooltip_container.style.left = (pos.x + 20) + 'px';
         } else {
             this.tooltip_container.style.display = 'none';
+        }
+
+        if (this.sdfg.error) {
+            let error = this.sdfg.error;
+
+            // TODO:
+            let type = '';
+            let state_id = -1;
+            let el_id = -1;
+            if (error.isedge_id !== undefined) {
+                type = 'isedge';
+                el_id = error.isedge_id;
+            } else if (error.state_id !== undefined) {
+                state_id = error.state_id;
+                if (error.node_id !== undefined) {
+                    type = 'node';
+                    el_id = error.node_id;
+                } else if (error.edge_id !== undefined) {
+                    type = 'edge';
+                    el_id = error.edge_id;
+                } else {
+                    type = 'state';
+                }
+            } else {
+                return;
+            }
+            let offending_element = find_graph_element(
+                this.graph, type, error.sdfg_id, state_id, el_id
+            );
+            if (offending_element) {
+                this.zoom_to_view([offending_element]);
+                this.error_popover_container.style.display = 'block';
+                this.error_popover_container.style.bottom = '5%';
+                this.error_popover_container.style.left = '5%';
+                this.error_popover_text.innerText = error.message;
+            }
+        } else {
+            this.error_popover_container.style.display = 'none';
         }
     }
 
@@ -1899,6 +1956,16 @@ class SDFGRenderer {
                         elements_in_selection.forEach((el) => {
                             if (!this.selected_elements.includes(el))
                                 this.selected_elements.push(el);
+                        });
+                    } else if (event.ctrlKey) {
+                        elements_in_selection.forEach((el) => {
+                            if (this.selected_elements.includes(el)) {
+                                this.selected_elements =
+                                    this.selected_elements.filter((val) => {
+                                        val.stroke_color = null;
+                                        return val !== el;
+                                    });
+                            }
                         });
                     } else {
                         this.selected_elements.forEach((el) => {
