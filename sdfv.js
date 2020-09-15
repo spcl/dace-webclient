@@ -196,64 +196,61 @@ function recursive_find_graph(graph, sdfg_id) {
     return found;
 }
 
+function find_state(graph, state_id) {
+    let state = undefined;
+    graph.nodes().forEach(s_id => {
+        if (Number(s_id) === state_id) {
+            state = graph.node(s_id);
+            return state;
+        }
+    });
+    return state;
+}
+
+function find_node(state, node_id) {
+    let node = undefined;
+    state.data.graph.nodes().forEach(n_id => {
+        if (Number(n_id) === node_id) {
+            node = state.data.graph.node(n_id);
+            return node;
+        }
+    });
+    return node;
+}
+
+function find_edge(state, edge_id) {
+    let edge = undefined;
+    state.data.graph.edges().forEach(e_id => {
+        if (Number(e_id.name) === edge_id) {
+            edge = state.data.graph.edge(e_id);
+            return edge;
+        }
+    });
+    return edge;
+}
+
 function find_graph_element(graph, type, sdfg_id, state_id=-1, el_id=-1) {
     let requested_graph;
     switch (type) {
         case 'edge':
             requested_graph = recursive_find_graph(graph, sdfg_id);
             if (requested_graph) {
-                let state = undefined;
-                requested_graph.nodes().forEach(s_id => {
-                    if (Number(s_id) === state_id) {
-                        state = requested_graph.node(s_id);
-                        return;
-                    }
-                });
-                if (state) {
-                    let edge = undefined;
-                    state.data.graph.edges().forEach(e_id => {
-                        if (Number(e_id.name) === el_id) {
-                            edge = state.data.graph.edge(e_id);
-                            return;
-                        }
-                    });
-                    return edge;
-                }
+                let state = find_state(requested_graph, state_id);
+                if (state)
+                    return find_edge(state, el_id);
             }
             break;
         case 'state':
             requested_graph = recursive_find_graph(graph, sdfg_id);
-            if (requested_graph) {
-                let state = undefined;
-                requested_graph.nodes().forEach(s_id => {
-                    if (Number(s_id) === state_id) {
-                        state = requested_graph.node(s_id);
-                        return;
-                    }
-                });
-                return state;
-            }
+            if (requested_graph)
+                return find_state(requested_graph, state_id);
             break;
         case 'node':
             requested_graph = recursive_find_graph(graph, sdfg_id);
             if (requested_graph) {
-                let state = undefined;
-                requested_graph.nodes().forEach(s_id => {
-                    if (Number(s_id) === state_id) {
-                        state = requested_graph.node(s_id);
-                        return;
-                    }
-                });
-                if (state) {
-                    let node = undefined;
-                    state.data.graph.nodes().forEach(n_id => {
-                        if (Number(n_id) === el_id) {
-                            node = state.data.graph.node(n_id);
-                            return;
-                        }
-                    });
-                    return node;
-                }
+                let state = find_state(requested_graph, state_id);
+                if (state)
+                    return find_node(state, el_id);
             }
             break;
         default:
