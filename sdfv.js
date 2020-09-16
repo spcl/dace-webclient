@@ -180,6 +180,88 @@ function find_in_graph(renderer, sdfg, query, case_sensitive=false) {
     sidebar_show();
 }
 
+function recursive_find_graph(graph, sdfg_id) {
+    let found = undefined;
+    graph.nodes().forEach(n_id => {
+        let n = graph.node(n_id);
+        if (n && n.sdfg.sdfg_list_id === sdfg_id) {
+            found = graph;
+            return found;
+        } else if (n && n.data.graph) {
+            found = recursive_find_graph(n.data.graph, sdfg_id);
+            if (found)
+                return found;
+        }
+    });
+    return found;
+}
+
+function find_state(graph, state_id) {
+    let state = undefined;
+    graph.nodes().forEach(s_id => {
+        if (Number(s_id) === state_id) {
+            state = graph.node(s_id);
+            return state;
+        }
+    });
+    return state;
+}
+
+function find_node(state, node_id) {
+    let node = undefined;
+    state.data.graph.nodes().forEach(n_id => {
+        if (Number(n_id) === node_id) {
+            node = state.data.graph.node(n_id);
+            return node;
+        }
+    });
+    return node;
+}
+
+function find_edge(state, edge_id) {
+    let edge = undefined;
+    state.data.graph.edges().forEach(e_id => {
+        if (Number(e_id.name) === edge_id) {
+            edge = state.data.graph.edge(e_id);
+            return edge;
+        }
+    });
+    return edge;
+}
+
+function find_graph_element(graph, type, sdfg_id, state_id=-1, el_id=-1) {
+    let requested_graph = recursive_find_graph(graph, sdfg_id);
+    let state;
+    if (requested_graph) {
+        switch (type) {
+            case 'edge':
+                state = find_state(requested_graph, state_id);
+                if (state)
+                    return find_edge(state, el_id);
+                break;
+            case 'state':
+                return find_state(requested_graph, state_id);
+            case 'node':
+                state = find_state(requested_graph, state_id);
+                if (state)
+                    return find_node(state, el_id);
+                break;
+            case 'isedge':
+                let isedge = undefined;
+                Object.values(requested_graph._edgeLabels).forEach(ise => {
+                    if (ise.id === el_id) {
+                        isedge = ise;
+                        return isedge;
+                    }
+                });
+                return isedge;
+            default:
+                return undefined;
+        }
+    }
+    return undefined;
+}
+
 function outline(renderer, sdfg) {
     sidebar_set_title('SDFG Outline');
 

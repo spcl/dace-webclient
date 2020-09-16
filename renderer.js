@@ -980,22 +980,36 @@ class SDFGRenderer {
 
     // Updates buttons based on cursor mode
     update_toggle_buttons() {
-        if (this.mouse_mode == 'move') {
-            this.movemode_btn.innerHTML = '<i class="material-icons">done</i>';
-            this.movemode_btn.title = 'Exit object moving mode';
-        } else {
-            this.movemode_btn.innerHTML =
-                '<i class="material-icons">open_with</i>';
-            this.movemode_btn.title = 'Enter object moving mode';
-        }
-        if (this.mouse_mode == 'select') {
-            this.selectmode_btn.innerHTML =
-                '<i class="material-icons">done</i>';
-            this.selectmode_btn.title = 'Exit box select mode';
-        } else {
-            this.selectmode_btn.innerHTML =
-                '<i class="material-icons">border_style</i>';
-            this.selectmode_btn.title = 'Enter box select mode';
+        // First clear out of all modes, then jump in to the correct mode.
+        this.selectmode_btn.innerHTML =
+            '<i class="material-icons">border_style</i>';
+        this.selectmode_btn.title = 'Enter box select mode';
+        this.movemode_btn.innerHTML =
+            '<i class="material-icons">open_with</i>';
+        this.movemode_btn.title = 'Enter object moving mode';
+        this.canvas.style.cursor = 'default';
+        this.interaction_info_text.innerHTML = '';
+
+        switch (this.mouse_mode) {
+            case 'move':
+                this.movemode_btn.innerHTML =
+                    '<i class="material-icons">done</i>';
+                this.movemode_btn.title = 'Exit object moving mode';
+                this.interaction_info_text.innerHTML = 'Middle Mouse: Pan view';
+                break;
+            case 'select':
+                this.selectmode_btn.innerHTML =
+                    '<i class="material-icons">done</i>';
+                this.selectmode_btn.title = 'Exit box select mode';
+                this.canvas.style.cursor = 'crosshair';
+                this.interaction_info_text.innerHTML =
+                    'Shift: Add to selection<br>' +
+                    'Ctrl: Remove from selection<br>' +
+                    'Middle Mouse: Pan view';
+                break;
+            case 'pan':
+            default:
+                break;
         }
     }
 
@@ -1003,23 +1017,35 @@ class SDFGRenderer {
     init_elements(user_transform) {
 
         this.canvas = document.createElement('canvas');
-        this.canvas.style = 'background-color: inherit';
+        this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
 
         if (this.debug_draw) {
             this.dbg_info_box = document.createElement('div');
-            this.dbg_info_box.style =
-                'position: absolute;' +
-                'bottom: .5rem;' +
-                'right: .5rem;' +
-                'background-color: black;' +
-                'padding: .3rem';
+            this.dbg_info_box.style.position = 'absolute';
+            this.dbg_info_box.style.bottom = '.5rem';
+            this.dbg_info_box.style.right = '.5rem';
+            this.dbg_info_box.style.backgroundColor = 'black';
+            this.dbg_info_box.style.padding = '.3rem';
             this.dbg_mouse_coords = document.createElement('span');
-            this.dbg_mouse_coords.style = 'color: white; font-size: 1rem;';
+            this.dbg_mouse_coords.style.color = 'white';
+            this.dbg_mouse_coords.style.fontSize = '1rem';
             this.dbg_mouse_coords.innerText = 'x: N/A / y: N/A';
             this.dbg_info_box.appendChild(this.dbg_mouse_coords);
             this.container.appendChild(this.dbg_info_box);
         }
+
+        // Add an info box for interaction hints to the bottom left of the
+        // canvas.
+        this.interaction_info_box = document.createElement('div');
+        this.interaction_info_box.style.position = 'absolute';
+        this.interaction_info_box.style.bottom = '.5rem',
+        this.interaction_info_box.style.left = '.5rem',
+        this.interaction_info_box.style.padding = '.3rem';
+        this.interaction_info_text = document.createElement('span');
+        this.interaction_info_text.innerHTML = '';
+        this.interaction_info_box.appendChild(this.interaction_info_text);
+        this.container.appendChild(this.interaction_info_box);
 
         // Add buttons
         this.toolbar = document.createElement('div');
@@ -1095,7 +1121,7 @@ class SDFGRenderer {
         move_mode_btn.innerHTML = '<i class="material-icons">open_with</i>';
         move_mode_btn.style = 'padding-bottom: 0px; user-select: none';
         move_mode_btn.onclick = () => {
-            if (this.mouse_mode == 'move')
+            if (this.mouse_mode === 'move')
                 this.mouse_mode = 'pan';
             else
                 this.mouse_mode = 'move';
@@ -1112,7 +1138,7 @@ class SDFGRenderer {
             '<i class="material-icons">border_style</i>';
         box_select_btn.style = 'padding-bottom: 0px; user-select: none';
         box_select_btn.onclick = () => {
-            if (this.mouse_mode == 'select')
+            if (this.mouse_mode === 'select')
                 this.mouse_mode = 'pan';
             else
                 this.mouse_mode = 'select';
@@ -1148,6 +1174,26 @@ class SDFGRenderer {
         this.tooltip_container.className = 'sdfvtooltip';
         this.tooltip_container.onmouseover = () => this.tooltip_container.style.display = "none";
         this.container.appendChild(this.tooltip_container);
+
+        // HTML container for error popovers with invalid SDFGs
+        this.error_popover_container = document.createElement('div');
+        this.error_popover_container.innerHTML = '';
+        this.error_popover_container.className = 'invalid_popup';
+        this.error_popover_text = document.createElement('div');
+        let error_popover_dismiss = document.createElement('button');
+        let that = this;
+        error_popover_dismiss.onclick = () => {
+            that.sdfg.error = undefined;
+            that.error_popover_text.innerText = '';
+            that.error_popover_container.style.display = 'none';
+        };
+        error_popover_dismiss.style.float = 'right';
+        error_popover_dismiss.style.cursor = 'pointer';
+        error_popover_dismiss.style.color = 'white';
+        error_popover_dismiss.innerHTML = '<i class="material-icons">close</i>';
+        this.error_popover_container.appendChild(error_popover_dismiss);
+        this.error_popover_container.appendChild(this.error_popover_text);
+        this.container.appendChild(this.error_popover_container);
 
         this.ctx = this.canvas.getContext("2d");
 
@@ -1370,15 +1416,14 @@ class SDFGRenderer {
 
         if (this.box_select_rect) {
             this.ctx.beginPath();
-            // TODO: change stroke width based on zoom level, i.e. make it wider
-            // when zoomed out, so the selection box is still visible.
-            this.ctx.setLineDash([2, 3]);
+            let old_line_width = this.ctx.lineWidth;
+            this.ctx.lineWidth = this.canvas_manager.points_per_pixel();
             this.ctx.strokeStyle = 'grey';
             this.ctx.rect(this.box_select_rect.x_start, this.box_select_rect.y_start,
                 this.box_select_rect.x_end - this.box_select_rect.x_start,
                 this.box_select_rect.y_end - this.box_select_rect.y_start);
             this.ctx.stroke();
-            this.ctx.setLineDash([]);
+            this.ctx.lineWidth = old_line_width;
         }
 
         if (this.debug_draw) {
@@ -1421,6 +1466,43 @@ class SDFGRenderer {
             this.tooltip_container.style.left = (pos.x + 20) + 'px';
         } else {
             this.tooltip_container.style.display = 'none';
+        }
+
+        if (this.sdfg.error) {
+            let error = this.sdfg.error;
+
+            let type = '';
+            let state_id = -1;
+            let el_id = -1;
+            if (error.isedge_id !== undefined) {
+                type = 'isedge';
+                el_id = error.isedge_id;
+            } else if (error.state_id !== undefined) {
+                state_id = error.state_id;
+                if (error.node_id !== undefined) {
+                    type = 'node';
+                    el_id = error.node_id;
+                } else if (error.edge_id !== undefined) {
+                    type = 'edge';
+                    el_id = error.edge_id;
+                } else {
+                    type = 'state';
+                }
+            } else {
+                return;
+            }
+            let offending_element = find_graph_element(
+                this.graph, type, error.sdfg_id, state_id, el_id
+            );
+            if (offending_element) {
+                this.zoom_to_view([offending_element]);
+                this.error_popover_container.style.display = 'block';
+                this.error_popover_container.style.bottom = '5%';
+                this.error_popover_container.style.left = '5%';
+                this.error_popover_text.innerText = error.message;
+            }
+        } else {
+            this.error_popover_container.style.display = 'none';
         }
     }
 
@@ -1693,10 +1775,10 @@ class SDFGRenderer {
             this.mousepos = { x: comp_x_func(event), y: comp_y_func(event) };
             this.realmousepos = { x: event.clientX, y: event.clientY };
 
+            // Only accept the primary mouse button as dragging source
             if (this.drag_start && event.buttons & 1) {
                 this.dragging = true;
 
-                // Only accept the primary mouse button as dragging source
                 if (this.mouse_mode == 'move') {
                     if (this.last_dragged_element) {
                         this.canvas.style.cursor = 'grabbing';
@@ -1739,6 +1821,12 @@ class SDFGRenderer {
                     dirty = true;
                     element_focus_changed = true;
                 }
+            } else if (this.drag_start && event.buttons & 4) {
+                // Pan the view with the middle mouse button
+                this.dragging = true;
+                this.canvas_manager.translate(event.movementX, event.movementY);
+                dirty = true;
+                element_focus_changed = true;
             } else {
                 this.drag_start = null;
                 if (event.buttons & 1 || event.buttons & 4)
@@ -1809,13 +1897,26 @@ class SDFGRenderer {
         let foreground_elem = elements_under_cursor.foreground_elem;
 
         // Change mouse cursor accordingly
-        if (total_elements > 0) {
-            if (this.mouse_mode == 'move' && this.drag_start)
+        if (this.mouse_mode === 'select') {
+            this.canvas.style.cursor = 'crosshair';
+        } else if (total_elements > 0) {
+            if (this.mouse_mode === 'move' && this.drag_start) {
                 this.canvas.style.cursor = 'grabbing';
-            else if (this.mouse_mode == 'move')
+            } else if (this.mouse_mode === 'move') {
                 this.canvas.style.cursor = 'grab';
-            else
-                this.canvas.style.cursor = 'pointer';
+            } else {
+                // Hovering over an element while not in any specific mode.
+                if ((foreground_elem.data.state &&
+                     foreground_elem.data.state.attributes.is_collapsed) ||
+                    (foreground_elem.data.node &&
+                     foreground_elem.data.node.attributes.is_collapsed)) {
+                    // This is a collapsed node or state, show with the cursor
+                    // shape that this can be expanded.
+                    this.canvas.style.cursor = 'alias';
+                } else {
+                    this.canvas.style.cursor = 'pointer';
+                }
+            }
         } else {
             this.canvas.style.cursor = 'auto';
         }
@@ -1904,6 +2005,16 @@ class SDFGRenderer {
                         elements_in_selection.forEach((el) => {
                             if (!this.selected_elements.includes(el))
                                 this.selected_elements.push(el);
+                        });
+                    } else if (event.ctrlKey) {
+                        elements_in_selection.forEach((el) => {
+                            if (this.selected_elements.includes(el)) {
+                                this.selected_elements =
+                                    this.selected_elements.filter((val) => {
+                                        val.stroke_color = null;
+                                        return val !== el;
+                                    });
+                            }
                         });
                     } else {
                         this.selected_elements.forEach((el) => {
