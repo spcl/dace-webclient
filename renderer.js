@@ -980,6 +980,16 @@ class SDFGRenderer {
 
     // Updates buttons based on cursor mode
     update_toggle_buttons() {
+        // First clear out of all modes, then jump in to the correct mode.
+        this.selectmode_btn.innerHTML =
+            '<i class="material-icons">border_style</i>';
+        this.selectmode_btn.title = 'Enter box select mode';
+        this.movemode_btn.innerHTML =
+            '<i class="material-icons">open_with</i>';
+        this.movemode_btn.title = 'Enter object moving mode';
+        this.canvas.style.cursor = 'default';
+        this.interaction_info_text.innerHTML = '';
+
         switch (this.mouse_mode) {
             case 'move':
                 this.movemode_btn.innerHTML =
@@ -999,14 +1009,6 @@ class SDFGRenderer {
                 break;
             case 'pan':
             default:
-                this.selectmode_btn.innerHTML =
-                    '<i class="material-icons">border_style</i>';
-                this.selectmode_btn.title = 'Enter box select mode';
-                this.movemode_btn.innerHTML =
-                    '<i class="material-icons">open_with</i>';
-                this.movemode_btn.title = 'Enter object moving mode';
-                this.canvas.style.cursor = 'default';
-                this.interaction_info_text.innerHTML = '';
                 break;
         }
     }

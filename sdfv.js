@@ -230,31 +230,34 @@ function find_edge(state, edge_id) {
 }
 
 function find_graph_element(graph, type, sdfg_id, state_id=-1, el_id=-1) {
-    let requested_graph;
-    switch (type) {
-        case 'edge':
-            requested_graph = recursive_find_graph(graph, sdfg_id);
-            if (requested_graph) {
-                let state = find_state(requested_graph, state_id);
+    let requested_graph = recursive_find_graph(graph, sdfg_id);
+    let state;
+    if (requested_graph) {
+        switch (type) {
+            case 'edge':
+                state = find_state(requested_graph, state_id);
                 if (state)
                     return find_edge(state, el_id);
-            }
-            break;
-        case 'state':
-            requested_graph = recursive_find_graph(graph, sdfg_id);
-            if (requested_graph)
+                break;
+            case 'state':
                 return find_state(requested_graph, state_id);
-            break;
-        case 'node':
-            requested_graph = recursive_find_graph(graph, sdfg_id);
-            if (requested_graph) {
-                let state = find_state(requested_graph, state_id);
+            case 'node':
+                state = find_state(requested_graph, state_id);
                 if (state)
                     return find_node(state, el_id);
-            }
-            break;
-        default:
-            return undefined;
+                break;
+            case 'isedge':
+                let isedge = undefined;
+                Object.values(requested_graph._edgeLabels).forEach(ise => {
+                    if (ise.id === el_id) {
+                        isedge = ise;
+                        return isedge;
+                    }
+                });
+                return isedge;
+            default:
+                return undefined;
+        }
     }
     return undefined;
 }
