@@ -139,6 +139,19 @@ class CanvasManager {
         this.indices = [];
     }
 
+    isBlank() {
+        const ctx = this.canvas.getContext('2d');
+        let topleft = ctx.getImageData(0,0,1,1).data;
+        if (topleft[0] != 0 || topleft[1] != 0 || topleft[2] != 0 || topleft[3] != 255)
+            return false;
+
+        const pixelBuffer = new Uint32Array(
+            ctx.getImageData(0, 0, this.canvas.width, this.canvas.height).data.buffer
+        );
+
+        return !pixelBuffer.some(color => color !== 0xff000000);
+    }
+
     scale(diff, x = 0, y = 0) {
         this.stopAnimation();
         if (this.request_scale || this.contention > 0) {
@@ -146,6 +159,11 @@ class CanvasManager {
         }
         this.contention++;
         this.request_scale = true;
+        if(this.isBlank()) {
+            this.renderer.bgcolor = 'black';
+            this.renderer.zoom_to_view();
+            diff = 0.01;
+        }
 
         this.scale_origin.x = x;
         this.scale_origin.y = y;
@@ -907,8 +925,6 @@ class SDFGRenderer {
         this.container = container;
         this.ctx = null;
         this.canvas = null;
-        this.toolbar = null;
-        this.menu = null;
         this.last_visible_elements = null;
         this.last_hovered_elements = null;
         this.last_clicked_elements = null;
@@ -916,13 +932,19 @@ class SDFGRenderer {
         this.tooltip = null;
         this.tooltip_container = null;
 
+        // Toolbar-related fields
+        this.menu = null;
+        this.toolbar = null;
+        this.movemode_btn = null;
+        this.selectmode_btn = null;
+        
+
         // View options
         this.inclusive_ranges = false;
 
         // Mouse-related fields
-        this.move_mode = false;
+        this.mouse_mode = 'pan'; // Mouse mode - pan, move, select
         this.box_select_rect = null;
-        this.box_select_mode = false;
         this.mousepos = null; // Last position of the mouse pointer (in canvas coordinates)
         this.realmousepos = null; // Last position of the mouse pointer (in pixel coordinates)
         this.dragging = false;
@@ -954,6 +976,39 @@ class SDFGRenderer {
 
     view_settings() {
         return { inclusive_ranges: this.inclusive_ranges };
+    }
+
+    // Updates buttons based on cursor mode
+    update_toggle_buttons() {
+        switch (this.mouse_mode) {
+            case 'move':
+                this.movemode_btn.innerHTML =
+                    '<i class="material-icons">done</i>';
+                this.movemode_btn.title = 'Exit object moving mode';
+                this.interaction_info_text.innerHTML = 'Middle Mouse: Pan view';
+                break;
+            case 'select':
+                this.selectmode_btn.innerHTML =
+                    '<i class="material-icons">done</i>';
+                this.selectmode_btn.title = 'Exit box select mode';
+                this.canvas.style.cursor = 'crosshair';
+                this.interaction_info_text.innerHTML =
+                    'Shift: Add to selection<br>' +
+                    'Ctrl: Remove from selection<br>' +
+                    'Middle Mouse: Pan view';
+                break;
+            case 'pan':
+            default:
+                this.selectmode_btn.innerHTML =
+                    '<i class="material-icons">border_style</i>';
+                this.selectmode_btn.title = 'Enter box select mode';
+                this.movemode_btn.innerHTML =
+                    '<i class="material-icons">open_with</i>';
+                this.movemode_btn.title = 'Enter object moving mode';
+                this.canvas.style.cursor = 'default';
+                this.interaction_info_text.innerHTML = '';
+                break;
+        }
     }
 
     // Initializes the DOM
@@ -1023,6 +1078,13 @@ class SDFGRenderer {
             this.toolbar.appendChild(d);
         } catch (ex) { }
 
+        let in_vscode = false;
+        try {
+            vscode;
+            if (vscode)
+                in_vscode = true;
+        } catch (ex) { }
+
         // Zoom to fit
         d = document.createElement('button');
         d.className = 'button';
@@ -1052,68 +1114,54 @@ class SDFGRenderer {
 
         // Enter object moving mode
         let move_mode_btn = document.createElement('button');
+        this.movemode_btn = move_mode_btn;
         move_mode_btn.className = 'button';
         move_mode_btn.innerHTML = '<i class="material-icons">open_with</i>';
         move_mode_btn.style = 'padding-bottom: 0px; user-select: none';
         move_mode_btn.onclick = () => {
-            this.move_mode = !this.move_mode;
-            if (this.move_mode) {
-                move_mode_btn.innerHTML = '<i class="material-icons">done</i>';
-                move_mode_btn.title = 'Exit object moving mode';
-                this.interaction_info_text.innerHTML = 'Middle Mouse: Pan view';
-            } else {
-                move_mode_btn.innerHTML =
-                    '<i class="material-icons">open_with</i>';
-                move_mode_btn.title = 'Enter object moving mode';
-                this.interaction_info_text.innerHTML = '';
-            }
+            if (this.mouse_mode === 'move')
+                this.mouse_mode = 'pan';
+            else
+                this.mouse_mode = 'move';
+            this.update_toggle_buttons();
         };
         move_mode_btn.title = 'Enter object moving mode';
         this.toolbar.appendChild(move_mode_btn);
 
         // Enter box selection mode
         let box_select_btn = document.createElement('button');
+        this.selectmode_btn = box_select_btn;
         box_select_btn.className = 'button';
         box_select_btn.innerHTML =
             '<i class="material-icons">border_style</i>';
         box_select_btn.style = 'padding-bottom: 0px; user-select: none';
         box_select_btn.onclick = () => {
-            this.box_select_mode = !this.box_select_mode;
-            if (this.box_select_mode) {
-                box_select_btn.innerHTML =
-                    '<i class="material-icons">done</i>';
-                box_select_btn.title = 'Exit box select mode';
-                this.canvas.style.cursor = 'crosshair';
-                this.interaction_info_text.innerHTML =
-                    'Shift: Add to selection<br>' +
-                    'Ctrl: Remove from selection<br>' +
-                    'Middle Mouse: Pan view';
-            } else {
-                box_select_btn.innerHTML =
-                    '<i class="material-icons">border_style</i>';
-                box_select_btn.title = 'Enter box select mode';
-                this.canvas.style.cursor = 'default';
-                this.interaction_info_text.innerHTML = '';
-            }
+            if (this.mouse_mode === 'select')
+                this.mouse_mode = 'pan';
+            else
+                this.mouse_mode = 'select';
+            this.update_toggle_buttons();
         };
         box_select_btn.title = 'Enter box select mode';
         this.toolbar.appendChild(box_select_btn);
 
         // Exit previewing mode
-        let exit_preview_btn = document.createElement('button');
-        exit_preview_btn.id = 'exit-preview-button';
-        exit_preview_btn.className = 'button hidden';
-        exit_preview_btn.innerHTML = '<i class="material-icons">close</i>';
-        exit_preview_btn.style = 'padding-bottom: 0px; user-select: none';
-        exit_preview_btn.onclick = () => {
+        if (in_vscode) {
+            let exit_preview_btn = document.createElement('button');
+            exit_preview_btn.id = 'exit-preview-button';
             exit_preview_btn.className = 'button hidden';
-            if (vscode)
-                vscode.postMessage({
-                    type: 'getCurrentSdfg',
-                });
-        };
-        exit_preview_btn.title = 'Exit preview';
-        this.toolbar.appendChild(exit_preview_btn);
+            exit_preview_btn.innerHTML = '<i class="material-icons">close</i>';
+            exit_preview_btn.style = 'padding-bottom: 0px; user-select: none';
+            exit_preview_btn.onclick = () => {
+                exit_preview_btn.className = 'button hidden';
+                if (vscode)
+                    vscode.postMessage({
+                        type: 'getCurrentSdfg',
+                    });
+            };
+            exit_preview_btn.title = 'Exit preview';
+            this.toolbar.appendChild(exit_preview_btn);
+        }
 
         this.container.append(this.toolbar);
         // End of buttons
@@ -1730,7 +1778,7 @@ class SDFGRenderer {
             if (this.drag_start && event.buttons & 1) {
                 this.dragging = true;
 
-                if (this.move_mode) {
+                if (this.mouse_mode == 'move') {
                     if (this.last_dragged_element) {
                         this.canvas.style.cursor = 'grabbing';
                         this.canvas_manager.translate_element(
@@ -1753,7 +1801,7 @@ class SDFGRenderer {
                         }
                         return true;
                     }
-                } else if (this.box_select_mode) {
+                } else if (this.mouse_mode == 'select') {
                     this.box_select_rect = {
                         x_start: comp_x_func(this.drag_start),
                         y_start: comp_y_func(this.drag_start),
@@ -1848,12 +1896,12 @@ class SDFGRenderer {
         let foreground_elem = elements_under_cursor.foreground_elem;
 
         // Change mouse cursor accordingly
-        if (this.box_select_mode) {
+        if (this.mouse_mode === 'select') {
             this.canvas.style.cursor = 'crosshair';
         } else if (total_elements > 0) {
-            if (this.move_mode && this.drag_start) {
+            if (this.mouse_mode === 'move' && this.drag_start) {
                 this.canvas.style.cursor = 'grabbing';
-            } else if (this.move_mode) {
+            } else if (this.mouse_mode === 'move') {
                 this.canvas.style.cursor = 'grab';
             } else {
                 // Hovering over an element while not in any specific mode.
