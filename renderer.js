@@ -1469,7 +1469,6 @@ class SDFGRenderer {
         if (this.sdfg.error) {
             let error = this.sdfg.error;
 
-            // TODO:
             let type = '';
             let state_id = -1;
             let el_id = -1;
