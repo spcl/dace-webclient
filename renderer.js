@@ -1041,8 +1041,11 @@ class SDFGRenderer {
         this.interaction_info_box.style.position = 'absolute';
         this.interaction_info_box.style.bottom = '.5rem',
         this.interaction_info_box.style.left = '.5rem',
+        this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        this.interaction_info_box.style.borderRadius = '5px';
         this.interaction_info_box.style.padding = '.3rem';
         this.interaction_info_text = document.createElement('span');
+        this.interaction_info_text.style.color = '#eeeeee';
         this.interaction_info_text.innerHTML = '';
         this.interaction_info_box.appendChild(this.interaction_info_text);
         this.container.appendChild(this.interaction_info_box);
