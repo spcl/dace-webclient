@@ -1938,12 +1938,17 @@ class SDFGRenderer {
             }
 
             if (intersected) {
-                obj.stroke_color = 'green';
+                // If this element is selected, the highlight color is a
+                // different green.
+                if (obj.stroke_color === 'red' || obj.stroke_color === 'salmon')
+                    obj.stroke_color = 'salmon';
+                else
+                    obj.stroke_color = 'green';
                 highlighted.push(obj);
             }
         });
         this.for_all_elements(this.mousepos.x, this.mousepos.y, 0, 0, (type, e, obj, intersected) => {
-            if (highlighted.indexOf(obj) == -1 && (obj.stroke_color === 'green' || obj.stroke_color === 'orange'))
+            if (highlighted.indexOf(obj) == -1 && (obj.stroke_color === 'green' || obj.stroke_color === 'orange' || obj.stroke_color === 'salmon'))
                 obj.stroke_color = null;
         });
 
@@ -2061,7 +2066,8 @@ class SDFGRenderer {
             }
         }
         this.selected_elements.forEach((el) => {
-            el.stroke_color = 'red';
+            if (el.stroke_color !== 'salmon')
+                el.stroke_color = 'red';
         });
 
         if (this.external_mouse_handler)
