@@ -9,7 +9,12 @@ class SDFGElement {
         this.sdfg = sdfg;
         this.in_connectors = [];
         this.out_connectors = [];
-        this.stroke_color = null;
+
+        // Indicate special drawing conditions based on interactions.
+        this.selected = false;
+        this.highlighted = false;
+        this.hovered = false;
+
         this.set_layout();
     }
 
@@ -60,9 +65,20 @@ class SDFGElement {
     }
 
     strokeStyle() {
-        if (this.stroke_color)
-            return this.stroke_color;
-        return "black";
+        if (this.selected) {
+            if (this.hovered)
+                return 'salmon';
+            else if (this.highlighted)
+                return 'darkorange';
+            else
+                return 'red';
+        } else {
+            if (this.hovered)
+                return 'green';
+            else if (this.highlighted)
+                return 'orange';
+        }
+        return 'black';
     }
 
     // General bounding-box intersection function. Returns true iff point or rectangle intersect element.
@@ -140,9 +156,11 @@ class State extends SDFGElement {
             ctx.fillText(this.label(), topleft.x, topleft.y + LINEHEIGHT);
 
         // If this state is selected or hovered
-        if (this.stroke_color && (clamped.x == topleft.x || clamped.y == topleft.y || 
-                                  clamped.x2 == topleft.x + this.width || 
-                                  clamped.y2 == topleft.y + this.height)) {
+        if ((this.selected || this.highlighted) &&
+            (clamped.x === topleft.x ||
+             clamped.y === topleft.y ||
+             clamped.x2 === topleft.x + this.width ||
+             clamped.y2 === topleft.y + this.height)) {
             ctx.strokeStyle = this.strokeStyle();
             ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
         }
@@ -264,7 +282,7 @@ class Edge extends SDFGElement {
         }
 
         let style = this.strokeStyle();
-        if (style !== 'black' && style !== 'orange' && style !== 'red')
+        if (this.hovered)
             renderer.tooltip = (c) => this.tooltip(c, renderer);
         if (this.parent_id == null && style === 'black') {  // Interstate edge
             style = '#86add9';

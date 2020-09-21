@@ -1782,7 +1782,7 @@ class SDFGRenderer {
             if (this.drag_start && event.buttons & 1) {
                 this.dragging = true;
 
-                if (this.mouse_mode == 'move') {
+                if (this.mouse_mode === 'move') {
                     if (this.last_dragged_element) {
                         this.canvas.style.cursor = 'grabbing';
                         this.canvas_manager.translate_element(
@@ -1805,7 +1805,7 @@ class SDFGRenderer {
                         }
                         return true;
                     }
-                } else if (this.mouse_mode == 'select') {
+                } else if (this.mouse_mode === 'select') {
                     this.box_select_rect = {
                         x_start: comp_x_func(this.drag_start),
                         y_start: comp_y_func(this.drag_start),
@@ -1927,32 +1927,25 @@ class SDFGRenderer {
         this.tooltip = null;
         this.last_hovered_elements = elements;
 
-        // Hovered elements get colored green (if they are not already colored)
-        let highlighted = [];
+        // De-highlight all elements.
+        this.for_all_elements(this.mousepos.x, this.mousepos.y, 0, 0, (type, e, obj, intersected) => {
+            obj.hovered = false;
+            obj.highlighted = false;
+        });
+        // Mark hovered and highlighted elements.
         this.for_all_elements(this.mousepos.x, this.mousepos.y, 0, 0, (type, e, obj, intersected) => {
             if (intersected && obj instanceof Edge && obj.parent_id != null) {
                 let tree = memlet_tree(e.graph, obj);
                 tree.forEach(te => {
                     if (te != obj) {
-                        te.stroke_color = 'orange';
-                        highlighted.push(te);
+                        console.log(te);
+                        te.highlighted = true;
                     }
                 });
             }
 
-            if (intersected) {
-                // If this element is selected, the highlight color is a
-                // different green.
-                if (obj.stroke_color === 'red' || obj.stroke_color === 'salmon')
-                    obj.stroke_color = 'salmon';
-                else
-                    obj.stroke_color = 'green';
-                highlighted.push(obj);
-            }
-        });
-        this.for_all_elements(this.mousepos.x, this.mousepos.y, 0, 0, (type, e, obj, intersected) => {
-            if (highlighted.indexOf(obj) == -1 && (obj.stroke_color === 'green' || obj.stroke_color === 'orange' || obj.stroke_color === 'salmon'))
-                obj.stroke_color = null;
+            if (intersected)
+                obj.hovered = true;
         });
 
         if (evtype === "mousemove") {
@@ -2019,14 +2012,14 @@ class SDFGRenderer {
                             if (this.selected_elements.includes(el)) {
                                 this.selected_elements =
                                     this.selected_elements.filter((val) => {
-                                        val.stroke_color = null;
+                                        val.selected = false;
                                         return val !== el;
                                     });
                             }
                         });
                     } else {
                         this.selected_elements.forEach((el) => {
-                            el.stroke_color = null;
+                            el.selected = false;
                         });
                         this.selected_elements = elements_in_selection;
                     }
@@ -2040,7 +2033,7 @@ class SDFGRenderer {
                         // Ctrl + click on an object, add it, or remove it from
                         // the selection if it was previously in it.
                         if (this.selected_elements.includes(foreground_elem)) {
-                            foreground_elem.stroke_color = null;
+                            foreground_elem.selected = false;
                             this.selected_elements =
                                 this.selected_elements.filter((el) => {
                                     return el !== foreground_elem;
@@ -2053,14 +2046,14 @@ class SDFGRenderer {
                     } else {
                         // Clicked an element, select it and nothing else.
                         this.selected_elements.forEach((el) => {
-                            el.stroke_color = null;
+                            el.selected = false;
                         });
                         this.selected_elements = [foreground_elem];
                     }
                 } else {
                     // Clicked nothing, clear the selection.
                     this.selected_elements.forEach((el) => {
-                        el.stroke_color = null;
+                        el.selected = false;
                     });
                     this.selected_elements = [];
                 }
@@ -2069,8 +2062,7 @@ class SDFGRenderer {
             }
         }
         this.selected_elements.forEach((el) => {
-            if (el.stroke_color !== 'salmon')
-                el.stroke_color = 'red';
+            el.selected = true;
         });
 
         if (this.external_mouse_handler)
