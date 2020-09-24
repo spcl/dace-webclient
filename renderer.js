@@ -955,6 +955,9 @@ class SDFGRenderer {
         // Selection related fields
         this.selected_elements = [];
 
+        // Overlay fields
+        this.overlay_manager = new OverlayManager(this);
+
         // Draw debug aids.
         this.debug_draw = debug_draw;
 
@@ -1149,6 +1152,35 @@ class SDFGRenderer {
         };
         box_select_btn.title = 'Enter box select mode';
         this.toolbar.appendChild(box_select_btn);
+
+        // Enable the static memory overlay
+        let memory_volume_overlay_btn = document.createElement('button');
+        this.memory_volume_overlay_btn = memory_volume_overlay_btn;
+        memory_volume_overlay_btn.className = 'button';
+        memory_volume_overlay_btn.innerHTML =
+            '<i class="material-icons">sd_storage</i>';
+        memory_volume_overlay_btn.style = 'padding-bottom: 0px; user-select: none';
+        memory_volume_overlay_btn.onclick = () => {
+            if (this.overlay_manager.memory_volume_overlay.active)
+                this.overlay_manager.memory_volume_overlay.disable();
+            else
+                this.overlay_manager.memory_volume_overlay.enable();
+            if (this.overlay_manager.memory_volume_overlay.active) {
+                this.memory_volume_overlay_btn.innerHTML =
+                    '<i class="material-icons">done</i>';
+                this.memory_volume_overlay_btn.title =
+                    'Disable the static memory analysis overlay';
+            } else {
+                this.memory_volume_overlay_btn.innerHTML =
+                    '<i class="material-icons">sd_storage</i>';
+                this.memory_volume_overlay_btn.title =
+                    'Enable the static memory analysis overlay';
+            }
+            this.draw_async();
+        };
+        memory_volume_overlay_btn.title =
+            'Enable the static memory analysis overlay';
+        this.toolbar.appendChild(memory_volume_overlay_btn);
 
         // Exit previewing mode
         if (in_vscode) {
@@ -1438,6 +1470,8 @@ class SDFGRenderer {
                 this.dbg_mouse_coords.innerText = 'x: N/A / y: N/A';
             }
         }
+
+        this.overlay_manager.draw();
 
         this.on_post_draw();
     }
@@ -1938,7 +1972,6 @@ class SDFGRenderer {
                 let tree = memlet_tree(e.graph, obj);
                 tree.forEach(te => {
                     if (te != obj) {
-                        console.log(te);
                         te.highlighted = true;
                     }
                 });
@@ -2065,9 +2098,20 @@ class SDFGRenderer {
             el.selected = true;
         });
 
+        let mouse_x = comp_x_func(event);
+        let mouse_y = comp_y_func(event);
         if (this.external_mouse_handler)
-            dirty |= this.external_mouse_handler(evtype, event, { x: comp_x_func(event), y: comp_y_func(event) }, elements,
+            dirty |= this.external_mouse_handler(evtype, event, { x: mouse_x, y: mouse_y }, elements,
                 this, this.selected_elements, ends_drag);
+
+        dirty |= this.overlay_manager.on_mouse_event(
+            evtype,
+            event,
+            { x: mouse_x, y: mouse_y },
+            elements,
+            foreground_elem,
+            ends_drag
+        );
 
         if (dirty) {
             this.draw_async();

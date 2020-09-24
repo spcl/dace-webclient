@@ -64,7 +64,7 @@ class SDFGElement {
         return { x: this.x - this.width / 2, y: this.y - this.height / 2 };
     }
 
-    strokeStyle() {
+    strokeStyle(renderer=undefined) {
         if (this.selected) {
             if (this.hovered)
                 return 'salmon';
@@ -161,7 +161,7 @@ class State extends SDFGElement {
              clamped.y === topleft.y ||
              clamped.x2 === topleft.x + this.width ||
              clamped.y2 === topleft.y + this.height)) {
-            ctx.strokeStyle = this.strokeStyle();
+            ctx.strokeStyle = this.strokeStyle(renderer);
             ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
         }
 
@@ -227,7 +227,7 @@ class Node extends SDFGElement {
         let topleft = this.topleft();
         ctx.fillStyle = "white";
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.strokeStyle = this.strokeStyle();
+        ctx.strokeStyle = this.strokeStyle(renderer);
         ctx.strokeRect(topleft.x, topleft.y, this.width, this.height);
         ctx.fillStyle = "black";
         let textw = ctx.measureText(this.label()).width;
@@ -261,6 +261,74 @@ class Node extends SDFGElement {
 }
 
 class Edge extends SDFGElement {
+
+    draw_memory_volume_overlay(renderer, ctx, overlay_man, cutoff_high_volume) {
+        // Don't draw if we're zoomed out too far.
+        let ppp = renderer.canvas_manager.points_per_pixel();
+        if (ctx.lod && ppp >= EDGE_LOD)
+            return;
+
+        let volume = this.attributes().volume;
+        if (volume !== undefined)
+            volume = overlay_man.parse_volume(volume);
+
+        if (volume) {
+            // Update the highest obeserved volume if applicable.
+            if (volume > overlay_man.highest_observed_volume)
+                overlay_man.highest_observed_volume = volume;
+
+            ctx.beginPath();
+            ctx.moveTo(this.points[0].x, this.points[0].y);
+            if (this.points.length === 2) {
+                ctx.lineTo(this.points[1].x, this.points[1].y);
+            } else {
+                let i;
+                for (i = 1; i < this.points.length - 2; i++) {
+                    let xm = (this.points[i].x + this.points[i + 1].x) / 2.0;
+                    let ym = (this.points[i].y + this.points[i + 1].y) / 2.0;
+                    ctx.quadraticCurveTo(this.points[i].x, this.points[i].y,
+                        xm, ym);
+                }
+                ctx.quadraticCurveTo(this.points[i].x, this.points[i].y,
+                    this.points[i + 1].x, this.points[i + 1].y);
+            }
+
+            // Save the current stroke style, width, and opacity.
+            let stroke_style = ctx.strokeStyle;
+            let fill_style = ctx.fillStyle;
+            let line_cap = ctx.lineCap;
+            let line_width = ctx.lineWidth;
+            let alpha = ctx.globalAlpha;
+
+            // Use either the default cutoff high volume, or the maximum
+            // observed volume to indicate the badness of this edge.
+            let badness = (1 / Math.max(
+                cutoff_high_volume, overlay_man.highest_observed_volume
+            )) * volume;
+            let color = getTempColor(badness);
+
+            ctx.globalAlpha = '0.6';
+            ctx.lineWidth = line_width + 1;
+            ctx.fillStyle = color;
+            ctx.strokeStyle = color;
+            ctx.lineCap = 'round';
+
+            ctx.stroke();
+
+            if (this.points.length < 2)
+                return;
+            drawArrow(ctx, this.points[this.points.length - 2],
+                this.points[this.points.length - 1], 3, 0, 2);
+
+            // Restore the previous stroke style, width, and opacity.
+            ctx.strokeStyle = stroke_style;
+            ctx.fillStyle = fill_style;
+            ctx.lineCap = line_cap;
+            ctx.lineWidth = line_width;
+            ctx.globalAlpha = alpha;
+        }
+    }
+
     draw(renderer, ctx, mousepos) {
         let edge = this;
 
@@ -281,7 +349,7 @@ class Edge extends SDFGElement {
                 edge.points[i + 1].x, edge.points[i + 1].y);
         }
 
-        let style = this.strokeStyle();
+        let style = this.strokeStyle(renderer);
         if (this.hovered)
             renderer.tooltip = (c) => this.tooltip(c, renderer);
         if (this.parent_id == null && style === 'black') {  // Interstate edge
@@ -387,7 +455,7 @@ class Connector extends SDFGElement {
         ctx.beginPath();
         drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
         ctx.closePath();
-        ctx.strokeStyle = this.strokeStyle();
+        ctx.strokeStyle = this.strokeStyle(renderer);
         if (scope_connector) {
             let cname = this.data.name;
             if (cname.startsWith("IN_"))
@@ -415,7 +483,7 @@ class Connector extends SDFGElement {
         ctx.fill();
         ctx.fillStyle = "black";
         ctx.strokeStyle = "black";
-        if (this.strokeStyle() !== 'black')
+        if (this.strokeStyle(renderer) !== 'black')
             renderer.tooltip = (c) => this.tooltip(c);
     }
 
@@ -441,7 +509,7 @@ class AccessNode extends Node {
         ctx.beginPath();
         drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
         ctx.closePath();
-        ctx.strokeStyle = this.strokeStyle();
+        ctx.strokeStyle = this.strokeStyle(renderer);
 
         let nodedesc = this.sdfg.attributes._arrays[this.data.node.attributes.data];
         // Streams have dashed edges
@@ -482,7 +550,7 @@ class ScopeNode extends Node {
         } else {
             draw_shape = () => drawTrapezoid(ctx, this.topleft(), this, this.scopeend());
         }
-        ctx.strokeStyle = this.strokeStyle();
+        ctx.strokeStyle = this.strokeStyle(renderer);
 
         // Consume scopes have dashed edges
         if (this.data.node.type.startsWith("Consume"))
@@ -575,7 +643,7 @@ class Tasklet extends Node {
     draw(renderer, ctx, mousepos) {
         let topleft = this.topleft();
         drawOctagon(ctx, topleft, this.width, this.height);
-        ctx.strokeStyle = this.strokeStyle();
+        ctx.strokeStyle = this.strokeStyle(renderer);
         ctx.stroke();
         ctx.fillStyle = "white";
         if (ctx.pdf) // PDFs do not support stroke and fill on the same object
@@ -635,7 +703,7 @@ class Reduce extends Node {
             ctx.lineTo(topleft.x, topleft.y);
             ctx.closePath();
         };
-        ctx.strokeStyle = this.strokeStyle();
+        ctx.strokeStyle = this.strokeStyle(renderer);
         draw_shape();
         ctx.stroke();
         ctx.fillStyle = "white";
@@ -657,10 +725,10 @@ class NestedSDFG extends Node {
         if (this.data.node.attributes.is_collapsed) {
             let topleft = this.topleft();
             drawOctagon(ctx, topleft, this.width, this.height);
-            ctx.strokeStyle = this.strokeStyle();
+            ctx.strokeStyle = this.strokeStyle(renderer);
             ctx.stroke();
             drawOctagon(ctx, { x: topleft.x + 2.5, y: topleft.y + 2.5 }, this.width - 5, this.height - 5);
-            ctx.strokeStyle = this.strokeStyle();
+            ctx.strokeStyle = this.strokeStyle(renderer);
             ctx.stroke();
             ctx.fillStyle = 'white';
             if (ctx.pdf) // PDFs do not support stroke and fill on the same object
@@ -731,7 +799,7 @@ class LibraryNode extends Node {
         ctx.fillStyle = "white";
         this._path(ctx);
         ctx.fill();
-        ctx.strokeStyle = this.strokeStyle();
+        ctx.strokeStyle = this.strokeStyle(renderer);
         this._path(ctx);
         ctx.stroke();
         this._path2(ctx);
@@ -949,7 +1017,7 @@ function drawEllipse(ctx, x, y, w, h) {
     ctx.bezierCurveTo(xm - ox, ye, x, ym + oy, x, ym);
 }
 
-function drawArrow(ctx, p1, p2, size, offset) {
+function drawArrow(ctx, p1, p2, size, offset=0, padding=0) {
     ctx.save();
     // Rotate the context to point along the path
     let dx = p2.x - p1.x;
@@ -959,9 +1027,9 @@ function drawArrow(ctx, p1, p2, size, offset) {
 
     // arrowhead
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(-2 * size, -size);
-    ctx.lineTo(-2 * size, size);
+    ctx.moveTo(0 + padding + offset, 0);
+    ctx.lineTo(((-2 * size) - padding) - offset, -(size + padding));
+    ctx.lineTo(((-2 * size) - padding) - offset, (size + padding));
     ctx.closePath();
     ctx.fill();
     ctx.restore();
@@ -992,6 +1060,20 @@ function ptLineDistance(p, line1, line2) {
     let res = dy * p.x - dx * p.y + line2.x * line1.y - line2.y * line1.x;
 
     return Math.abs(res) / Math.sqrt(dy * dy + dx * dx);
+}
+
+/**
+ * Get the color on a green-red temperature scale based on a fractional value.
+ * @param {Number} val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
+ * @returns            HSL color string
+ */
+function getTempColor(val){
+    if (val < 0)
+        val = 0;
+    if (val > 1)
+        val = 1;
+    let hue = ((1 - val) * 120).toString(10);
+    return 'hsl(' + hue + ',100%,50%)';
 }
 
 var SDFGElements = {
