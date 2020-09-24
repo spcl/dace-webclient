@@ -456,13 +456,39 @@ class CanvasManager {
 
         // Move the connected edges along with the element
         out_edges.forEach(edge => {
-            edge.points[0].x += dx;
-            edge.points[0].y += dy;
+            const n = edge.points.length - 1;
+            let moved = false;
+            if (edge.src_connector !== null) {
+                for (let i = 0; i < el.out_connectors.length; i++) {
+                    if (el.out_connectors[i].data.name === edge.src_connector) {
+                        edge.points[0] = dagre.util.intersectRect(el.out_connectors[i], edge.points[1]);
+                        moved = true;
+                        break;
+                    }
+                }
+            }
+            if (!moved) {
+                edge.points[0].x += dx;
+                edge.points[0].y += dy;
+            }
             updateEdgeBoundingBox(edge);
         });
         in_edges.forEach(edge => {
-            edge.points[edge.points.length - 1].x += dx;
-            edge.points[edge.points.length - 1].y += dy;
+            const n = edge.points.length - 1;
+            let moved = false;
+            if (edge.dst_connector !== null) {
+                for (let i = 0; i < el.in_connectors.length; i++) {
+                    if (el.in_connectors[i].data.name === edge.dst_connector) {
+                        edge.points[n] = dagre.util.intersectRect(el.in_connectors[i], edge.points[n-1]);
+                        moved = true;
+                        break;
+                    }
+                }
+            }
+            if (!moved) {
+                edge.points[n].x += dx;
+                edge.points[n].y += dy;
+            }
             updateEdgeBoundingBox(edge);
         });
     }
