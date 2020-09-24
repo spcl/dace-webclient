@@ -182,8 +182,78 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
         this.renderer.for_all_elements(0, 0, 0, 0,
             (type, element, object, intersect) => {
                 if (object instanceof Edge) {
-                    object.draw_memory_volume_overlay(this.renderer,
-                        this.renderer.ctx, this, this.cutoff_high_volume);
+                    let ctx = this.renderer.ctx;
+                    let edge = object;
+
+                    // Don't draw if we're zoomed out too far.
+                    let ppp = this.renderer.canvas_manager.points_per_pixel();
+                    if (ctx.lod && ppp >= EDGE_LOD)
+                        return;
+
+                    let volume = edge.attributes().volume;
+                    if (volume !== undefined)
+                        volume = this.parse_volume(volume);
+
+                    if (volume) {
+                        // Update the highest obeserved volume if applicable.
+                        if (volume > this.highest_observed_volume)
+                            this.highest_observed_volume = volume;
+
+                        ctx.beginPath();
+                        ctx.moveTo(edge.points[0].x, edge.points[0].y);
+                        if (edge.points.length === 2) {
+                            ctx.lineTo(edge.points[1].x, edge.points[1].y);
+                        } else {
+                            let i;
+                            for (i = 1; i < edge.points.length - 2; i++) {
+                                let xm = (edge.points[i].x +
+                                    edge.points[i + 1].x) / 2.0;
+                                let ym = (edge.points[i].y +
+                                    edge.points[i + 1].y) / 2.0;
+                                ctx.quadraticCurveTo(edge.points[i].x,
+                                    edge.points[i].y, xm, ym);
+                            }
+                            ctx.quadraticCurveTo(edge.points[i].x,
+                                edge.points[i].y, edge.points[i + 1].x,
+                                edge.points[i + 1].y);
+                        }
+
+                        // Save the current stroke style, width, and opacity.
+                        let stroke_style = ctx.strokeStyle;
+                        let fill_style = ctx.fillStyle;
+                        let line_cap = ctx.lineCap;
+                        let line_width = ctx.lineWidth;
+                        let alpha = ctx.globalAlpha;
+
+                        // Use either the default cutoff high volume, or the
+                        // maximum observed volume to indicate the badness of
+                        // this edge.
+                        let badness = (1 / Math.max(
+                            this.cutoff_high_volume,
+                            this.highest_observed_volume
+                        )) * volume;
+                        let color = getTempColor(badness);
+
+                        ctx.globalAlpha = '0.6';
+                        ctx.lineWidth = line_width + 1;
+                        ctx.fillStyle = color;
+                        ctx.strokeStyle = color;
+                        ctx.lineCap = 'round';
+
+                        ctx.stroke();
+
+                        if (edge.points.length < 2)
+                            return;
+                        drawArrow(ctx, edge.points[edge.points.length - 2],
+                            edge.points[edge.points.length - 1], 3, 0, 2);
+
+                        // Restore previous stroke style, width, and opacity.
+                        ctx.strokeStyle = stroke_style;
+                        ctx.fillStyle = fill_style;
+                        ctx.lineCap = line_cap;
+                        ctx.lineWidth = line_width;
+                        ctx.globalAlpha = alpha;
+                    }
                 }
             }
         );

@@ -1083,6 +1083,32 @@ class SDFGRenderer {
                     cmenu.addOption("Save all as PDF", x => that.save_as_pdf(true));
                 }
                 cmenu.addCheckableOption("Inclusive ranges", that.inclusive_ranges, (x, checked) => { that.inclusive_ranges = checked; });
+                cmenu.addOption(
+                    'Overlays',
+                    () => {
+                        if (that.overlays_menu && that.overlays_menu.visible()) {
+                            that.overlays_menu.destroy();
+                            return;
+                        }
+                        let rect = cmenu._cmenu_elem.getBoundingClientRect();
+                        let overlays_cmenu = new ContextMenu();
+                        let memory_volume_overlay =
+                            that.overlay_manager.memory_volume_overlay;
+                        overlays_cmenu.addCheckableOption(
+                            'Memory volume analysis',
+                            memory_volume_overlay.active,
+                            (x, checked) => {
+                                if (checked)
+                                    memory_volume_overlay.enable();
+                                else
+                                    memory_volume_overlay.disable();
+                                that.draw_async();
+                            }
+                        );
+                        that.overlays_menu = overlays_cmenu;
+                        that.overlays_menu.show(rect.left, rect.top);
+                    }
+                );
                 that.menu = cmenu;
                 that.menu.show(rect.left, rect.bottom);
             };
@@ -1156,35 +1182,6 @@ class SDFGRenderer {
         };
         box_select_btn.title = 'Enter box select mode';
         this.toolbar.appendChild(box_select_btn);
-
-        // Enable the static memory overlay
-        let memory_volume_overlay_btn = document.createElement('button');
-        this.memory_volume_overlay_btn = memory_volume_overlay_btn;
-        memory_volume_overlay_btn.className = 'button';
-        memory_volume_overlay_btn.innerHTML =
-            '<i class="material-icons">sd_storage</i>';
-        memory_volume_overlay_btn.style = 'padding-bottom: 0px; user-select: none';
-        memory_volume_overlay_btn.onclick = () => {
-            if (this.overlay_manager.memory_volume_overlay.active)
-                this.overlay_manager.memory_volume_overlay.disable();
-            else
-                this.overlay_manager.memory_volume_overlay.enable();
-            if (this.overlay_manager.memory_volume_overlay.active) {
-                this.memory_volume_overlay_btn.innerHTML =
-                    '<i class="material-icons">done</i>';
-                this.memory_volume_overlay_btn.title =
-                    'Disable the static memory analysis overlay';
-            } else {
-                this.memory_volume_overlay_btn.innerHTML =
-                    '<i class="material-icons">sd_storage</i>';
-                this.memory_volume_overlay_btn.title =
-                    'Enable the static memory analysis overlay';
-            }
-            this.draw_async();
-        };
-        memory_volume_overlay_btn.title =
-            'Enable the static memory analysis overlay';
-        this.toolbar.appendChild(memory_volume_overlay_btn);
 
         // Exit previewing mode
         if (in_vscode) {
@@ -1475,14 +1472,14 @@ class SDFGRenderer {
             }
         }
 
-        this.overlay_manager.draw();
-
         this.on_post_draw();
     }
 
     on_pre_draw() { }
 
     on_post_draw() {
+        this.overlay_manager.draw();
+
         try {
             this.ctx.end();
         } catch (ex) { }
