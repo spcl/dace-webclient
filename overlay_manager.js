@@ -57,19 +57,30 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
         }
     }
 
-    parse_volume(volume_string, prompt_completion=false) {
-        let expression_tree = math.parse(volume_string);
-        let volume = undefined;
-        if (prompt_completion) {
-            expression_tree.forEach((node, path, parent) => {
-                if (node.type === 'SymbolNode') {
+    recursive_find_undefined_symbol(expression_tree) {
+        expression_tree.forEach((node, path, parent) => {
+            switch (node.type) {
+                case 'SymbolNode':
                     if (!this.symbol_value_map[node.name]) {
                         // This is an undefined symbol.
                         // Ask for it to be defined.
                         this.symbols_to_define.push(node.name);
                     }
-                }
-            });
+                    break;
+                case 'OperatorNode':
+                    this.recursive_find_undefined_symbol(node);
+                default:
+                    // Ignore
+                    break;
+            }
+        });
+    }
+
+    parse_volume(volume_string, prompt_completion=false) {
+        let expression_tree = math.parse(volume_string);
+        let volume = undefined;
+        if (prompt_completion) {
+            this.recursive_find_undefined_symbol(expression_tree);
             this.prompt_define_symbol();
         } else {
             try {
