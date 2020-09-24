@@ -991,16 +991,19 @@ class SDFGRenderer {
             '<i class="material-icons">open_with</i>';
         this.movemode_btn.title = 'Enter object moving mode';
         this.canvas.style.cursor = 'default';
+        this.interaction_info_box.style.display = 'none';
         this.interaction_info_text.innerHTML = '';
 
         switch (this.mouse_mode) {
             case 'move':
+                this.interaction_info_box.style.display = 'block';
                 this.movemode_btn.innerHTML =
                     '<i class="material-icons">done</i>';
                 this.movemode_btn.title = 'Exit object moving mode';
                 this.interaction_info_text.innerHTML = 'Middle Mouse: Pan view';
                 break;
             case 'select':
+                this.interaction_info_box.style.display = 'block';
                 this.selectmode_btn.innerHTML =
                     '<i class="material-icons">done</i>';
                 this.selectmode_btn.title = 'Exit box select mode';
@@ -1047,6 +1050,7 @@ class SDFGRenderer {
         this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
         this.interaction_info_box.style.borderRadius = '5px';
         this.interaction_info_box.style.padding = '.3rem';
+        this.interaction_info_box.style.display = 'none';
         this.interaction_info_text = document.createElement('span');
         this.interaction_info_text.style.color = '#eeeeee';
         this.interaction_info_text.innerHTML = '';
