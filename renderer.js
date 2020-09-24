@@ -234,7 +234,7 @@ class CanvasManager {
      * @param {*} state_parent_list List of parent elements to SDFG states
      */
     translate_element(el, old_mousepos, new_mousepos, entire_graph, sdfg_list,
-        state_parent_list) {
+        state_parent_list, drag_start) {
         this.stopAnimation();
 
         // Edges connected to the moving element
@@ -245,7 +245,7 @@ class CanvasManager {
         let parent_graph = sdfg_list[el.sdfg.sdfg_list_id];
         let parent_element = null;
 
-        if (entire_graph !== parent_graph && el.data.state) {
+        if (entire_graph !== parent_graph && (el.data.state || el.data.type == 'InterstateEdge')) {
             // If the parent graph and the entire SDFG shown are not the same,
             // we're currently in a nested SDFG. If we're also moving a state,
             // this means that its parent element is found in the list of
@@ -260,7 +260,7 @@ class CanvasManager {
                 parent_graph = parent_element.data.graph;
         }
 
-        if (parent_graph) {
+        if (parent_graph && !(el instanceof Edge)) {
             // Find all the edges connected to the moving node
             parent_graph.outEdges(el.id).forEach(edge_id => {
                 out_edges.push(parent_graph.edge(edge_id));
@@ -274,45 +274,73 @@ class CanvasManager {
         let dx = new_mousepos.x - old_mousepos.x;
         let dy = new_mousepos.y - old_mousepos.y;
 
+        // If edge, find closest point to drag start position
+        let pt = -1;
+        if (el instanceof Edge) {
+            // Find closest point to old mouse position
+            if (drag_start.edge_point === undefined) {
+                let dist = null;
+                el.points.forEach((p, i) => {
+                    // Only allow dragging if the memlet has more than two points
+                    if (i == 0 || i == el.points.length - 1)
+                        return;
+                    let ddx = p.x - drag_start.cx;
+                    let ddy = p.y - drag_start.cy;
+                    let curdist = ddx*ddx + ddy*ddy;
+                    if (dist === null || curdist < dist) {
+                        dist = curdist;
+                        pt = i;
+                    }
+                });
+                drag_start.edge_point = pt;
+            } else
+                pt = drag_start.edge_point;
+        }
+
         if (parent_element) {
             // Calculate the box to bind the element to. This is given by
             // the parent element, i.e. the element where out to-be-moved
             // element is contained within
             const parent_left_border =
                 (parent_element.x - (parent_element.width / 2));
-            const parent_rigth_border =
+            const parent_right_border =
                 parent_left_border + parent_element.width;
             const parent_top_border =
                 (parent_element.y - (parent_element.height / 2));
             const parent_bottom_border =
                 parent_top_border + parent_element.height;
 
-            const el_h_margin = el.height / 2;
-            const el_w_margin = el.width / 2;
+            let el_h_margin = el.height / 2;
+            let el_w_margin = el.width / 2;
+            if (el instanceof Edge) {
+                el_h_margin = el_w_margin = 0;
+            }
             const min_x = parent_left_border + el_w_margin;
             const min_y = parent_top_border + el_h_margin;
-            const max_x = parent_rigth_border - el_w_margin;
+            const max_x = parent_right_border - el_w_margin;
             const max_y = parent_bottom_border - el_h_margin;
 
             // Make sure we don't move our element outside its parent's
             // bounding box. If either the element or the mouse pointer are
             // outside the parent, we clamp movement in that direction
             if (el instanceof Edge) {
-                let target_x = el.points[1].x + dx;
-                let target_y = el.points[1].y + dy;
-                if (target_x <= min_x ||
-                    new_mousepos.x <= parent_left_border) {
-                    dx = min_x - el.points[1].x;
-                } else if (target_x >= max_x ||
-                    new_mousepos.x >= parent_rigth_border) {
-                    dx = max_x - el.points[1].x;
-                }
-                if (target_y <= min_y ||
-                    new_mousepos.y <= parent_top_border) {
-                    dy = min_y - el.points[1].y;
-                } else if (target_y >= max_y ||
-                    new_mousepos.y >= parent_bottom_border) {
-                    dy = max_y - el.points[1].y;
+                if (pt > 0) {
+                    let target_x = el.points[pt].x + dx;
+                    let target_y = el.points[pt].y + dy;
+                    if (target_x <= min_x ||
+                        new_mousepos.x <= parent_left_border) {
+                        dx = min_x - el.points[pt].x;
+                    } else if (target_x >= max_x ||
+                        new_mousepos.x >= parent_right_border) {
+                        dx = max_x - el.points[pt].x;
+                    }
+                    if (target_y <= min_y ||
+                        new_mousepos.y <= parent_top_border) {
+                        dy = min_y - el.points[pt].y;
+                    } else if (target_y >= max_y ||
+                        new_mousepos.y >= parent_bottom_border) {
+                        dy = max_y - el.points[pt].y;
+                    }
                 }
             } else {
                 let target_x = el.x + dx;
@@ -321,7 +349,7 @@ class CanvasManager {
                     new_mousepos.x <= parent_left_border) {
                     dx = min_x - el.x;
                 } else if (target_x >= max_x ||
-                    new_mousepos.x >= parent_rigth_border) {
+                    new_mousepos.x >= parent_right_border) {
                     dx = max_x - el.x;
                 }
                 if (target_y <= min_y ||
@@ -335,10 +363,13 @@ class CanvasManager {
         }
 
         if (el instanceof Edge) {
-            if (el.points[2]) {
-                // Only allow dragging, if the memlet is 'making a curve'
-                el.points[1].x += dx;
-                el.points[1].y += dy;
+            if (pt > 0) {
+                // Move point
+                el.points[pt].x += dx;
+                el.points[pt].y += dy;
+                
+                // Move edge bounding box
+                updateEdgeBoundingBox(el);
             }
             // The rest of the method doesn't apply to Edges
             return;
@@ -383,8 +414,19 @@ class CanvasManager {
                             point.x += dx;
                             point.y += dy;
                         });
+                        updateEdgeBoundingBox(edge);
                     });
                 }
+            });
+            ng.edges().forEach(edge_id => {
+                const edge = ng.edge(edge_id);
+                edge.x += dx;
+                edge.y += dy;
+                edge.points.forEach(point => {
+                    point.x += dx;
+                    point.y += dy;
+                });
+                updateEdgeBoundingBox(edge);
             });
         }
 
@@ -408,6 +450,7 @@ class CanvasManager {
                     point.x += dx;
                     point.y += dy;
                 });
+                updateEdgeBoundingBox(edge);
             });
         }
 
@@ -415,10 +458,12 @@ class CanvasManager {
         out_edges.forEach(edge => {
             edge.points[0].x += dx;
             edge.points[0].y += dy;
+            updateEdgeBoundingBox(edge);
         });
         in_edges.forEach(edge => {
             edge.points[edge.points.length - 1].x += dx;
             edge.points[edge.points.length - 1].y += dy;
+            updateEdgeBoundingBox(edge);
         });
     }
 
@@ -557,6 +602,14 @@ function calculateEdgeBoundingBox(edge) {
         bb.y -= 5;
     }
     return bb;
+}
+
+function updateEdgeBoundingBox(edge) {
+    let bb = calculateEdgeBoundingBox(edge);
+    edge.x = bb.x + bb.width/2;
+    edge.y = bb.y + bb.height/2;
+    edge.width = bb.width;
+    edge.height = bb.height;
 }
 
 function calculateNodeSize(sdfg_state, node, ctx) {
@@ -1782,10 +1835,13 @@ class SDFGRenderer {
                 if (this.mouse_mode == 'move') {
                     if (this.last_dragged_element) {
                         this.canvas.style.cursor = 'grabbing';
+                        this.drag_start.cx = comp_x_func(this.drag_start);
+                        this.drag_start.cy = comp_y_func(this.drag_start);
                         this.canvas_manager.translate_element(
                             this.last_dragged_element,
                             old_mousepos, this.mousepos,
-                            this.graph, this.sdfg_list, this.state_parent_list
+                            this.graph, this.sdfg_list, this.state_parent_list,
+                            this.drag_start
                         );
                         dirty = true;
                         this.draw_async();
@@ -1829,6 +1885,7 @@ class SDFGRenderer {
                 element_focus_changed = true;
             } else {
                 this.drag_start = null;
+                this.last_dragged_element = null;
                 if (event.buttons & 1 || event.buttons & 4)
                     return true; // Don't stop propagation
             }
