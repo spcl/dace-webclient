@@ -82,7 +82,6 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 volume = undefined;
             }
         }
-        console.log(volume_string + ' evaluated to ' + volume);
         return volume;
     }
 
