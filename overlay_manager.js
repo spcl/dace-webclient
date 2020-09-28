@@ -51,14 +51,17 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
         expression_tree.forEach((node, path, parent) => {
             switch (node.type) {
                 case 'SymbolNode':
-                    if (!this.symbol_value_map[node.name]) {
+                    if (!this.symbol_value_map[node.name] &&
+                        !this.symbols_to_define.includes(node.name)) {
                         // This is an undefined symbol.
                         // Ask for it to be defined.
                         this.symbols_to_define.push(node.name);
                     }
                     break;
                 case 'OperatorNode':
+                case 'ParenthesisNode':
                     this.recursive_find_undefined_symbol(node);
+                    break;
                 default:
                     // Ignore
                     break;
