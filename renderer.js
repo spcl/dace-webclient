@@ -1092,16 +1092,18 @@ class SDFGRenderer {
                         }
                         let rect = cmenu._cmenu_elem.getBoundingClientRect();
                         let overlays_cmenu = new ContextMenu();
-                        let memory_volume_overlay =
-                            that.overlay_manager.memory_volume_overlay;
                         overlays_cmenu.addCheckableOption(
                             'Memory volume analysis',
-                            memory_volume_overlay.active,
+                            that.overlay_manager.memory_volume_overlay_active,
                             (x, checked) => {
                                 if (checked)
-                                    memory_volume_overlay.enable();
+                                    that.overlay_manager.register_overlay(
+                                        GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
+                                    );
                                 else
-                                    memory_volume_overlay.disable();
+                                    that.overlay_manager.deregister_overlay(
+                                        GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
+                                    );
                                 that.draw_async();
                             }
                         );

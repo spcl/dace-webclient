@@ -1,16 +1,11 @@
 class GenericSdfgOverlay {
 
+    static OVERLAY_TYPE = {
+        MEMORY_VOLUME: 'OVERLAY_TYPE_MEMORY_VOLUME',
+    };
+
     constructor(renderer) {
         this.renderer = renderer;
-        this.active = false;
-    }
-
-    enable() {
-        this.active = true;
-    }
-
-    disable () {
-        this.active = false;
     }
 
     draw() {
@@ -23,6 +18,8 @@ class GenericSdfgOverlay {
 }
 
 class MemoryVolumeOverlay extends GenericSdfgOverlay {
+
+    static type = GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME;
 
     constructor(renderer) {
         super(renderer);
@@ -39,15 +36,6 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
         this.symbols_to_define = [];
 
         this.init_overlay_popup_dialogue();
-    }
-
-    disable() {
-        super.disable();
-
-        // Reset any modifications made during overlay activity.
-        this.symbol_value_map = {};
-        this.symbols_to_define = [];
-        this.highest_observed_volume = 0;
     }
 
     prompt_define_symbol() {
@@ -277,25 +265,48 @@ class OverlayManager {
     constructor (renderer) {
         this.renderer = renderer;
 
-        this.memory_volume_overlay = new MemoryVolumeOverlay(this.renderer);
+        this.memory_volume_overlay_active = false;
 
-        this.overlays = [
-            this.memory_volume_overlay,
-        ];
+        this.overlays = [];
+    }
+
+    register_overlay(type) {
+        switch (type) {
+            case GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME:
+                this.overlays.push(
+                    new MemoryVolumeOverlay(this.renderer)
+                );
+                this.memory_volume_overlay_active = true;
+                break;
+            default:
+                break;
+        }
+    }
+
+    deregister_overlay(type) {
+        this.overlays = this.overlays.filter(overlay => {
+            return overlay.type === type;
+        });
+
+        switch (type) {
+            case GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME:
+                this.memory_volume_overlay_active = false;
+                break;
+            default:
+                break;
+        }
     }
 
     draw() {
         this.overlays.forEach(overlay => {
-            if (overlay.active)
-                overlay.draw();
+            overlay.draw();
         });
     }
 
     on_mouse_event(type, ev, mousepos, elements, foreground_elem, ends_drag) {
         this.overlays.forEach(overlay => {
-            if (overlay.active)
-                overlay.on_mouse_event(type, ev, mousepos, elements,
-                    foreground_elem, ends_drag);
+            overlay.on_mouse_event(type, ev, mousepos, elements,
+                foreground_elem, ends_drag);
         });
     }
 
