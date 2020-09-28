@@ -1034,6 +1034,9 @@ class SDFGRenderer {
         // Selection related fields
         this.selected_elements = [];
 
+        // Overlay fields
+        this.overlay_manager = new OverlayManager(this);
+
         // Draw debug aids.
         this.debug_draw = debug_draw;
 
@@ -1067,16 +1070,19 @@ class SDFGRenderer {
             '<i class="material-icons">open_with</i>';
         this.movemode_btn.title = 'Enter object moving mode';
         this.canvas.style.cursor = 'default';
+        this.interaction_info_box.style.display = 'none';
         this.interaction_info_text.innerHTML = '';
 
         switch (this.mouse_mode) {
             case 'move':
+                this.interaction_info_box.style.display = 'block';
                 this.movemode_btn.innerHTML =
                     '<i class="material-icons">done</i>';
                 this.movemode_btn.title = 'Exit object moving mode';
                 this.interaction_info_text.innerHTML = 'Middle Mouse: Pan view';
                 break;
             case 'select':
+                this.interaction_info_box.style.display = 'block';
                 this.selectmode_btn.innerHTML =
                     '<i class="material-icons">done</i>';
                 this.selectmode_btn.title = 'Exit box select mode';
@@ -1123,8 +1129,12 @@ class SDFGRenderer {
         this.interaction_info_box.style.position = 'absolute';
         this.interaction_info_box.style.bottom = '.5rem',
         this.interaction_info_box.style.left = '.5rem',
+        this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        this.interaction_info_box.style.borderRadius = '5px';
         this.interaction_info_box.style.padding = '.3rem';
+        this.interaction_info_box.style.display = 'none';
         this.interaction_info_text = document.createElement('span');
+        this.interaction_info_text.style.color = '#eeeeee';
         this.interaction_info_text.innerHTML = '';
         this.interaction_info_box.appendChild(this.interaction_info_text);
         this.container.appendChild(this.interaction_info_box);
@@ -1155,6 +1165,34 @@ class SDFGRenderer {
                     cmenu.addOption("Save all as PDF", x => that.save_as_pdf(true));
                 }
                 cmenu.addCheckableOption("Inclusive ranges", that.inclusive_ranges, (x, checked) => { that.inclusive_ranges = checked; });
+                cmenu.addOption(
+                    'Overlays',
+                    () => {
+                        if (that.overlays_menu && that.overlays_menu.visible()) {
+                            that.overlays_menu.destroy();
+                            return;
+                        }
+                        let rect = cmenu._cmenu_elem.getBoundingClientRect();
+                        let overlays_cmenu = new ContextMenu();
+                        overlays_cmenu.addCheckableOption(
+                            'Memory volume analysis',
+                            that.overlay_manager.memory_volume_overlay_active,
+                            (x, checked) => {
+                                if (checked)
+                                    that.overlay_manager.register_overlay(
+                                        GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
+                                    );
+                                else
+                                    that.overlay_manager.deregister_overlay(
+                                        GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
+                                    );
+                                that.draw_async();
+                            }
+                        );
+                        that.overlays_menu = overlays_cmenu;
+                        that.overlays_menu.show(rect.left, rect.top);
+                    }
+                );
                 that.menu = cmenu;
                 that.menu.show(rect.left, rect.bottom);
             };
@@ -1527,6 +1565,8 @@ class SDFGRenderer {
     on_pre_draw() { }
 
     on_post_draw() {
+        this.overlay_manager.draw();
+
         try {
             this.ctx.end();
         } catch (ex) { }
@@ -1864,7 +1904,7 @@ class SDFGRenderer {
             if (this.drag_start && event.buttons & 1) {
                 this.dragging = true;
 
-                if (this.mouse_mode == 'move') {
+                if (this.mouse_mode === 'move') {
                     if (this.last_dragged_element) {
                         this.canvas.style.cursor = 'grabbing';
                         this.drag_start.cx = comp_x_func(this.drag_start);
@@ -1890,7 +1930,7 @@ class SDFGRenderer {
                         }
                         return true;
                     }
-                } else if (this.mouse_mode == 'select') {
+                } else if (this.mouse_mode === 'select') {
                     this.box_select_rect = {
                         x_start: comp_x_func(this.drag_start),
                         y_start: comp_y_func(this.drag_start),
@@ -2013,27 +2053,24 @@ class SDFGRenderer {
         this.tooltip = null;
         this.last_hovered_elements = elements;
 
-        // Hovered elements get colored green (if they are not already colored)
-        let highlighted = [];
+        // De-highlight all elements.
+        this.for_all_elements(this.mousepos.x, this.mousepos.y, 0, 0, (type, e, obj, intersected) => {
+            obj.hovered = false;
+            obj.highlighted = false;
+        });
+        // Mark hovered and highlighted elements.
         this.for_all_elements(this.mousepos.x, this.mousepos.y, 0, 0, (type, e, obj, intersected) => {
             if (intersected && obj instanceof Edge && obj.parent_id != null) {
                 let tree = memlet_tree(e.graph, obj);
                 tree.forEach(te => {
                     if (te != obj) {
-                        te.stroke_color = 'orange';
-                        highlighted.push(te);
+                        te.highlighted = true;
                     }
                 });
             }
 
-            if (intersected) {
-                obj.stroke_color = 'green';
-                highlighted.push(obj);
-            }
-        });
-        this.for_all_elements(this.mousepos.x, this.mousepos.y, 0, 0, (type, e, obj, intersected) => {
-            if (highlighted.indexOf(obj) == -1 && (obj.stroke_color === 'green' || obj.stroke_color === 'orange'))
-                obj.stroke_color = null;
+            if (intersected)
+                obj.hovered = true;
         });
 
         if (evtype === "mousemove") {
@@ -2100,14 +2137,14 @@ class SDFGRenderer {
                             if (this.selected_elements.includes(el)) {
                                 this.selected_elements =
                                     this.selected_elements.filter((val) => {
-                                        val.stroke_color = null;
+                                        val.selected = false;
                                         return val !== el;
                                     });
                             }
                         });
                     } else {
                         this.selected_elements.forEach((el) => {
-                            el.stroke_color = null;
+                            el.selected = false;
                         });
                         this.selected_elements = elements_in_selection;
                     }
@@ -2121,7 +2158,7 @@ class SDFGRenderer {
                         // Ctrl + click on an object, add it, or remove it from
                         // the selection if it was previously in it.
                         if (this.selected_elements.includes(foreground_elem)) {
-                            foreground_elem.stroke_color = null;
+                            foreground_elem.selected = false;
                             this.selected_elements =
                                 this.selected_elements.filter((el) => {
                                     return el !== foreground_elem;
@@ -2134,14 +2171,14 @@ class SDFGRenderer {
                     } else {
                         // Clicked an element, select it and nothing else.
                         this.selected_elements.forEach((el) => {
-                            el.stroke_color = null;
+                            el.selected = false;
                         });
                         this.selected_elements = [foreground_elem];
                     }
                 } else {
                     // Clicked nothing, clear the selection.
                     this.selected_elements.forEach((el) => {
-                        el.stroke_color = null;
+                        el.selected = false;
                     });
                     this.selected_elements = [];
                 }
@@ -2150,12 +2187,23 @@ class SDFGRenderer {
             }
         }
         this.selected_elements.forEach((el) => {
-            el.stroke_color = 'red';
+            el.selected = true;
         });
 
+        let mouse_x = comp_x_func(event);
+        let mouse_y = comp_y_func(event);
         if (this.external_mouse_handler)
-            dirty |= this.external_mouse_handler(evtype, event, { x: comp_x_func(event), y: comp_y_func(event) }, elements,
+            dirty |= this.external_mouse_handler(evtype, event, { x: mouse_x, y: mouse_y }, elements,
                 this, this.selected_elements, ends_drag);
+
+        dirty |= this.overlay_manager.on_mouse_event(
+            evtype,
+            event,
+            { x: mouse_x, y: mouse_y },
+            elements,
+            foreground_elem,
+            ends_drag
+        );
 
         if (dirty) {
             this.draw_async();
