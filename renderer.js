@@ -994,7 +994,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list) {
 
 class SDFGRenderer {
     constructor(sdfg, container, on_mouse_event = null, user_transform = null,
-                debug_draw = false) {
+                debug_draw = false, background = null) {
         // DIODE/SDFV-related fields
         this.sdfg = sdfg;
         this.sdfg_list = {};
@@ -1037,7 +1037,7 @@ class SDFGRenderer {
         // Draw debug aids.
         this.debug_draw = debug_draw;
 
-        this.init_elements(user_transform);
+        this.init_elements(user_transform, background);
     }
 
     destroy() {
@@ -1093,10 +1093,13 @@ class SDFGRenderer {
     }
 
     // Initializes the DOM
-    init_elements(user_transform) {
+    init_elements(user_transform, background) {
 
         this.canvas = document.createElement('canvas');
-        this.canvas.style.backgroundColor = 'inherit';
+        if (background)
+            this.canvas.style.backgroundColor = background;
+        else
+            this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
 
         if (this.debug_draw) {
@@ -1286,7 +1289,10 @@ class SDFGRenderer {
         observer.observe(this.container, { attributes: true });
 
         // Set inherited properties
-        this.bgcolor = window.getComputedStyle(this.canvas).backgroundColor;
+        if (background)
+            this.bgcolor = background;
+        else
+            this.bgcolor = window.getComputedStyle(this.canvas).backgroundColor;
 
         // Create the initial SDFG layout
         this.relayout();

@@ -772,7 +772,8 @@ class DIODE_Context_SDFG extends DIODE_Context {
             this.renderer_pane.set_sdfg(tmp.sdfg);
         else {
             let sdfv = new SDFGRenderer(tmp.sdfg, this.container.getElement()[0],
-                (et, e, c, el, r, fge) => this.on_renderer_mouse_event(et, e, c, el, r, fge));
+                (et, e, c, el, r, sle, ed) => this.on_renderer_mouse_event(et, e, c, el, r, sle, ed),
+                null, false, 'white');
             this.renderer_pane = sdfv;
         }
 
@@ -780,7 +781,7 @@ class DIODE_Context_SDFG extends DIODE_Context {
         this.render_free_variables(true);
     }
 
-    on_renderer_mouse_event(evtype, event, canvas_coords, elements, renderer, foreground_elem) {
+    on_renderer_mouse_event(evtype, event, canvas_coords, elements, renderer, selected_elements, ends_drag) {
         let state_only = false;
         let clicked_states = elements.states;
         let clicked_nodes = elements.nodes;
@@ -789,6 +790,12 @@ class DIODE_Context_SDFG extends DIODE_Context {
         let clicked_connectors = elements.connectors;
         let total_elements = clicked_states.length + clicked_nodes.length + clicked_edges.length +
             clicked_interstate_edges.length + clicked_connectors.length;
+        let foreground_elem = null;
+        if (selected_elements.length > 0)
+            foreground_elem = selected_elements[0];
+        else
+            total_elements = 0;
+
 
         // Clear context menu
         if (evtype === 'click' || evtype === 'doubleclick' || evtype === 'mousedown' || evtype === 'contextmenu' ||
@@ -946,7 +953,7 @@ class DIODE_Context_SDFG extends DIODE_Context {
                 if (e) e.stroke_color = null;
             });
         // Mark this element red
-        this.highlighted_elements = [foreground_elem];
+        this.highlighted_elements = selected_elements;
 
         // Render properties asynchronously
         setTimeout(() => {
@@ -3216,7 +3223,7 @@ class DIODE_Context_PropWindow extends DIODE_Context {
         free_symbol_table.setHeaders("Symbol", "Type", "Dimensions", "Controls");
 
         // Go over the undefined symbols first, then over the arrays (SDFG::arrays)
-        let all_symbols = [...data.attributes.symbols, "SwitchToArrays", ...Object.entries(data.attributes._arrays)];
+        let all_symbols = [...Object.keys(data.attributes.symbols), "SwitchToArrays", ...Object.entries(data.attributes._arrays)];
 
         let caller_id = calling_context;
         console.assert(caller_id != undefined && typeof (caller_id) == 'string');
