@@ -460,7 +460,7 @@ class DIODE_Context_SDFG extends DIODE_Context {
         if (msg.type == 'clear-highlights') {
             if (this.highlighted_elements)
                 this.highlighted_elements.forEach(e => {
-                    if (e) e.stroke_color = null;
+                    if (e) e.highlighted = false;
                 });
             this.highlighted_elements = [];
             this.renderer_pane.draw_async();
@@ -469,7 +469,7 @@ class DIODE_Context_SDFG extends DIODE_Context {
             // Clear previously highlighted elements
             if (this.highlighted_elements)
                 this.highlighted_elements.forEach(e => {
-                    if (e) e.stroke_color = null;
+                    if (e) e.highlighted = false;
                 });
             this.highlighted_elements = [];
 
@@ -500,7 +500,7 @@ class DIODE_Context_SDFG extends DIODE_Context {
                     this.highlighted_elements.push(elem);
             }
             this.highlighted_elements.forEach(e => {
-                if (e) e.stroke_color = "#D35400";
+                if (e) e.highlighted = true;
             });
             this.renderer_pane.draw_async();
         } else {
@@ -2947,7 +2947,11 @@ class DIODE_Project {
         this._closed_windows = this.getClosedWindowsList();
         this._closed_windows.push([componentName, state]);
 
-        sessionStorage.setItem(this._project_id + "-closed-window-list", JSON.stringify(this._closed_windows));
+        try {
+            sessionStorage.setItem(this._project_id + "-closed-window-list", JSON.stringify(this._closed_windows));
+        } catch (e) {
+            sessionStorage.clear();
+        }
     }
 
     getClosedWindowsList() {
@@ -3239,9 +3243,8 @@ class DIODE_Context_PropWindow extends DIODE_Context {
                 });
                 continue;
             }
-            if (x[0] == "null" || x[1] == null) {
+            if (x[0] == "null" || x[1] == null ||typeof x === 'string' || x instanceof String)
                 continue;
-            }
             let edit_but = document.createElement('button');
             edit_but.addEventListener('click', _x => {
                 this.renderDataSymbolProperties(caller_id, x);
@@ -4838,17 +4841,13 @@ class DIODE {
 
             let cont = document.createElement("div");
 
-            if (node.data === undefined)
-                return $(cont);
-
-
             let ranges = x.value.ranges;
             let popup_div = document.createElement('div');
 
             // Generate string from range
             let preview = '[';
             for (let range of ranges) {
-                preview += range.start + ':' + range.end;
+                preview += range.start + '..' + range.end;
                 if (range.step != 1) {
                     preview += ':' + range.step;
                     if (range.tile != 1)
@@ -5233,7 +5232,7 @@ class DIODE {
                 elem = FormBuilder.createTextInput("prop_" + x.name, (elem) => {
                     transthis.propertyChanged(node, x.name, JSON.parse(elem.value));
                 }, JSON.stringify(x.value));
-            } else if (x.value.type == "subsets.Indices") {
+            } else if (x.value.type == "subsets.Indices" || x.value.type == "Indices") {
                 elem = create_index_subset_input(transthis, x, node);
             } else {
                 elem = create_range_input(transthis, x, node);
