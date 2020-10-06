@@ -1189,6 +1189,21 @@ class SDFGRenderer {
                                 that.draw_async();
                             }
                         );
+                        overlays_cmenu.addCheckableOption(
+                            'Static FLOPS analysis',
+                            that.overlay_manager.static_flops_overlay_active,
+                            (x, checked) => {
+                                if (checked)
+                                    that.overlay_manager.register_overlay(
+                                        GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS
+                                    );
+                                else
+                                    that.overlay_manager.deregister_overlay(
+                                        GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS
+                                    );
+                                that.draw_async();
+                            }
+                        );
                         that.overlays_menu = overlays_cmenu;
                         that.overlays_menu.show(rect.left, rect.top);
                     }
