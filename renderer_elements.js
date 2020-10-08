@@ -26,6 +26,8 @@ class SDFGElement {
 
     draw(renderer, ctx, mousepos) {}
 
+    shade(renderer, ctx, color, alpha='0.6') {}
+
     debug_draw(renderer, ctx) {
         if (renderer.debug_draw) {
             // Print the center and bounding box in debug mode.
@@ -205,6 +207,22 @@ class State extends SDFGElement {
         */
     }
 
+    shade(renderer, ctx, color, alpha='0.6') {
+        // Save the current style properties.
+        let orig_fill_style = ctx.fillStyle;
+        let orig_alpha = ctx.globalAlpha;
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+
+        let topleft = this.topleft();
+        ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
+
+        // Restore the previous style properties.
+        ctx.fillStyle = orig_fill_style;
+        ctx.globalAlpha = orig_alpha;
+    }
+
     tooltip(container) {
         container.innerHTML = 'State: ' + this.label();
     }
@@ -242,6 +260,22 @@ class Node extends SDFGElement {
         ctx.fillStyle = "black";
     }
 
+    shade(renderer, ctx, color, alpha='0.6') {
+        // Save the current style properties.
+        let orig_fill_style = ctx.fillStyle;
+        let orig_alpha = ctx.globalAlpha;
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+
+        let topleft = this.topleft();
+        ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
+
+        // Restore the previous style properties.
+        ctx.fillStyle = orig_fill_style;
+        ctx.globalAlpha = orig_alpha;
+    }
+
     label() {
         return this.data.node.label;
     }
@@ -262,25 +296,28 @@ class Node extends SDFGElement {
 
 class Edge extends SDFGElement {
 
+    create_arrow_line(ctx) {
+        ctx.beginPath();
+        ctx.moveTo(this.points[0].x, this.points[0].y);
+        if (this.points.length === 2) {
+            // Straight line can be drawn
+            ctx.lineTo(this.points[1].x, this.points[1].y);
+        } else {
+            let i;
+            for (i = 1; i < this.points.length - 2; i++) {
+                let xm = (this.points[i].x + this.points[i + 1].x) / 2.0;
+                let ym = (this.points[i].y + this.points[i + 1].y) / 2.0;
+                ctx.quadraticCurveTo(this.points[i].x, this.points[i].y, xm, ym);
+            }
+            ctx.quadraticCurveTo(this.points[i].x, this.points[i].y,
+                this.points[i + 1].x, this.points[i + 1].y);
+        }
+    }
+
     draw(renderer, ctx, mousepos) {
         let edge = this;
 
-        ctx.beginPath();
-        ctx.moveTo(edge.points[0].x, edge.points[0].y);
-
-        if (edge.points.length == 2) {
-            // Straight line can be drawn
-            ctx.lineTo(edge.points[1].x, edge.points[1].y);
-        } else {
-            let i;
-            for (i = 1; i < edge.points.length - 2; i++) {
-                let xm = (edge.points[i].x + edge.points[i + 1].x) / 2.0;
-                let ym = (edge.points[i].y + edge.points[i + 1].y) / 2.0;
-                ctx.quadraticCurveTo(edge.points[i].x, edge.points[i].y, xm, ym);
-            }
-            ctx.quadraticCurveTo(edge.points[i].x, edge.points[i].y,
-                edge.points[i + 1].x, edge.points[i + 1].y);
-        }
+        this.create_arrow_line(ctx);
 
         let style = this.strokeStyle(renderer);
         if (this.hovered)
@@ -307,6 +344,37 @@ class Edge extends SDFGElement {
 
         ctx.fillStyle = "black";
         ctx.strokeStyle = "black";
+    }
+
+    shade(renderer, ctx, color, alpha='0.6') {
+        this.create_arrow_line(ctx);
+
+        // Save current style properties.
+        let orig_stroke_style = ctx.strokeStyle;
+        let orig_fill_style = ctx.fillStyle;
+        let orig_line_cap = ctx.lineCap;
+        let orig_line_width = ctx.lineWidth;
+        let orig_alpha = ctx.globalAlpha;
+
+        ctx.globalAlpha = alpha;
+        ctx.lineWidth = line_width + 1;
+        ctx.fillStyle = color;
+        ctx.strokeStyle = color;
+        ctx.lineCap = 'round';
+
+        ctx.stroke();
+
+        if (this.points.length < 2)
+            return;
+        drawArrow(ctx, this.points[this.points.length - 2],
+            this.points[this.points.length - 1], 3, 0, 2);
+
+        // Restore previous stroke style, width, and opacity.
+        ctx.strokeStyle = orig_stroke_style;
+        ctx.fillStyle = orig_fill_style;
+        ctx.lineCap = orig_line_cap;
+        ctx.lineWidth = orig_line_width;
+        ctx.globalAlpha = orig_alpha;
     }
 
     tooltip(container, renderer) {
@@ -473,6 +541,26 @@ class AccessNode extends Node {
         var textmetrics = ctx.measureText(this.label());
         ctx.fillText(this.label(), this.x - textmetrics.width / 2.0, this.y + LINEHEIGHT / 4.0);
     }
+
+    shade(renderer, ctx, color, alpha='0.6') {
+        // Save the current style properties.
+        let orig_fill_style = ctx.fillStyle;
+        let orig_alpha = ctx.globalAlpha;
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+
+        let topleft = this.topleft();
+        ctx.beginPath();
+        drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
+        ctx.closePath();
+        ctx.fill();
+
+        // Restore the previous style properties.
+        ctx.fillStyle = orig_fill_style;
+        ctx.globalAlpha = orig_alpha;
+    }
+
 }
 
 class ScopeNode extends Node {
@@ -505,6 +593,25 @@ class ScopeNode extends Node {
             this.close_label(renderer), this.x, this.y,
             this.width, this.height,
             SCOPE_LOD);
+    }
+
+    shade(renderer, ctx, color, alpha='0.6') {
+        // Save the current style properties.
+        let orig_fill_style = ctx.fillStyle;
+        let orig_alpha = ctx.globalAlpha;
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+
+        if (this.data.node.attributes.is_collapsed)
+            drawHexagon(ctx, this.x, this.y, this.width, this.height);
+        else
+            drawTrapezoid(ctx, this.topleft(), this, this.scopeend());
+        ctx.fill();
+
+        // Restore the previous style properties.
+        ctx.fillStyle = orig_fill_style;
+        ctx.globalAlpha = orig_alpha;
     }
 
     far_label() {
@@ -570,6 +677,11 @@ class EmptyTasklet extends Node {
     draw(renderer, ctx, mousepos) {
         // Do nothing
     }
+
+    shade(renderer, ctx, color, alpha='0.6') {
+        // Do nothing
+    }
+
 }
 
 class Tasklet extends Node {
@@ -623,6 +735,23 @@ class Tasklet extends Node {
         let textmetrics = ctx.measureText(this.label());
         ctx.fillText(this.label(), this.x - textmetrics.width / 2.0, this.y + LINEHEIGHT / 2.0);
     }
+
+    shade(renderer, ctx, color, alpha='0.6') {
+        // Save the current style properties.
+        let orig_fill_style = ctx.fillStyle;
+        let orig_alpha = ctx.globalAlpha;
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+
+        drawOctagon(ctx, this.topleft(), this.width, this.height);
+        ctx.fill();
+
+        // Restore the previous style properties.
+        ctx.fillStyle = orig_fill_style;
+        ctx.globalAlpha = orig_alpha;
+    }
+
 }
 
 class Reduce extends Node {
@@ -651,6 +780,29 @@ class Reduce extends Node {
             this.width, this.height,
             SCOPE_LOD);
     }
+
+    shade(renderer, ctx, color, alpha='0.6') {
+        // Save the current style properties.
+        let orig_fill_style = ctx.fillStyle;
+        let orig_alpha = ctx.globalAlpha;
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+
+        let topleft = this.topleft();
+        ctx.beginPath();
+        ctx.moveTo(topleft.x, topleft.y);
+        ctx.lineTo(topleft.x + this.width / 2, topleft.y + this.height);
+        ctx.lineTo(topleft.x + this.width, topleft.y);
+        ctx.lineTo(topleft.x, topleft.y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Restore the previous style properties.
+        ctx.fillStyle = orig_fill_style;
+        ctx.globalAlpha = orig_alpha;
+    }
+
 }
 
 class NestedSDFG extends Node {
@@ -679,6 +831,26 @@ class NestedSDFG extends Node {
 
         // Draw nested graph
         draw_sdfg(renderer, ctx, this.data.graph, mousepos);
+    }
+
+    shade(renderer, ctx, color, alpha='0.6') {
+        if (this.data.node.attributes.is_collapsed) {
+            // Save the current style properties.
+            let orig_fill_style = ctx.fillStyle;
+            let orig_alpha = ctx.globalAlpha;
+
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = color;
+
+            drawOctagon(ctx, this.topleft(), this.width, this.height);
+            ctx.fill();
+
+            // Restore the previous style properties.
+            ctx.fillStyle = orig_fill_style;
+            ctx.globalAlpha = orig_alpha;
+        } else {
+            super.shade(renderer, ctx, color, alpha);
+        }
     }
 
     set_layout() {
@@ -741,6 +913,23 @@ class LibraryNode extends Node {
         let textw = ctx.measureText(this.label()).width;
         ctx.fillText(this.label(), this.x - textw / 2, this.y + LINEHEIGHT / 4);
     }
+
+    shade(renderer, ctx, color, alpha='0.6') {
+        // Save the current style properties.
+        let orig_fill_style = ctx.fillStyle;
+        let orig_alpha = ctx.globalAlpha;
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+
+        this._path(ctx);
+        ctx.fill();
+
+        // Restore the previous style properties.
+        ctx.fillStyle = orig_fill_style;
+        ctx.globalAlpha = orig_alpha;
+    }
+
 }
 
 //////////////////////////////////////////////////////
