@@ -357,7 +357,7 @@ class Edge extends SDFGElement {
         let orig_alpha = ctx.globalAlpha;
 
         ctx.globalAlpha = alpha;
-        ctx.lineWidth = line_width + 1;
+        ctx.lineWidth = orig_line_width + 1;
         ctx.fillStyle = color;
         ctx.strokeStyle = color;
         ctx.lineCap = 'round';
