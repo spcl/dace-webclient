@@ -101,7 +101,7 @@ function find_graph_element_by_uuid(p_graph, uuid) {
     }
 
     let state = undefined;
-    if (state_id > -1 && graph !== undefined) {
+    if (state_id !== -1 && graph !== undefined) {
         state = graph.node(state_id);
         result = {
             parent: graph,
@@ -109,19 +109,19 @@ function find_graph_element_by_uuid(p_graph, uuid) {
         };
     }
 
-    if (node_id > -1 && state !== undefined) {
+    if (node_id !== -1 && state !== undefined) {
         // Look for a node in a state.
         result = {
             parent: state.data.graph,
             element: state.data.graph.node(node_id),
         };
-    } else if (edge_id > -1 && state !== undefined) {
+    } else if (edge_id !== -1 && state !== undefined) {
         // Look for an edge in a state.
         result = {
             parent: state.data.graph,
             element: state.data.graph.edge(edge_id),
         };
-    } else if (edge_id > -1 && state === undefined) {
+    } else if (edge_id !== -1 && state === undefined) {
         // Look for an inter-state edge.
         result = {
             parent: graph,
