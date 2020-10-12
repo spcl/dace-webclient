@@ -2093,6 +2093,29 @@ class SDFGRenderer {
                 });
             }
 
+            // Highlight all access nodes with the same name as the hovered connector in the nested sdfg
+            if (intersected && obj instanceof Connector) {
+                this.for_all_elements(0, 0, 0, 0, (type, e, sobj, intersected) => {
+                    if (sobj instanceof NestedSDFG && sobj.id == obj.parent_id) {
+                        let nested_graph = sobj.data.graph;
+                        
+                        nested_graph.nodes().forEach( state_id => {
+                            let state = nested_graph.node(state_id);
+                            if (state) {
+                                let s_graph = state.data.graph;
+                                
+                                s_graph.nodes().forEach( node_id => {
+                                    let node = s_graph.node(node_id);
+                                    if (node instanceof AccessNode && node.data.node.label == obj.label()) {
+                                        node.highlighted = true;
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
             if (intersected)
                 obj.hovered = true;
         });
