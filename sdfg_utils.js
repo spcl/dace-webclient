@@ -3,7 +3,7 @@
 /**
  * Return the string UUID for an SDFG graph element.
  *
- * UUIDs have the form of G\S\N\E, where:
+ * UUIDs have the form of "G/S/N/E", where:
  * G = Graph list id
  * S = State ID (-1 for (nested) SDFGs)
  * N = Node ID (-1 for States, SDFGs, and Edges)
