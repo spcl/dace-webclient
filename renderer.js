@@ -2083,10 +2083,21 @@ class SDFGRenderer {
                     }
                 });
             }
+            
+            // Highlight all access nodes with the same name in the same nested sdfg
+            if (intersected && obj instanceof AccessNode) {
+                this.for_all_elements(0, 0, 0, 0, (type, e, sobj, intersected) => {
+                    if (sobj instanceof AccessNode && sobj.data.node.label == obj.data.node.label && sobj.sdfg.sdfg_list_id == obj.sdfg.sdfg_list_id) {
+                        sobj.highlighted = true;
+                    }
+                });
+            }
 
             if (intersected)
                 obj.hovered = true;
         });
+
+
 
         if (evtype === "mousemove") {
             // TODO: Draw only if elements have changed
