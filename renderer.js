@@ -1017,7 +1017,9 @@ class SDFGRenderer {
         this.movemode_btn = null;
         this.selectmode_btn = null;
         
-
+        // Memlet-Tree related fields
+        this.recompute_memlet_trees = true; 
+        
         // View options
         this.inclusive_ranges = false;
 
@@ -1406,6 +1408,8 @@ class SDFGRenderer {
         this.graph = relayout_sdfg(this.ctx, this.sdfg, this.sdfg_list,
             this.state_parent_list);
         this.onresize();
+
+        this.recompute_memlet_trees = true;
 
         return this.graph;
     }
@@ -2075,8 +2079,10 @@ class SDFGRenderer {
         });
         // Mark hovered and highlighted elements.
         this.for_all_elements(this.mousepos.x, this.mousepos.y, 0, 0, (type, e, obj, intersected) => {
+            // Highligh all edges of the memlet tree
             if (intersected && obj instanceof Edge && obj.parent_id != null) {
-                let tree = memlet_tree(e.graph, obj);
+                let tree = memlet_tree_complete(this.graph, obj, this.recompute_memlet_trees);
+                this.recompute_memlet_trees = false;
                 tree.forEach(te => {
                     if (te != obj) {
                         te.highlighted = true;

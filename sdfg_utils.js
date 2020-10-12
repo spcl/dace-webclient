@@ -196,18 +196,26 @@ function traverse_sdfg_scopes(sdfg, func, post_subscope_func=null) {
     scopes_recursive(sdfg, sdfg.nodes());
 }
 
+// contains already visited edges to speed up computation of memlet trees
+var memlet_tree_edges_visited = [];
+
 /**
- * Returns a partial memlet tree from a given edge, from the root node 
+ * Returns a partial memlet tree from a given edge, from the given node 
  * through all children (without siblings). Calling this function with
  * the root edge returns the entire memlet tree.
  **/
-function memlet_tree(graph, edge, root_only = false) {
+function memlet_tree(graph, edge) {
+    if (memlet_tree_edges_visited.includes(edge)) {
+        return [];
+    }
+
+    memlet_tree_edges_visited.push(edge);
+
     let result = [];
     let graph_edges = {};
     graph.edges().forEach(e => {
        graph_edges[e.name] = e;
     });
-
 
     function src(e) {
         let ge = graph_edges[e.id];
@@ -222,10 +230,12 @@ function memlet_tree(graph, edge, root_only = false) {
     let propagate_forward = false, propagate_backward = false;
     if ((edge.src_connector && src(edge) instanceof EntryNode) ||
         (edge.dst_connector && dst(edge) instanceof EntryNode && 
-         edge.dst_connector.startsWith('IN_')))
+         edge.dst_connector.startsWith('IN_')) ||
+         dst(edge) instanceof NestedSDFG)
         propagate_forward = true;
     if ((edge.src_connector && src(edge) instanceof ExitNode) || 
-        (edge.dst_connector && dst(edge) instanceof ExitNode))
+        (edge.dst_connector && dst(edge) instanceof ExitNode) ||
+         src(edge) instanceof NestedSDFG)
         propagate_backward = true;
 
     result.push(edge);
@@ -235,51 +245,33 @@ function memlet_tree(graph, edge, root_only = false) {
     if (propagate_forward == propagate_backward)
         return result;
 
-    // Ascend (find tree root) while prepending
-    let curedge = edge;
-    if (propagate_forward) {
-        let source = src(curedge);
-        while(source instanceof EntryNode && curedge && curedge.src_connector) {
-            if (source.attributes().is_collapsed)
-                break;
-
-            let cname = curedge.src_connector.substring(4);  // Remove OUT_
-            curedge = null;
-            graph.inEdges(source.id).forEach(e => {
-                let ge = graph.edge(e);
-                if (ge.dst_connector == 'IN_' + cname)
-                    curedge = ge;
-            });
-            if (curedge) {
-                result.unshift(curedge);
-                source = src(curedge);
-            }
-        }
-    } else if (propagate_backward) {
-        let dest = dst(curedge);
-        while(dest instanceof ExitNode && curedge && curedge.dst_connector) {
-            let cname = curedge.dst_connector.substring(3);  // Remove IN_
-            curedge = null;
-            graph.outEdges(dest.id).forEach(e => {
-                let ge = graph.edge(e);
-                if (ge.src_connector == 'OUT_' + cname)
-                    curedge = ge;
-            });
-            if (curedge) {
-                result.unshift(curedge);
-                dest = dst(curedge);
-            }
-        }
-    }
-
-    if (root_only)
-        return [result[0]];
-
     // Descend recursively
     function add_children(edge) {
         let children = [];
         if (propagate_forward) {
             let next_node = dst(edge);
+
+            // Descend into nested SDFG
+            if (next_node instanceof NestedSDFG) {
+                let nested_graph = next_node.data.graph;
+                let name = edge.dst_connector;
+                
+                nested_graph.nodes().forEach( state_id => {
+                    let state = nested_graph.node(state_id);
+                    if (!state) return;
+
+                    let s_graph = state.data.graph;
+                    if (!s_graph) return;
+
+                    s_graph.edges().forEach( e => {
+                        let node = s_graph.node(e.v); // source
+                        if (node instanceof AccessNode && node.data.node.attributes.data == name) {
+                            result = result.concat(memlet_tree(s_graph, s_graph.edge(e)));
+                        }
+                    });
+                });
+            }
+
             if (!(next_node instanceof EntryNode) ||
                     !edge.dst_connector || !edge.dst_connector.startsWith('IN_'))
                 return;
@@ -295,8 +287,31 @@ function memlet_tree(graph, edge, root_only = false) {
             });
         } else if (propagate_backward) {
             let next_node = src(edge);
+            
+            // Descend into nested SDFG
+            if (next_node instanceof NestedSDFG) {
+                let nested_graph = next_node.data.graph;
+                let name = edge.src_connector;
+                
+                nested_graph.nodes().forEach( state_id => {
+                    let state = nested_graph.node(state_id);
+                    if (!state) return;
+                    
+                    let s_graph = state.data.graph;
+                    if (!s_graph) return;
+                    
+                    s_graph.edges().forEach( e => {
+                        let node = s_graph.node(e.w); // destination
+                        if (node instanceof AccessNode && node.data.node.attributes.data == name) {
+                            result = result.concat(memlet_tree(s_graph, s_graph.edge(e)));
+                        }
+                    });
+                });
+            }
+
             if (!(next_node instanceof ExitNode) || !edge.src_connector)
                 return;
+
             let conn = edge.src_connector.substring(4);
             graph.inEdges(next_node.id).forEach(e => {
                 let ge = graph.edge(e);
@@ -315,4 +330,85 @@ function memlet_tree(graph, edge, root_only = false) {
     add_children(edge);
 
     return result;
+}
+
+/**
+ * Calls memlet_tree for every nested sdfg and its edges and returns a list with all memlet trees.
+ */
+function memlet_tree_recursive(root_graph) {
+    let trees = [];
+
+    root_graph.nodes().forEach( state_id => {
+        let state = root_graph.node(state_id);
+        if (state == null) return;
+
+        let graph = state.data.graph;
+        if (graph == null) return trees;
+    
+        graph.edges().forEach( e => {
+            let tree = memlet_tree(graph, graph.edge(e));
+            if (tree.length > 1) {
+                trees.push(tree);
+            }
+        });
+    
+        graph.nodes().forEach( n => {
+            let node = graph.node(n);
+            if (node instanceof NestedSDFG) {
+                if (graph != null) {
+                    let t = memlet_tree_recursive(node.data.graph);
+                    trees = trees.concat(t);
+                }
+            }
+        });
+    
+    })
+
+    return trees;
+}
+
+// Contains all the memlet trees after memlet_tree_complete has been called. They don't need to be recomputed.
+var all_memlet_trees = null;
+
+/**
+ * Returns the memlet tree for the given edge.
+ * 
+ * @param {Graph} root_graph The top level graph.
+ * @param {Edge} edge The edge that must be contained in the memlet tree.
+ * @param {boolean} recompute_trees If set to true, then the memlets trees are recomputed. (Needed when the graph has changed...)
+ */
+function memlet_tree_complete(root_graph, edge, recompute_trees = false) {
+    if (all_memlet_trees == null || recompute_trees) {
+        memlet_tree_edges_visited = [];
+        all_memlet_trees = [];
+
+        let memlet_trees = memlet_tree_recursive(root_graph);
+
+        // combine trees as memlet_tree_recursive does not necessarily return the complete trees (they might be splitted into several trees)
+        memlet_trees.forEach( tree => {
+            common_edge = false;
+            for (mt of all_memlet_trees) {
+                for (edge of tree) {
+                    if (mt.has(edge)) {
+                        mt.add(...tree);
+                        common_edge = true;
+                        break;
+                    }
+                }
+                if (common_edge)
+                    break;
+            }
+            if (!common_edge)
+                all_memlet_trees.push(new Set(tree));
+        })
+
+    }
+
+    for (tree of all_memlet_trees) {
+        if (tree.has(edge)) {
+            return tree;
+        }
+    }
+
+    return [];
 }
