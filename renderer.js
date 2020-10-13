@@ -1018,7 +1018,7 @@ class SDFGRenderer {
         this.selectmode_btn = null;
         
         // Memlet-Tree related fields
-        this.recompute_memlet_trees = true; 
+        this.all_memlet_trees = [];
         
         // View options
         this.inclusive_ranges = false;
@@ -1409,7 +1409,7 @@ class SDFGRenderer {
             this.state_parent_list);
         this.onresize();
 
-        this.recompute_memlet_trees = true;
+        this.all_memlet_trees = memlet_tree_complete(this.graph);
 
         return this.graph;
     }
@@ -1859,6 +1859,13 @@ class SDFGRenderer {
         traverse_recursive(this.graph, this.sdfg.attributes.name);
     }
 
+    get_nested_memlet_tree(edge) {
+        for (const tree of this.all_memlet_trees)
+            if (tree.has(edge))
+                return tree;
+        return [];
+    }
+
     find_elements_under_cursor(mouse_pos_x, mouse_pos_y) {
         // Find all elements under the cursor.
         const elements = this.elements_in_rect(mouse_pos_x, mouse_pos_y, 0, 0);
@@ -2081,8 +2088,7 @@ class SDFGRenderer {
         this.for_all_elements(this.mousepos.x, this.mousepos.y, 0, 0, (type, e, obj, intersected) => {
             // Highligh all edges of the memlet tree
             if (intersected && obj instanceof Edge && obj.parent_id != null) {
-                let tree = memlet_tree_complete(this.graph, obj, this.recompute_memlet_trees);
-                this.recompute_memlet_trees = false;
+                let tree = this.get_nested_memlet_tree(obj);
                 tree.forEach(te => {
                     if (te != obj) {
                         te.highlighted = true;
