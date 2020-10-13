@@ -2092,34 +2092,35 @@ class SDFGRenderer {
             
             // Highlight all access nodes with the same name in the same nested sdfg
             if (intersected && obj instanceof AccessNode) {
-                this.for_all_elements(0, 0, 0, 0, (type, e, sobj, intersected) => {
-                    if (sobj instanceof AccessNode && sobj.data.node.label == obj.data.node.label && sobj.sdfg.sdfg_list_id == obj.sdfg.sdfg_list_id) {
-                        sobj.highlighted = true;
+                traverse_sdfg_scopes(this.sdfg_list[obj.sdfg.sdfg_list_id], (node) => {
+                    // If node is a state, then visit sub-scope
+                    if (node instanceof State) {
+                        return true;
                     }
+                    if (node instanceof AccessNode && node.data.node.label === obj.data.node.label) {
+                        node.highlighted = true;
+                    }
+                    // No need to visit sub-scope
+                    return false;
                 });
             }
 
             // Highlight all access nodes with the same name as the hovered connector in the nested sdfg
             if (intersected && obj instanceof Connector) {
-                this.for_all_elements(0, 0, 0, 0, (type, e, sobj, intersected) => {
-                    if (sobj instanceof NestedSDFG && sobj.id == obj.parent_id) {
-                        let nested_graph = sobj.data.graph;
-                        
-                        nested_graph.nodes().forEach( state_id => {
-                            let state = nested_graph.node(state_id);
-                            if (state) {
-                                let s_graph = state.data.graph;
-                                
-                                s_graph.nodes().forEach( node_id => {
-                                    let node = s_graph.node(node_id);
-                                    if (node instanceof AccessNode && node.data.node.label == obj.label()) {
-                                        node.highlighted = true;
-                                    }
-                                });
-                            }
-                        });
-                    }
-                });
+                let nested_graph = e.graph.node(obj.parent_id).data.graph;
+                if (nested_graph) {
+                    traverse_sdfg_scopes(nested_graph, (node) => {
+                        // If node is a state, then visit sub-scope
+                        if (node instanceof State) {
+                            return true;
+                        }
+                        if (node instanceof AccessNode && node.data.node.label === obj.label()) {
+                            node.highlighted = true;
+                        }
+                        // No need to visit sub-scope
+                        return false;
+                    });
+                }
             }
 
             if (intersected)
