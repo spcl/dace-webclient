@@ -2086,7 +2086,7 @@ class SDFGRenderer {
         });
         // Mark hovered and highlighted elements.
         this.for_all_elements(this.mousepos.x, this.mousepos.y, 0, 0, (type, e, obj, intersected) => {
-            // Highligh all edges of the memlet tree
+            // Highlight all edges of the memlet tree
             if (intersected && obj instanceof Edge && obj.parent_id != null) {
                 let tree = this.get_nested_memlet_tree(obj);
                 tree.forEach(te => {
