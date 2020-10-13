@@ -1,5 +1,137 @@
 // Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
 
+/**
+ * Return the string UUID for an SDFG graph element.
+ *
+ * UUIDs have the form of "G/S/N/E", where:
+ * G = Graph list id
+ * S = State ID (-1 for (nested) SDFGs)
+ * N = Node ID (-1 for States, SDFGs, and Edges)
+ * E = Edge ID (-1 for States, SDFGs, and Nodes)
+ *
+ * @param {*} element   Element to generate the UUID for.
+ *
+ * @returns             String containing the UUID
+ */
+function get_uuid_graph_element(element) {
+    let undefined_val = -1;
+    if (element instanceof State) {
+        return (
+            element.sdfg.sdfg_list_id + '/' +
+            element.id + '/' +
+            undefined_val + '/' +
+            undefined_val
+        );
+    } else if (element instanceof NestedSDFG) {
+        let sdfg_id = element.data.node.attributes.sdfg.sdfg_list_id;
+        return (
+            sdfg_id + '/' +
+            undefined_val + '/' +
+            undefined_val + '/' +
+            undefined_val
+        );
+    } else if (element instanceof Node) {
+        return (
+            element.sdfg.sdfg_list_id + '/' +
+            element.parent_id + '/' +
+            element.id + '/' +
+            undefined_val
+        );
+    }
+    return (
+        undefined_val + '/' +
+        undefined_val + '/' +
+        undefined_val + '/' +
+        undefined_val
+    );
+}
+
+function recursively_find_graph(graph, graph_id, ns_node=undefined) {
+    if (graph.node(0).sdfg.sdfg_list_id === graph_id) {
+        return {
+            graph: graph,
+            node: ns_node,
+        };
+    } else {
+        let result = {
+            graph: undefined,
+            node: undefined,
+        };
+        graph.nodes().forEach((state_id) => {
+            const state = graph.node(state_id);
+            state.data.graph.nodes().forEach((node_id) => {
+                const node = state.data.graph.node(node_id);
+                if (node instanceof NestedSDFG) {
+                    const search_graph = recursively_find_graph(
+                        node.data.graph, graph_id, node
+                    );
+                    if (search_graph.graph !== undefined) {
+                        result = search_graph;
+                        return result;
+                    }
+                }
+            });
+            return result;
+        });
+        return result;
+    }
+}
+
+function find_graph_element_by_uuid(p_graph, uuid) {
+    const uuid_split = uuid.split('/');
+
+    const graph_id = Number(uuid_split[0]);
+    const state_id = Number(uuid_split[1]);
+    const node_id = Number(uuid_split[2]);
+    const edge_id = Number(uuid_split[3]);
+
+    let result = {
+        parent: undefined,
+        element: undefined,
+    };
+
+    let graph = p_graph;
+    if (graph_id > 0) {
+        const found_graph = recursively_find_graph(graph, graph_id);
+        graph = found_graph.graph;
+        result = {
+            parent: graph,
+            element: found_graph.node,
+        };
+    }
+
+    let state = undefined;
+    if (state_id !== -1 && graph !== undefined) {
+        state = graph.node(state_id);
+        result = {
+            parent: graph,
+            element: state,
+        };
+    }
+
+    if (node_id !== -1 && state !== undefined) {
+        // Look for a node in a state.
+        result = {
+            parent: state.data.graph,
+            element: state.data.graph.node(node_id),
+        };
+    } else if (edge_id !== -1 && state !== undefined) {
+        // Look for an edge in a state.
+        result = {
+            parent: state.data.graph,
+            element: state.data.graph.edge(edge_id),
+        };
+    } else if (edge_id !== -1 && state === undefined) {
+        // Look for an inter-state edge.
+        result = {
+            parent: graph,
+            element: graph.edge(edge_id),
+        };
+    }
+
+    return result;
+}
+
 function find_exit_for_entry(nodes, entry_node) {
     for(let n of nodes) {
         if(n.type.endsWith("Exit") && parseInt(n.scope_entry) == entry_node.id) {
