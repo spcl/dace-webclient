@@ -673,17 +673,6 @@ class ConsumeExit extends ExitNode { stroketype(ctx) { ctx.setLineDash([5, 3]); 
 class PipelineEntry extends EntryNode { stroketype(ctx) { ctx.setLineDash([10, 3]); } }
 class PipelineExit extends ExitNode { stroketype(ctx) { ctx.setLineDash([10, 3]); } }
 
-class EmptyTasklet extends Node {
-    draw(renderer, ctx, mousepos) {
-        // Do nothing
-    }
-
-    shade(renderer, ctx, color, alpha='0.6') {
-        // Do nothing
-    }
-
-}
-
 class Tasklet extends Node {
     draw(renderer, ctx, mousepos) {
         let topleft = this.topleft();
@@ -1201,7 +1190,7 @@ function getTempColor(val){
 var SDFGElements = {
     SDFGElement: SDFGElement, SDFG: SDFG, State: State, Node: Node, Edge: Edge, Connector: Connector, AccessNode: AccessNode,
     ScopeNode: ScopeNode, EntryNode: EntryNode, ExitNode: ExitNode, MapEntry: MapEntry, MapExit: MapExit,
-    ConsumeEntry: ConsumeEntry, ConsumeExit: ConsumeExit, EmptyTasklet: EmptyTasklet, Tasklet: Tasklet, Reduce: Reduce,
+    ConsumeEntry: ConsumeEntry, ConsumeExit: ConsumeExit, Tasklet: Tasklet, Reduce: Reduce,
     PipelineEntry: PipelineEntry, PipelineExit: PipelineExit, NestedSDFG: NestedSDFG, LibraryNode: LibraryNode
 };
 

@@ -344,21 +344,15 @@ class DrawNodeState {
 
         if (node.type == "AccessNode") {
             this.drawArrayNode(node, nodeid, hovered)
-        }
-        else if (node.type.endsWith("Entry")) {
+        } else if (node.type.endsWith("Entry")) {
             this.drawEntryNode(node, nodeid, hovered)
-        }
-        else if (node.type.endsWith("Exit")) {
+        } else if (node.type.endsWith("Exit")) {
             this.drawExitNode(node, nodeid, hovered)
-        }
-        else if (node.type == "Tasklet") {
+        } else if (node.type == "Tasklet") {
             this.drawTaskletNode(node, nodeid, hovered)
-        } else if (node.type == "EmptyTasklet") {
-            // Do nothing
         } else if (node.type == "Reduce") {
             this.drawReduceNode(node, nodeid, hovered)
-        }
-        else {
+        } else {
             let ctx = this.ctx;
             var topleft_x = node.x - node.width / 2.0;
             var topleft_y = node.y - node.height / 2.0;
