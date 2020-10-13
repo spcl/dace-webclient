@@ -1017,7 +1017,9 @@ class SDFGRenderer {
         this.movemode_btn = null;
         this.selectmode_btn = null;
         
-
+        // Memlet-Tree related fields
+        this.all_memlet_trees = [];
+        
         // View options
         this.inclusive_ranges = false;
 
@@ -1406,6 +1408,8 @@ class SDFGRenderer {
         this.graph = relayout_sdfg(this.ctx, this.sdfg, this.sdfg_list,
             this.state_parent_list);
         this.onresize();
+
+        this.all_memlet_trees = memlet_tree_complete(this.graph);
 
         return this.graph;
     }
@@ -1855,6 +1859,13 @@ class SDFGRenderer {
         traverse_recursive(this.graph, this.sdfg.attributes.name);
     }
 
+    get_nested_memlet_tree(edge) {
+        for (const tree of this.all_memlet_trees)
+            if (tree.has(edge))
+                return tree;
+        return [];
+    }
+
     find_elements_under_cursor(mouse_pos_x, mouse_pos_y) {
         // Find all elements under the cursor.
         const elements = this.elements_in_rect(mouse_pos_x, mouse_pos_y, 0, 0);
@@ -2075,18 +2086,54 @@ class SDFGRenderer {
         });
         // Mark hovered and highlighted elements.
         this.for_all_elements(this.mousepos.x, this.mousepos.y, 0, 0, (type, e, obj, intersected) => {
+            // Highlight all edges of the memlet tree
             if (intersected && obj instanceof Edge && obj.parent_id != null) {
-                let tree = memlet_tree(e.graph, obj);
+                let tree = this.get_nested_memlet_tree(obj);
                 tree.forEach(te => {
                     if (te != obj) {
                         te.highlighted = true;
                     }
                 });
             }
+            
+            // Highlight all access nodes with the same name in the same nested sdfg
+            if (intersected && obj instanceof AccessNode) {
+                traverse_sdfg_scopes(this.sdfg_list[obj.sdfg.sdfg_list_id], (node) => {
+                    // If node is a state, then visit sub-scope
+                    if (node instanceof State) {
+                        return true;
+                    }
+                    if (node instanceof AccessNode && node.data.node.label === obj.data.node.label) {
+                        node.highlighted = true;
+                    }
+                    // No need to visit sub-scope
+                    return false;
+                });
+            }
+
+            // Highlight all access nodes with the same name as the hovered connector in the nested sdfg
+            if (intersected && obj instanceof Connector) {
+                let nested_graph = e.graph.node(obj.parent_id).data.graph;
+                if (nested_graph) {
+                    traverse_sdfg_scopes(nested_graph, (node) => {
+                        // If node is a state, then visit sub-scope
+                        if (node instanceof State) {
+                            return true;
+                        }
+                        if (node instanceof AccessNode && node.data.node.label === obj.label()) {
+                            node.highlighted = true;
+                        }
+                        // No need to visit sub-scope
+                        return false;
+                    });
+                }
+            }
 
             if (intersected)
                 obj.hovered = true;
         });
+
+
 
         if (evtype === "mousemove") {
             // TODO: Draw only if elements have changed
