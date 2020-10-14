@@ -812,6 +812,12 @@ class OverlayManager {
         });
     }
 
+    refresh() {
+        this.overlays.forEach(overlay => {
+            overlay.refresh();
+        });
+    }
+
     on_mouse_event(type, ev, mousepos, elements, foreground_elem, ends_drag) {
         this.overlays.forEach(overlay => {
             overlay.on_mouse_event(type, ev, mousepos, elements,

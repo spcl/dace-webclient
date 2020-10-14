@@ -1412,6 +1412,9 @@ class SDFGRenderer {
 
         this.all_memlet_trees = memlet_tree_complete(this.graph);
 
+        // Make sure all visible overlays get recalculated if there are any.
+        this.overlay_manager.refresh();
+
         return this.graph;
     }
 
