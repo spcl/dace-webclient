@@ -227,7 +227,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
 
         if (vscode) {
             vscode.postMessage({
-                type: 'getFlops',
+                type: 'dace.get_flops',
             });
         }
     }

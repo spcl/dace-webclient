@@ -1296,7 +1296,7 @@ class SDFGRenderer {
                 exit_preview_btn.className = 'button hidden';
                 if (vscode)
                     vscode.postMessage({
-                        type: 'getCurrentSdfg',
+                        type: 'sdfv.get_current_sdfg',
                     });
             };
             exit_preview_btn.title = 'Exit preview';
@@ -2305,7 +2305,7 @@ class SDFGRenderer {
                     }
 
                     vscode.postMessage({
-                        type: 'sortTransformations',
+                        type: 'sdfv.sort_transformations',
                         visibleElements: JSON.stringify(this.visible_elements()),
                         selectedElements: JSON.stringify(
                             clean_selected(this.selected_elements)
