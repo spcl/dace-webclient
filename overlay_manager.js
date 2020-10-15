@@ -367,7 +367,11 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
                 this.badness_scale_center = math.mean(flops_values);
                 break;
             case 'mode':
-                this.badness_scale_center = math.mode(flops_values);
+                let mode = math.mode(flops_values);
+                if (Array.isArray(mode))
+                    this.badness_scale_center = mode[0];
+                else
+                    this.badness_scale_center = mode;
                 break;
             case 'median':
             default:
@@ -624,7 +628,11 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 this.badness_scale_center = math.mean(volume_values);
                 break;
             case 'mode':
-                this.badness_scale_center = math.mode(volume_values);
+                let mode = math.mode(volume_values);
+                if (Array.isArray(mode))
+                    this.badness_scale_center = mode[0];
+                else
+                    this.badness_scale_center = mode;
                 break;
             case 'median':
             default:
