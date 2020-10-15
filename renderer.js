@@ -1187,21 +1187,26 @@ class SDFGRenderer {
                                 that.draw_async();
                             }
                         );
-                        overlays_cmenu.addCheckableOption(
-                            'Static FLOPS analysis',
-                            that.overlay_manager.static_flops_overlay_active,
-                            (x, checked) => {
-                                if (checked)
-                                    that.overlay_manager.register_overlay(
-                                        GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS
-                                    );
-                                else
-                                    that.overlay_manager.deregister_overlay(
-                                        GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS
-                                    );
-                                that.draw_async();
-                            }
-                        );
+                        if (vscode) {
+                            // This is only possible in the context of the
+                            // VSCode extension, since it requires interaction
+                            // with the backend (at this point).
+                            overlays_cmenu.addCheckableOption(
+                                'Static FLOPS analysis',
+                                that.overlay_manager.static_flops_overlay_active,
+                                (x, checked) => {
+                                    if (checked)
+                                        that.overlay_manager.register_overlay(
+                                            GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS
+                                        );
+                                    else
+                                        that.overlay_manager.deregister_overlay(
+                                            GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS
+                                        );
+                                    that.draw_async();
+                                }
+                            );
+                        }
                         that.overlays_menu = overlays_cmenu;
                         that.overlays_menu.show(rect.left, rect.top);
                     }
@@ -1291,7 +1296,7 @@ class SDFGRenderer {
                 exit_preview_btn.className = 'button hidden';
                 if (vscode)
                     vscode.postMessage({
-                        type: 'getCurrentSdfg',
+                        type: 'sdfv.get_current_sdfg',
                     });
             };
             exit_preview_btn.title = 'Exit preview';
@@ -1406,6 +1411,9 @@ class SDFGRenderer {
         this.onresize();
 
         this.all_memlet_trees = memlet_tree_complete(this.graph);
+
+        // Make sure all visible overlays get recalculated if there are any.
+        this.overlay_manager.refresh();
 
         return this.graph;
     }
@@ -2297,7 +2305,7 @@ class SDFGRenderer {
                     }
 
                     vscode.postMessage({
-                        type: 'sortTransformations',
+                        type: 'sdfv.sort_transformations',
                         visibleElements: JSON.stringify(this.visible_elements()),
                         selectedElements: JSON.stringify(
                             clean_selected(this.selected_elements)
