@@ -65,7 +65,7 @@ class SymbolResolver {
                 () => {
                     if (vscode)
                         vscode.postMessage({
-                            type: 'symbol_resolver.define_symbol',
+                            type: 'analysis.define_symbol',
                             symbol: symbol,
                             definition: mapping[symbol],
                         });
