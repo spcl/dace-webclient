@@ -367,7 +367,7 @@ class CanvasManager {
                 // Move point
                 el.points[pt].x += dx;
                 el.points[pt].y += dy;
-                
+
                 // Move edge bounding box
                 updateEdgeBoundingBox(el);
             }
@@ -779,7 +779,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list) {
     let layout_options = {ranksep: 30};
     if (sdfg_state.nodes.length >= 1000)
         layout_options.ranker = 'longest-path';
-        
+
     g.setGraph(layout_options);
 
 
@@ -1012,10 +1012,10 @@ class SDFGRenderer {
         this.toolbar = null;
         this.movemode_btn = null;
         this.selectmode_btn = null;
-        
+
         // Memlet-Tree related fields
         this.all_memlet_trees = [];
-        
+
         // View options
         this.inclusive_ranges = false;
 
@@ -1100,6 +1100,7 @@ class SDFGRenderer {
     init_elements(user_transform, background) {
 
         this.canvas = document.createElement('canvas');
+        this.canvas.classList.add('sdfg_canvas')
         if (background)
             this.canvas.style.backgroundColor = background;
         else
@@ -1606,7 +1607,7 @@ class SDFGRenderer {
             this.tooltip_container.innerHTML = '';
             this.tooltip_container.style.display = 'block';
 
-            // Invoke custom container         
+            // Invoke custom container
             this.tooltip(this.tooltip_container);
 
             // Make visible near mouse pointer
@@ -2099,7 +2100,7 @@ class SDFGRenderer {
                     }
                 });
             }
-            
+
             // Highlight all access nodes with the same name in the same nested sdfg
             if (intersected && obj instanceof AccessNode) {
                 traverse_sdfg_scopes(this.sdfg_list[obj.sdfg.sdfg_list_id], (node) => {
