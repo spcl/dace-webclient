@@ -143,13 +143,17 @@ function find_exit_for_entry(nodes, entry_node) {
 }
 
 
-function check_and_redirect_edge(edge, drawn_nodes, sdfg_state) {
+function check_and_redirect_edge(edge, drawn_nodes, sdfg_state, omit_access_nodes = true) {
     // If destination is not drawn, no need to draw the edge
     if (!drawn_nodes.has(edge.dst))
         return null;
     // If both source and destination are in the graph, draw edge as-is
-    if (drawn_nodes.has(edge.src))
+    if (drawn_nodes.has(edge.src)) {
+        // If access nodes are not hidden and it's a shortcut edge, then don't draw the edge
+        if (!omit_access_nodes && edge.shortcut)
+            return null;
         return edge;
+    }
 
     // If immediate scope parent node is in the graph, redirect
     let scope_src = sdfg_state.nodes[edge.src].scope_entry;
@@ -294,7 +298,7 @@ function traverse_sdfg_scopes(sdfg, func, post_subscope_func=null) {
 
         for (let nodeid of nodes) {
             let node = graph.node(nodeid);
-            if (node !== undefined && processed_nodes.has(node.id.toString()))
+            if (node === undefined || processed_nodes.has(node.id.toString()))
                 continue;
 
             // Invoke function
@@ -490,14 +494,15 @@ function memlet_tree_nested(graph, edge, visited_edges = []) {
     result.push(edge);
 
     // If either both are false (no scopes involved) or both are true
-    // (invalid SDFG), we return only the current edge as a degenerate tree
-    if (propagate_forward == propagate_backward)
+    // (invalid SDFG or a shortcut edge), we return only the current edge as a degenerate tree
+    if (propagate_forward == propagate_backward && !edge.data.attributes.shortcut)
         return result;
 
     // Descend recursively
     function add_children(edge) {
         let children = [];
-        if (propagate_forward) {
+
+        function add_forward(edge) {
             let next_node = dst(edge);
 
             // Descend into nested SDFG
@@ -534,7 +539,8 @@ function memlet_tree_nested(graph, edge, visited_edges = []) {
                     result.push(ge);
                 }
             });
-        } else if (propagate_backward) {
+        }
+        function add_backward(edge) {
             let next_node = src(edge);
 
             // Descend into nested SDFG
@@ -570,6 +576,12 @@ function memlet_tree_nested(graph, edge, visited_edges = []) {
                 }
             });
         }
+
+        if (propagate_forward)
+            add_forward(edge);
+
+        if (propagate_backward)
+            add_backward(edge);
 
         for (let child of children)
             add_children(child);
@@ -634,7 +646,7 @@ function memlet_tree_complete(root_graph) {
         for (const mt of all_memlet_trees) {
             for (const edge of tree) {
                 if (mt.has(edge)) {
-                    mt.add(...tree);
+                    tree.forEach(e => mt.add(e));
                     common_edge = true;
                     break;
                 }
