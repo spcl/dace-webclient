@@ -920,14 +920,6 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
     hidden_nodes.forEach( hidden_node => {
         if (hidden_node.src) {
             hidden_node.dsts.forEach( e => {
-                function deepCopy(obj) {
-                    if (!(obj instanceof Object) || obj == null) return obj;
-                    let newObj = Array.isArray(obj) ? [] : {};
-                    for (let el in obj)
-                        newObj[el] = deepCopy(obj[el]);
-                    return newObj;
-                }
-
                 // create shortcut edge with new destination
                 let shortcut_e = deepCopy(e);
                 shortcut_e.src = hidden_node.src.src;

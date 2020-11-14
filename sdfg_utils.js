@@ -285,6 +285,14 @@ function sdfg_property_to_string(prop, settings=null) {
     }
 }
 
+function deepCopy(obj) {
+    if (!(obj instanceof Object) || obj == null) return obj;
+    let newObj = Array.isArray(obj) ? [] : {};
+    for (let el in obj)
+        newObj[el] = deepCopy(obj[el]);
+    return newObj;
+}
+
 /**
  * Receives a callback that accepts (node, parent graph) and returns a value.
  * This function is invoked recursively per scope (including scope nodes), unless the return
