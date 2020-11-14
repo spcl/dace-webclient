@@ -933,7 +933,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
                 shortcut_e.src = hidden_node.src.src;
                 shortcut_e.src_connector = hidden_node.src.src_connector;
                 shortcut_e.dst_connector = e.dst_connector;
-                // attribute that only shurtcut edges have; if it is explicitly false, then edge is ignored in omit access node mode
+                // attribute that only shortcut edges have; if it is explicitly false, then edge is ignored in omit access node mode
                 shortcut_e.attributes.data.attributes.shortcut = true;
 
                 // abort if shortcut edge already exists
