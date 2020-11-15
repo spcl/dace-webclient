@@ -681,7 +681,7 @@ function calculateNodeSize(sdfg_state, node, ctx) {
 }
 
 // Layout SDFG elements (states, nodes, scopes, nested SDFGs)
-function relayout_sdfg(ctx, sdfg, sdfg_list, state_parent_list) {
+function relayout_sdfg(ctx, sdfg, sdfg_list, state_parent_list, omit_access_nodes) {
     let STATE_MARGIN = 4 * LINEHEIGHT;
 
     // Layout the SDFG as a dagre graph
@@ -701,7 +701,7 @@ function relayout_sdfg(ctx, sdfg, sdfg_list, state_parent_list) {
         }
         else {
             state_g = relayout_state(ctx, state, sdfg, sdfg_list,
-                state_parent_list);
+                state_parent_list, omit_access_nodes);
             stateinfo = calculateBoundingBox(state_g);
         }
         stateinfo.width += 2 * STATE_MARGIN;
@@ -771,7 +771,7 @@ function relayout_sdfg(ctx, sdfg, sdfg_list, state_parent_list) {
     return g;
 }
 
-function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list) {
+function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omit_access_nodes) {
     // layout the state as a dagre graph
     let g = new dagre.graphlib.Graph({ multigraph: true });
 
@@ -795,8 +795,15 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list) {
     if (toplevel_nodes === undefined)
         toplevel_nodes = Object.keys(sdfg_state.nodes);
     let drawn_nodes = new Set();
+    let hidden_nodes = new Map();
 
     function layout_node(node) {
+        if (omit_access_nodes && node.type == "AccessNode") {
+            // add access node to hidden nodes; source and destinations will be set later
+            hidden_nodes.set(node.id.toString(), {node: node, src: null, dsts: []});
+            return;
+        }
+    
         let nested_g = null;
         node.attributes.layout = {};
 
@@ -814,7 +821,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list) {
 
         // Recursively lay out nested SDFGs
         if (node.type === "NestedSDFG") {
-            nested_g = relayout_sdfg(ctx, node.attributes.sdfg, sdfg_list, state_parent_list);
+            nested_g = relayout_sdfg(ctx, node.attributes.sdfg, sdfg_list, state_parent_list, omit_access_nodes);
             let sdfginfo = calculateBoundingBox(nested_g);
             node.attributes.layout.width = sdfginfo.width + 2 * LINEHEIGHT;
             node.attributes.layout.height = sdfginfo.height + 2 * LINEHEIGHT;
@@ -873,13 +880,72 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list) {
         layout_node(node);
     });
 
+    // add info to calculate shortcut edges
+    function add_edge_info_if_hidden(edge, hidden_nodes) {
+        hidden_src = hidden_nodes.get(edge.src);
+        hidden_dst = hidden_nodes.get(edge.dst);
+
+        if (hidden_src && hidden_dst) {
+            // if we have edges from an AccessNode to an AccessNode then just connect destinations
+            hidden_src.dsts = hidden_dst.dsts;
+            edge.attributes.data.attributes.shortcut = false;
+        } else if (hidden_src) {
+            // if edge starts at hidden node, then add it as destination
+            hidden_src.dsts.push(edge);
+            edge.attributes.data.attributes.shortcut = false;
+            return true;
+        } else if (hidden_dst) {
+            // if edge ends at hidden node, then add it as source
+            hidden_dst.src = edge;
+            edge.attributes.data.attributes.shortcut = false;
+            return true;
+        }
+
+        // if it is a shortcut edge, but we don't omit access nodes, then ignore this edge
+        if (!omit_access_nodes && edge.attributes.data.attributes.shortcut) return true;
+        
+        return false;
+    }
+
     sdfg_state.edges.forEach((edge, id) => {
-        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
+        if (add_edge_info_if_hidden(edge, hidden_nodes)) return;
+        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state, omit_access_nodes);
         if (!edge) return;
         let e = new Edge(edge.attributes.data, id, sdfg, sdfg_state.id);
         e.src_connector = edge.src_connector;
         e.dst_connector = edge.dst_connector;
         g.setEdge(edge.src, edge.dst, e, id);
+    });
+
+    hidden_nodes.forEach( hidden_node => {
+        if (hidden_node.src) {
+            hidden_node.dsts.forEach( e => {
+                // create shortcut edge with new destination
+                let shortcut_e = deepCopy(e);
+                shortcut_e.src = hidden_node.src.src;
+                shortcut_e.src_connector = hidden_node.src.src_connector;
+                shortcut_e.dst_connector = e.dst_connector;
+                // attribute that only shortcut edges have; if it is explicitly false, then edge is ignored in omit access node mode
+                shortcut_e.attributes.data.attributes.shortcut = true;
+
+                // abort if shortcut edge already exists
+                for (oe of g.outEdges(hidden_node.src.src)) {
+                    if (oe.w == e.dst && sdfg_state.edges[oe.name].dst_connector == e.dst_connector) {
+                        return;
+                    }
+                }
+
+                sdfg_state.edges.push(shortcut_e);
+
+                let edge_id = sdfg_state.edges.length - 1;
+                let direct_edge = new Edge(deepCopy(e.attributes.data), edge_id, sdfg, sdfg_state.id);
+                direct_edge.src_connector = hidden_node.src.src_connector;
+                direct_edge.dst_connector = e.dst_connector;
+                direct_edge.data.attributes.shortcut = true;
+
+                g.setEdge(hidden_node.src.src, e.dst, direct_edge, edge_id);
+            });
+        }
     });
 
     dagre.layout(g);
@@ -888,7 +954,10 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list) {
     // Layout connectors and nested SDFGs
     sdfg_state.nodes.forEach(function (node, id) {
         let gnode = g.node(id);
-        if (!gnode) return;
+        if (!gnode || (omit_access_nodes && gnode instanceof AccessNode)) {
+            // ignore nodes that should not be drawn
+            return;
+        }
         let topleft = gnode.topleft();
 
         // Offset nested SDFG
@@ -923,9 +992,14 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list) {
     });
 
     sdfg_state.edges.forEach(function (edge, id) {
-        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
+        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state, omit_access_nodes);
         if (!edge) return;
         let gedge = g.edge(edge.src, edge.dst, id);
+        if (!gedge || (omit_access_nodes && gedge.data.attributes.shortcut === false
+                    || !omit_access_nodes && gedge.data.attributes.shortcut)) {
+            // if access nodes omitted, don't draw non-shortcut edges and vice versa
+            return;
+        }
 
         // Reposition first and last points according to connectors
         let src_conn = null, dst_conn = null;
@@ -1018,6 +1092,7 @@ class SDFGRenderer {
 
         // View options
         this.inclusive_ranges = false;
+        this.omit_access_nodes = false;
 
         // Mouse-related fields
         this.mouse_mode = 'pan'; // Mouse mode - pan, move, select
@@ -1212,6 +1287,7 @@ class SDFGRenderer {
                         that.overlays_menu.show(rect.left, rect.top);
                     }
                 );
+                cmenu.addCheckableOption("Hide Access Nodes", that.omit_access_nodes, (x, checked) => { that.omit_access_nodes = checked; that.relayout()});
                 that.menu = cmenu;
                 that.menu.show(rect.left, rect.bottom);
             };
@@ -1408,7 +1484,7 @@ class SDFGRenderer {
     relayout() {
         this.sdfg_list = {};
         this.graph = relayout_sdfg(this.ctx, this.sdfg, this.sdfg_list,
-            this.state_parent_list);
+            this.state_parent_list, this.omit_access_nodes);
         this.onresize();
 
         this.all_memlet_trees = memlet_tree_complete(this.graph);
