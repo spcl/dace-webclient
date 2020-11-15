@@ -929,7 +929,10 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
                 shortcut_e.attributes.data.attributes.shortcut = true;
 
                 // abort if shortcut edge already exists
-                for (oe of g.outEdges(hidden_node.src.src)) {
+                let edges = g.outEdges(hidden_node.src.src);
+                if (edges === undefined)
+                    return;
+                for (oe of edges) {
                     if (oe.w == e.dst && sdfg_state.edges[oe.name].dst_connector == e.dst_connector) {
                         return;
                     }

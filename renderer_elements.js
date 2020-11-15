@@ -245,13 +245,13 @@ class State extends SDFGElement {
 }
 
 class Node extends SDFGElement {
-    draw(renderer, ctx, mousepos) {
+    draw(renderer, ctx, mousepos, fgstyle='--node-foreground-color', bgstyle='--node-background-color') {
         let topleft = this.topleft();
-        ctx.fillStyle = this.getCssProperty(renderer, '--node-background-color');
+        ctx.fillStyle = this.getCssProperty(renderer, bgstyle);
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
         ctx.strokeStyle = this.strokeStyle(renderer);
         ctx.strokeRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
+        ctx.fillStyle = this.getCssProperty(renderer, fgstyle);
         let textw = ctx.measureText(this.label()).width;
         ctx.fillText(this.label(), this.x - textw / 2, this.y + LINEHEIGHT / 4);
     }
@@ -472,6 +472,7 @@ class Connector extends SDFGElement {
             ctx.lineWidth = 1.0;
             fillColor = this.getCssProperty(renderer, '--connector-scoped-color');
         } else {
+            ctx.stroke();
             fillColor = this.getCssProperty(renderer, '--connector-unscoped-color');
         }
         if (ctx.pdf) // PDFs do not support transparent fill colors
@@ -803,11 +804,11 @@ class NestedSDFG extends Node {
             drawOctagon(ctx, { x: topleft.x + 2.5, y: topleft.y + 2.5 }, this.width - 5, this.height - 5);
             ctx.strokeStyle = this.strokeStyle(renderer);
             ctx.stroke();
-            ctx.fillStyle = this.getCssProperty(renderer, '--nested-sdfg-background-color');
+            ctx.fillStyle = this.getCssProperty(renderer, '--node-background-color');
             if (ctx.pdf) // PDFs do not support stroke and fill on the same object
                 drawOctagon(ctx, { x: topleft.x + 2.5, y: topleft.y + 2.5 }, this.width - 5, this.height - 5);
             ctx.fill();
-            ctx.fillStyle = this.getCssProperty(renderer, '--nested-sdfg-foreground-color');
+            ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
             let label = this.data.node.attributes.label;
             let textmetrics = ctx.measureText(label);
             ctx.fillText(label, this.x - textmetrics.width / 2.0, this.y + LINEHEIGHT / 4.0);
@@ -815,7 +816,8 @@ class NestedSDFG extends Node {
         }
 
         // Draw square around nested SDFG
-        super.draw(renderer, ctx, mousepos);
+        super.draw(renderer, ctx, mousepos, '--nested-sdfg-foreground-color', 
+                   '--nested-sdfg-background-color');
 
         // Draw nested graph
         draw_sdfg(renderer, ctx, this.data.graph, mousepos);
