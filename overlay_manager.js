@@ -549,8 +549,11 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
     calculate_volume_edge(edge, symbol_map, volume_values) {
         let volume_string = undefined;
-        if (edge.data && edge.data.attributes)
+        if (edge.data && edge.data.attributes) {
             volume_string = edge.data.attributes.volume;
+            if (volume_string !== undefined)
+                volume_string = volume_string.replace('**', '^');
+        }
         let volume = undefined;
         if (volume_string !== undefined)
             volume = this.symbol_resolver.parse_symbol_expression(
@@ -561,7 +564,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
         edge.data.volume = volume;
 
         if (volume !== undefined && volume > 0)
-                volume_values.push(volume);
+            volume_values.push(volume);
 
         return volume;
     }
@@ -798,6 +801,17 @@ class OverlayManager {
             default:
                 break;
         }
+    }
+
+    get_overlay(type) {
+        let overlay = undefined;
+        this.overlays.forEach(ol => {
+            if (ol.type === type) {
+                overlay = ol;
+                return;
+            }
+        });
+        return overlay;
     }
 
     symbol_value_changed(symbol, value) {

@@ -1968,16 +1968,14 @@ class SDFGRenderer {
                         y_end: this.mousepos.y,
                     };
 
-                    // Mark for redraw and resort
+                    // Mark for redraw
                     dirty = true;
-                    element_focus_changed = true;
                 } else {
                     this.canvas_manager.translate(event.movementX,
                         event.movementY);
 
-                    // Mark for redraw and resort
+                    // Mark for redraw
                     dirty = true;
-                    element_focus_changed = true;
                 }
             } else if (this.drag_start && event.buttons & 4) {
                 // Pan the view with the middle mouse button
@@ -2176,6 +2174,8 @@ class SDFGRenderer {
                 this.dragging = false;
                 ends_drag = true;
 
+                element_focus_changed = true;
+
                 if (this.box_select_rect) {
                     let elements_in_selection = [];
                     let start_x = Math.min(this.box_select_rect.x_start,
@@ -2279,39 +2279,8 @@ class SDFGRenderer {
             // If a listener in VSCode is present, update it about the new
             // viewport and tell it to re-sort the shown transformations.
             try {
-                if (vscode) {
-                    function clean_selected(selected_elements) {
-                        let elems = [];
-                        selected_elements.forEach((el) => {
-                            let parent_id =
-                                el.parent_id === null ? -1 : el.parent_id;
-                            let type = 'other';
-                            if (el.data.node)
-                                type = 'node';
-                            else if (el.data.state)
-                                type = 'state';
-                            else if (el.data.type === 'InterstateEdge')
-                                type = 'isedge';
-                            else if (el.data.type === 'Memlet')
-                                type = 'edge';
-                            elems.push({
-                                type: type,
-                                sdfg_id: el.sdfg.sdfg_list_id,
-                                state_id: parent_id,
-                                id: el.id,
-                            });
-                        });
-                        return elems;
-                    }
-
-                    vscode.postMessage({
-                        type: 'sdfv.sort_transformations',
-                        visibleElements: JSON.stringify(this.visible_elements()),
-                        selectedElements: JSON.stringify(
-                            clean_selected(this.selected_elements)
-                        ),
-                    });
-                }
+                if (vscode)
+                    sort_transformations(refresh_transformation_list);
             } catch (ex) {
                 // Do nothing
             }
