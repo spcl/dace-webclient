@@ -1495,6 +1495,10 @@ class SDFGRenderer {
         // Make sure all visible overlays get recalculated if there are any.
         this.overlay_manager.refresh();
 
+        // If we're in a VSCode context, we also want to refresh the outline.
+        if (vscode)
+            outline(this, this.graph);
+
         return this.graph;
     }
 
