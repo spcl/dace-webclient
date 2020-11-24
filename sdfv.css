@@ -136,6 +136,16 @@ pre.code code {
   display: none;
 }
 
+.sdfvtooltip--connector {
+  background: #f0fdffee;
+  color: black;
+  border: 1px solid black;
+}
+
+.sdfvtooltip--interstate-edge {
+  background: #0000aabb;
+}
+
 .invalid_popup {
   background: rgba(0, 0, 0, 0.8);
   color: white;
@@ -287,4 +297,22 @@ pre.code code {
 
 .modal .modal_input_text:invalid {
   border-color: rgba(255, 0, 0, 1);
+}
+
+.sdfg_canvas {
+  --node-background-color: #ffffff;
+  --node-foreground-color: #000000;
+  --state-background-color: #deebf7;
+  --state-foreground-color: #000000;
+  --interstate-edge-color: #86add9;
+  --connector-scoped-color: #c1dfe690;
+  --connector-unscoped-color: #f0fdff;
+  --nested-sdfg-background-color: #ffffff;
+  --nested-sdfg-foreground-color: #000000;
+  --color-default: black;
+  --color-hovered: green;
+  --color-highlighted: orange;
+  --color-selected: red;
+  --color-selected-hovered: salmon;
+  --color-selected-highlighted: darkorange;
 }

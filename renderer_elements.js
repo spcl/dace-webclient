@@ -60,6 +60,7 @@ class SDFGElement {
 
     // Produces HTML for a hover-tooltip
     tooltip(container) {
+        container.className = 'sdfvtooltip';
     }
 
     topleft() {
@@ -69,18 +70,18 @@ class SDFGElement {
     strokeStyle(renderer=undefined) {
         if (this.selected) {
             if (this.hovered)
-                return 'salmon';
+                return this.getCssProperty(renderer, '--color-selected-hovered');
             else if (this.highlighted)
-                return 'darkorange';
+                return this.getCssProperty(renderer, '--color-selected-highlighted');
             else
-                return 'red';
+                return this.getCssProperty(renderer, '--color-selected');
         } else {
             if (this.hovered)
-                return 'green';
+                return this.getCssProperty(renderer, '--color-hovered');
             else if (this.highlighted)
-                return 'orange';
+                return this.getCssProperty(renderer, '--color-highlighted');
         }
-        return 'black';
+        return this.getCssProperty(renderer, '--color-default');
     }
 
     // General bounding-box intersection function. Returns true iff point or rectangle intersect element.
@@ -118,6 +119,9 @@ class SDFGElement {
             box_end_y >= el_end_y;
     }
 
+    getCssProperty(renderer, propertyName) {
+        return window.getComputedStyle(renderer.canvas).getPropertyValue(propertyName);
+    }
 }
 
 // SDFG as an element (to support properties)
@@ -140,29 +144,29 @@ class State extends SDFGElement {
         let visible_rect = renderer.visible_rect;
         let clamped = {x: Math.max(topleft.x, visible_rect.x),
                        y: Math.max(topleft.y, visible_rect.y),
-                       x2: Math.min(topleft.x + this.width, 
+                       x2: Math.min(topleft.x + this.width,
                                     visible_rect.x + visible_rect.w),
-                       y2: Math.min(topleft.y + this.height, 
+                       y2: Math.min(topleft.y + this.height,
                                     visible_rect.y + visible_rect.h)};
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
         if (!ctx.lod)
             clamped = {x: topleft.x, y: topleft.y,
                        w: this.width, h: this.height};
-        
-        ctx.fillStyle = "#deebf7";
+
+        ctx.fillStyle = this.getCssProperty(renderer, '--state-background-color');
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
-        ctx.fillStyle = "#000000";
+        ctx.fillStyle = this.getCssProperty(renderer, '--state-foreground-color');
 
         if (visible_rect.x <= topleft.x && visible_rect.y <= topleft.y + LINEHEIGHT)
             ctx.fillText(this.label(), topleft.x, topleft.y + LINEHEIGHT);
 
         // If this state is selected or hovered
-        if ((this.selected || this.highlighted) &&
+        if ((this.selected || this.highlighted || this.hovered) &&
             (clamped.x === topleft.x ||
-             clamped.y === topleft.y ||
-             clamped.x2 === topleft.x + this.width ||
-             clamped.y2 === topleft.y + this.height)) {
+                clamped.y === topleft.y ||
+                clamped.x2 === topleft.x + this.width ||
+                clamped.y2 === topleft.y + this.height)) {
             ctx.strokeStyle = this.strokeStyle(renderer);
             ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
         }
@@ -186,9 +190,9 @@ class State extends SDFGElement {
         // Fast drawing function for small states
         let topleft = this.topleft();
 
-        ctx.fillStyle = "#deebf7";
+        ctx.fillStyle = this.getCssProperty(renderer, '--state-background-color');
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.fillStyle = "#000000";
+        ctx.fillStyle = this.getCssProperty(renderer, '--state-text-color');
 
         if (mousepos && this.intersect(mousepos.x, mousepos.y))
             renderer.tooltip = (c) => this.tooltip(c);
@@ -241,13 +245,13 @@ class State extends SDFGElement {
 }
 
 class Node extends SDFGElement {
-    draw(renderer, ctx, mousepos) {
+    draw(renderer, ctx, mousepos, fgstyle='--node-foreground-color', bgstyle='--node-background-color') {
         let topleft = this.topleft();
-        ctx.fillStyle = "white";
+        ctx.fillStyle = this.getCssProperty(renderer, bgstyle);
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
         ctx.strokeStyle = this.strokeStyle(renderer);
         ctx.strokeRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.fillStyle = "black";
+        ctx.fillStyle = this.getCssProperty(renderer, fgstyle);
         let textw = ctx.measureText(this.label()).width;
         ctx.fillText(this.label(), this.x - textw / 2, this.y + LINEHEIGHT / 4);
     }
@@ -255,9 +259,9 @@ class Node extends SDFGElement {
     simple_draw(renderer, ctx, mousepos) {
         // Fast drawing function for small nodes
         let topleft = this.topleft();
-        ctx.fillStyle = "white";
+        ctx.fillStyle = this.getCssProperty(renderer, '--node-background-color');
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.fillStyle = "black";
+        ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
     }
 
     shade(renderer, ctx, color, alpha='0.6') {
@@ -322,8 +326,8 @@ class Edge extends SDFGElement {
         let style = this.strokeStyle(renderer);
         if (this.hovered)
             renderer.tooltip = (c) => this.tooltip(c, renderer);
-        if (this.parent_id == null && style === 'black') {  // Interstate edge
-            style = '#86add9';
+        if (this.parent_id == null && style === this.getCssProperty(renderer, '--color-default')) {  // Interstate edge
+            style = this.getCssProperty(renderer, '--interstate-edge-color');
         }
         ctx.fillStyle = ctx.strokeStyle = style;
 
@@ -341,9 +345,6 @@ class Edge extends SDFGElement {
         if (edge.points.length < 2)
             return;
         drawArrow(ctx, edge.points[edge.points.length - 2], edge.points[edge.points.length - 1], 3);
-
-        ctx.fillStyle = "black";
-        ctx.strokeStyle = "black";
     }
 
     shade(renderer, ctx, color, alpha='0.6') {
@@ -378,6 +379,7 @@ class Edge extends SDFGElement {
     }
 
     tooltip(container, renderer) {
+        super.tooltip(container);
         let dsettings = renderer.view_settings();
         let attr = this.attributes();
         // Memlet
@@ -413,7 +415,7 @@ class Edge extends SDFGElement {
             contents += '<br /><font style="font-size: 14px">Volume: ' + num_accesses + '</font>';
             container.innerHTML = contents;
         } else {  // Interstate edge
-            container.style.background = '#0000aabb';
+            container.classList.add('sdfvtooltip--interstate-edge');
             container.innerText = this.label();
             if (!this.label())
                 container.style.display = 'none';
@@ -457,6 +459,7 @@ class Connector extends SDFGElement {
         drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
         ctx.closePath();
         ctx.strokeStyle = this.strokeStyle(renderer);
+        let fillColor;
         if (scope_connector) {
             let cname = this.data.name;
             if (cname.startsWith("IN_"))
@@ -467,14 +470,14 @@ class Connector extends SDFGElement {
             ctx.lineWidth = 0.4;
             ctx.stroke();
             ctx.lineWidth = 1.0;
-            let color = "c1dfe690";
-            if (ctx.pdf) // PDFs do not support transparent fill colors
-                color = "c1dfe6";
-            ctx.fillStyle = "#" + color;
+            fillColor = this.getCssProperty(renderer, '--connector-scoped-color');
         } else {
             ctx.stroke();
-            ctx.fillStyle = "#f0fdff";
+            fillColor = this.getCssProperty(renderer, '--connector-unscoped-color');
         }
+        if (ctx.pdf) // PDFs do not support transparent fill colors
+            fillColor = fillColor.substr(0, 7);
+        ctx.fillStyle = fillColor;
 
         if (ctx.pdf) { // PDFs do not support stroke and fill on the same object
             ctx.beginPath();
@@ -482,9 +485,7 @@ class Connector extends SDFGElement {
             ctx.closePath();
         }
         ctx.fill();
-        ctx.fillStyle = "black";
-        ctx.strokeStyle = "black";
-        if (this.strokeStyle(renderer) !== 'black')
+        if (this.strokeStyle(renderer) !== this.getCssProperty(renderer, '--color-default'))
             renderer.tooltip = (c) => this.tooltip(c);
     }
 
@@ -497,9 +498,8 @@ class Connector extends SDFGElement {
     label() { return this.data.name; }
 
     tooltip(container) {
-        container.style.background = '#f0fdffee';
-        container.style.color = 'black';
-        container.style.border = '1px solid black';
+        super.tooltip(container);
+        container.classList.add('sdfvtooltip--connector');
         container.innerText = this.label();
     }
 }
@@ -530,14 +530,14 @@ class AccessNode extends Node {
         ctx.stroke();
         ctx.lineWidth = 1.0;
         ctx.setLineDash([1, 0]);
-        ctx.fillStyle = "white";
+        ctx.fillStyle = this.getCssProperty(renderer, '--node-background-color');
         if (ctx.pdf) { // PDFs do not support stroke and fill on the same object
             ctx.beginPath();
             drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
             ctx.closePath();
         }
         ctx.fill();
-        ctx.fillStyle = "black";
+        ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
         var textmetrics = ctx.measureText(this.label());
         ctx.fillText(this.label(), this.x - textmetrics.width / 2.0, this.y + LINEHEIGHT / 4.0);
     }
@@ -582,11 +582,11 @@ class ScopeNode extends Node {
         draw_shape();
         ctx.stroke();
         ctx.setLineDash([1, 0]);
-        ctx.fillStyle = "white";
+        ctx.fillStyle = this.getCssProperty(renderer, '--node-background-color');
         if (ctx.pdf) // PDFs do not support stroke and fill on the same object
             draw_shape();
         ctx.fill();
-        ctx.fillStyle = "black";
+        ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
 
         let far_label = this.far_label();
         drawAdaptiveText(ctx, renderer, far_label,
@@ -679,11 +679,11 @@ class Tasklet extends Node {
         drawOctagon(ctx, topleft, this.width, this.height);
         ctx.strokeStyle = this.strokeStyle(renderer);
         ctx.stroke();
-        ctx.fillStyle = "white";
+        ctx.fillStyle = this.getCssProperty(renderer, '--node-background-color');
         if (ctx.pdf) // PDFs do not support stroke and fill on the same object
             drawOctagon(ctx, topleft, this.width, this.height);
         ctx.fill();
-        ctx.fillStyle = "black";
+        ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
 
         let ppp = renderer.canvas_manager.points_per_pixel();
         if (!ctx.lod || ppp < TASKLET_LOD) {
@@ -757,11 +757,11 @@ class Reduce extends Node {
         ctx.strokeStyle = this.strokeStyle(renderer);
         draw_shape();
         ctx.stroke();
-        ctx.fillStyle = "white";
+        ctx.fillStyle = this.getCssProperty(renderer, '--node-background-color');
         if (ctx.pdf) // PDFs do not support stroke and fill on the same object
             draw_shape();
         ctx.fill();
-        ctx.fillStyle = "black";
+        ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
 
         let far_label = this.label().substring(4, this.label().indexOf(','));
         drawAdaptiveText(ctx, renderer, far_label,
@@ -804,11 +804,11 @@ class NestedSDFG extends Node {
             drawOctagon(ctx, { x: topleft.x + 2.5, y: topleft.y + 2.5 }, this.width - 5, this.height - 5);
             ctx.strokeStyle = this.strokeStyle(renderer);
             ctx.stroke();
-            ctx.fillStyle = 'white';
+            ctx.fillStyle = this.getCssProperty(renderer, '--node-background-color');
             if (ctx.pdf) // PDFs do not support stroke and fill on the same object
                 drawOctagon(ctx, { x: topleft.x + 2.5, y: topleft.y + 2.5 }, this.width - 5, this.height - 5);
             ctx.fill();
-            ctx.fillStyle = 'black';
+            ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
             let label = this.data.node.attributes.label;
             let textmetrics = ctx.measureText(label);
             ctx.fillText(label, this.x - textmetrics.width / 2.0, this.y + LINEHEIGHT / 4.0);
@@ -816,7 +816,8 @@ class NestedSDFG extends Node {
         }
 
         // Draw square around nested SDFG
-        super.draw(renderer, ctx, mousepos);
+        super.draw(renderer, ctx, mousepos, '--nested-sdfg-foreground-color', 
+                   '--nested-sdfg-background-color');
 
         // Draw nested graph
         draw_sdfg(renderer, ctx, this.data.graph, mousepos);
@@ -890,7 +891,7 @@ class LibraryNode extends Node {
     }
 
     draw(renderer, ctx, mousepos) {
-        ctx.fillStyle = "white";
+        ctx.fillStyle = this.getCssProperty(renderer, '--node-background-color');
         this._path(ctx);
         ctx.fill();
         ctx.strokeStyle = this.strokeStyle(renderer);
@@ -898,7 +899,7 @@ class LibraryNode extends Node {
         ctx.stroke();
         this._path2(ctx);
         ctx.stroke();
-        ctx.fillStyle = "black";
+        ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
         let textw = ctx.measureText(this.label()).width;
         ctx.fillText(this.label(), this.x - textw / 2, this.y + LINEHEIGHT / 4);
     }
@@ -1054,8 +1055,8 @@ function offset_state(state, state_graph, offset) {
 ///////////////////////////////////////////////////////
 
 function drawAdaptiveText(ctx, renderer, far_text, close_text,
-    x, y, w, h, ppp_thres, max_font_size = 50,
-    font_multiplier = 16) {
+                          x, y, w, h, ppp_thres, max_font_size = 50,
+                          font_multiplier = 16) {
     let ppp = renderer.canvas_manager.points_per_pixel();
     let label = close_text;
     let FONTSIZE = Math.min(ppp * font_multiplier, max_font_size);
