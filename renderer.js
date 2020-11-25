@@ -1242,54 +1242,37 @@ class SDFGRenderer {
                     cmenu.addOption("Save all as PDF", x => that.save_as_pdf(true));
                 }
                 cmenu.addCheckableOption("Inclusive ranges", that.inclusive_ranges, (x, checked) => { that.inclusive_ranges = checked; });
-                cmenu.addOption(
-                    'Overlays',
-                    () => {
-                        if (that.overlays_menu && that.overlays_menu.visible()) {
-                            that.overlays_menu.destroy();
-                            return;
-                        }
-                        let rect = cmenu._cmenu_elem.getBoundingClientRect();
-                        let overlays_cmenu = new ContextMenu();
-                        overlays_cmenu.addCheckableOption(
-                            'Memory volume analysis',
-                            that.overlay_manager.memory_volume_overlay_active,
-                            (x, checked) => {
-                                if (checked)
-                                    that.overlay_manager.register_overlay(
-                                        GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
-                                    );
-                                else
-                                    that.overlay_manager.deregister_overlay(
-                                        GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
-                                    );
-                                that.draw_async();
+                if (!vscode)
+                    cmenu.addOption(
+                        'Overlays',
+                        () => {
+                            if (that.overlays_menu && that.overlays_menu.visible()) {
+                                that.overlays_menu.destroy();
+                                return;
                             }
-                        );
-                        if (vscode) {
-                            // This is only possible in the context of the
-                            // VSCode extension, since it requires interaction
-                            // with the backend (at this point).
+                            let rect = cmenu._cmenu_elem.getBoundingClientRect();
+                            let overlays_cmenu = new ContextMenu();
                             overlays_cmenu.addCheckableOption(
-                                'Static FLOPS analysis',
-                                that.overlay_manager.static_flops_overlay_active,
+                                'Memory volume analysis',
+                                that.overlay_manager.memory_volume_overlay_active,
                                 (x, checked) => {
                                     if (checked)
                                         that.overlay_manager.register_overlay(
-                                            GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS
+                                            GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
                                         );
                                     else
                                         that.overlay_manager.deregister_overlay(
-                                            GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS
+                                            GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
                                         );
                                     that.draw_async();
+                                    if (vscode)
+                                        refresh_analysis_pane();
                                 }
                             );
+                            that.overlays_menu = overlays_cmenu;
+                            that.overlays_menu.show(rect.left, rect.top);
                         }
-                        that.overlays_menu = overlays_cmenu;
-                        that.overlays_menu.show(rect.left, rect.top);
-                    }
-                );
+                    );
                 cmenu.addCheckableOption("Hide Access Nodes", that.omit_access_nodes, (x, checked) => { that.omit_access_nodes = checked; that.relayout()});
                 that.menu = cmenu;
                 that.menu.show(rect.left, rect.bottom);

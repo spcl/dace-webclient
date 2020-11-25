@@ -198,7 +198,6 @@ class GenericSdfgOverlay {
         this.renderer = renderer;
         this.type = type;
 
-        this.badness_scale_method = 'median';
         this.badness_scale_center = 5;
     }
 
@@ -362,7 +361,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
             flops_values
         );
 
-        switch (this.badness_scale_method) {
+        switch (this.overlay_manager.badness_scale_method) {
             case 'mean':
                 this.badness_scale_center = math.mean(flops_values);
                 break;
@@ -626,7 +625,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
             volume_values
         );
 
-        switch (this.badness_scale_method) {
+        switch (this.overlay_manager.badness_scale_method) {
             case 'mean':
                 this.badness_scale_center = math.mean(volume_values);
                 break;
@@ -761,6 +760,7 @@ class OverlayManager {
 
         this.memory_volume_overlay_active = false;
         this.static_flops_overlay_active = false;
+        this.badness_scale_method = 'median';
 
         this.overlays = [];
 
@@ -784,6 +784,7 @@ class OverlayManager {
             default:
                 break;
         }
+        this.renderer.draw_async();
     }
 
     deregister_overlay(type) {
@@ -801,6 +802,7 @@ class OverlayManager {
             default:
                 break;
         }
+        this.renderer.draw_async();
     }
 
     get_overlay(type) {
@@ -822,8 +824,8 @@ class OverlayManager {
     }
 
     update_badness_scale_method(method) {
+        this.badness_scale_method = method;
         this.overlays.forEach(overlay => {
-            overlay.badness_scale_method = method;
             overlay.refresh();
         });
     }
