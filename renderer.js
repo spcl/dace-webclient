@@ -1357,10 +1357,17 @@ class SDFGRenderer {
             exit_preview_btn.style = 'padding-bottom: 0px; user-select: none';
             exit_preview_btn.onclick = () => {
                 exit_preview_btn.className = 'button hidden';
-                if (vscode)
+                window.viewing_history_state = false;
+                if (vscode) {
                     vscode.postMessage({
                         type: 'sdfv.get_current_sdfg',
+                        prevent_refreshes: true,
                     });
+                    vscode.postMessage({
+                        type: 'transformation_history.refresh',
+                        reset_active: true,
+                    });
+                }
             };
             exit_preview_btn.title = 'Exit preview';
             this.toolbar.appendChild(exit_preview_btn);
