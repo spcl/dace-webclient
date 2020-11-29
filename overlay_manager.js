@@ -8,8 +8,15 @@ class SymbolResolver {
 
         // Initialize the symbol mapping to the graph's symbol table.
         this.symbol_value_map = {};
-        Object.keys(this.sdfg.attributes.symbols).forEach((symbol) => {
-            this.symbol_value_map[symbol] = undefined;
+        Object.keys(this.sdfg.attributes.symbols).forEach((s) => {
+            if (this.sdfg.attributes.constants_prop !== undefined &&
+                Object.keys(this.sdfg.attributes.constants_prop).includes(s) &&
+                this.sdfg.attributes.constants_prop[s][0]['type'] === 'Scalar')
+                this.symbol_value_map[s] = this.sdfg.attributes.constants_prop[
+                    s
+                ][1];
+            else
+                this.symbol_value_map[s] = undefined;
         });
         this.symbols_to_define = [];
 
@@ -65,7 +72,7 @@ class SymbolResolver {
                 () => {
                     if (vscode)
                         vscode.postMessage({
-                            type: 'symbol_resolver.define_symbol',
+                            type: 'analysis.define_symbol',
                             symbol: symbol,
                             definition: mapping[symbol],
                         });
@@ -198,7 +205,6 @@ class GenericSdfgOverlay {
         this.renderer = renderer;
         this.type = type;
 
-        this.badness_scale_method = 'median';
         this.badness_scale_center = 5;
     }
 
@@ -362,7 +368,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
             flops_values
         );
 
-        switch (this.badness_scale_method) {
+        switch (this.overlay_manager.badness_scale_method) {
             case 'mean':
                 this.badness_scale_center = math.mean(flops_values);
                 break;
@@ -549,8 +555,11 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
     calculate_volume_edge(edge, symbol_map, volume_values) {
         let volume_string = undefined;
-        if (edge.data && edge.data.attributes)
+        if (edge.data && edge.data.attributes) {
             volume_string = edge.data.attributes.volume;
+            if (volume_string !== undefined)
+                volume_string = volume_string.replace('**', '^');
+        }
         let volume = undefined;
         if (volume_string !== undefined)
             volume = this.symbol_resolver.parse_symbol_expression(
@@ -561,7 +570,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
         edge.data.volume = volume;
 
         if (volume !== undefined && volume > 0)
-                volume_values.push(volume);
+            volume_values.push(volume);
 
         return volume;
     }
@@ -623,7 +632,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
             volume_values
         );
 
-        switch (this.badness_scale_method) {
+        switch (this.overlay_manager.badness_scale_method) {
             case 'mean':
                 this.badness_scale_center = math.mean(volume_values);
                 break;
@@ -758,6 +767,7 @@ class OverlayManager {
 
         this.memory_volume_overlay_active = false;
         this.static_flops_overlay_active = false;
+        this.badness_scale_method = 'median';
 
         this.overlays = [];
 
@@ -781,6 +791,7 @@ class OverlayManager {
             default:
                 break;
         }
+        this.renderer.draw_async();
     }
 
     deregister_overlay(type) {
@@ -798,6 +809,18 @@ class OverlayManager {
             default:
                 break;
         }
+        this.renderer.draw_async();
+    }
+
+    get_overlay(type) {
+        let overlay = undefined;
+        this.overlays.forEach(ol => {
+            if (ol.type === type) {
+                overlay = ol;
+                return;
+            }
+        });
+        return overlay;
     }
 
     symbol_value_changed(symbol, value) {
@@ -808,8 +831,8 @@ class OverlayManager {
     }
 
     update_badness_scale_method(method) {
+        this.badness_scale_method = method;
         this.overlays.forEach(overlay => {
-            overlay.badness_scale_method = method;
             overlay.refresh();
         });
     }

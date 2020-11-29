@@ -1242,54 +1242,37 @@ class SDFGRenderer {
                     cmenu.addOption("Save all as PDF", x => that.save_as_pdf(true));
                 }
                 cmenu.addCheckableOption("Inclusive ranges", that.inclusive_ranges, (x, checked) => { that.inclusive_ranges = checked; });
-                cmenu.addOption(
-                    'Overlays',
-                    () => {
-                        if (that.overlays_menu && that.overlays_menu.visible()) {
-                            that.overlays_menu.destroy();
-                            return;
-                        }
-                        let rect = cmenu._cmenu_elem.getBoundingClientRect();
-                        let overlays_cmenu = new ContextMenu();
-                        overlays_cmenu.addCheckableOption(
-                            'Memory volume analysis',
-                            that.overlay_manager.memory_volume_overlay_active,
-                            (x, checked) => {
-                                if (checked)
-                                    that.overlay_manager.register_overlay(
-                                        GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
-                                    );
-                                else
-                                    that.overlay_manager.deregister_overlay(
-                                        GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
-                                    );
-                                that.draw_async();
+                if (!vscode)
+                    cmenu.addOption(
+                        'Overlays',
+                        () => {
+                            if (that.overlays_menu && that.overlays_menu.visible()) {
+                                that.overlays_menu.destroy();
+                                return;
                             }
-                        );
-                        if (vscode) {
-                            // This is only possible in the context of the
-                            // VSCode extension, since it requires interaction
-                            // with the backend (at this point).
+                            let rect = cmenu._cmenu_elem.getBoundingClientRect();
+                            let overlays_cmenu = new ContextMenu();
                             overlays_cmenu.addCheckableOption(
-                                'Static FLOPS analysis',
-                                that.overlay_manager.static_flops_overlay_active,
+                                'Memory volume analysis',
+                                that.overlay_manager.memory_volume_overlay_active,
                                 (x, checked) => {
                                     if (checked)
                                         that.overlay_manager.register_overlay(
-                                            GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS
+                                            GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
                                         );
                                     else
                                         that.overlay_manager.deregister_overlay(
-                                            GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS
+                                            GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
                                         );
                                     that.draw_async();
+                                    if (vscode)
+                                        refresh_analysis_pane();
                                 }
                             );
+                            that.overlays_menu = overlays_cmenu;
+                            that.overlays_menu.show(rect.left, rect.top);
                         }
-                        that.overlays_menu = overlays_cmenu;
-                        that.overlays_menu.show(rect.left, rect.top);
-                    }
-                );
+                    );
                 cmenu.addCheckableOption("Hide Access Nodes", that.omit_access_nodes, (x, checked) => { that.omit_access_nodes = checked; that.relayout()});
                 that.menu = cmenu;
                 that.menu.show(rect.left, rect.bottom);
@@ -1374,10 +1357,17 @@ class SDFGRenderer {
             exit_preview_btn.style = 'padding-bottom: 0px; user-select: none';
             exit_preview_btn.onclick = () => {
                 exit_preview_btn.className = 'button hidden';
-                if (vscode)
+                window.viewing_history_state = false;
+                if (vscode) {
                     vscode.postMessage({
                         type: 'sdfv.get_current_sdfg',
+                        prevent_refreshes: true,
                     });
+                    vscode.postMessage({
+                        type: 'transformation_history.refresh',
+                        reset_active: true,
+                    });
+                }
             };
             exit_preview_btn.title = 'Exit preview';
             this.toolbar.appendChild(exit_preview_btn);
@@ -1494,6 +1484,10 @@ class SDFGRenderer {
 
         // Make sure all visible overlays get recalculated if there are any.
         this.overlay_manager.refresh();
+
+        // If we're in a VSCode context, we also want to refresh the outline.
+        if (vscode)
+            outline(this, this.graph);
 
         return this.graph;
     }
@@ -2048,16 +2042,14 @@ class SDFGRenderer {
                         y_end: this.mousepos.y,
                     };
 
-                    // Mark for redraw and resort
+                    // Mark for redraw
                     dirty = true;
-                    element_focus_changed = true;
                 } else {
                     this.canvas_manager.translate(event.movementX,
                         event.movementY);
 
-                    // Mark for redraw and resort
+                    // Mark for redraw
                     dirty = true;
-                    element_focus_changed = true;
                 }
             } else if (this.drag_start && event.buttons & 4) {
                 // Pan the view with the middle mouse button
@@ -2256,6 +2248,8 @@ class SDFGRenderer {
                 this.dragging = false;
                 ends_drag = true;
 
+                element_focus_changed = true;
+
                 if (this.box_select_rect) {
                     let elements_in_selection = [];
                     let start_x = Math.min(this.box_select_rect.x_start,
@@ -2359,39 +2353,8 @@ class SDFGRenderer {
             // If a listener in VSCode is present, update it about the new
             // viewport and tell it to re-sort the shown transformations.
             try {
-                if (vscode) {
-                    function clean_selected(selected_elements) {
-                        let elems = [];
-                        selected_elements.forEach((el) => {
-                            let parent_id =
-                                el.parent_id === null ? -1 : el.parent_id;
-                            let type = 'other';
-                            if (el.data.node)
-                                type = 'node';
-                            else if (el.data.state)
-                                type = 'state';
-                            else if (el.data.type === 'InterstateEdge')
-                                type = 'isedge';
-                            else if (el.data.type === 'Memlet')
-                                type = 'edge';
-                            elems.push({
-                                type: type,
-                                sdfg_id: el.sdfg.sdfg_list_id,
-                                state_id: parent_id,
-                                id: el.id,
-                            });
-                        });
-                        return elems;
-                    }
-
-                    vscode.postMessage({
-                        type: 'sdfv.sort_transformations',
-                        visibleElements: JSON.stringify(this.visible_elements()),
-                        selectedElements: JSON.stringify(
-                            clean_selected(this.selected_elements)
-                        ),
-                    });
-                }
+                if (vscode)
+                    sort_transformations(refresh_transformation_list);
             } catch (ex) {
                 // Do nothing
             }
