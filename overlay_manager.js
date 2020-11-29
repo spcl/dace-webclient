@@ -8,8 +8,15 @@ class SymbolResolver {
 
         // Initialize the symbol mapping to the graph's symbol table.
         this.symbol_value_map = {};
-        Object.keys(this.sdfg.attributes.symbols).forEach((symbol) => {
-            this.symbol_value_map[symbol] = undefined;
+        Object.keys(this.sdfg.attributes.symbols).forEach((s) => {
+            if (this.sdfg.attributes.constants_prop !== undefined &&
+                Object.keys(this.sdfg.attributes.constants_prop).includes(s) &&
+                this.sdfg.attributes.constants_prop[s][0]['type'] === 'Scalar')
+                this.symbol_value_map[s] = this.sdfg.attributes.constants_prop[
+                    s
+                ][1];
+            else
+                this.symbol_value_map[s] = undefined;
         });
         this.symbols_to_define = [];
 
