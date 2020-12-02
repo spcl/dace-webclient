@@ -143,17 +143,13 @@ function find_exit_for_entry(nodes, entry_node) {
 }
 
 
-function check_and_redirect_edge(edge, drawn_nodes, sdfg_state, omit_access_nodes = true) {
+function check_and_redirect_edge(edge, drawn_nodes, sdfg_state) {
     // If destination is not drawn, no need to draw the edge
     if (!drawn_nodes.has(edge.dst))
         return null;
     // If both source and destination are in the graph, draw edge as-is
-    if (drawn_nodes.has(edge.src)) {
-        // If access nodes are not hidden and it's a shortcut edge, then don't draw the edge
-        if (!omit_access_nodes && edge.shortcut)
-            return null;
+    if (drawn_nodes.has(edge.src))
         return edge;
-    }
 
     // If immediate scope parent node is in the graph, redirect
     let scope_src = sdfg_state.nodes[edge.src].scope_entry;

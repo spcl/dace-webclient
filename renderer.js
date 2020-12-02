@@ -881,9 +881,9 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
     });
 
     // add info to calculate shortcut edges
-    function add_edge_info_if_hidden(edge, hidden_nodes) {
-        hidden_src = hidden_nodes.get(edge.src);
-        hidden_dst = hidden_nodes.get(edge.dst);
+    function add_edge_info_if_hidden(edge) {
+        let hidden_src = hidden_nodes.get(edge.src);
+        let hidden_dst = hidden_nodes.get(edge.dst);
 
         if (hidden_src && hidden_dst) {
             // if we have edges from an AccessNode to an AccessNode then just connect destinations
@@ -908,8 +908,8 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
     }
 
     sdfg_state.edges.forEach((edge, id) => {
-        if (add_edge_info_if_hidden(edge, hidden_nodes)) return;
-        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state, omit_access_nodes);
+        if (add_edge_info_if_hidden(edge)) return;
+        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
         if (!edge) return;
         let e = new Edge(edge.attributes.data, id, sdfg, sdfg_state.id);
         e.src_connector = edge.src_connector;
@@ -928,25 +928,29 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
                 // attribute that only shortcut edges have; if it is explicitly false, then edge is ignored in omit access node mode
                 shortcut_e.attributes.data.attributes.shortcut = true;
 
+                // draw the redirected edge
+                let redirected_e = check_and_redirect_edge(shortcut_e, drawn_nodes, sdfg_state);
+                if (!redirected_e) return;
+
                 // abort if shortcut edge already exists
-                let edges = g.outEdges(hidden_node.src.src);
-                if (edges === undefined)
-                    return;
-                for (oe of edges) {
+                let edges = g.outEdges(redirected_e.src);
+                for (let oe of edges) {
                     if (oe.w == e.dst && sdfg_state.edges[oe.name].dst_connector == e.dst_connector) {
                         return;
                     }
                 }
 
+                // add shortcut edge (redirection is not done in this list)
                 sdfg_state.edges.push(shortcut_e);
 
+                // add redirected shortcut edge to graph
                 let edge_id = sdfg_state.edges.length - 1;
-                let direct_edge = new Edge(deepCopy(e.attributes.data), edge_id, sdfg, sdfg_state.id);
-                direct_edge.src_connector = hidden_node.src.src_connector;
-                direct_edge.dst_connector = e.dst_connector;
-                direct_edge.data.attributes.shortcut = true;
+                let shortcut_edge = new Edge(deepCopy(redirected_e.attributes.data), edge_id, sdfg, sdfg_state.id);
+                shortcut_edge.src_connector = redirected_e.src_connector;
+                shortcut_edge.dst_connector = redirected_e.dst_connector;
+                shortcut_edge.data.attributes.shortcut = true;
 
-                g.setEdge(hidden_node.src.src, e.dst, direct_edge, edge_id);
+                g.setEdge(redirected_e.src, redirected_e.dst, shortcut_edge, edge_id);
             });
         }
     });
@@ -995,7 +999,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
     });
 
     sdfg_state.edges.forEach(function (edge, id) {
-        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state, omit_access_nodes);
+        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
         if (!edge) return;
         let gedge = g.edge(edge.src, edge.dst, id);
         if (!gedge || (omit_access_nodes && gedge.data.attributes.shortcut === false
