@@ -174,6 +174,18 @@ function find_in_graph(renderer, sdfg, query, case_sensitive=false) {
         d.className = 'context_menu_option';
         d.innerHTML = result.type() + ' ' + result.label();
         d.onclick = () => {renderer.zoom_to_view([result])};
+        d.onmouseenter = () => {
+            if (!result.highlighted) {
+                result.highlighted = true;
+                renderer.draw_async();
+            }
+        };
+        d.onmouseleave = () => {
+            if (result.highlighted) {
+                result.highlighted = false;
+                renderer.draw_async();
+            }
+        };
         sidebar.appendChild(d);
     }
 
