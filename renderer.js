@@ -1242,7 +1242,7 @@ class SDFGRenderer {
                     cmenu.addOption("Save all as PDF", x => that.save_as_pdf(true));
                 }
                 cmenu.addCheckableOption("Inclusive ranges", that.inclusive_ranges, (x, checked) => { that.inclusive_ranges = checked; });
-                if (!vscode)
+                if (!in_vscode)
                     cmenu.addOption(
                         'Overlays',
                         () => {
@@ -1265,7 +1265,7 @@ class SDFGRenderer {
                                             GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
                                         );
                                     that.draw_async();
-                                    if (vscode)
+                                    if (in_vscode)
                                         refresh_analysis_pane();
                                 }
                             );
@@ -1486,8 +1486,10 @@ class SDFGRenderer {
         this.overlay_manager.refresh();
 
         // If we're in a VSCode context, we also want to refresh the outline.
-        if (vscode)
-            outline(this, this.graph);
+        try {
+            if (vscode)
+                outline(this, this.graph);
+        } catch (ex) { }
 
         return this.graph;
     }
