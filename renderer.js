@@ -1233,6 +1233,13 @@ class SDFGRenderer {
         this.toolbar.style = 'position:absolute; top:10px; left: 10px;';
         let d;
 
+        let in_vscode = false;
+        try {
+            vscode;
+            if (vscode)
+                in_vscode = true;
+        } catch (ex) { }
+
         // Menu bar
         try {
             ContextMenu;
@@ -1291,13 +1298,6 @@ class SDFGRenderer {
             };
             d.title = 'Menu';
             this.toolbar.appendChild(d);
-        } catch (ex) { }
-
-        let in_vscode = false;
-        try {
-            vscode;
-            if (vscode)
-                in_vscode = true;
         } catch (ex) { }
 
         // Zoom to fit
