@@ -881,9 +881,9 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
     });
 
     // add info to calculate shortcut edges
-    function add_edge_info_if_hidden(edge, hidden_nodes) {
-        hidden_src = hidden_nodes.get(edge.src);
-        hidden_dst = hidden_nodes.get(edge.dst);
+    function add_edge_info_if_hidden(edge) {
+        let hidden_src = hidden_nodes.get(edge.src);
+        let hidden_dst = hidden_nodes.get(edge.dst);
 
         if (hidden_src && hidden_dst) {
             // if we have edges from an AccessNode to an AccessNode then just connect destinations
@@ -908,10 +908,11 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
     }
 
     sdfg_state.edges.forEach((edge, id) => {
-        if (add_edge_info_if_hidden(edge, hidden_nodes)) return;
-        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state, omit_access_nodes);
+        if (add_edge_info_if_hidden(edge)) return;
+        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
         if (!edge) return;
         let e = new Edge(edge.attributes.data, id, sdfg, sdfg_state.id);
+        edge.attributes.data.edge = e;
         e.src_connector = edge.src_connector;
         e.dst_connector = edge.dst_connector;
         g.setEdge(edge.src, edge.dst, e, id);
@@ -921,32 +922,39 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
         if (hidden_node.src) {
             hidden_node.dsts.forEach( e => {
                 // create shortcut edge with new destination
+                let tmp_edge = e.attributes.data.edge;
+                e.attributes.data.edge = null;
                 let shortcut_e = deepCopy(e);
+                e.attributes.data.edge = tmp_edge;
                 shortcut_e.src = hidden_node.src.src;
                 shortcut_e.src_connector = hidden_node.src.src_connector;
                 shortcut_e.dst_connector = e.dst_connector;
                 // attribute that only shortcut edges have; if it is explicitly false, then edge is ignored in omit access node mode
                 shortcut_e.attributes.data.attributes.shortcut = true;
 
+                // draw the redirected edge
+                let redirected_e = check_and_redirect_edge(shortcut_e, drawn_nodes, sdfg_state);
+                if (!redirected_e) return;
+
                 // abort if shortcut edge already exists
-                let edges = g.outEdges(hidden_node.src.src);
-                if (edges === undefined)
-                    return;
-                for (oe of edges) {
+                let edges = g.outEdges(redirected_e.src);
+                for (let oe of edges) {
                     if (oe.w == e.dst && sdfg_state.edges[oe.name].dst_connector == e.dst_connector) {
                         return;
                     }
                 }
 
+                // add shortcut edge (redirection is not done in this list)
                 sdfg_state.edges.push(shortcut_e);
 
+                // add redirected shortcut edge to graph
                 let edge_id = sdfg_state.edges.length - 1;
-                let direct_edge = new Edge(deepCopy(e.attributes.data), edge_id, sdfg, sdfg_state.id);
-                direct_edge.src_connector = hidden_node.src.src_connector;
-                direct_edge.dst_connector = e.dst_connector;
-                direct_edge.data.attributes.shortcut = true;
+                let shortcut_edge = new Edge(deepCopy(redirected_e.attributes.data), edge_id, sdfg, sdfg_state.id);
+                shortcut_edge.src_connector = redirected_e.src_connector;
+                shortcut_edge.dst_connector = redirected_e.dst_connector;
+                shortcut_edge.data.attributes.shortcut = true;
 
-                g.setEdge(hidden_node.src.src, e.dst, direct_edge, edge_id);
+                g.setEdge(redirected_e.src, redirected_e.dst, shortcut_edge, edge_id);
             });
         }
     });
@@ -995,7 +1003,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
     });
 
     sdfg_state.edges.forEach(function (edge, id) {
-        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state, omit_access_nodes);
+        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
         if (!edge) return;
         let gedge = g.edge(edge.src, edge.dst, id);
         if (!gedge || (omit_access_nodes && gedge.data.attributes.shortcut === false
@@ -1091,7 +1099,7 @@ class SDFGRenderer {
         this.selectmode_btn = null;
 
         // Memlet-Tree related fields
-        this.all_memlet_trees = [];
+        this.all_memlet_trees_sdfg = [];
 
         // View options
         this.inclusive_ranges = false;
@@ -1117,6 +1125,10 @@ class SDFGRenderer {
         this.debug_draw = debug_draw;
 
         this.init_elements(user_transform, background);
+
+        this.all_memlet_trees_sdfg = memlet_tree_complete(this.sdfg);
+
+        this.update_fast_memlet_lookup();
     }
 
     destroy() {
@@ -1272,7 +1284,7 @@ class SDFGRenderer {
                                             GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
                                         );
                                     that.draw_async();
-                                    if (vscode)
+                                    if (in_vscode)
                                         refresh_analysis_pane();
                                 }
                             );
@@ -1473,6 +1485,18 @@ class SDFGRenderer {
         this.canvas.height = this.canvas.offsetHeight;
     }
 
+    // Update memlet tree collection for faster lookup
+    update_fast_memlet_lookup() {
+        this.all_memlet_trees = [];
+        for (let tree of this.all_memlet_trees_sdfg) {
+            let s = new Set();
+            for (let edge of tree) {
+                s.add(edge.attributes.data.edge);
+            }
+            this.all_memlet_trees.push(s);
+        }
+    }
+
     // Re-layout graph and nested graphs
     relayout() {
         this.sdfg_list = {};
@@ -1480,7 +1504,7 @@ class SDFGRenderer {
             this.state_parent_list, this.omit_access_nodes);
         this.onresize();
 
-        this.all_memlet_trees = memlet_tree_complete(this.graph);
+        this.update_fast_memlet_lookup();
 
         // Make sure all visible overlays get recalculated if there are any.
         this.overlay_manager.refresh();
@@ -1489,7 +1513,7 @@ class SDFGRenderer {
         try {
             if (vscode)
                 outline(this, this.graph);
-        } catch (ex) {}
+        } catch (ex) { }
 
         return this.graph;
     }
