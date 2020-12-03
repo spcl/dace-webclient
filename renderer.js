@@ -1221,6 +1221,13 @@ class SDFGRenderer {
         this.toolbar.style = 'position:absolute; top:10px; left: 10px;';
         let d;
 
+        let in_vscode = false;
+        try {
+            vscode;
+            if (vscode)
+                in_vscode = true;
+        } catch (ex) { }
+
         // Menu bar
         try {
             ContextMenu;
@@ -1242,7 +1249,7 @@ class SDFGRenderer {
                     cmenu.addOption("Save all as PDF", x => that.save_as_pdf(true));
                 }
                 cmenu.addCheckableOption("Inclusive ranges", that.inclusive_ranges, (x, checked) => { that.inclusive_ranges = checked; });
-                if (!vscode)
+                if (!in_vscode)
                     cmenu.addOption(
                         'Overlays',
                         () => {
@@ -1279,13 +1286,6 @@ class SDFGRenderer {
             };
             d.title = 'Menu';
             this.toolbar.appendChild(d);
-        } catch (ex) { }
-
-        let in_vscode = false;
-        try {
-            vscode;
-            if (vscode)
-                in_vscode = true;
         } catch (ex) { }
 
         // Zoom to fit
@@ -1486,8 +1486,10 @@ class SDFGRenderer {
         this.overlay_manager.refresh();
 
         // If we're in a VSCode context, we also want to refresh the outline.
-        if (vscode)
-            outline(this, this.graph);
+        try {
+            if (vscode)
+                outline(this, this.graph);
+        } catch (ex) {}
 
         return this.graph;
     }
