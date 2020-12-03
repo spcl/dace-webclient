@@ -912,6 +912,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
         edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
         if (!edge) return;
         let e = new Edge(edge.attributes.data, id, sdfg, sdfg_state.id);
+        edge.attributes.data.edge = e;
         e.src_connector = edge.src_connector;
         e.dst_connector = edge.dst_connector;
         g.setEdge(edge.src, edge.dst, e, id);
@@ -921,7 +922,10 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
         if (hidden_node.src) {
             hidden_node.dsts.forEach( e => {
                 // create shortcut edge with new destination
+                let tmp_edge = e.attributes.data.edge;
+                e.attributes.data.edge = null;
                 let shortcut_e = deepCopy(e);
+                e.attributes.data.edge = tmp_edge;
                 shortcut_e.src = hidden_node.src.src;
                 shortcut_e.src_connector = hidden_node.src.src_connector;
                 shortcut_e.dst_connector = e.dst_connector;
@@ -1095,7 +1099,7 @@ class SDFGRenderer {
         this.selectmode_btn = null;
 
         // Memlet-Tree related fields
-        this.all_memlet_trees = [];
+        this.all_memlet_trees_sdfg = [];
 
         // View options
         this.inclusive_ranges = false;
@@ -1121,6 +1125,10 @@ class SDFGRenderer {
         this.debug_draw = debug_draw;
 
         this.init_elements(user_transform, background);
+
+        this.all_memlet_trees_sdfg = memlet_tree_complete(this.sdfg);
+
+        this.update_fast_memlet_lookup();
     }
 
     destroy() {
@@ -1477,6 +1485,18 @@ class SDFGRenderer {
         this.canvas.height = this.canvas.offsetHeight;
     }
 
+    // Update memlet tree collection for faster lookup
+    update_fast_memlet_lookup() {
+        this.all_memlet_trees = [];
+        for (let tree of this.all_memlet_trees_sdfg) {
+            let s = new Set();
+            for (let edge of tree) {
+                s.add(edge.attributes.data.edge);
+            }
+            this.all_memlet_trees.push(s);
+        }
+    }
+
     // Re-layout graph and nested graphs
     relayout() {
         this.sdfg_list = {};
@@ -1484,7 +1504,7 @@ class SDFGRenderer {
             this.state_parent_list, this.omit_access_nodes);
         this.onresize();
 
-        this.all_memlet_trees = memlet_tree_complete(this.graph);
+        this.update_fast_memlet_lookup();
 
         // Make sure all visible overlays get recalculated if there are any.
         this.overlay_manager.refresh();
