@@ -120,7 +120,7 @@ class SDFGElement {
     }
 
     getCssProperty(renderer, propertyName) {
-        return window.getComputedStyle(renderer.canvas).getPropertyValue(propertyName);
+        return window.getComputedStyle(renderer.canvas).getPropertyValue(propertyName).trim();
     }
 }
 

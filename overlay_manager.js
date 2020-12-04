@@ -5,6 +5,11 @@ class SymbolResolver {
     constructor(renderer) {
         this.renderer = renderer;
         this.sdfg = this.renderer.sdfg;
+        try {
+            this.vscode = vscode;
+        } catch(exception) {
+            this.vscode = false;
+        }
 
         // Initialize the symbol mapping to the graph's symbol table.
         this.symbol_value_map = {};
@@ -70,7 +75,7 @@ class SymbolResolver {
                 symbol,
                 mapping,
                 () => {
-                    if (vscode)
+                    if (this.vscode)
                         vscode.postMessage({
                             type: 'analysis.define_symbol',
                             symbol: symbol,
@@ -204,6 +209,11 @@ class GenericSdfgOverlay {
         this.symbol_resolver = this.overlay_manager.symbol_resolver;
         this.renderer = renderer;
         this.type = type;
+        try {
+            this.vscode = vscode;
+        } catch(exception) {
+            this.vscode = false;
+        }
 
         this.badness_scale_center = 5;
     }
@@ -231,7 +241,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
 
         this.flops_map = {};
 
-        if (vscode) {
+        if (this.vscode) {
             vscode.postMessage({
                 type: 'dace.get_flops',
             });

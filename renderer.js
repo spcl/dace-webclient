@@ -1261,6 +1261,7 @@ class SDFGRenderer {
                     cmenu.addOption("Save all as PDF", x => that.save_as_pdf(true));
                 }
                 cmenu.addCheckableOption("Inclusive ranges", that.inclusive_ranges, (x, checked) => { that.inclusive_ranges = checked; });
+                cmenu.addCheckableOption("Adaptive content hiding", that.ctx.lod, (x, checked) => { that.ctx.lod = checked; });
                 if (!in_vscode)
                     cmenu.addOption(
                         'Overlays',
