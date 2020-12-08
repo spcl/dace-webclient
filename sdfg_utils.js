@@ -185,15 +185,18 @@ function isDict(v) {
     return typeof v === 'object' && v !== null && !(v instanceof Array) && !(v instanceof Date);
 }
 
-function replacer(name, val, orig_sdfg) {
+function replacer(name, val, orig_sdfg, indent) {
+    if (val instanceof Edge) {
+        return undefined;
+    }
     if (val && isDict(val) && val !== orig_sdfg && 'type' in val && val.type === 'SDFG') {
-        return JSON.stringify(val, (n,v) => replacer(n, v, val));
+        return JSON.stringify(val, (n,v) => replacer(n, v, val), indent);
     }
     return val;
 }
 
-function stringify_sdfg(sdfg) {
-    return JSON.stringify(sdfg, (name, val) => replacer(name, val, sdfg));
+function stringify_sdfg(sdfg, indent=0) {
+    return JSON.stringify(sdfg, (name, val) => replacer(name, val, sdfg, indent), indent);
 }
 
 function sdfg_range_elem_to_string(range, settings=null) {
