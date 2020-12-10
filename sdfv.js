@@ -2,10 +2,11 @@
 
 var fr;
 var file = null;
+var instrumentation_file = null;
 var renderer = null;
 
 function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
-    $('input[type="file"]').change(function(e){
+    $('#sdfg-file-input').change(function(e){
         if (e.target.files.length < 1)
             return;
         file = e.target.files[0];
@@ -13,6 +14,12 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
     });
     $('#reload').click(function(e){
         reload_file();
+    });
+    $('#instrumentation-report-file-input').change(function(e) {
+        if (e.target.files.length < 1)
+            return;
+        instrumentation_file = e.target.files[0];
+        load_instrumentation_report();
     });
     $('#outline').click(function(e){
         if (renderer)
@@ -51,6 +58,69 @@ function file_read_complete() {
         renderer.destroy();
     renderer = new SDFGRenderer(sdfg, document.getElementById('contents'), mouse_event);
     close_menu();
+}
+
+function load_instrumentation_report() {
+    if (!instrumentation_file)
+        return;
+    fr = new FileReader();
+    fr.onload = load_instrumentation_report_callback;
+    fr.readAsText(instrumentation_file);
+}
+
+function load_instrumentation_report_callback() {
+    instrumentation_report_read_complete(fr.result);
+}
+
+function instrumentation_report_read_complete(result=undefined) {
+    let report = JSON.parse(result);
+
+    let runtime_map = {};
+
+    if (report.traceEvents && renderer) {
+        for (const event of report.traceEvents) {
+            let uuid = event.args.sdfg_id + '/';
+            if (event.args.state_id !== undefined) {
+                uuid += event.args.state_id + '/';
+                if (event.args.id !== undefined)
+                    uuid += event.args.id + '/-1';
+                else
+                    uuid += '-1/-1';
+            } else {
+                uuid += '-1/-1/-1';
+            }
+
+            if (runtime_map[uuid] !== undefined)
+                runtime_map[uuid].push(event.dur);
+            else
+                runtime_map[uuid] = [event.dur];
+        }
+
+        for (const key in runtime_map) {
+            const values = runtime_map[key];
+            const runtime_summary = {
+                'min': math.min(...values),
+                'max': math.max(...values),
+                'mean': math.mean(values),
+                'med': math.median(values),
+            };
+            runtime_map[key] = runtime_summary;
+        }
+
+        if (renderer.overlay_manager) {
+            if (!renderer.overlay_manager.runtime_micros_overlay_active)
+                renderer.overlay_manager.register_overlay(
+                    GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_MICROS
+                );
+            const ol = renderer.overlay_manager.get_overlay(
+                GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_MICROS
+            );
+            if (ol) {
+                ol.runtime_map = runtime_map;
+                ol.refresh();
+            }
+        }
+    }
 }
 
 // https://stackoverflow.com/a/901144/6489142
