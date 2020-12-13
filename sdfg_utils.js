@@ -168,6 +168,23 @@ function equals(a, b) {
      return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function same_node(a, b) {
+    if (a.id === b.id && a.parent_id === b.parent_id) {
+        if (a instanceof State && b instanceof State) {
+            return a.data.state.type === b.data.state.type;
+        }
+        if (a instanceof Node && b instanceof Node) {
+            return a.data.node.type === b.data.node.type;
+        }
+        if (a instanceof Edge && b instanceof Edge) {
+            return a.data.edge.type === b.data.edge.type;
+        }
+        if (a instanceof Connector && b instanceof Connector) {
+            return a.data.name === b.data.name;
+        }
+    }
+    return false;
+}
 
 function reviver(name, val) {
     if (name == 'sdfg' && val && typeof val === 'string' && val[0] === '{') {

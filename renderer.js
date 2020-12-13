@@ -276,7 +276,7 @@ class CanvasManager {
      * @param {*} state_parent_list List of parent elements to SDFG states
      */
     translate_element(el, old_mousepos, new_mousepos, entire_graph, sdfg_list,
-        state_parent_list, drag_start) {
+        state_parent_list, drag_start, update_drag = true) {
         this.stopAnimation();
 
         // Edges connected to the moving element
@@ -475,6 +475,15 @@ class CanvasManager {
         // Move the node
         move_node_and_connectors(el);
 
+        // Store movement information in element (for relayouting)
+        if (update_drag) {
+            if (!el.data.position)
+                el.data.position = { dx: 0, dy: 0 };
+
+            el.data.position.dx += dx;
+            el.data.position.dy += dy;
+        }
+        
         if (el.data.state && !el.data.state.attributes.is_collapsed) {
             // We're moving a state, move all its contained elements
             const graph = el.data.graph;
@@ -1245,6 +1254,7 @@ class SDFGRenderer {
         this.last_dragged_element = null;
         this.tooltip = null;
         this.tooltip_container = null;
+        this.moved_elements = [];
 
         // Toolbar-related fields
         this.menu = null;
@@ -1283,6 +1293,15 @@ class SDFGRenderer {
         this.debug_draw = debug_draw;
 
         this.init_elements(user_transform, background);
+
+        // Initialize list with moved elements (traverse SDFG)
+        this.for_all_elements(0, 0, 0, 0, (otype, odict, obj, intersect) => {
+            if (obj.data && obj.data.position && (obj.data.position.dx || obj.data.position.dy)) {
+                this.moved_elements.push(obj);
+            }
+        });
+
+        this.relayout();
 
         this.all_memlet_trees_sdfg = memlet_tree_complete(this.sdfg);
 
@@ -1325,7 +1344,9 @@ class SDFGRenderer {
                 this.movemode_btn.innerHTML =
                     '<i class="material-icons">done</i>';
                 this.movemode_btn.title = 'Exit object moving mode';
-                this.interaction_info_text.innerHTML = 'Middle Mouse: Pan view';
+                this.interaction_info_text.innerHTML =
+                    'Middle Mouse: Pan view<br>' +
+                    'Right Click: Reset position';
                 break;
             case 'select':
                 this.interaction_info_box.style.display = 'block';
@@ -1664,6 +1685,43 @@ class SDFGRenderer {
         this.onresize();
 
         this.update_fast_memlet_lookup();
+
+        this.moved_elements.forEach(el => {
+            if (!el.data.position)
+                return;
+
+            let dx = el.data.position.dx;
+            let dy = el.data.position.dy;
+
+            if (!Number.isFinite(dx) || !Number.isFinite(dy))
+                return;
+
+            // Find the corresponding element in the graph to get its position
+            let gel;
+            this.for_all_elements(0, 0, 0, 0, (otype, odict, obj, intersect) => {
+                if (same_node(obj, el)) {
+                    gel = obj;
+                }
+            });
+
+            // Return if element is not shown (e.g. when collapsed)
+            if (!gel)
+                return;
+
+            // Store relative position attributes (dx, dy)
+            gel.data.position = el.data.position;
+            // Update original position (used to reset the position later)
+            gel.data.position.x = gel.x;
+            gel.data.position.y = gel.y;
+
+            let ox = gel.x;
+            let oy = gel.y;
+
+            // Move the element
+            this.canvas_manager.translate_element(gel, { x: ox, y: oy },
+                { x: ox + dx, y: oy + dy }, this.graph, this.sdfg_list,
+                this.state_parent_list, undefined, false);
+        });
 
         // Make sure all visible overlays get recalculated if there are any.
 		if (this.overlay_manager !== null)
@@ -2200,12 +2258,22 @@ class SDFGRenderer {
                         this.canvas.style.cursor = 'grabbing';
                         this.drag_start.cx = comp_x_func(this.drag_start);
                         this.drag_start.cy = comp_y_func(this.drag_start);
-                        this.canvas_manager.translate_element(
-                            this.last_dragged_element,
-                            old_mousepos, this.mousepos,
-                            this.graph, this.sdfg_list, this.state_parent_list,
-                            this.drag_start
-                        );
+                        let elements_to_move = [this.last_dragged_element];
+                        let move_edges = true;
+                        if (this.selected_elements.includes(this.last_dragged_element)) {
+                            elements_to_move = this.selected_elements;
+                            move_edges = false;
+                        }
+                        for (let el of elements_to_move) {
+                            if (!(el instanceof Connector) || (move_edges && !(el instanceof Edge))) {
+                                this.canvas_manager.translate_element(
+                                    el,
+                                    old_mousepos, this.mousepos,
+                                    this.graph, this.sdfg_list, this.state_parent_list,
+                                    this.drag_start
+                                );
+                            }
+                        }
                         dirty = true;
                         this.draw_async();
                         return false;
@@ -2216,6 +2284,26 @@ class SDFGRenderer {
                         if (mouse_elements.foreground_elem) {
                             this.last_dragged_element =
                                 mouse_elements.foreground_elem;
+                            let elements_to_move = [this.last_dragged_element];
+                            if (this.selected_elements.includes(this.last_dragged_element)) {
+                                elements_to_move = this.selected_elements;
+                            }
+                            for (let el of elements_to_move) {
+                                // Only add moved node to list if not already contained (movements of edges are currently not stored)
+                                if (!this.moved_elements.includes(el) && !(el instanceof Edge || el instanceof Connector)) {
+                                    // If old version of element (prior to relayout) is contained then replace it with the new version
+                                    let contains_old_version = false;
+                                    for (let i = 0; i < this.moved_elements.length; i++) {
+                                        if (same_node(this.moved_elements[i], el)) {
+                                            this.moved_elements[i] = el;
+                                            contains_old_version = true;
+                                            break;
+                                        }
+                                    }
+                                    if (!contains_old_version)
+                                        this.moved_elements.push(el);
+                                }
+                            }
                             this.canvas.style.cursor = 'grabbing';
                             return false;
                         }
@@ -2516,6 +2604,40 @@ class SDFGRenderer {
         this.selected_elements.forEach((el) => {
             el.selected = true;
         });
+
+        if (evtype === "contextmenu") {
+            let elements_to_reset = [foreground_elem];
+            if (this.selected_elements.includes(foreground_elem))
+                elements_to_reset = this.selected_elements;
+
+            for (let el of elements_to_reset) {
+                if (el && !(el instanceof Connector) && el.data.position) {
+                    // Reset the position of the element (if it has been manually moved)
+                    for (let i = 0; i < this.moved_elements.length; i++) {
+                        if (same_node(el, this.moved_elements[i])) {
+                            this.moved_elements.splice(i, 1);
+                            let new_x, new_y;
+                            if (el.data.position.x) {
+                                // Use original position (if stored)
+                                new_x = el.data.position.x;
+                                new_y = el.data.position.y;
+                            } else {
+                                // Calculate original position with the relative movement
+                                new_x = el.x - el.data.position.dx;
+                                new_y = el.y - el.data.position.dy;
+                            }
+
+                            // Move it to original position
+                            this.canvas_manager.translate_element(el, { x: el.x, y: el.y },
+                                { x: new_x, y: new_y }, this.graph, this.sdfg_list,
+                                this.state_parent_list, undefined, true);
+
+                            break;
+                        }
+                    }
+                }
+            }
+        }
 
         let mouse_x = comp_x_func(event);
         let mouse_y = comp_y_func(event);
