@@ -478,10 +478,21 @@ class CanvasManager {
         // Store movement information in element (for relayouting)
         if (update_drag) {
             if (!el.data.position)
-                el.data.position = { dx: 0, dy: 0 };
+                el.data.position = { dx: 0, dy: 0, scope_dx: 0, scope_dy: 0 };
 
             el.data.position.dx += dx;
             el.data.position.dy += dy;
+
+            // Store movement information if EntryNode for other nodes of the same scope
+            if (el instanceof EntryNode && el.data.node.attributes.is_collapsed) {
+                if (!el.data.position.scope_entry_dx) {
+                    el.data.position.scope_entry_dx = 0;
+                    el.data.position.scope_entry_dy = 0;
+                }
+
+                el.data.position.scope_entry_dx += dx;
+                el.data.position.scope_entry_dy += dy;
+            }
         }
         
         if (el.data.state && !el.data.state.attributes.is_collapsed) {
@@ -1686,15 +1697,16 @@ class SDFGRenderer {
 
         this.update_fast_memlet_lookup();
 
-        this.moved_elements.forEach(el => {
+        for (let el of this.moved_elements) {
             if (!el.data.position)
-                return;
+                continue;
 
-            let dx = el.data.position.dx;
-            let dy = el.data.position.dy;
+            // Compute movement (including the movement of the scope)
+            let dx = el.data.position.dx + el.data.position.scope_dx;
+            let dy = el.data.position.dy + el.data.position.scope_dy;
 
             if (!Number.isFinite(dx) || !Number.isFinite(dy))
-                return;
+                continue;
 
             // Find the corresponding element in the graph to get its position
             let gel;
@@ -1706,7 +1718,7 @@ class SDFGRenderer {
 
             // Return if element is not shown (e.g. when collapsed)
             if (!gel)
-                return;
+                continue;
 
             // Store relative position attributes (dx, dy)
             gel.data.position = el.data.position;
@@ -1721,7 +1733,7 @@ class SDFGRenderer {
             this.canvas_manager.translate_element(gel, { x: ox, y: oy },
                 { x: ox + dx, y: oy + dy }, this.graph, this.sdfg_list,
                 this.state_parent_list, undefined, false);
-        });
+        }
 
         // Make sure all visible overlays get recalculated if there are any.
 		if (this.overlay_manager !== null)
@@ -2272,6 +2284,40 @@ class SDFGRenderer {
                                     this.graph, this.sdfg_list, this.state_parent_list,
                                     this.drag_start
                                 );
+                                if (el instanceof EntryNode && el.data.node.attributes.is_collapsed) {
+                                    // Update its (collapsed) children
+                                    el.sdfg.nodes.forEach(state => {
+                                        if (state.id == el.parent_id) {
+                                            // Check all nodes in its state
+                                            state.nodes.forEach(node => {
+                                                if (node.scope_entry == el.id) {
+                                                    // As the node is collapsed we temporarily create a new object to store the information
+                                                    let obj = new SDFGElements[node.type]({ node: node, graph: null }, node.id, this.sdfg, state.id);
+                                                    // If it has the position attribute, we can just update it
+                                                    let found_node = false;
+                                                    for (let n of this.moved_elements) {
+                                                        if (same_node(n, obj)) {
+                                                            n.data.position.scope_dx = el.data.position.scope_entry_dx;
+                                                            n.data.position.scope_dy = el.data.position.scope_entry_dy;
+                                                            found_node = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                    // If the node has never been moved before, we need to initialize positioning data
+                                                    if (!found_node) {
+                                                        obj.data.position = {
+                                                            x: 0, y: 0, dx: 0, dy: 0,
+                                                            scope_dx: el.data.position.scope_entry_dx,
+                                                            scope_dy: el.data.position.scope_entry_dy
+                                                        }
+                                                        this.moved_elements.push(obj);
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    });
+                                }
+
                             }
                         }
                         dirty = true;
@@ -2634,6 +2680,32 @@ class SDFGRenderer {
 
                             break;
                         }
+                    }
+                    if (el instanceof EntryNode && el.data.node.attributes.is_collapsed) {
+                        // Update its (collapsed) children
+                        el.sdfg.nodes.forEach(state => {
+                            if (state.id == el.parent_id) {
+                                // Check all nodes in its state
+                                state.nodes.forEach(node => {
+                                    if (node.scope_entry == el.id) {
+                                        // As the node is collapsed we temporarily create a new object to store the information
+                                        let obj = new SDFGElements[node.type]({ node: node, graph: null }, node.id, this.sdfg, state.id);
+                                        // If it has the position attribute, we can just update it
+                                        for (let i = 0; i < this.moved_elements.length; i++) {
+                                            if (same_node(this.moved_elements[i], obj)) {
+                                                this.moved_elements[i].data.position.scope_dx = 0;
+                                                this.moved_elements[i].data.position.scope_dy = 0;
+                                                // Remove element from list if it hasn't been moved individually
+                                                if (!(this.moved_elements[i].data.position.dx || this.moved_elements[i].data.position.dy)) {
+                                                    this.moved_elements.splice(i, 1);
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                        });
                     }
                 }
             }
