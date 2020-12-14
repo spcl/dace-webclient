@@ -336,14 +336,21 @@ class RuntimeMicrosOverlay extends GenericSdfgOverlay {
         if (this.renderer.mousepos &&
             node.intersect(this.renderer.mousepos.x, this.renderer.mousepos.y)) {
             // Show the measured runtime.
-            this.renderer.tooltip = () => {
-                this.renderer.tooltip_container.innerText = (
-                    'Min: ' + this.pretty_print_micros(rt_summary['min']) +
-                    '\nMax: ' + this.pretty_print_micros(rt_summary['max']) +
-                    '\nMean: ' + this.pretty_print_micros(rt_summary['mean']) +
-                    '\nMedian: ' + this.pretty_print_micros(rt_summary['med'])
-                );
-            };
+            if (rt_summary['min'] === rt_summary['max'])
+                this.renderer.tooltip = () => {
+                    this.renderer.tooltip_container.innerText = (
+                        this.pretty_print_micros(rt_summary['min'])
+                    );
+                };
+            else
+                this.renderer.tooltip = () => {
+                    this.renderer.tooltip_container.innerText = (
+                        'Min: ' + this.pretty_print_micros(rt_summary['min']) +
+                        '\nMax: ' + this.pretty_print_micros(rt_summary['max']) +
+                        '\nMean: ' + this.pretty_print_micros(rt_summary['mean']) +
+                        '\nMedian: ' + this.pretty_print_micros(rt_summary['med'])
+                    );
+                };
         }
 
         // Calculate the 'badness' color.
