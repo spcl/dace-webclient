@@ -337,13 +337,21 @@ class Edge extends SDFGElement {
         else
             ctx.setLineDash([1, 0]);
 
-
         ctx.stroke();
 
         ctx.setLineDash([1, 0]);
 
         if (edge.points.length < 2)
             return;
+
+
+        // Show anchor points for moving
+        if (this.selected && renderer.mouse_mode === 'move') {
+            let i;
+            for (i = 1; i < this.points.length - 1; i++)                
+                ctx.strokeRect(this.points[i].x - 5, this.points[i].y - 5, 8, 8);
+        }
+          
         drawArrow(ctx, edge.points[edge.points.length - 2], edge.points[edge.points.length - 1], 3);
     }
 
