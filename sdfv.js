@@ -69,12 +69,10 @@ function load_instrumentation_report() {
 }
 
 function load_instrumentation_report_callback() {
-    instrumentation_report_read_complete(fr.result);
+    instrumentation_report_read_complete(JSON.parse(fr.result));
 }
 
-function instrumentation_report_read_complete(result=undefined) {
-    let report = JSON.parse(result);
-
+function instrumentation_report_read_complete(report) {
     let runtime_map = {};
 
     if (report.traceEvents && renderer) {
