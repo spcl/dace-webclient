@@ -1,5 +1,8 @@
 // Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
 
+const animation_duration = 400;
+const animation_function = t => 1 - Math.pow(1 - t, 3);  // cubic ease out
+
 class CanvasManager {
     // Manages translation and scaling of canvas rendering
 
@@ -16,9 +19,12 @@ class CanvasManager {
         this.renderer = renderer;
         this.indices = [];
 
-        // Animation-related fields
-        this.animating = false;
-        this.animate_target = null;
+        this.animation_start = null;
+        this.animation_end = null;
+        /**
+         * Takes a number [0, 1] and returns a transformation matrix
+         */
+        this.animation = null;
 
         this.request_scale = false;
         this.scalef = 1.0;
@@ -37,7 +43,14 @@ class CanvasManager {
     }
 
     stopAnimation() {
-        this.animating = false;
+        this.animation_start = null;
+        this.animation_end = null;
+        this.animation = null;
+    }
+
+    animateTo(new_transform) {
+        this.stopAnimation();
+        this.animation = lerpMatrix(this.user_transform, new_transform);
     }
 
     svgPoint(x, y) {
@@ -141,7 +154,7 @@ class CanvasManager {
 
     isBlank() {
         const ctx = this.canvas.getContext('2d');
-        let topleft = ctx.getImageData(0,0,1,1).data;
+        let topleft = ctx.getImageData(0, 0, 1, 1).data;
         if (topleft[0] != 0 || topleft[1] != 0 || topleft[2] != 0 || topleft[3] != 255)
             return false;
 
@@ -179,9 +192,8 @@ class CanvasManager {
     }
 
     // Sets the view to the square around the input rectangle
-    set_view(rect) {
+    set_view(rect, animate = false) {
         this.stopAnimation();
-        this.user_transform = this._svg.createSVGMatrix();
         let canvas_w = this.canvas.width;
         let canvas_h = this.canvas.height;
         if (canvas_w == 0 || canvas_h == 0)
@@ -213,8 +225,14 @@ class CanvasManager {
         }
 
         // Uniform scaling
-        this.user_transform = this.user_transform.scale(scale, scale, 1, 0, 0, 0);
-        this.user_transform = this.user_transform.translate(tx, ty);
+        const new_transform = this._svg.createSVGMatrix().scale(scale, scale, 1, 0, 0, 0).translate(tx, ty);
+
+        if (animate && this.prev_time !== null) {
+            this.animateTo(new_transform);
+        } else {
+            this.user_transform = new_transform;
+        }
+
         this.scale_origin = { x: 0, y: 0 };
         this.scalef = 1.0;
     }
@@ -515,15 +533,35 @@ class CanvasManager {
         return (right - left) / this.canvas.width;
     }
 
-    draw(now = null) {
+    animation_step(now) {
+        if (this.animation === null) {
+            return;
+        }
+
+        if (this.animation_start === null) {
+            this.animation_start = now;
+            this.animation_end = now + animation_duration;
+        }
+
+        if (now >= this.animation_end) {
+            this.user_transform = this.animation(1);
+            this.animation_end = null;
+            return;
+        }
+
+        const start = this.animation_start;
+        const end = this.animation_end;
+        this.user_transform = this.animation(animation_function((now - start) / (end - start)));
+    }
+
+    draw_now(now) {
         if (this._destroying)
             return;
 
         let dt = now - this.prev_time;
-        if (!now || !this.prev_time)
+        if (!this.prev_time)
             dt = null;
-        if (now)
-            this.prev_time = now;
+        this.prev_time = now;
 
         if (this.contention > 0) return;
         this.contention += 1;
@@ -537,27 +575,118 @@ class CanvasManager {
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         ctx.restore();
 
-        if (this.request_scale && this.contention == 1) {
-            // Reset the translation
-            this.applyUserTransform();
-            this.request_scale = false;
-        }
-        else
-            this.applyUserTransform();
+        this.animation_step(now);
+
+        this.applyUserTransform();
+        this.request_scale &&= this.contention !== 1;
 
         this.renderer.draw(dt);
         this.contention -= 1;
 
-        if (this.animating) {
-            if (!this.animate_target)
-                this.animating = false;
+        if (this.animation_end !== null && now < this.animation_end)
             this.draw_async();
-        }
     }
 
     draw_async() {
-        this.anim_id = window.requestAnimationFrame((now) => this.draw(now));
+        this.anim_id = window.requestAnimationFrame((now) => this.draw_now(now));
     }
+}
+
+/**
+ * Returns a function taking a number from 0 to 1 which linearly interpolates between two matrices.
+ * Uses the matrix interpolation algorithm for CSS animations
+ * https://www.w3.org/TR/css-transforms-1/#decomposing-a-2d-matrix
+ */
+function lerpMatrix(m1, m2) {
+    function decompose(m) {
+        const scale = [Math.sqrt(m.a * m.a + m.b * m.b), Math.sqrt(m.c * m.c + m.d * m.d)];
+
+        const det = m.a * m.d - m.b * m.c;
+        if (det < 0) {
+            if (m.a < m.d)
+                scale[0] = -scale[0];
+            else
+                scale[1] = -scale[1];
+        }
+
+        const row0x = m.a / (scale[0] || 1);
+        const row0y = m.b / (scale[0] || 1);
+        const row1x = m.c / (scale[1] || 1);
+        const row1y = m.d / (scale[1] || 1);
+
+        const skew11 = row0x * row0x - row0y * row1x;
+        const skew12 = row0x * row0y - row0y * row1y;
+        const skew21 = row0x * row1x - row0y * row0x;
+        const skew22 = row0x * row1y - row0y * row0y;
+
+        const angle = Math.atan2(m.b, m.a) * 180 / Math.PI;
+
+        return {
+            translate: [m.e, m.f],
+            scale,
+            skew11,
+            skew12,
+            skew21,
+            skew22,
+            angle,
+        };
+    }
+
+    function lerpDecomposed(d1, d2, t) {
+        function lerp(a, b) {
+            return (b - a) * t + a;
+        }
+
+        let d1Angle = d1.angle || 360;
+        let d2Angle = d2.angle || 360;
+        let d1Scale = d1.scale;
+
+        if ((d1.scale[0] < 0 && d2.scale[1] < 0) || (d1.scale[1] < 0 && d2.scale[0] < 0)) {
+            d1Scale = [-d1Scale[0], -d1Scale[1]];
+            d1Angle += d1Angle < 0 ? 180 : -180;
+        }
+
+        if (Math.abs(d1Angle - d2Angle) > 180) {
+            if (d1Angle > d2Angle) {
+                d1Angle -= 360;
+            } else {
+                d2Angle -= 360;
+            }
+        }
+
+
+        return {
+            translate: [
+                lerp(d1.translate[0], d2.translate[0]),
+                lerp(d1.translate[1], d2.translate[1]),
+            ],
+            scale: [
+                lerp(d1Scale[0], d2.scale[0]),
+                lerp(d1Scale[1], d2.scale[1]),
+            ],
+            skew11: lerp(d1.skew11, d2.skew11),
+            skew12: lerp(d1.skew12, d2.skew12),
+            skew21: lerp(d1.skew21, d2.skew21),
+            skew22: lerp(d1.skew22, d2.skew22),
+            angle: lerp(d1Angle, d2Angle),
+        };
+    }
+
+    function recompose(d) {
+        const matrix = document.createElementNS("http://www.w3.org/2000/svg", 'svg').createSVGMatrix();
+        matrix.a = d.skew11;
+        matrix.b = d.skew12;
+        matrix.c = d.skew21;
+        matrix.d = d.skew22;
+        matrix.e = d.translate[0] * d.skew11 + d.translate[1] * d.skew21;
+        matrix.f = d.translate[0] * d.skew12 + d.translate[1] * d.skew22;
+        return matrix.rotate(0, 0, d.angle * Math.PI / 180).scale(d.scale[0], d.scale[1]);
+    }
+
+    const d1 = decompose(m1);
+    const d2 = decompose(m2);
+
+    return (t) => recompose(lerpDecomposed(d1, d2, t));
 }
 
 function getQuadraticAngle(t, sx, sy, cp1x, cp1y, ex, ey) {
@@ -1526,7 +1655,7 @@ class SDFGRenderer {
             elements = this.graph.nodes().map(x => this.graph.node(x));
 
         let bb = boundingBox(elements);
-        this.canvas_manager.set_view(bb);
+        this.canvas_manager.set_view(bb, true);
 
         this.draw_async();
     }
