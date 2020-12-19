@@ -199,11 +199,6 @@ class SymbolResolver {
 
 class GenericSdfgOverlay {
 
-    static OVERLAY_TYPE = {
-        MEMORY_VOLUME: 'OVERLAY_TYPE_MEMORY_VOLUME',
-        STATIC_FLOPS: 'OVERLAY_TYPE_STATIC_FLOPS',
-    };
-
     constructor(overlay_manager, renderer, type) {
         this.overlay_manager = overlay_manager;
         this.symbol_resolver = this.overlay_manager.symbol_resolver;
@@ -229,6 +224,10 @@ class GenericSdfgOverlay {
     }
 
 }
+GenericSdfgOverlay.OVERLAY_TYPE = {
+    MEMORY_VOLUME: 'OVERLAY_TYPE_MEMORY_VOLUME',
+    STATIC_FLOPS: 'OVERLAY_TYPE_STATIC_FLOPS',
+};
 
 class StaticFlopsOverlay extends GenericSdfgOverlay {
 
