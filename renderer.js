@@ -569,7 +569,7 @@ class CanvasManager {
 
         if (now >= this.animation_end) {
             this.user_transform = this.animation(1);
-            this.animation_end = null;
+            this.stopAnimation();
             return;
         }
 
