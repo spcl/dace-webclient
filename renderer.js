@@ -21,6 +21,7 @@ class CanvasManager {
 
         this.animation_start = null;
         this.animation_end = null;
+        this.animation_target = null;
         /**
          * Takes a number [0, 1] and returns a transformation matrix
          */
@@ -46,11 +47,34 @@ class CanvasManager {
         this.animation_start = null;
         this.animation_end = null;
         this.animation = null;
+        this.animation_target = null;
+    }
+
+    alreadyAnimatingTo(new_transform) {
+        if (this.animation_target) {
+            let result = true;
+            result &&= this.animation_target.a == new_transform.a;
+            result &&= this.animation_target.b == new_transform.b;
+            result &&= this.animation_target.c == new_transform.c;
+            result &&= this.animation_target.d == new_transform.d;
+            result &&= this.animation_target.e == new_transform.e;
+            result &&= this.animation_target.f == new_transform.f;
+            return result;
+        } else
+            return false;
     }
 
     animateTo(new_transform) {
+        // If was already animating to the same target, jump to it directly
+        if (this.alreadyAnimatingTo(new_transform)) {
+            this.stopAnimation();
+            this.user_transform = new_transform;
+            return;
+        }
+
         this.stopAnimation();
         this.animation = lerpMatrix(this.user_transform, new_transform);
+        this.animation_target = new_transform;
     }
 
     svgPoint(x, y) {
@@ -193,7 +217,6 @@ class CanvasManager {
 
     // Sets the view to the square around the input rectangle
     set_view(rect, animate = false) {
-        this.stopAnimation();
         let canvas_w = this.canvas.width;
         let canvas_h = this.canvas.height;
         if (canvas_w == 0 || canvas_h == 0)
@@ -230,6 +253,7 @@ class CanvasManager {
         if (animate && this.prev_time !== null) {
             this.animateTo(new_transform);
         } else {
+            this.stopAnimation();
             this.user_transform = new_transform;
         }
 
