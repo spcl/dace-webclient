@@ -186,6 +186,33 @@ function same_node(a, b) {
     return false;
 }
 
+function has_positioning_info(elem) {
+    return elem.data && elem.data.position;
+}
+
+function initialize_positioning_info(elem) {
+    if (elem instanceof Edge) {
+        elem.data.position = {
+            points: Array(elem.points.length),
+            scope_dx: 0,
+            scope_dy: 0
+        }
+        for (let i = 0; i < elem.points.length; i++) {
+            elem.data.position.points[i] = {dx: 0, dy: 0};
+        }
+    } else {
+        elem.data.position = { dx: 0, dy: 0, scope_dx: 0, scope_dy: 0 };
+    }
+}
+
+function set_positioning_info(elem, position) {
+    elem.data.position = position;
+}
+
+function get_positioning_info(elem) {
+    return elem.data.position;
+}
+
 function reviver(name, val) {
     if (name == 'sdfg' && val && typeof val === 'string' && val[0] === '{') {
         return JSON.parse(val, reviver);
