@@ -427,6 +427,13 @@ class CanvasManager {
                 updateEdgeBoundingBox(el);
 
                 if (update_drag) {
+                    if (!position.points) {
+                        position.points = Array(el.points.length);
+                        for (let i = 0; i < el.points.length; i++) {
+                            position.points[i] = {dx: 0, dy: 0};
+                        }
+                    }
+
                     position.points[pt].dx += dx;
                     position.points[pt].dy += dy;
                 }
@@ -1757,10 +1764,26 @@ class SDFGRenderer {
             set_positioning_info(gel, position);
 
             if (el instanceof Edge) {
+                let final_pos_d = []
+                // If edges are moved within a given scope, update the point movements
+                if (position.scope_dx || position.scope_dy) {
+                    final_pos_d.push({dx: 0, dy: 0});
+                    for (let i = 1; i < gel.points.length - 1; i++) {
+                        final_pos_d.push({dx: position.scope_dx, dy: position.scope_dy});
+                        if (position.points) {
+                            final_pos_d[i].dx += position.points[i].dx;
+                            final_pos_d[i].dx += position.points[i].dy;
+                        }
+                    }
+                    final_pos_d.push({dx: 0, dy: 0});
+                } else {
+                    final_pos_d = position.points;
+                }
+
                 // Move the element
                 this.canvas_manager.translate_element(gel, { x: 0, y: 0 },
                     { x: 0, y: 0 }, this.graph, this.sdfg_list,
-                    this.state_parent_list, undefined, false, false, position.points);
+                    this.state_parent_list, undefined, false, false, final_pos_d);
             } else {
                 // Update original position (used to reset the position later)
                 position.x = gel.x;
@@ -2335,8 +2358,10 @@ class SDFGRenderer {
                                         // Check all nodes in its state
                                         state.nodes.forEach(node => {
                                             if (node.scope_entry == el.id) {
-                                                // As the node is collapsed we temporarily create a new object to store the information
-                                                let obj = new SDFGElements[node.type]({ node: node, graph: null }, node.id, this.sdfg, state.id);
+                                                // As the node is collapsed we temporarily create a new object
+                                                // to store the information
+                                                let obj = new SDFGElements[node.type](
+                                                    { node: node, graph: null }, node.id, this.sdfg, state.id);
                                                 // If it has the position attribute, we can just update it
                                                 let found_node = false;
                                                 for (let n of this.moved_elements) {
@@ -2348,13 +2373,43 @@ class SDFGRenderer {
                                                         break;
                                                     }
                                                 }
-                                                // If the node has never been moved before, we need to initialize positioning data
+                                                // If the node has never been moved before, we need to
+                                                // initialize positioning data
                                                 if (!found_node) {
                                                     initialize_positioning_info(obj);
                                                     let position = get_positioning_info(obj);
                                                     position.scope_dx = position_el.scope_entry_dx;
                                                     position.scope_dy = position_el.scope_entry_dy
                                                     this.moved_elements.push(obj);
+                                                }
+
+                                                // Move all edges in this scope
+                                                for (let i = 0; i < state.edges.length; i++) {
+                                                    let e = state.edges[i];
+                                                    // Temporary object just to find corresponding object in list
+                                                    let e_obj = new Edge(e.attributes.data, i, e.sdfg);
+                                                    e_obj.parent_id = el.parent_id; // Needed to compare
+                                                    if (e.dst == node.id) {
+                                                        let found_edge = false;
+                                                        for (let n of this.moved_elements) {
+                                                            if (same_node(n, e_obj)) {
+                                                                let position_e = get_positioning_info(n);
+                                                                position_e.scope_dx = position_el.scope_entry_dx;
+                                                                position_e.scope_dy = position_el.scope_entry_dy;
+                                                                found_edge = true;
+                                                                break;
+                                                            }
+                                                        }
+                                                        // If the edge has never been moved before, we need to
+                                                        // initialize positioning data
+                                                        if (!found_edge) {
+                                                            initialize_positioning_info(e_obj);
+                                                            let position = get_positioning_info(e_obj);
+                                                            position.scope_dx = position_el.scope_entry_dx;
+                                                            position.scope_dy = position_el.scope_entry_dy;
+                                                            this.moved_elements.push(e_obj);
+                                                        }
+                                                    }
                                                 }
                                             }
                                         });
@@ -2702,6 +2757,9 @@ class SDFGRenderer {
                 if (el && !(el instanceof Connector) && has_positioning_info(el)) {
                     // Reset the position of the element (if it has been manually moved)
                     let position_el = get_positioning_info(el);
+                    if (el instanceof Edge && position_el.points === undefined)
+                        continue; // Edge has never been individually moved
+
                     for (let i = 0; i < this.moved_elements.length; i++) {
                         if (same_node(el, this.moved_elements[i])) {
                             this.moved_elements.splice(i, 1);
@@ -2756,6 +2814,39 @@ class SDFGRenderer {
                                                 let position = get_positioning_info(this.moved_elements[i]);
                                                 position.scope_dx = 0;
                                                 position.scope_dy = 0;
+                                                
+                                                // Reset scope positions from edges in this scope
+                                                for (let e_i = 0; e_i < state.edges.length; e_i++) {
+                                                    let e = state.edges[e_i];
+                                                    let edge = new Edge(e.attributes.data, e_i, e.sdfg);
+                                                    edge.parent_id = el.parent_id;
+                                                    if (e.dst == node.id) {
+                                                        for (let j = 0; j < this.moved_elements.length; j++) {
+                                                            if (same_node(this.moved_elements[j], edge)) {
+                                                                let e_position = get_positioning_info(this.moved_elements[j]);
+                                                                e_position.scope_dx = 0;
+                                                                e_position.scope_dy = 0;
+
+                                                                // If edge not individually moved, then remove it from list
+                                                                let individually_moved = false;
+                                                                if (e_position.points) {
+                                                                    for (let p of e_position.points) {
+                                                                        if (p.dx || p.dy) {
+                                                                            individually_moved = true;
+                                                                            break;
+                                                                        }
+                                                                    }
+                                                                }
+                                                                if (!individually_moved) {
+                                                                    this.moved_elements.splice(j, 1);
+                                                                    if (j <= i) i--;
+                                                                }
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
                                                 // Remove element from list if it hasn't been moved individually
                                                 if (!(position.dx || position.dy)) {
                                                     this.moved_elements.splice(i, 1);

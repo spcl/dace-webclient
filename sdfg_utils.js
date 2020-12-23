@@ -192,12 +192,16 @@ function has_positioning_info(elem) {
 
 function initialize_positioning_info(elem) {
     if (elem instanceof Edge) {
+        let points = undefined;
+        if (elem.points) {
+            points = Array(elem.points.length);
+        }
         elem.data.position = {
-            points: Array(elem.points.length),
+            points: points,
             scope_dx: 0,
             scope_dy: 0
         }
-        for (let i = 0; i < elem.points.length; i++) {
+        for (let i = 0; elem.points && i < elem.points.length; i++) {
             elem.data.position.points[i] = {dx: 0, dy: 0};
         }
     } else {
