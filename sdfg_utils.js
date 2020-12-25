@@ -167,54 +167,72 @@ function check_and_redirect_edge(edge, drawn_nodes, sdfg_state) {
 function equals(a, b) {
      return JSON.stringify(a) === JSON.stringify(b);
 }
-
-function same_node(a, b) {
-    if (a.id === b.id && a.parent_id === b.parent_id) {
-        if (a instanceof State && b instanceof State) {
-            return a.data.state.type === b.data.state.type;
-        }
-        if (a instanceof Node && b instanceof Node) {
-            return a.data.node.type === b.data.node.type;
-        }
-        if (a instanceof Edge && b instanceof Edge) {
-            return a.data.edge.type === b.data.edge.type;
-        }
-        if (a instanceof Connector && b instanceof Connector) {
-            return a.data.name === b.data.name;
-        }
-    }
-    return false;
-}
-
-function has_positioning_info(elem) {
-    return elem.data && elem.data.position;
-}
-
+/**
+ * Initializes positioning information on the given element.
+ *
+ * @param {SDFGElement} elem    The element that gets new positioning information
+ * @returns                     The initial positioning information that has been created
+ */
 function initialize_positioning_info(elem) {
+    let position;
     if (elem instanceof Edge) {
         let points = undefined;
         if (elem.points) {
             points = Array(elem.points.length);
         }
-        elem.data.position = {
+        position = {
             points: points,
             scope_dx: 0,
             scope_dy: 0
         }
         for (let i = 0; elem.points && i < elem.points.length; i++) {
-            elem.data.position.points[i] = {dx: 0, dy: 0};
+            position.points[i] = { dx: 0, dy: 0 };
         }
     } else {
-        elem.data.position = { dx: 0, dy: 0, scope_dx: 0, scope_dy: 0 };
+        position = { dx: 0, dy: 0, scope_dx: 0, scope_dy: 0 };
     }
+    set_positioning_info(elem, position);
+
+    return position;
 }
 
+/**
+ * Sets the positioning information on a given element. Replaces old
+ * positioning information.
+ * 
+ * @param {SDFGElement} elem    The element that receives new positioning info
+ * @param {*} position          The positioning information
+ */
 function set_positioning_info(elem, position) {
-    elem.data.position = position;
+    if (elem instanceof State)
+        elem.data.state.attributes.position = position;
+    else if (elem instanceof Node)
+        elem.data.node.attributes.position = position;
+    else if (elem instanceof Edge)
+        elem.data.attributes.position = position;
+    // Works also for other objects with attributes
+    else if (elem.attributes)
+        elem.attributes.position = position;
 }
 
+/**
+ * Finds the positioning information of the given element
+ *
+ * @param {SDFGElement} elem    The element that contains the information
+ * @returns                     The positioning information if available, undefined otherwise
+ */
 function get_positioning_info(elem) {
-    return elem.data.position;
+    if (elem instanceof State)
+        return elem.data.state.attributes.position;
+    if (elem instanceof Node)
+        return elem.data.node.attributes.position;
+    if (elem instanceof Edge)
+        return elem.data.attributes.position;
+    // Works also for other objects with attributes
+    if (elem && elem.attributes)
+        return elem.attributes.position;
+
+    return undefined;
 }
 
 function reviver(name, val) {
