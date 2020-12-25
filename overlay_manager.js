@@ -293,8 +293,11 @@ class RuntimeMicrosOverlay extends GenericSdfgOverlay {
 
         let micros_values = [0];
 
-        for (const summary of Object.values(this.runtime_map))
-            micros_values.push(summary[this.criterium]);
+        for (const key of Object.keys(this.runtime_map)) {
+            // Make sure the overall SDFG's runtime isn't included in this.
+            if (key !== '0/-1/-1/-1')
+                micros_values.push(this.runtime_map[key][this.criterium]);
+        }
 
         switch (this.overlay_manager.badness_scale_method) {
             case 'mean':

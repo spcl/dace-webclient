@@ -75,23 +75,25 @@ function load_instrumentation_report_callback() {
 function instrumentation_report_read_complete(report) {
     let runtime_map = {};
 
-    if (report.traceEvents && renderer) {
+    if (report.traceEvents && renderer && renderer.sdfg) {
         for (const event of report.traceEvents) {
-            let uuid = event.args.sdfg_id + '/';
-            if (event.args.state_id !== undefined) {
-                uuid += event.args.state_id + '/';
-                if (event.args.id !== undefined)
-                    uuid += event.args.id + '/-1';
-                else
-                    uuid += '-1/-1';
-            } else {
-                uuid += '-1/-1/-1';
-            }
+            if (event.ph === 'X') {
+                let uuid = event.args.sdfg_id + '/';
+                if (event.args.state_id !== undefined) {
+                    uuid += event.args.state_id + '/';
+                    if (event.args.id !== undefined)
+                        uuid += event.args.id + '/-1';
+                    else
+                        uuid += '-1/-1';
+                } else {
+                    uuid += '-1/-1/-1';
+                }
 
-            if (runtime_map[uuid] !== undefined)
-                runtime_map[uuid].push(event.dur);
-            else
-                runtime_map[uuid] = [event.dur];
+                if (runtime_map[uuid] !== undefined)
+                    runtime_map[uuid].push(event.dur);
+                else
+                    runtime_map[uuid] = [event.dur];
+            }
         }
 
         for (const key in runtime_map) {
