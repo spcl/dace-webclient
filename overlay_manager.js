@@ -574,13 +574,6 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
             case 'mean':
                 this.badness_scale_center = math.mean(flops_values);
                 break;
-            case 'mode':
-                let mode = math.mode(flops_values);
-                if (Array.isArray(mode))
-                    this.badness_scale_center = mode[0];
-                else
-                    this.badness_scale_center = mode;
-                break;
             case 'median':
             default:
                 this.badness_scale_center = math.median(flops_values);
@@ -604,8 +597,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
         let flops = node.data.flops;
         let flops_string = node.data.flops_string;
 
-        if (flops_string !== undefined &&
-            this.renderer.mousepos !== undefined &&
+        if (flops_string !== undefined && this.renderer.mousepos &&
             node.intersect(this.renderer.mousepos.x, this.renderer.mousepos.y)) {
             // Show the computed FLOPS value if applicable.
             if (isNaN(flops_string) && flops !== undefined)
@@ -837,13 +829,6 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
         switch (this.overlay_manager.badness_scale_method) {
             case 'mean':
                 this.badness_scale_center = math.mean(volume_values);
-                break;
-            case 'mode':
-                let mode = math.mode(volume_values);
-                if (Array.isArray(mode))
-                    this.badness_scale_center = mode[0];
-                else
-                    this.badness_scale_center = mode;
                 break;
             case 'median':
             default:
