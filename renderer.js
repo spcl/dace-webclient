@@ -1520,6 +1520,7 @@ class SDFGRenderer {
                         }
                     );
                 cmenu.addCheckableOption("Hide Access Nodes", that.omit_access_nodes, (x, checked) => { that.omit_access_nodes = checked; that.relayout()});
+                cmenu.addOption("Reset positions", () => that.reset_positions());
                 that.menu = cmenu;
                 that.menu.show(rect.left, rect.bottom);
             };
@@ -1837,6 +1838,10 @@ class SDFGRenderer {
             if ('is_collapsed' in obj.attributes && !obj.type.endsWith('Exit'))
                 obj.attributes.is_collapsed = true;
         });
+
+        // Send updated SDFG to vscode extension
+        post_vscode_sdfg_change('collapsed_node', this.sdfg);
+
         this.relayout();
         this.draw_async();
     }
@@ -1846,6 +1851,22 @@ class SDFGRenderer {
             if ('is_collapsed' in obj.attributes && !obj.type.endsWith('Exit'))
                 obj.attributes.is_collapsed = false;
         });
+
+        // Send updated SDFG to vscode extension
+        post_vscode_sdfg_change('collapsed_node', this.sdfg);
+
+        this.relayout();
+        this.draw_async();
+    }
+
+    reset_positions() {
+        this.for_all_sdfg_elements((otype, odict, obj) => {
+            delete_positioning_info(obj);
+        });
+
+        // Send updated SDFG to vscode extension
+        post_vscode_sdfg_change('moved_node', this.sdfg);
+
         this.relayout();
         this.draw_async();
     }
@@ -2571,6 +2592,9 @@ class SDFGRenderer {
             if (sdfg_elem && 'is_collapsed' in sdfg_elem.attributes) {
                 sdfg_elem.attributes.is_collapsed = !sdfg_elem.attributes.is_collapsed;
 
+                // Send new SDFG to vscode extension
+                post_vscode_sdfg_change('collapsed_node', this.sdfg);
+
                 // Re-layout SDFG
                 this.relayout();
                 dirty = true;
@@ -2628,6 +2652,10 @@ class SDFGRenderer {
                     this.box_select_rect = null;
                     dirty = true;
                     element_focus_changed = true;
+                }
+                if (this.mouse_mode === 'move') {
+                    // Send new SDFG to vscode extension
+                    post_vscode_sdfg_change('moved_node', this.sdfg);
                 }
             } else {
                 if (foreground_elem) {

@@ -235,6 +235,23 @@ function get_positioning_info(elem) {
     return undefined;
 }
 
+/**
+ * Deletes the positioning information of the given element
+ *
+ * @param {SDFGElement} elem    The element that contains the information
+ */
+function delete_positioning_info(elem) {
+    if (elem instanceof State)
+        delete elem.data.state.attributes.position;
+    if (elem instanceof Node)
+        delete elem.data.node.attributes.position;
+    if (elem instanceof Edge)
+        delete elem.data.attributes.position;
+    // Works also for other objects with attributes
+    if (elem && elem.attributes)
+        delete elem.attributes.position;
+}
+
 function reviver(name, val) {
     if (name == 'sdfg' && val && typeof val === 'string' && val[0] === '{') {
         return JSON.parse(val, reviver);
@@ -263,6 +280,15 @@ function replacer(name, val, orig_sdfg, indent) {
 
 function stringify_sdfg(sdfg, indent=0) {
     return JSON.stringify(sdfg, (name, val) => replacer(name, val, sdfg, indent), indent);
+}
+
+function post_vscode_sdfg_change(action_name, sdfg) {
+    try {
+        vscode.postMessage({
+            type: 'sdfv.' + action_name,
+            sdfg: stringify_sdfg(sdfg, 4)
+        });
+    } catch (e) { }
 }
 
 function sdfg_range_elem_to_string(range, settings=null) {
