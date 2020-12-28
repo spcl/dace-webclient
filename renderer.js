@@ -577,6 +577,16 @@ class CanvasManager {
                 edge.points[0].x += dx;
                 edge.points[0].y += dy;
             }
+            // Also update destination point of edge
+            if (edge.dst_connector !== null) {
+                let dst_el = parent_graph.node(parent_graph.edges()[edge.id].w);
+                for (let i = 0; i < dst_el.in_connectors.length; i++) {
+                    if (dst_el.in_connectors[i].data.name === edge.dst_connector) {
+                        edge.points[n] = dagre.util.intersectRect(dst_el.in_connectors[i], edge.points[n - 1]);
+                        break;
+                    }
+                }
+            }
             updateEdgeBoundingBox(edge);
         });
         in_edges.forEach(edge => {
@@ -594,6 +604,16 @@ class CanvasManager {
             if (!moved) {
                 edge.points[n].x += dx;
                 edge.points[n].y += dy;
+            }
+            // Also update source point of edge
+            if (edge.src_connector !== null) {
+                let src_el = parent_graph.node(parent_graph.edges()[edge.id].v);
+                for (let i = 0; i < src_el.out_connectors.length; i++) {
+                    if (src_el.out_connectors[i].data.name === edge.src_connector) {
+                        edge.points[0] = dagre.util.intersectRect(src_el.out_connectors[i], edge.points[1]);
+                        break;
+                    }
+                }
             }
             updateEdgeBoundingBox(edge);
         });
@@ -1519,7 +1539,11 @@ class SDFGRenderer {
                             that.overlays_menu.show(rect.left, rect.top);
                         }
                     );
-                cmenu.addCheckableOption("Hide Access Nodes", that.omit_access_nodes, (x, checked) => { that.omit_access_nodes = checked; that.relayout()});
+                cmenu.addCheckableOption("Hide Access Nodes", that.omit_access_nodes, (_, checked) => {
+                    that.omit_access_nodes = checked;
+                    that.relayout();
+                    that.draw_async();
+                });
                 cmenu.addOption("Reset positions", () => that.reset_positions());
                 that.menu = cmenu;
                 that.menu.show(rect.left, rect.bottom);
@@ -2751,6 +2775,7 @@ class SDFGRenderer {
                     }
                 }
             }
+            this.draw_async();
         }
 
         let mouse_x = comp_x_func(event);

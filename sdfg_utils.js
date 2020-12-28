@@ -175,7 +175,7 @@ function equals(a, b) {
  */
 function initialize_positioning_info(elem) {
     let position;
-    if (elem instanceof Edge) {
+    if (elem instanceof Edge || elem.type === "MultiConnectorEdge") {
         let points = undefined;
         if (elem.points) {
             points = Array(elem.points.length);
@@ -210,6 +210,8 @@ function set_positioning_info(elem, position) {
         elem.data.node.attributes.position = position;
     else if (elem instanceof Edge)
         elem.data.attributes.position = position;
+    else if (elem.type === "MultiConnectorEdge")
+        elem.attributes.data.attributes.position = position;
     // Works also for other objects with attributes
     else if (elem.attributes)
         elem.attributes.position = position;
@@ -228,8 +230,10 @@ function get_positioning_info(elem) {
         return elem.data.node.attributes.position;
     if (elem instanceof Edge)
         return elem.data.attributes.position;
+    if (elem?.type === "MultiConnectorEdge")
+        return elem?.attributes?.data?.attributes?.position;
     // Works also for other objects with attributes
-    if (elem && elem.attributes)
+    if (elem?.attributes)
         return elem.attributes.position;
 
     return undefined;
@@ -247,8 +251,10 @@ function delete_positioning_info(elem) {
         delete elem.data.node.attributes.position;
     if (elem instanceof Edge)
         delete elem.data.attributes.position;
+    if (elem?.type === "MultiConnectorEdge")
+        delete elem.attributes.data.attributes.position;
     // Works also for other objects with attributes
-    if (elem && elem.attributes)
+    if (elem?.attributes)
         delete elem.attributes.position;
 }
 
