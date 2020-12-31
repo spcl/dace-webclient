@@ -8,7 +8,7 @@ div#diode_gl_container {
     padding: 0;
 }
 
-body > div#contents {
+body > div#diode_contents {
     margin: 0;
     padding: 0;
     height: 100%;
