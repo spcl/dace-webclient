@@ -461,7 +461,7 @@ function memlet_tree(graph, edge, root_only = false) {
  * Returns a partial memlet tree from a given edge. It descends into nested SDFGs.
  * @param visited_edges is used to speed up the computation of the memlet trees
  **/
-function memlet_tree_nested(sdfg, edge, visited_edges = []) {
+function memlet_tree_nested(sdfg, state, edge, visited_edges = []) {
     if (visited_edges.includes(edge) || edge.attributes.data.attributes.shortcut) {
         return [];
     }
@@ -471,10 +471,17 @@ function memlet_tree_nested(sdfg, edge, visited_edges = []) {
     let result = [];
 
     function src(e) {
-        return sdfg.nodes[e.src];
+        return state.nodes[e.src];
     }
     function dst(e) {
-        return sdfg.nodes[e.dst];
+        return state.nodes[e.dst];
+    }
+    function isview(node) {
+        if (node.type == "AccessNode") {
+            let nodedesc = sdfg.attributes._arrays[node.attributes.data];
+            return (nodedesc && nodedesc.type === "View");
+        }
+        return false;
     }
 
     // Determine direction
@@ -482,18 +489,20 @@ function memlet_tree_nested(sdfg, edge, visited_edges = []) {
     if ((edge.src_connector && src(edge).type.endsWith("Entry")) ||
         (edge.dst_connector && dst(edge).type.endsWith("Entry") &&
         edge.dst_connector.startsWith('IN_')) ||
-        dst(edge).type == "NestedSDFG")
+        dst(edge).type == "NestedSDFG" ||
+        isview(dst(edge)))
         propagate_forward = true;
     if ((edge.src_connector && src(edge).type.endsWith("Exit")) ||
         (edge.dst_connector && dst(edge).type.endsWith("Exit")) ||
-        src(edge).type == "NestedSDFG")
+        src(edge).type == "NestedSDFG" ||
+        isview(src(edge)))
         propagate_backward = true;
 
     result.push(edge);
 
-    // If either both are false (no scopes involved) or both are true
-    // (invalid SDFG), we return only the current edge as a degenerate tree
-    if (propagate_forward == propagate_backward)
+    // If either both are false (no scopes involved), we 
+    // return only the current edge as a degenerate tree
+    if (propagate_forward == propagate_backward && propagate_backward === false)
         return result;
 
     // Descend recursively
@@ -508,31 +517,43 @@ function memlet_tree_nested(sdfg, edge, visited_edges = []) {
                 let name = edge.dst_connector;
                 let nested_sdfg = next_node.attributes.sdfg;
 
-                nested_sdfg.nodes.forEach( state => {
-                    state.edges.forEach( e => {
-                        let node = state.nodes[e.src];
+                nested_sdfg.nodes.forEach( nstate => {
+                    nstate.edges.forEach( e => {
+                        let node = nstate.nodes[e.src];
                         if (node.type == "AccessNode" && node.attributes.data === name) {
-                            result = result.concat(memlet_tree_nested(state, e, visited_edges));
+                            result = result.concat(memlet_tree_nested(nested_sdfg, nstate, e, visited_edges));
                         }
                     });
                 });
             }
 
-            if (!(next_node.type.endsWith("Entry")) ||
-                !edge.dst_connector || !edge.dst_connector.startsWith('IN_'))
-                return;
-            if (next_node.attributes.is_collapsed)
-                return;
-            let conn = edge.dst_connector.substring(3);
-            sdfg.edges.forEach( e => {
-                if (e.src == next_node.id && e.src_connector == 'OUT_' + conn) {
-                    children.push(e);
-                    if (!e.attributes.data.attributes.shortcut) {
-                        result.push(e);
+            if (isview(next_node)) {
+                state.edges.forEach( e => {
+                    if (e.src == next_node.id) {
+                        children.push(e);
+                        if (!e.attributes.data.attributes.shortcut) {
+                            result.push(e);
+                        }
                     }
-                }
-            });
-        } else {
+                });
+            } else {
+                if (!(next_node.type.endsWith("Entry")) ||
+                    !edge.dst_connector || !edge.dst_connector.startsWith('IN_'))
+                    return;
+                if (next_node.attributes.is_collapsed)
+                    return;
+                let conn = edge.dst_connector.substring(3);
+                state.edges.forEach( e => {
+                    if (e.src == next_node.id && e.src_connector == 'OUT_' + conn) {
+                        children.push(e);
+                        if (!e.attributes.data.attributes.shortcut) {
+                            result.push(e);
+                        }
+                    }
+                });
+            }
+        } 
+        if (propagate_backward) {
             let next_node = src(edge);
 
             // Descend into nested SDFG
@@ -540,26 +561,35 @@ function memlet_tree_nested(sdfg, edge, visited_edges = []) {
                 let name = edge.src_connector;
                 let nested_sdfg = next_node.attributes.sdfg;
 
-                nested_sdfg.nodes.forEach( state => {
-                    state.edges.forEach( e => {
-                        let node = state.nodes[e.dst];
+                nested_sdfg.nodes.forEach( nstate => {
+                    nstate.edges.forEach( e => {
+                        let node = nstate.nodes[e.dst];
                         if (node.type == "AccessNode" && node.attributes.data == name) {
-                            result = result.concat(memlet_tree_nested(state, e, visited_edges));
+                            result = result.concat(memlet_tree_nested(nested_sdfg, nstate, e, visited_edges));
                         }
                     });
                 });
             }
 
-            if (!(next_node.type.endsWith("Exit")) || !edge.src_connector)
-                return;
+            if (isview(next_node)) {
+                state.edges.forEach( e => {
+                    if (e.dst == next_node.id) {
+                        children.push(e);
+                        result.push(e);
+                    }
+                });
+            } else {
+                if (!(next_node.type.endsWith("Exit")) || !edge.src_connector)
+                    return;
 
-            let conn = edge.src_connector.substring(4);
-            sdfg.edges.forEach( e => {
-                if (e.dst == next_node.id && e.dst_connector == 'IN_' + conn) {
-                    children.push(e);
-                    result.push(e);
-                }
-            });
+                let conn = edge.src_connector.substring(4);
+                state.edges.forEach( e => {
+                    if (e.dst == next_node.id && e.dst_connector == 'IN_' + conn) {
+                        children.push(e);
+                        result.push(e);
+                    }
+                });
+            }
         }
 
         for (let child of children)
@@ -584,7 +614,7 @@ function memlet_tree_recursive(root_sdfg) {
     root_sdfg.nodes.forEach( state => {
 
         state.edges.forEach( e => {
-            let tree = memlet_tree_nested(state, e, visited_edges);
+            let tree = memlet_tree_nested(root_sdfg, state, e, visited_edges);
             if (tree.length > 1) {
                 trees.push(tree);
             }
