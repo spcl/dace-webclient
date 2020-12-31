@@ -528,17 +528,23 @@ class AccessNode extends Node {
             ctx.setLineDash([1, 0]);
         }
 
+        // Non-transient (external) data is thicker
         if (nodedesc && nodedesc.attributes.transient === false) {
             ctx.lineWidth = 3.0;
         } else {
             ctx.lineWidth = 1.0;
         }
-
-
         ctx.stroke();
         ctx.lineWidth = 1.0;
         ctx.setLineDash([1, 0]);
-        ctx.fillStyle = this.getCssProperty(renderer, '--node-background-color');
+
+        // Views are colored like connectors
+        if (nodedesc && nodedesc.type === "View") {
+            ctx.fillStyle = this.getCssProperty(renderer, '--connector-unscoped-color');
+        } else {
+            ctx.fillStyle = this.getCssProperty(renderer, '--node-background-color');
+        }
+
         if (ctx.pdf) { // PDFs do not support stroke and fill on the same object
             ctx.beginPath();
             drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
