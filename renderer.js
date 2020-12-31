@@ -579,11 +579,14 @@ class CanvasManager {
             }
             // Also update destination point of edge
             if (edge.dst_connector !== null) {
-                let dst_el = parent_graph.node(parent_graph.edges()[edge.id].w);
-                for (let i = 0; i < dst_el.in_connectors.length; i++) {
-                    if (dst_el.in_connectors[i].data.name === edge.dst_connector) {
-                        edge.points[n] = dagre.util.intersectRect(dst_el.in_connectors[i], edge.points[n - 1]);
-                        break;
+                let e = parent_element?.data?.state?.edges[edge.id];
+                let dst_el = parent_graph.node(e?.dst);
+                if (dst_el) {
+                    for (let i = 0; i < dst_el.in_connectors.length; i++) {
+                        if (dst_el.in_connectors[i].data.name === edge.dst_connector) {
+                            edge.points[n] = dagre.util.intersectRect(dst_el.in_connectors[i], edge.points[n - 1]);
+                            break;
+                        }
                     }
                 }
             }
@@ -607,11 +610,14 @@ class CanvasManager {
             }
             // Also update source point of edge
             if (edge.src_connector !== null) {
-                let src_el = parent_graph.node(parent_graph.edges()[edge.id].v);
-                for (let i = 0; i < src_el.out_connectors.length; i++) {
-                    if (src_el.out_connectors[i].data.name === edge.src_connector) {
-                        edge.points[0] = dagre.util.intersectRect(src_el.out_connectors[i], edge.points[1]);
-                        break;
+                let e = parent_element?.data?.state?.edges[edge.id];
+                let src_el = parent_graph.node(e?.src);
+                if (src_el) {
+                    for (let i = 0; i < src_el.out_connectors.length; i++) {
+                        if (src_el.out_connectors[i].data.name === edge.src_connector) {
+                            edge.points[0] = dagre.util.intersectRect(src_el.out_connectors[i], edge.points[1]);
+                            break;
+                        }
                     }
                 }
             }
