@@ -254,7 +254,7 @@ function sdfg_property_to_string(prop, settings=null) {
         return preview.slice(0, -2) + ']';
     } else if (prop.language !== undefined) {
         // Code
-        if (prop.string_data !== '' && prop.string_data !== undefined)
+        if (prop.string_data !== '' && prop.string_data !== undefined && prop.string_data !== null)
             return '<pre class="code"><code>' + prop.string_data.trim() +
                 '</code></pre><div class="clearfix"></div>';
         return '';
