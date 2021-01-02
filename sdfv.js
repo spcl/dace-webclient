@@ -108,12 +108,12 @@ function instrumentation_report_read_complete(report) {
         }
 
         if (renderer.overlay_manager) {
-            if (!renderer.overlay_manager.runtime_micros_overlay_active)
+            if (!renderer.overlay_manager.runtime_us_overlay_active)
                 renderer.overlay_manager.register_overlay(
-                    GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_MICROS
+                    GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
                 );
             const ol = renderer.overlay_manager.get_overlay(
-                GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_MICROS
+                GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
             );
             if (ol) {
                 ol.runtime_map = runtime_map;

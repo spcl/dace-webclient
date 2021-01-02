@@ -228,16 +228,16 @@ class GenericSdfgOverlay {
 GenericSdfgOverlay.OVERLAY_TYPE = {
     MEMORY_VOLUME: 'OVERLAY_TYPE_MEMORY_VOLUME',
     STATIC_FLOPS: 'OVERLAY_TYPE_STATIC_FLOPS',
-    RUNTIME_MICROS: 'OVERLAY_TYPE_RUNTIME_MICROS',
+    RUNTIME_US: 'OVERLAY_TYPE_RUNTIME_US',
 };
 
-class RuntimeMicrosOverlay extends GenericSdfgOverlay {
+class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
 
     constructor(overlay_manager, renderer) {
         super(
             overlay_manager,
             renderer,
-            GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_MICROS
+            GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
         );
 
         this.criterium = 'mean';
@@ -957,7 +957,7 @@ class OverlayManager {
 
         this.memory_volume_overlay_active = false;
         this.static_flops_overlay_active = false;
-        this.runtime_micros_overlay_active = false;
+        this.runtime_us_overlay_active = false;
         this.badness_scale_method = 'median';
 
         this.overlays = [];
@@ -979,11 +979,11 @@ class OverlayManager {
                 );
                 this.static_flops_overlay_active = true;
                 break;
-            case GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_MICROS:
+            case GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US:
                 this.overlays.push(
-                    new RuntimeMicrosOverlay(this, this.renderer)
+                    new RuntimeMicroSecondsOverlay(this, this.renderer)
                 );
-                this.runtime_micros_overlay_active = true;
+                this.runtime_us_overlay_active = true;
                 break;
             default:
                 break;
@@ -1003,8 +1003,8 @@ class OverlayManager {
             case GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS:
                 this.static_flops_overlay_active = false;
                 break;
-            case GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_MICROS:
-                this.runtime_micros_overlay_active = false;
+            case GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US:
+                this.runtime_us_overlay_active = false;
                 break;
             default:
                 break;
