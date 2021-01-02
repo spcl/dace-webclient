@@ -53,12 +53,12 @@ class CanvasManager {
     alreadyAnimatingTo(new_transform) {
         if (this.animation_target) {
             let result = true;
-            result &&= this.animation_target.a == new_transform.a;
-            result &&= this.animation_target.b == new_transform.b;
-            result &&= this.animation_target.c == new_transform.c;
-            result &&= this.animation_target.d == new_transform.d;
-            result &&= this.animation_target.e == new_transform.e;
-            result &&= this.animation_target.f == new_transform.f;
+            result &= this.animation_target.a == new_transform.a;
+            result &= this.animation_target.b == new_transform.b;
+            result &= this.animation_target.c == new_transform.c;
+            result &= this.animation_target.d == new_transform.d;
+            result &= this.animation_target.e == new_transform.e;
+            result &= this.animation_target.f == new_transform.f;
             return result;
         } else
             return false;
@@ -602,7 +602,8 @@ class CanvasManager {
         this.animation_step(now);
 
         this.applyUserTransform();
-        this.request_scale &&= this.contention !== 1;
+        if (this.request_scale)
+            this.request_scale = this.contention !== 1;
 
         this.renderer.draw(dt);
         this.contention -= 1;
