@@ -1819,6 +1819,8 @@ class SDFGRenderer {
                     this.state_parent_list, undefined, false);
             }
 
+            graph.inEdges(node.id).forEach(_ => {});
+
             // Move edges (outgoing only)
             graph.inEdges(node.id)?.forEach(e_id => {
                 let edge = graph.edge(e_id);
@@ -2395,7 +2397,22 @@ class SDFGRenderer {
                         this.drag_start.cy = comp_y_func(this.drag_start);
                         let elements_to_move = [this.last_dragged_element];
                         if (this.selected_elements.includes(this.last_dragged_element) && this.selected_elements.length > 1) {
-                            elements_to_move = this.selected_elements.filter(e => !(e instanceof Connector));
+                            elements_to_move = this.selected_elements.filter(el => {
+                                // Do not move connectors (individually)
+                                if (el instanceof Connector)
+                                    return false;
+                                let list_id = el.sdfg.sdfg_list_id;
+                                // Do not move element individually if it is moved together with a nested SDFG
+                                let nested_sdfg_parent = this.state_parent_list[list_id];
+                                if (nested_sdfg_parent && this.selected_elements.includes(nested_sdfg_parent))
+                                    return false;
+                                // Do not move element individually if it is moved together with its parent state
+                                let state_parent = this.sdfg_list[list_id].node(el.parent_id);
+                                if (state_parent && this.selected_elements.includes(state_parent))
+                                    return false;
+                                // Otherwise move individually
+                                return true;
+                            });
                         }
                         for (let el of elements_to_move) {
                             this.canvas_manager.translate_element(
@@ -2730,6 +2747,8 @@ class SDFGRenderer {
             if (this.selected_elements.includes(foreground_elem))
                 elements_to_reset = this.selected_elements;
 
+            let element_moved = false;
+            let relayout_necessary = false;
             for (let el of elements_to_reset) {
                 let position = get_positioning_info(el);
                 if (el && !(el instanceof Connector) && position) {
@@ -2754,6 +2773,8 @@ class SDFGRenderer {
                         this.canvas_manager.translate_element(el, { x: 0, y: 0 },
                             { x: 0, y: 0 }, this.graph, this.sdfg_list,
                             this.state_parent_list, undefined, false, false, new_points);
+
+                        element_moved = true;
                     } else {
                         let new_x, new_y;
                         if (!position.dx && !position.dy)
@@ -2769,6 +2790,8 @@ class SDFGRenderer {
                         this.canvas_manager.translate_element(el, { x: el.x, y: el.y },
                             { x: new_x, y: new_y }, this.graph, this.sdfg_list,
                             this.state_parent_list, undefined, false);
+
+                        element_moved = true;
                     }
 
                     if (el instanceof EntryNode) {
@@ -2777,11 +2800,17 @@ class SDFGRenderer {
                         position.scope_dy = 0;
 
                         if (!el.data.node.attributes.is_collapsed)
-                            this.relayout();
+                            relayout_necessary = true;
                     }
                 }
             }
+            if (relayout_necessary)
+                this.relayout();
+
             this.draw_async();
+
+            if (element_moved)
+                post_vscode_sdfg_change('moved_node', this.sdfg);
         }
 
         let mouse_x = comp_x_func(event);
