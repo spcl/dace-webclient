@@ -1273,7 +1273,11 @@ class SDFGRenderer {
         this.selected_elements = [];
 
         // Overlay fields
-        this.overlay_manager = new OverlayManager(this);
+		try {
+			this.overlay_manager = new OverlayManager(this);
+		} catch (ex) {
+			this.overlay_manager = null;
+		}
 
         // Draw debug aids.
         this.debug_draw = debug_draw;
@@ -1662,7 +1666,8 @@ class SDFGRenderer {
         this.update_fast_memlet_lookup();
 
         // Make sure all visible overlays get recalculated if there are any.
-        this.overlay_manager.refresh();
+		if (this.overlay_manager !== null)
+			this.overlay_manager.refresh();
 
         // If we're in a VSCode context, we also want to refresh the outline.
         try {
@@ -1843,7 +1848,8 @@ class SDFGRenderer {
     on_pre_draw() { }
 
     on_post_draw() {
-        this.overlay_manager.draw();
+		if (this.overlay_manager !== null)
+			this.overlay_manager.draw();
 
         try {
             this.ctx.end();
@@ -2517,14 +2523,16 @@ class SDFGRenderer {
             dirty |= this.external_mouse_handler(evtype, event, { x: mouse_x, y: mouse_y }, elements,
                 this, this.selected_elements, ends_drag);
 
-        dirty |= this.overlay_manager.on_mouse_event(
-            evtype,
-            event,
-            { x: mouse_x, y: mouse_y },
-            elements,
-            foreground_elem,
-            ends_drag
-        );
+		if (this.overlay_manager !== null) {
+			dirty |= this.overlay_manager.on_mouse_event(
+				evtype,
+				event,
+				{ x: mouse_x, y: mouse_y },
+				elements,
+				foreground_elem,
+				ends_drag
+			);
+		}
 
         if (dirty) {
             this.draw_async();
