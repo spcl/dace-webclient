@@ -39,9 +39,16 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
         }
     });
 
+    let mode_buttons = null;
+    let pan_btn = document.getElementById("pan-btn");
+    let move_btn = document.getElementById("move-btn");
+    let select_btn = document.getElementById("select-btn");
+    if (pan_btn)
+        mode_buttons = {pan: pan_btn, move: move_btn, select: select_btn};
+
     if (sdfg !== null)
         renderer = new SDFGRenderer(sdfg, document.getElementById('contents'),
-                                    mouse_event, user_transform, debug_draw);
+                                    mouse_event, user_transform, debug_draw, null, mode_buttons);
 }
 
 function reload_file() {

@@ -1319,7 +1319,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
 
 class SDFGRenderer {
     constructor(sdfg, container, on_mouse_event = null, user_transform = null,
-                debug_draw = false, background = null) {
+                debug_draw = false, background = null, mode_buttons = null) {
         // DIODE/SDFV-related fields
         this.sdfg = sdfg;
         this.sdfg_stringified = stringify_sdfg(sdfg, 4);
@@ -1376,7 +1376,7 @@ class SDFGRenderer {
         // Draw debug aids.
         this.debug_draw = debug_draw;
 
-        this.init_elements(user_transform, background);
+        this.init_elements(user_transform, background, mode_buttons);
 
         this.relayout();
 
@@ -1443,7 +1443,7 @@ class SDFGRenderer {
     }
 
     // Initializes the DOM
-    init_elements(user_transform, background) {
+    init_elements(user_transform, background, mode_buttons) {
 
         this.canvas = document.createElement('canvas');
         this.canvas.classList.add('sdfg_canvas')
@@ -1589,26 +1589,47 @@ class SDFGRenderer {
         d.title = 'Expand all elements';
         this.toolbar.appendChild(d);
 
+        if (mode_buttons) {
+            this.panmode_btn = mode_buttons.pan;
+            this.movemode_btn = mode_buttons.move;
+            this.selectmode_btn = mode_buttons.select;
+        } else {
+            // Create pan mode button
+            let pan_mode_btn = document.createElement('button');
+            pan_mode_btn.className = 'button';
+            pan_mode_btn.innerHTML = '<i class="material-icons">pan_tool</i>';
+            pan_mode_btn.style = 'padding-bottom: 0px; user-select: none; background: #22A4FE';
+            pan_mode_btn.title = 'Pan mode';
+            this.panmode_btn = pan_mode_btn;
+            this.toolbar.appendChild(pan_mode_btn);
+
+            // Create move mode button
+            let move_mode_btn = document.createElement('button');
+            move_mode_btn.className = 'button';
+            move_mode_btn.innerHTML = '<i class="material-icons">open_with</i>';
+            move_mode_btn.style = 'padding-bottom: 0px; user-select: none';
+            move_mode_btn.title = 'Object moving mode';
+            this.movemode_btn = move_mode_btn;
+            this.toolbar.appendChild(move_mode_btn);
+
+            // Create select mode button
+            let box_select_btn = document.createElement('button');
+            box_select_btn.className = 'button';
+            box_select_btn.innerHTML = '<i class="material-icons">border_style</i>';
+            box_select_btn.style = 'padding-bottom: 0px; user-select: none';
+            box_select_btn.title = 'Select mode';
+            this.selectmode_btn = box_select_btn;
+            this.toolbar.appendChild(box_select_btn);
+        }
+
         // Enter pan mode
-        let pan_mode_btn = document.createElement('button');
-        this.panmode_btn = pan_mode_btn;
-        pan_mode_btn.className = 'button';
-        pan_mode_btn.innerHTML = '<i class="material-icons">pan_tool</i>';
-        pan_mode_btn.style = 'padding-bottom: 0px; user-select: none; background: #22A4FE';
-        pan_mode_btn.onclick = () => {
+        this.panmode_btn.onclick = () => {
             this.mouse_mode = 'pan';
             this.update_toggle_buttons();
         };
-        pan_mode_btn.title = 'Pan mode';
-        this.toolbar.appendChild(pan_mode_btn);
 
         // Enter object moving mode
-        let move_mode_btn = document.createElement('button');
-        this.movemode_btn = move_mode_btn;
-        move_mode_btn.className = 'button';
-        move_mode_btn.innerHTML = '<i class="material-icons">open_with</i>';
-        move_mode_btn.style = 'padding-bottom: 0px; user-select: none';
-        move_mode_btn.onclick = (_, shift_click) => {
+        this.movemode_btn.onclick = (_, shift_click) => {
             // shift_click is false if shift key has been released and
             // undefined if it has been a normal mouse click
             if (this.shift_key_movement && shift_click === false)
@@ -1619,17 +1640,9 @@ class SDFGRenderer {
             this.shift_key_movement = shift_click;
             this.update_toggle_buttons();
         };
-        move_mode_btn.title = 'Object moving mode';
-        this.toolbar.appendChild(move_mode_btn);
 
         // Enter box selection mode
-        let box_select_btn = document.createElement('button');
-        this.selectmode_btn = box_select_btn;
-        box_select_btn.className = 'button';
-        box_select_btn.innerHTML =
-            '<i class="material-icons">border_style</i>';
-        box_select_btn.style = 'padding-bottom: 0px; user-select: none';
-        box_select_btn.onclick = (_, ctrl_click) => {
+        this.selectmode_btn.onclick = (_, ctrl_click) => {
             // ctrl_click is false if ctrl key has been released and
             // undefined if it has been a normal mouse click
             if (this.ctrl_key_selection && ctrl_click === false)
@@ -1640,8 +1653,6 @@ class SDFGRenderer {
             this.ctrl_key_selection = ctrl_click;
             this.update_toggle_buttons();
         };
-        box_select_btn.title = 'Select mode';
-        this.toolbar.appendChild(box_select_btn);
 
         // React to ctrl and shift key presses
         window.onkeydown = e => this.on_key_event(e);
