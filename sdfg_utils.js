@@ -288,15 +288,6 @@ function stringify_sdfg(sdfg, indent=0) {
     return JSON.stringify(sdfg, (name, val) => replacer(name, val, sdfg, indent), indent);
 }
 
-function post_vscode_sdfg_change(action_name, sdfg) {
-    try {
-        vscode.postMessage({
-            type: 'sdfv.' + action_name,
-            sdfg: stringify_sdfg(sdfg, 4)
-        });
-    } catch (e) { }
-}
-
 function sdfg_range_elem_to_string(range, settings=null) {
     let preview = '';
     if (range.start == range.end && range.step == 1 && range.tile == 1)

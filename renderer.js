@@ -1322,6 +1322,7 @@ class SDFGRenderer {
                 debug_draw = false, background = null) {
         // DIODE/SDFV-related fields
         this.sdfg = sdfg;
+        this.sdfg_stringified = stringify_sdfg(sdfg, 4);
         this.sdfg_list = {};
         this.state_parent_list = {}; // List of all state's parent elements
 
@@ -1339,6 +1340,7 @@ class SDFGRenderer {
         // Toolbar-related fields
         this.menu = null;
         this.toolbar = null;
+        this.panmode_btn = null;
         this.movemode_btn = null;
         this.selectmode_btn = null;
 
@@ -1358,6 +1360,8 @@ class SDFGRenderer {
         this.drag_start = null; // Null if the mouse/touch is not activated
         this.drag_second_start = null; // Null if two touch points are not activated
         this.external_mouse_handler = on_mouse_event;
+        this.ctrl_key_selection = false;
+        this.shift_key_movement = false;
 
         // Selection related fields
         this.selected_elements = [];
@@ -1401,38 +1405,38 @@ class SDFGRenderer {
     // Updates buttons based on cursor mode
     update_toggle_buttons() {
         // First clear out of all modes, then jump in to the correct mode.
-        this.selectmode_btn.innerHTML =
-            '<i class="material-icons">border_style</i>';
-        this.selectmode_btn.title = 'Enter box select mode';
-        this.movemode_btn.innerHTML =
-            '<i class="material-icons">open_with</i>';
-        this.movemode_btn.title = 'Enter object moving mode';
         this.canvas.style.cursor = 'default';
         this.interaction_info_box.style.display = 'none';
         this.interaction_info_text.innerHTML = '';
 
+        this.panmode_btn.style = 'padding-bottom: 0px; user-select: none';
+        this.movemode_btn.style = 'padding-bottom: 0px; user-select: none';
+        this.selectmode_btn.style = 'padding-bottom: 0px; user-select: none';
+
         switch (this.mouse_mode) {
             case 'move':
+                this.movemode_btn.style = 'padding-bottom: 0px; user-select: none; background: #22A4FE';
                 this.interaction_info_box.style.display = 'block';
-                this.movemode_btn.innerHTML =
-                    '<i class="material-icons">done</i>';
-                this.movemode_btn.title = 'Exit object moving mode';
                 this.interaction_info_text.innerHTML =
                     'Middle Mouse: Pan view<br>' +
                     'Right Click: Reset position';
                 break;
             case 'select':
+                this.selectmode_btn.style = 'padding-bottom: 0px; user-select: none; background: #22A4FE';
                 this.interaction_info_box.style.display = 'block';
-                this.selectmode_btn.innerHTML =
-                    '<i class="material-icons">done</i>';
-                this.selectmode_btn.title = 'Exit box select mode';
                 this.canvas.style.cursor = 'crosshair';
-                this.interaction_info_text.innerHTML =
-                    'Shift: Add to selection<br>' +
-                    'Ctrl: Remove from selection<br>' +
-                    'Middle Mouse: Pan view';
+                if (this.ctrl_key_selection) {
+                    this.interaction_info_text.innerHTML = 'Middle Mouse: Pan view';
+                } else {
+                    this.interaction_info_text.innerHTML =
+                        'Shift: Add to selection<br>' +
+                        'Ctrl: Remove from selection<br>' +
+                        'Middle Mouse: Pan view';
+                }
                 break;
             case 'pan':
+                this.panmode_btn.style = 'padding-bottom: 0px; user-select: none; background: #22A4FE';
+                break;
             default:
                 break;
         }
@@ -1585,20 +1589,37 @@ class SDFGRenderer {
         d.title = 'Expand all elements';
         this.toolbar.appendChild(d);
 
+        // Enter pan mode
+        let pan_mode_btn = document.createElement('button');
+        this.panmode_btn = pan_mode_btn;
+        pan_mode_btn.className = 'button';
+        pan_mode_btn.innerHTML = '<i class="material-icons">pan_tool</i>';
+        pan_mode_btn.style = 'padding-bottom: 0px; user-select: none; background: #22A4FE';
+        pan_mode_btn.onclick = () => {
+            this.mouse_mode = 'pan';
+            this.update_toggle_buttons();
+        };
+        pan_mode_btn.title = 'Pan mode';
+        this.toolbar.appendChild(pan_mode_btn);
+
         // Enter object moving mode
         let move_mode_btn = document.createElement('button');
         this.movemode_btn = move_mode_btn;
         move_mode_btn.className = 'button';
         move_mode_btn.innerHTML = '<i class="material-icons">open_with</i>';
         move_mode_btn.style = 'padding-bottom: 0px; user-select: none';
-        move_mode_btn.onclick = () => {
-            if (this.mouse_mode === 'move')
+        move_mode_btn.onclick = (_, shift_click) => {
+            // shift_click is false if shift key has been released and
+            // undefined if it has been a normal mouse click
+            if (this.shift_key_movement && shift_click === false)
                 this.mouse_mode = 'pan';
             else
                 this.mouse_mode = 'move';
+
+            this.shift_key_movement = shift_click;
             this.update_toggle_buttons();
         };
-        move_mode_btn.title = 'Enter object moving mode';
+        move_mode_btn.title = 'Object moving mode';
         this.toolbar.appendChild(move_mode_btn);
 
         // Enter box selection mode
@@ -1608,15 +1629,23 @@ class SDFGRenderer {
         box_select_btn.innerHTML =
             '<i class="material-icons">border_style</i>';
         box_select_btn.style = 'padding-bottom: 0px; user-select: none';
-        box_select_btn.onclick = () => {
-            if (this.mouse_mode === 'select')
+        box_select_btn.onclick = (_, ctrl_click) => {
+            // ctrl_click is false if ctrl key has been released and
+            // undefined if it has been a normal mouse click
+            if (this.ctrl_key_selection && ctrl_click === false)
                 this.mouse_mode = 'pan';
             else
                 this.mouse_mode = 'select';
+
+            this.ctrl_key_selection = ctrl_click;
             this.update_toggle_buttons();
         };
-        box_select_btn.title = 'Enter box select mode';
+        box_select_btn.title = 'Select mode';
         this.toolbar.appendChild(box_select_btn);
+
+        // React to ctrl and shift key presses
+        window.onkeydown = e => this.on_key_event(e);
+        window.onkeyup = e => this.on_key_event(e);
 
         // Exit previewing mode
         if (in_vscode) {
@@ -1708,8 +1737,24 @@ class SDFGRenderer {
         this.canvas_manager.draw_async();
     }
 
+    sdfg_change(action_name) {
+        this.sdfg_stringified = stringify_sdfg(this.sdfg, 4)
+        try {
+            vscode.postMessage({
+                type: 'sdfv.' + action_name,
+                sdfg: this.sdfg_stringified
+            });
+        } catch (e) { }
+    }
+
+
     set_sdfg(new_sdfg) {
+        let new_sdfg_stringified = stringify_sdfg(new_sdfg, 4);
+        if (new_sdfg_stringified == this.sdfg_stringified) {
+            return;
+        }
         this.sdfg = new_sdfg;
+        this.sdfg_stringified = new_sdfg_stringified;
         this.relayout();
         this.draw_async();
     }
@@ -1872,7 +1917,7 @@ class SDFGRenderer {
         });
 
         // Send updated SDFG to vscode extension
-        post_vscode_sdfg_change('collapsed_node', this.sdfg);
+        this.sdfg_change('collapsed_node');
 
         this.relayout();
         this.draw_async();
@@ -1885,7 +1930,7 @@ class SDFGRenderer {
         });
 
         // Send updated SDFG to vscode extension
-        post_vscode_sdfg_change('collapsed_node', this.sdfg);
+        this.sdfg_change('collapsed_node');
 
         this.relayout();
         this.draw_async();
@@ -1897,7 +1942,7 @@ class SDFGRenderer {
         });
 
         // Send updated SDFG to vscode extension
-        post_vscode_sdfg_change('moved_node', this.sdfg);
+        this.sdfg_change('moved_node');
 
         this.relayout();
         this.draw_async();
@@ -2365,6 +2410,24 @@ class SDFGRenderer {
         };
     }
 
+    on_key_event(event) {
+
+        if (this.ctrl_key_selection && !event.ctrlKey)
+            this.selectmode_btn.onclick(event, false);
+
+        if (this.shift_key_movement && !event.shiftKey)
+            this.movemode_btn.onclick(event, false);
+
+        if (this.mouse_mode != "pan")
+            return;
+
+        if (event.ctrlKey && !event.shiftKey)
+            this.selectmode_btn.onclick(event, true);
+
+        if (event.shiftKey && !event.ctrlKey)
+            this.movemode_btn.onclick(event, true);
+    }
+
     on_mouse_event(event, comp_x_func, comp_y_func, evtype = "other") {
         let dirty = false; // Whether to redraw at the end
         // Whether the set of visible or selected elements changed
@@ -2640,7 +2703,7 @@ class SDFGRenderer {
                 sdfg_elem.attributes.is_collapsed = !sdfg_elem.attributes.is_collapsed;
 
                 // Send new SDFG to vscode extension
-                post_vscode_sdfg_change('collapsed_node', this.sdfg);
+                this.sdfg_change('collapsed_node');
 
                 // Re-layout SDFG
                 this.relayout();
@@ -2675,12 +2738,12 @@ class SDFGRenderer {
                             if (obj.contained_in(start_x, start_y, w, h))
                                 elements_in_selection.push(obj);
                         });
-                    if (event.shiftKey) {
+                    if (event.shiftKey && !this.ctrl_key_selection) {
                         elements_in_selection.forEach((el) => {
                             if (!this.selected_elements.includes(el))
                                 this.selected_elements.push(el);
                         });
-                    } else if (event.ctrlKey) {
+                    } else if (event.ctrlKey && !this.ctrl_key_selection) {
                         elements_in_selection.forEach((el) => {
                             if (this.selected_elements.includes(el)) {
                                 this.selected_elements =
@@ -2702,7 +2765,7 @@ class SDFGRenderer {
                 }
                 if (this.mouse_mode === 'move') {
                     // Send new SDFG to vscode extension
-                    post_vscode_sdfg_change('moved_node', this.sdfg);
+                    this.sdfg_change('moved_node');
                 }
             } else {
                 if (foreground_elem) {
@@ -2810,7 +2873,7 @@ class SDFGRenderer {
             this.draw_async();
 
             if (element_moved)
-                post_vscode_sdfg_change('moved_node', this.sdfg);
+                this.sdfg_change('moved_node');
         }
 
         let mouse_x = comp_x_func(event);
