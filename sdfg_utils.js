@@ -258,6 +258,59 @@ function delete_positioning_info(elem) {
         delete elem.attributes.position;
 }
 
+/**
+ * Creates a new SDFGElement of the given type and adds it to the state.
+ * Returns the new SDFG element on success, otherwise null.
+ *
+ * @param sdfg      the sdfg that contains the parent state
+ * @param elem_type the type of the new element
+ * @param state     the parent state
+ * @returns         the new element or null when creation failed
+ */
+function add_elem_to_sdfg(sdfg, elem_type, state) {
+    let new_elem = {};
+    let attributes = {};
+    attributes.in_construction = true;
+    new_elem.attributes = attributes;
+
+    switch (elem_type) {
+        case "MapEntry":
+            return null;
+        case "ConsumeEntry":
+            return null;
+        case "Tasklet":
+            return null;
+        case "NestedSDFG":
+            return null;
+        case "AccessNode":
+            attributes.access = "ReadWrite";
+            attributes.data = "";
+            attributes.debuginfo = null;
+            attributes.in_connectors = {};
+            attributes.out_connectors = {};
+            attributes.setzero = false;
+
+            new_elem.id = state.data.state.nodes.length;
+            new_elem.label = "";
+            new_elem.scope_entry = null;
+            new_elem.scope_exit = null;
+            new_elem.type = elem_type;
+            break;
+        case "Stream":
+            return null;
+        case "SDFGState":
+            return null;
+        default:
+            return null;
+    }
+    if (elem_type != "SDFGState") {
+        state.data.state.scope_dict['-1'].push(new_elem.id);
+        state.data.state.nodes.push(new_elem);
+    }
+
+    return new_elem;
+}
+
 function reviver(name, val) {
     if (name == 'sdfg' && val && typeof val === 'string' && val[0] === '{') {
         return JSON.parse(val, reviver);
@@ -270,22 +323,18 @@ function parse_sdfg(sdfg_json) {
     return JSON.parse(sdfg_json, reviver);
 }
 
-function isDict(v) {
-    return typeof v === 'object' && v !== null && !(v instanceof Array) && !(v instanceof Date);
-}
-
-function replacer(name, val, orig_sdfg, indent) {
-    if (val instanceof Edge) {
+function replacer(name, val) {
+    if (val instanceof Edge)
         return undefined;
-    }
-    if (val && isDict(val) && val !== orig_sdfg && 'type' in val && val.type === 'SDFG') {
-        return JSON.stringify(val, (n,v) => replacer(n, v, val), indent);
-    }
+
+    if (name == 'layout')
+        return undefined;
+
     return val;
 }
 
 function stringify_sdfg(sdfg, indent=0) {
-    return JSON.stringify(sdfg, (name, val) => replacer(name, val, sdfg, indent), indent);
+    return JSON.stringify(sdfg, (name, val) => replacer(name, val), indent);
 }
 
 function sdfg_range_elem_to_string(range, settings=null) {

@@ -32,9 +32,7 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
     });
     $('#search').on('keydown', function(e) {
         if (e.key == 'Enter' || e.which == 13) {
-            if (renderer)
-                setTimeout(() => {find_in_graph(renderer, renderer.graph, $('#search').val(),
-                                                $('#search-case')[0].checked);}, 1);
+            start_find_in_graph();
             e.preventDefault();
         }
     });
@@ -43,12 +41,28 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
     let pan_btn = document.getElementById("pan-btn");
     let move_btn = document.getElementById("move-btn");
     let select_btn = document.getElementById("select-btn");
+    let add_btns = [];
+    add_btns.push(document.getElementById('elem_map'));
+    add_btns.push(document.getElementById('elem_consume'));
+    add_btns.push(document.getElementById('elem_tasklet'));
+    add_btns.push(document.getElementById('elem_nested_sdfg'));
+    add_btns.push(document.getElementById('elem_access_node'));
+    add_btns.push(document.getElementById('elem_stream'));
+    add_btns.push(document.getElementById('elem_state'));
     if (pan_btn)
-        mode_buttons = {pan: pan_btn, move: move_btn, select: select_btn};
+        mode_buttons = {pan: pan_btn, move: move_btn, select: select_btn, add_btns: add_btns, bg_color: '#22A4FE'};
 
     if (sdfg !== null)
         renderer = new SDFGRenderer(sdfg, document.getElementById('contents'),
                                     mouse_event, user_transform, debug_draw, null, mode_buttons);
+}
+
+function start_find_in_graph() {
+    if (renderer)
+        setTimeout(() => {
+            find_in_graph(renderer, renderer.graph, $('#search').val(),
+                $('#search-case')[0].checked);
+        }, 1);
 }
 
 function reload_file() {
@@ -233,7 +247,7 @@ function fill_info(elem) {
     html += "<hr />";
 
     for (let attr of Object.entries(elem.attributes())) {
-        if (attr[0] === "layout" || attr[0] === "sdfg" || attr[0] === "_arrays" || attr[0].startsWith("_meta_")) continue;
+        if (attr[0] === "layout" || attr[0] === "sdfg" || attr[0] === "_arrays" || attr[0].startsWith("_meta_") || attr[0] == "position") continue;
         html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
         html += sdfg_property_to_string(attr[1], renderer.view_settings()) + "</p>";
     }

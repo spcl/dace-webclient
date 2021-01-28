@@ -1343,6 +1343,12 @@ class SDFGRenderer {
         this.panmode_btn = null;
         this.movemode_btn = null;
         this.selectmode_btn = null;
+        this.addmode_btns = null;
+        this.addtype = null;
+        this.addmode_divs = null;
+        this.mode_selected_bg_color = "#CCCCCC";
+        this.mouse_follow_svgs = null;
+        this.mouse_follow_element = null;
 
         // Memlet-Tree related fields
         this.all_memlet_trees_sdfg = [];
@@ -1416,16 +1422,27 @@ class SDFGRenderer {
         this.movemode_btn.style = 'padding-bottom: 0px; user-select: none';
         this.selectmode_btn.style = 'padding-bottom: 0px; user-select: none';
 
+        this.mouse_follow_element.innerHTML = null;
+
+        for (let add_btn of this.addmode_btns) {
+            if (add_btn.getAttribute('type') == this.add_type) {
+                add_btn.style = 'user-select: none; background: ' + this.mode_selected_bg_color;
+                this.mouse_follow_element.innerHTML = this.mouse_follow_svgs[this.add_type];
+            } else {
+                add_btn.style = 'user-select: none;';
+            }
+        }
+
         switch (this.mouse_mode) {
             case 'move':
-                this.movemode_btn.style = 'padding-bottom: 0px; user-select: none; background: #22A4FE';
+                this.movemode_btn.style = 'padding-bottom: 0px; user-select: none; background: ' + this.mode_selected_bg_color;
                 this.interaction_info_box.style.display = 'block';
                 this.interaction_info_text.innerHTML =
                     'Middle Mouse: Pan view<br>' +
                     'Right Click: Reset position';
                 break;
             case 'select':
-                this.selectmode_btn.style = 'padding-bottom: 0px; user-select: none; background: #22A4FE';
+                this.selectmode_btn.style = 'padding-bottom: 0px; user-select: none; background: ' + this.mode_selected_bg_color;
                 this.interaction_info_box.style.display = 'block';
                 this.canvas.style.cursor = 'crosshair';
                 if (this.ctrl_key_selection) {
@@ -1438,9 +1455,15 @@ class SDFGRenderer {
                 }
                 break;
             case 'pan':
-                this.panmode_btn.style = 'padding-bottom: 0px; user-select: none; background: #22A4FE';
+                this.panmode_btn.style = 'padding-bottom: 0px; user-select: none; background: ' + this.mode_selected_bg_color;
                 break;
             default:
+                this.interaction_info_box.style.display = 'block';
+                this.interaction_info_text.innerHTML =
+                    'Left Click: Place element<br>' +
+                    'Ctrl Left Click: Place element and stay in Add Mode<br>' +
+                    'Middle Mouse: Pan view<br>' +
+                    'Right Click: Abort';
                 break;
         }
     }
@@ -1593,15 +1616,29 @@ class SDFGRenderer {
         this.toolbar.appendChild(d);
 
         if (mode_buttons) {
+            // If we get the "external" mode buttons we are in vscode and do not need to create them
             this.panmode_btn = mode_buttons.pan;
             this.movemode_btn = mode_buttons.move;
             this.selectmode_btn = mode_buttons.select;
+            this.addmode_btns = mode_buttons.add_btns;
+            for (let add_btn of this.addmode_btns) {
+                add_btn.onclick = () => {
+                    this.mouse_mode = 'add';
+                    this.add_type = add_btn.getAttribute('type');
+                    this.update_toggle_buttons();
+                };
+            }
+            if (mode_buttons.bg_color)
+                this.mode_selected_bg_color = mode_buttons.bg_color;
         } else {
+            // Mode buttons are empty in plain webview
+            this.addmode_btns = [];
+
             // Create pan mode button
             let pan_mode_btn = document.createElement('button');
             pan_mode_btn.className = 'button';
             pan_mode_btn.innerHTML = '<i class="material-icons">pan_tool</i>';
-            pan_mode_btn.style = 'padding-bottom: 0px; user-select: none; background: #22A4FE';
+            pan_mode_btn.style = 'padding-bottom: 0px; user-select: none; background: ' + this.mode_selected_bg_color;
             pan_mode_btn.title = 'Pan mode';
             this.panmode_btn = pan_mode_btn;
             this.toolbar.appendChild(pan_mode_btn);
@@ -1628,6 +1665,7 @@ class SDFGRenderer {
         // Enter pan mode
         this.panmode_btn.onclick = () => {
             this.mouse_mode = 'pan';
+            this.add_type = null;
             this.update_toggle_buttons();
         };
 
@@ -1639,7 +1677,7 @@ class SDFGRenderer {
                 this.mouse_mode = 'pan';
             else
                 this.mouse_mode = 'move';
-
+            this.add_type = null;
             this.shift_key_movement = shift_click;
             this.update_toggle_buttons();
         };
@@ -1652,7 +1690,7 @@ class SDFGRenderer {
                 this.mouse_mode = 'pan';
             else
                 this.mouse_mode = 'select';
-
+            this.add_type = null;
             this.ctrl_key_selection = ctrl_click;
             this.update_toggle_buttons();
         };
@@ -1743,6 +1781,73 @@ class SDFGRenderer {
         if (user_transform === null)
             this.zoom_to_view();
 
+        let svgs = {}
+        svgs['MapEntry'] =
+            `<svg width="8rem" height="2rem" viewBox="0 0 800 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                <line x1="10" x2="190" y1="190" y2="10"/>
+                <line x1="190" x2="600" y1="10" y2="10"/>
+                <line x1="600" x2="790" y1="10" y2="190"/>
+                <line x1="790" x2="10" y1="190" y2="190"/>
+            </svg>`;
+        svgs['ConsumeEntry'] =
+            `<svg width="8rem" height="2rem" viewBox="0 0 800 200" stroke="black" stroke-width="10" stroke-dasharray="60,25" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                <line x1="10"x2="190" y1="190" y2="10"/>
+                <line x1="190" x2="600" y1="10" y2="10"/>
+                <line x1="600" x2="790" y1="10" y2="190"/>
+                <line x1="790" x2="10" y1="190" y2="190"/>
+            </svg>`;
+        svgs['Tasklet'] =
+            `<svg width="2.6rem" height="1.3rem" viewBox="0 0 400 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                <line x1="10" x2="70" y1="130" y2="190"/>
+                <line x1="70" x2="330" y1="190" y2="190"/>
+                <line x1="330" x2="390" y1="190" y2="130"/>
+                <line x1="390" x2="390" y1="130" y2="70"/>
+                <line x1="390" x2="330" y1="70" y2="10"/>
+                <line x1="330" x2="70" y1="10" y2="10"/>
+                <line x1="70" x2="10" y1="10" y2="70"/>
+                <line x1="10" x2="10" y1="70" y2="130"/>
+            </svg>`;
+        svgs['NestedSDFG'] =
+            `<svg width="2.6rem" height="1.3rem" viewBox="0 0 400 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                <line x1="40" x2="80" y1="120" y2="160"/>
+                <line x1="80" x2="320" y1="160" y2="160"/>
+                <line x1="320" x2="360" y1="160" y2="120"/>
+                <line x1="360" x2="360" y1="120" y2="80"/>
+                <line x1="360" x2="320" y1="80" y2="40"/>
+                <line x1="320" x2="80" y1="40" y2="40"/>
+                <line x1="80" x2="40" y1="40" y2="80"/>
+                <line x1="40" x2="40" y1="80" y2="120"/>
+                
+                <line x1="10" x2="70" y1="130" y2="190"/>
+                <line x1="70" x2="330" y1="190" y2="190"/>
+                <line x1="330" x2="390" y1="190" y2="130"/>
+                <line x1="390" x2="390" y1="130" y2="70"/>
+                <line x1="390" x2="330" y1="70" y2="10"/>
+                <line x1="330" x2="70" y1="10" y2="10"/>
+                <line x1="70" x2="10" y1="10" y2="70"/>
+                <line x1="10" x2="10" y1="70" y2="130"/>
+            </svg>`;
+        svgs['AccessNode'] =
+            `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="100" cy="100" r="90" fill="none"/>
+            </svg>`;
+        svgs['Stream'] =
+            `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="100" cy="100" r="90" fill="none" stroke-dasharray="60,25"/>
+            </svg>`;
+        svgs['SDFGState'] = 
+            `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                <rect x="20" y="20" width="160" height="160" style="fill:#deebf7;" />
+            </svg>`;
+
+        let el = document.createElement('div');
+        el.style = 'position: absolute; top: 0px; left: 0px; user-select: none; pointer-events: none;'
+        
+        this.container.appendChild(el);
+        
+        this.mouse_follow_element = el;
+        this.mouse_follow_svgs = svgs;
+
         // Queue first render
         this.draw_async();
     }
@@ -1751,11 +1856,11 @@ class SDFGRenderer {
         this.canvas_manager.draw_async();
     }
 
-    sdfg_change(action_name) {
+    send_new_sdfg_to_vscode() {
         this.sdfg_stringified = stringify_sdfg(this.sdfg, 4)
         try {
             vscode.postMessage({
-                type: 'sdfv.' + action_name,
+                type: 'dace.write_edit_to_sdfg',
                 sdfg: this.sdfg_stringified
             });
         } catch (e) { }
@@ -1771,6 +1876,12 @@ class SDFGRenderer {
         this.sdfg_stringified = new_sdfg_stringified;
         this.relayout();
         this.draw_async();
+    
+        // Update info box
+        if (this.selected_elements.length == 1) {
+            let uuid = get_uuid_graph_element(this.selected_elements[0]);
+            fill_info(find_graph_element_by_uuid(this.graph, uuid).element);
+        }
     }
 
     // Set mouse events (e.g., click, drag, zoom)
@@ -1931,7 +2042,7 @@ class SDFGRenderer {
         });
 
         // Send updated SDFG to vscode extension
-        this.sdfg_change('collapsed_node');
+        this.send_new_sdfg_to_vscode();
 
         this.relayout();
         this.draw_async();
@@ -1944,7 +2055,7 @@ class SDFGRenderer {
         });
 
         // Send updated SDFG to vscode extension
-        this.sdfg_change('collapsed_node');
+        this.send_new_sdfg_to_vscode();
 
         this.relayout();
         this.draw_async();
@@ -1956,7 +2067,7 @@ class SDFGRenderer {
         });
 
         // Send updated SDFG to vscode extension
-        this.sdfg_change('moved_node');
+        this.send_new_sdfg_to_vscode();
 
         this.relayout();
         this.draw_async();
@@ -2432,8 +2543,11 @@ class SDFGRenderer {
         if (this.shift_key_movement && !event.shiftKey)
             this.movemode_btn.onclick(event, false);
 
-        if (this.mouse_mode != "pan")
+        if (this.mouse_mode != "pan") {
+            if (event.key == "Escape" && !event.ctrlKey && !event.shiftKey)
+                this.panmode_btn.onclick();
             return;
+        }
 
         if (event.ctrlKey && !event.shiftKey)
             this.selectmode_btn.onclick(event, true);
@@ -2443,6 +2557,9 @@ class SDFGRenderer {
     }
 
     on_mouse_event(event, comp_x_func, comp_y_func, evtype = "other") {
+        if (this.ctrl_key_selection || this.shift_key_movement)
+            this.on_key_event(event);
+
         let dirty = false; // Whether to redraw at the end
         // Whether the set of visible or selected elements changed
         let element_focus_changed = false;
@@ -2609,6 +2726,19 @@ class SDFGRenderer {
         let total_elements = elements_under_cursor.total_elements;
         let foreground_elem = elements_under_cursor.foreground_elem;
 
+        if (this.mouse_mode == 'add') {
+            let el = this.mouse_follow_element;
+            if ((this.add_type == 'SDFGState' && (foreground_elem instanceof NestedSDFG || foreground_elem == null)) ||
+                 (this.add_type != 'SDFGState' && foreground_elem instanceof State)) {
+                el.firstElementChild.setAttribute('stroke', 'green');
+            } else {
+                el.firstElementChild.setAttribute('stroke', 'red');
+            }
+
+            el.style.left = (event.layerX - el.firstElementChild.clientWidth / 2) + 'px';
+            el.style.top = (event.layerY - el.firstElementChild.clientHeight / 2) + 'px';
+        }
+
         // Change mouse cursor accordingly
         if (this.mouse_mode === 'select') {
             this.canvas.style.cursor = 'crosshair';
@@ -2717,7 +2847,7 @@ class SDFGRenderer {
                 sdfg_elem.attributes.is_collapsed = !sdfg_elem.attributes.is_collapsed;
 
                 // Send new SDFG to vscode extension
-                this.sdfg_change('collapsed_node');
+                this.send_new_sdfg_to_vscode();
 
                 // Re-layout SDFG
                 this.relayout();
@@ -2779,11 +2909,38 @@ class SDFGRenderer {
                 }
                 if (this.mouse_mode === 'move') {
                     // Send new SDFG to vscode extension
-                    this.sdfg_change('moved_node');
+                    this.send_new_sdfg_to_vscode();
                 }
             } else {
                 if (foreground_elem) {
-                    if (event.ctrlKey) {
+                    if (this.mouse_mode == 'add') {
+                        if ((this.add_type == 'SDFGState' && (foreground_elem instanceof NestedSDFG || foreground_elem == null)) ||
+                            (this.add_type != 'SDFGState' && foreground_elem instanceof State)) {
+                            let new_elem = add_elem_to_sdfg(this.sdfg, this.add_type, foreground_elem);
+                            if (new_elem) {
+                                this.relayout();
+
+                                let new_elem_uuid = foreground_elem.sdfg.sdfg_list_id + "/"
+                                    + foreground_elem.id + "/"
+                                    + new_elem.id + "/"
+                                    + "-1";
+                                let updated_new_elem = find_graph_element_by_uuid(this.graph, new_elem_uuid).element;
+                                
+                                this.canvas_manager.translate_element(updated_new_elem, { x: updated_new_elem.x, y: updated_new_elem.y },
+                                    this.mousepos, this.graph, this.sdfg_list,
+                                    this.state_parent_list, undefined);
+
+                                this.send_new_sdfg_to_vscode();
+
+                                // If control key is pressed, then don't leave add mode
+                                if (!event.ctrlKey)
+                                    this.panmode_btn.onclick();
+                            } else {
+                                // error while adding element
+                            }
+                        }
+
+                    } else if (event.ctrlKey) {
                         // Ctrl + click on an object, add it, or remove it from
                         // the selection if it was previously in it.
                         if (this.selected_elements.includes(foreground_elem)) {
@@ -2820,74 +2977,81 @@ class SDFGRenderer {
         });
 
         if (evtype === "contextmenu") {
-            let elements_to_reset = [foreground_elem];
-            if (this.selected_elements.includes(foreground_elem))
-                elements_to_reset = this.selected_elements;
+            if (this.mouse_mode == 'move') {
+                let elements_to_reset = [foreground_elem];
+                if (this.selected_elements.includes(foreground_elem))
+                    elements_to_reset = this.selected_elements;
 
-            let element_moved = false;
-            let relayout_necessary = false;
-            for (let el of elements_to_reset) {
-                let position = get_positioning_info(el);
-                if (el && !(el instanceof Connector) && position) {
-                    // Reset the position of the element (if it has been manually moved)
-                    if (el instanceof Edge) {
-                        if (!position.points)
-                            continue;
+                let element_moved = false;
+                let relayout_necessary = false;
+                for (let el of elements_to_reset) {
+                    let position = get_positioning_info(el);
+                    if (el && !(el instanceof Connector) && position) {
+                        // Reset the position of the element (if it has been manually moved)
+                        if (el instanceof Edge) {
+                            if (!position.points)
+                                continue;
 
-                        // Create inverted points to move it back
-                        let new_points = new Array(el.points.length);
-                        for (let j = 1; j < el.points.length - 1; j++) {
-                            new_points[j] = {
-                                dx: - position.points[j].dx,
-                                dy: - position.points[j].dy
-                            };
-                            // Reset the point movement
-                            position.points[j].dx = 0;
-                            position.points[j].dy = 0;
+                            // Create inverted points to move it back
+                            let new_points = new Array(el.points.length);
+                            for (let j = 1; j < el.points.length - 1; j++) {
+                                new_points[j] = {
+                                    dx: - position.points[j].dx,
+                                    dy: - position.points[j].dy
+                                };
+                                // Reset the point movement
+                                position.points[j].dx = 0;
+                                position.points[j].dy = 0;
+                            }
+
+                            // Move it to original position
+                            this.canvas_manager.translate_element(el, { x: 0, y: 0 },
+                                { x: 0, y: 0 }, this.graph, this.sdfg_list,
+                                this.state_parent_list, undefined, false, false, new_points);
+
+                            element_moved = true;
+                        } else {
+                            let new_x, new_y;
+                            if (!position.dx && !position.dy)
+                                continue;
+                            // Calculate original position with the relative movement
+                            new_x = el.x - position.dx;
+                            new_y = el.y - position.dy;
+
+                            position.dx = 0;
+                            position.dy = 0;
+
+                            // Move it to original position
+                            this.canvas_manager.translate_element(el, { x: el.x, y: el.y },
+                                { x: new_x, y: new_y }, this.graph, this.sdfg_list,
+                                this.state_parent_list, undefined, false);
+
+                            element_moved = true;
                         }
 
-                        // Move it to original position
-                        this.canvas_manager.translate_element(el, { x: 0, y: 0 },
-                            { x: 0, y: 0 }, this.graph, this.sdfg_list,
-                            this.state_parent_list, undefined, false, false, new_points);
+                        if (el instanceof EntryNode) {
+                            // Also update scope position
+                            position.scope_dx = 0;
+                            position.scope_dy = 0;
 
-                        element_moved = true;
-                    } else {
-                        let new_x, new_y;
-                        if (!position.dx && !position.dy)
-                            continue;
-                        // Calculate original position with the relative movement
-                        new_x = el.x - position.dx;
-                        new_y = el.y - position.dy;
-
-                        position.dx = 0;
-                        position.dy = 0;
-
-                        // Move it to original position
-                        this.canvas_manager.translate_element(el, { x: el.x, y: el.y },
-                            { x: new_x, y: new_y }, this.graph, this.sdfg_list,
-                            this.state_parent_list, undefined, false);
-
-                        element_moved = true;
-                    }
-
-                    if (el instanceof EntryNode) {
-                        // Also update scope position
-                        position.scope_dx = 0;
-                        position.scope_dy = 0;
-
-                        if (!el.data.node.attributes.is_collapsed)
-                            relayout_necessary = true;
+                            if (!el.data.node.attributes.is_collapsed)
+                                relayout_necessary = true;
+                        }
                     }
                 }
+
+                if (relayout_necessary)
+                    this.relayout();
+
+                this.draw_async();
+
+                if (element_moved)
+                    this.send_new_sdfg_to_vscode();
+
+            } else if (this.mouse_mode == 'add') {
+                // Cancel add mode
+                this.panmode_btn.onclick();
             }
-            if (relayout_necessary)
-                this.relayout();
-
-            this.draw_async();
-
-            if (element_moved)
-                this.sdfg_change('moved_node');
         }
 
         let mouse_x = comp_x_func(event);

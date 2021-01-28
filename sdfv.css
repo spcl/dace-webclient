@@ -299,6 +299,11 @@ pre.code code {
   border-color: rgba(255, 0, 0, 1);
 }
 
+.container {
+  display: flex;
+  flex-wrap: wrap;
+}
+
 .sdfg_canvas {
   --node-background-color: #ffffff;
   --node-foreground-color: #000000;
