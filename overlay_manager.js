@@ -229,6 +229,7 @@ GenericSdfgOverlay.OVERLAY_TYPE = {
     MEMORY_VOLUME: 'OVERLAY_TYPE_MEMORY_VOLUME',
     STATIC_FLOPS: 'OVERLAY_TYPE_STATIC_FLOPS',
     RUNTIME_US: 'OVERLAY_TYPE_RUNTIME_US',
+    CONSTRUCTION: 'OVERLAY_TYPE_UNDER_CONSTRUCTION'
 };
 
 class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
@@ -953,6 +954,72 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
 }
 
+class ConstructionOverlay extends GenericSdfgOverlay {
+
+    constructor(overlay_manager, renderer) {
+        super(
+            overlay_manager,
+            renderer,
+            GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
+        );
+    }
+
+    shade_node(node, ctx) {
+        node.shade(this.renderer, ctx, '#f80000', 0.1);
+    }
+
+    recursively_shade_sdfg(graph, ctx, visible_rect) {
+        // First go over visible states, skipping invisible ones. We only draw
+        // something if the state is collapsed or we're zoomed out far enough.
+        // In that case, we draw the FLOPS calculated for the entire state.
+        // If it's expanded or zoomed in close enough, we traverse inside.
+        graph.nodes().forEach(v => {
+            let state = graph.node(v);
+
+            // If the node's invisible, we skip it.
+            if (ctx.lod && !state.intersect(visible_rect.x, visible_rect.y,
+                visible_rect.w, visible_rect.h))
+                return;
+
+            // Shade the state
+            if (state.data.state.attributes.in_construction)
+                this.shade_node(state, ctx);
+
+            if (!state.data.state.attributes.is_collapsed) {
+                let state_graph = state.data.graph;
+                if (state_graph) {
+                    state_graph.nodes().forEach(v => {
+                        let node = state_graph.node(v);
+
+                        // Skip the node if it's not visible.
+                        if (ctx.lod && !node.intersect(visible_rect.x,
+                            visible_rect.y, visible_rect.w, visible_rect.h))
+                            return;
+
+                        // Shade the node
+                        if (node.data.node.attributes.in_construction)
+                            this.shade_node(node, ctx);
+
+                        // Descend recursively
+                        if (node instanceof NestedSDFG && !node.data.node.attributes.is_collapsed) {
+                            this.recursively_shade_sdfg(node.data.graph, ctx, visible_rect);
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    draw() {
+        this.recursively_shade_sdfg(
+            this.renderer.graph,
+            this.renderer.ctx,
+            this.renderer.visible_rect
+        );
+    }
+
+}
+
 class OverlayManager {
 
     constructor (renderer) {
@@ -987,6 +1054,11 @@ class OverlayManager {
                     new RuntimeMicroSecondsOverlay(this, this.renderer)
                 );
                 this.runtime_us_overlay_active = true;
+                break;
+            case GenericSdfgOverlay.OVERLAY_TYPE.CONSTRUCTION:
+                this.overlays.push(
+                    new ConstructionOverlay(this, this.renderer)
+                );
                 break;
             default:
                 break;
