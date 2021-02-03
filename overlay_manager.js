@@ -755,8 +755,10 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
         let volume_string = undefined;
         if (edge.data && edge.data.attributes) {
             volume_string = edge.data.attributes.volume;
-            if (volume_string !== undefined)
-                volume_string = volume_string.replace('**', '^');
+            if (volume_string !== undefined) {
+                volume_string = volume_string.replace(/\*\*/g, '^');
+                volume_string = volume_string.replace(/ceiling/g, 'ceil');
+            }
         }
         let volume = undefined;
         if (volume_string !== undefined)
