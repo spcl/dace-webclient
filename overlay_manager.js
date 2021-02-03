@@ -351,7 +351,8 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
                         'Min: ' + this.pretty_print_micros(rt_summary['min']) +
                         '\nMax: ' + this.pretty_print_micros(rt_summary['max']) +
                         '\nMean: ' + this.pretty_print_micros(rt_summary['mean']) +
-                        '\nMedian: ' + this.pretty_print_micros(rt_summary['med'])
+                        '\nMedian: ' + this.pretty_print_micros(rt_summary['med']) +
+                        '\nCount: ' + rt_summary['count']
                     );
                 };
         }
