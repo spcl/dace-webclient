@@ -72,6 +72,23 @@ function load_instrumentation_report_callback() {
     instrumentation_report_read_complete(JSON.parse(fr.result));
 }
 
+/**
+ * Get the min/max values of an array.
+ * This is more stable than Math.min/max for large arrays, since Math.min/max
+ * is recursive and causes a too high stack-length with long arrays.
+ */
+function get_minmax(arr) {
+    var max = -Number.MAX_VALUE;
+    var min = Number.MAX_VALUE;
+    arr.forEach(val => {
+        if (val > max)
+            max = val;
+        if (val < min)
+            min = val;
+    });
+    return [min, max];
+}
+
 function instrumentation_report_read_complete(report) {
     let runtime_map = {};
 
@@ -98,11 +115,15 @@ function instrumentation_report_read_complete(report) {
 
         for (const key in runtime_map) {
             const values = runtime_map[key];
+            const minmax = get_minmax(values);
+            const min = minmax[0];
+            const max = minmax[1];
             const runtime_summary = {
-                'min': math.min(...values),
-                'max': math.max(...values),
+                'min': min,
+                'max': max,
                 'mean': math.mean(values),
                 'med': math.median(values),
+                'count': values.length,
             };
             runtime_map[key] = runtime_summary;
         }
