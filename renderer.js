@@ -1848,8 +1848,8 @@ class SDFGRenderer {
     on_pre_draw() { }
 
     on_post_draw() {
-		if (this.overlay_manager !== null)
-			this.overlay_manager.draw();
+        if (this.overlay_manager !== null)
+            this.overlay_manager.draw();
 
         try {
             this.ctx.end();
@@ -2353,7 +2353,7 @@ class SDFGRenderer {
             if (intersected && obj instanceof Edge && obj.parent_id != null) {
                 let tree = this.get_nested_memlet_tree(obj);
                 tree.forEach(te => {
-                    if (te != obj) {
+                    if (te != obj && te !== undefined) {
                         te.highlighted = true;
                     }
                 });
