@@ -59,18 +59,19 @@ function recursively_find_graph(graph, graph_id, ns_node=undefined) {
         };
         graph.nodes().forEach((state_id) => {
             const state = graph.node(state_id);
-            state.data.graph.nodes().forEach((node_id) => {
-                const node = state.data.graph.node(node_id);
-                if (node instanceof NestedSDFG) {
-                    const search_graph = recursively_find_graph(
-                        node.data.graph, graph_id, node
-                    );
-                    if (search_graph.graph !== undefined) {
-                        result = search_graph;
-                        return result;
+            if (state.data.graph !== undefined && state.data.graph !== null)
+                state.data.graph.nodes().forEach((node_id) => {
+                    const node = state.data.graph.node(node_id);
+                    if (node instanceof NestedSDFG) {
+                        const search_graph = recursively_find_graph(
+                            node.data.graph, graph_id, node
+                        );
+                        if (search_graph.graph !== undefined) {
+                            result = search_graph;
+                            return result;
+                        }
                     }
-                }
-            });
+                });
             return result;
         });
         return result;
@@ -109,13 +110,13 @@ function find_graph_element_by_uuid(p_graph, uuid) {
         };
     }
 
-    if (node_id !== -1 && state !== undefined) {
+    if (node_id !== -1 && state !== undefined && state.data.graph !== null) {
         // Look for a node in a state.
         result = {
             parent: state.data.graph,
             element: state.data.graph.node(node_id),
         };
-    } else if (edge_id !== -1 && state !== undefined) {
+    } else if (edge_id !== -1 && state !== undefined && state.data.graph !== null) {
         // Look for an edge in a state.
         result = {
             parent: state.data.graph,
