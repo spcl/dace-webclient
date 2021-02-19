@@ -1344,7 +1344,7 @@ class SDFGRenderer {
         this.movemode_btn = null;
         this.selectmode_btn = null;
         this.addmode_btns = null;
-        this.addtype = null;
+        this.add_type = null;
         this.addmode_divs = null;
         this.mode_selected_bg_color = "#CCCCCC";
         this.mouse_follow_svgs = null;
@@ -1368,6 +1368,8 @@ class SDFGRenderer {
         this.external_mouse_handler = on_mouse_event;
         this.ctrl_key_selection = false;
         this.shift_key_movement = false;
+        this.add_uuid = null;
+        this.add_position = null;
 
         // Selection related fields
         this.selected_elements = [];
@@ -1628,8 +1630,7 @@ class SDFGRenderer {
                     this.update_toggle_buttons();
                 };
             }
-            if (mode_buttons.bg_color)
-                this.mode_selected_bg_color = mode_buttons.bg_color;
+            this.mode_selected_bg_color = '#22A4FE';
         } else {
             // Mode buttons are empty in plain webview
             this.addmode_btns = [];
@@ -1782,14 +1783,14 @@ class SDFGRenderer {
             this.zoom_to_view();
 
         let svgs = {}
-        svgs['MapEntry'] =
+        svgs['Map'] =
             `<svg width="8rem" height="2rem" viewBox="0 0 800 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <line x1="10" x2="190" y1="190" y2="10"/>
                 <line x1="190" x2="600" y1="10" y2="10"/>
                 <line x1="600" x2="790" y1="10" y2="190"/>
                 <line x1="790" x2="10" y1="190" y2="190"/>
             </svg>`;
-        svgs['ConsumeEntry'] =
+        svgs['Consume'] =
             `<svg width="8rem" height="2rem" viewBox="0 0 800 200" stroke="black" stroke-width="10" stroke-dasharray="60,25" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <line x1="10"x2="190" y1="190" y2="10"/>
                 <line x1="190" x2="600" y1="10" y2="10"/>
@@ -1848,6 +1849,8 @@ class SDFGRenderer {
         this.mouse_follow_element = el;
         this.mouse_follow_svgs = svgs;
 
+        this.update_toggle_buttons();
+
         // Queue first render
         this.draw_async();
     }
@@ -1882,6 +1885,22 @@ class SDFGRenderer {
             let uuid = get_uuid_graph_element(this.selected_elements[0]);
             fill_info(find_graph_element_by_uuid(this.graph, uuid).element);
         }
+    }
+
+    // Move the newly added element to the correct position
+    update_new_element(uuids) {
+        if (!this.add_position) return;
+
+        let first = uuids[0];
+        let el = find_graph_element_by_uuid(this.graph, first).element;
+        // TODO: set in construction attribute
+        this.canvas_manager.translate_element(el, { x: el.x, y: el.y },
+            this.add_position, this.sdfg, this.sdfg_list,
+            this.state_parent_list, null, true);
+
+        this.add_position = null;
+
+        this.send_new_sdfg_to_vscode();
     }
 
     // Set mouse events (e.g., click, drag, zoom)
@@ -2547,6 +2566,14 @@ class SDFGRenderer {
             if (event.key == "Escape" && !event.ctrlKey && !event.shiftKey)
                 this.panmode_btn.onclick();
             return;
+        } else if (event.key == "Escape") {
+            if (this.selected_elements.length > 0) {
+                this.selected_elements.forEach(el => {
+                    el.selected = false;
+                });
+                this.selected_elements = [];
+                this.draw_async();
+            }
         }
 
         if (event.ctrlKey && !event.shiftKey)
@@ -2912,35 +2939,22 @@ class SDFGRenderer {
                     this.send_new_sdfg_to_vscode();
                 }
             } else {
+                if (this.mouse_mode == 'add') {
+                    if ((this.add_type == 'SDFGState' && (foreground_elem instanceof NestedSDFG || foreground_elem == null)) ||
+                        (this.add_type != 'SDFGState' && foreground_elem instanceof State)) {
+
+                        this.add_position = this.mousepos;
+
+                        vscode.postMessage({
+                            type: 'dace.insert_node',
+                            sdfg: stringify_sdfg(this.sdfg),
+                            add_type: this.add_type,
+                            parent: get_uuid_graph_element(foreground_elem)
+                        });
+                    }
+                }
                 if (foreground_elem) {
-                    if (this.mouse_mode == 'add') {
-                        if ((this.add_type == 'SDFGState' && (foreground_elem instanceof NestedSDFG || foreground_elem == null)) ||
-                            (this.add_type != 'SDFGState' && foreground_elem instanceof State)) {
-                            let new_elem = add_elem_to_sdfg(this.sdfg, this.add_type, foreground_elem);
-                            if (new_elem) {
-                                this.relayout();
-
-                                let new_elem_uuid = foreground_elem.sdfg.sdfg_list_id + "/"
-                                    + foreground_elem.id + "/"
-                                    + new_elem.id + "/"
-                                    + "-1";
-                                let updated_new_elem = find_graph_element_by_uuid(this.graph, new_elem_uuid).element;
-                                
-                                this.canvas_manager.translate_element(updated_new_elem, { x: updated_new_elem.x, y: updated_new_elem.y },
-                                    this.mousepos, this.graph, this.sdfg_list,
-                                    this.state_parent_list, undefined);
-
-                                this.send_new_sdfg_to_vscode();
-
-                                // If control key is pressed, then don't leave add mode
-                                if (!event.ctrlKey)
-                                    this.panmode_btn.onclick();
-                            } else {
-                                // error while adding element
-                            }
-                        }
-
-                    } else if (event.ctrlKey) {
+                    if (event.ctrlKey) {
                         // Ctrl + click on an object, add it, or remove it from
                         // the selection if it was previously in it.
                         if (this.selected_elements.includes(foreground_elem)) {

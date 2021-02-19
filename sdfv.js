@@ -50,7 +50,12 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
     add_btns.push(document.getElementById('elem_stream'));
     add_btns.push(document.getElementById('elem_state'));
     if (pan_btn)
-        mode_buttons = {pan: pan_btn, move: move_btn, select: select_btn, add_btns: add_btns, bg_color: '#22A4FE'};
+        mode_buttons = {
+            pan: pan_btn,
+            move: move_btn,
+            select: select_btn,
+            add_btns: add_btns
+        };
 
     if (sdfg !== null)
         renderer = new SDFGRenderer(sdfg, document.getElementById('contents'),
