@@ -1066,7 +1066,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
         edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
         if (!edge) return;
         let e = new Edge(edge.attributes.data, id, sdfg, sdfg_state.id);
-        edge.attributes.data.edge = deepCopy(e);
+        edge.attributes.data.edge = e;
         e.src_connector = edge.src_connector;
         e.dst_connector = edge.dst_connector;
         g.setEdge(edge.src, edge.dst, e, id);
