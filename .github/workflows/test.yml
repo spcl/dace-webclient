@@ -22,4 +22,4 @@ jobs:
     - run: npm run build-prod
     - name: Make sure files in `dist/` are up-to-date
       run: git status && git diff --quiet
-    - run: npm test --if-present
+    - run: npm run test --if-present
