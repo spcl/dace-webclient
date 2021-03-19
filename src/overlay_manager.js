@@ -1,5 +1,8 @@
 // Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
 
+import { createElement } from './utils/create_element';
+import { MapExit, NestedSDFG, SDFGNode, State } from './renderer/renderer_elements';
+
 class SymbolResolver {
 
     constructor(renderer) {
@@ -7,7 +10,7 @@ class SymbolResolver {
         this.sdfg = this.renderer.sdfg;
         try {
             this.vscode = vscode;
-        } catch(exception) {
+        } catch (exception) {
             this.vscode = false;
         }
 
@@ -36,18 +39,18 @@ class SymbolResolver {
     parse_symbol_expression(
         expression_string,
         mapping,
-        prompt_completion=false,
-        callback=undefined
+        prompt_completion = false,
+        callback = undefined
     ) {
         let result = undefined;
         try {
-            let expression_tree = math.parse(expression_string);
+            const expression_tree = math.parse(expression_string);
             if (prompt_completion) {
                 this.recursive_find_undefined_symbol(expression_tree, mapping);
                 this.prompt_define_symbol(mapping, callback);
             } else {
                 try {
-                    let evaluated =
+                    const evaluated =
                         expression_tree.evaluate(mapping);
                     if (evaluated !== undefined &&
                         !isNaN(evaluated) &&
@@ -67,10 +70,10 @@ class SymbolResolver {
         }
     }
 
-    prompt_define_symbol(mapping, callback=undefined) {
+    prompt_define_symbol(mapping, callback = undefined) {
         if (this.symbols_to_define.length > 0) {
-            let symbol = this.symbols_to_define.pop();
-            let that = this;
+            const symbol = this.symbols_to_define.pop();
+            const that = this;
             this.popup_dialogue._show(
                 symbol,
                 mapping,
@@ -113,7 +116,7 @@ class SymbolResolver {
     }
 
     init_overlay_popup_dialogue() {
-        let dialogue_background = createElement('div', '', ['modal_background'],
+        const dialogue_background = createElement('div', '', ['modal_background'],
             document.body);
         dialogue_background._show = function () {
             this.style.display = 'block';
@@ -122,7 +125,7 @@ class SymbolResolver {
             this.style.display = 'none';
         };
 
-        let popup_dialogue = createElement('div', 'sdfv_overlay_dialogue',
+        const popup_dialogue = createElement('div', 'sdfv_overlay_dialogue',
             ['modal'], dialogue_background);
         popup_dialogue.addEventListener('click', (ev) => {
             ev.stopPropagation();
@@ -130,27 +133,27 @@ class SymbolResolver {
         popup_dialogue.style.display = 'none';
         this.popup_dialogue = popup_dialogue;
 
-        let header_bar = createElement('div', '', ['modal_title_bar'],
+        const header_bar = createElement('div', '', ['modal_title_bar'],
             this.popup_dialogue);
         this.popup_dialogue._title = createElement('span', '', ['modal_title'],
             header_bar);
-        let close_button = createElement('div', '', ['modal_close'],
+        const close_button = createElement('div', '', ['modal_close'],
             header_bar);
         close_button.innerHTML = '<i class="material-icons">close</i>';
         close_button.addEventListener('click', () => {
             popup_dialogue._hide();
         });
 
-        let content_box = createElement('div', '', ['modal_content_box'],
+        const content_box = createElement('div', '', ['modal_content_box'],
             this.popup_dialogue);
         this.popup_dialogue._content = createElement('div', '',
             ['modal_content'], content_box);
         this.popup_dialogue._input = createElement('input', 'symbol_input',
             ['modal_input_text'], this.popup_dialogue._content);
-        
+
         function set_val() {
             if (popup_dialogue._map && popup_dialogue._symbol) {
-                let val = popup_dialogue._input.value;
+                const val = popup_dialogue._input.value;
                 if (val && !isNaN(val) && Number.isInteger(+val) && val > 0) {
                     popup_dialogue._map[popup_dialogue._symbol] = val;
                     popup_dialogue._hide();
@@ -166,12 +169,12 @@ class SymbolResolver {
                 set_val();
         });
 
-        let footer_bar = createElement('div', '', ['modal_footer_bar'],
+        const footer_bar = createElement('div', '', ['modal_footer_bar'],
             this.popup_dialogue);
-        let confirm_button = createElement('div', '',
+        const confirm_button = createElement('div', '',
             ['button', 'modal_confirm_button'], footer_bar);
         confirm_button.addEventListener('click', (ev) => { set_val(); });
-        let confirm_button_text = createElement('span', '', [], confirm_button);
+        const confirm_button_text = createElement('span', '', [], confirm_button);
         confirm_button_text.innerText = 'Confirm';
         createElement('div', '', ['clearfix'], footer_bar);
 
@@ -197,7 +200,7 @@ class SymbolResolver {
 
 }
 
-class GenericSdfgOverlay {
+export class GenericSdfgOverlay {
 
     constructor(overlay_manager, renderer, type) {
         this.overlay_manager = overlay_manager;
@@ -206,7 +209,7 @@ class GenericSdfgOverlay {
         this.type = type;
         try {
             this.vscode = vscode;
-        } catch(exception) {
+        } catch (exception) {
             this.vscode = false;
         }
 
@@ -220,7 +223,7 @@ class GenericSdfgOverlay {
         return false;
     }
 
-    refresh(){
+    refresh() {
     }
 
 }
@@ -231,7 +234,7 @@ GenericSdfgOverlay.OVERLAY_TYPE = {
     RUNTIME_US: 'OVERLAY_TYPE_RUNTIME_US',
 };
 
-class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
+export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
 
     constructor(overlay_manager, renderer) {
         super(
@@ -247,7 +250,7 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
     }
 
     get_element_uuid(element) {
-        let undefined_val = -1;
+        const undefined_val = -1;
         if (element instanceof State) {
             return (
                 element.sdfg.sdfg_list_id + '/' +
@@ -256,7 +259,7 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
                 undefined_val
             );
         } else if (element instanceof NestedSDFG) {
-            let sdfg_id = element.data.node.attributes.sdfg.sdfg_list_id;
+            const sdfg_id = element.data.node.attributes.sdfg.sdfg_list_id;
             return (
                 sdfg_id + '/' +
                 undefined_val + '/' +
@@ -272,7 +275,7 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
                 element.data.node.scope_entry + '/' +
                 undefined_val
             );
-        } else if (element instanceof Node) {
+        } else if (element instanceof SDFGNode) {
             return (
                 element.sdfg.sdfg_list_id + '/' +
                 element.parent_id + '/' +
@@ -291,7 +294,7 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
     refresh() {
         this.badness_scale_center = 5;
 
-        let micros_values = [0];
+        const micros_values = [0];
 
         for (const key of Object.keys(this.runtime_map)) {
             // Make sure the overall SDFG's runtime isn't included in this.
@@ -317,11 +320,11 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
         let value = micros;
         if (micros > 1000) {
             unit = 'ms';
-            let millis = micros / 1000;
+            const millis = micros / 1000;
             value = millis;
             if (millis > 1000) {
                 unit = 's';
-                let seconds = millis / 1000;
+                const seconds = millis / 1000;
                 value = seconds;
             }
         }
@@ -331,7 +334,7 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
     }
 
     shade_node(node, ctx) {
-        let rt_summary = this.runtime_map[this.get_element_uuid(node)];
+        const rt_summary = this.runtime_map[this.get_element_uuid(node)];
 
         if (rt_summary === undefined)
             return;
@@ -364,7 +367,7 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
             badness = 0;
         if (badness > 1)
             badness = 1;
-        let color = getTempColor(badness);
+        const color = getTempColor(badness);
 
         node.shade(this.renderer, ctx, color);
     }
@@ -375,7 +378,7 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
         // In that case, we draw the measured runtime for the entire state.
         // If it's expanded or zoomed in close enough, we traverse inside.
         graph.nodes().forEach(v => {
-            let state = graph.node(v);
+            const state = graph.node(v);
 
             // If the node's invisible, we skip it.
             if (ctx.lod && !state.intersect(visible_rect.x, visible_rect.y,
@@ -383,14 +386,14 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
                 return;
 
             if ((ctx.lod && (ppp >= STATE_LOD ||
-                             state.width / ppp <= STATE_LOD)) ||
+                state.width / ppp <= STATE_LOD)) ||
                 state.data.state.attributes.is_collapsed) {
                 this.shade_node(state, ctx);
             } else {
-                let state_graph = state.data.graph;
+                const state_graph = state.data.graph;
                 if (state_graph) {
                     state_graph.nodes().forEach(v => {
-                        let node = state_graph.node(v);
+                        const node = state_graph.node(v);
 
                         // Skip the node if it's not visible.
                         if (ctx.lod && !node.intersect(visible_rect.x,
@@ -426,7 +429,7 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
 
 }
 
-class StaticFlopsOverlay extends GenericSdfgOverlay {
+export class StaticFlopsOverlay extends GenericSdfgOverlay {
 
     constructor(overlay_manager, renderer) {
         super(
@@ -445,7 +448,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
     }
 
     get_element_uuid(element) {
-        let undefined_val = -1;
+        const undefined_val = -1;
         if (element instanceof State) {
             return (
                 element.sdfg.sdfg_list_id + '/' +
@@ -454,7 +457,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
                 undefined_val
             );
         } else if (element instanceof NestedSDFG) {
-            let sdfg_id = element.data.node.attributes.sdfg.sdfg_list_id;
+            const sdfg_id = element.data.node.attributes.sdfg.sdfg_list_id;
             return (
                 sdfg_id + '/' +
                 undefined_val + '/' +
@@ -470,7 +473,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
                 element.data.node.scope_entry + '/' +
                 undefined_val
             );
-        } else if (element instanceof Node) {
+        } else if (element instanceof SDFGNode) {
             return (
                 element.sdfg.sdfg_list_id + '/' +
                 element.parent_id + '/' +
@@ -498,7 +501,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
     }
 
     calculate_flops_node(node, symbol_map, flops_values) {
-        let flops_string = this.flops_map[this.get_element_uuid(node)];
+        const flops_string = this.flops_map[this.get_element_uuid(node)];
         let flops = undefined;
         if (flops_string !== undefined)
             flops = this.symbol_resolver.parse_symbol_expression(
@@ -514,19 +517,19 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
 
         return flops;
     }
-    
+
     calculate_flops_graph(g, symbol_map, flops_values) {
-        let that = this;
+        const that = this;
         g.nodes().forEach(v => {
-            let state = g.node(v);
+            const state = g.node(v);
             that.calculate_flops_node(state, symbol_map, flops_values);
-            let state_graph = state.data.graph;
+            const state_graph = state.data.graph;
             if (state_graph) {
                 state_graph.nodes().forEach(v => {
-                    let node = state_graph.node(v);
+                    const node = state_graph.node(v);
                     if (node instanceof NestedSDFG) {
-                        let nested_symbols_map = {};
-                        let mapping = node.data.node.attributes.symbol_mapping;
+                        const nested_symbols_map = {};
+                        const mapping = node.data.node.attributes.symbol_mapping;
                         // Translate the symbol mappings for the nested SDFG
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol) => {
@@ -567,7 +570,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
     recalculate_flops_values(graph) {
         this.badness_scale_center = 5;
 
-        let flops_values = [0];
+        const flops_values = [0];
         this.calculate_flops_graph(
             graph,
             this.symbol_resolver.symbol_value_map,
@@ -598,8 +601,8 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
     }
 
     shade_node(node, ctx) {
-        let flops = node.data.flops;
-        let flops_string = node.data.flops_string;
+        const flops = node.data.flops;
+        const flops_string = node.data.flops_string;
 
         if (flops_string !== undefined && this.renderer.mousepos &&
             node.intersect(this.renderer.mousepos.x, this.renderer.mousepos.y)) {
@@ -640,7 +643,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
             badness = 0;
         if (badness > 1)
             badness = 1;
-        let color = getTempColor(badness);
+        const color = getTempColor(badness);
 
         node.shade(this.renderer, ctx, color);
     }
@@ -651,7 +654,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
         // In that case, we draw the FLOPS calculated for the entire state.
         // If it's expanded or zoomed in close enough, we traverse inside.
         graph.nodes().forEach(v => {
-            let state = graph.node(v);
+            const state = graph.node(v);
 
             // If the node's invisible, we skip it.
             if (ctx.lod && !state.intersect(visible_rect.x, visible_rect.y,
@@ -659,14 +662,14 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
                 return;
 
             if ((ctx.lod && (ppp >= STATE_LOD ||
-                             state.width / ppp <= STATE_LOD)) ||
+                state.width / ppp <= STATE_LOD)) ||
                 state.data.state.attributes.is_collapsed) {
                 this.shade_node(state, ctx);
             } else {
-                let state_graph = state.data.graph;
+                const state_graph = state.data.graph;
                 if (state_graph) {
                     state_graph.nodes().forEach(v => {
-                        let node = state_graph.node(v);
+                        const node = state_graph.node(v);
 
                         // Skip the node if it's not visible.
                         if (ctx.lod && !node.intersect(visible_rect.x,
@@ -705,11 +708,11 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
             if (foreground_elem !== undefined && foreground_elem !== null &&
                 !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.flops === undefined) {
-                    let flops_string = this.flops_map[
+                    const flops_string = this.flops_map[
                         this.get_element_uuid(foreground_elem)
                     ];
                     if (flops_string) {
-                        let that = this;
+                        const that = this;
                         this.symbol_resolver.parse_symbol_expression(
                             flops_string,
                             that.symbol_resolver.symbol_value_map,
@@ -730,7 +733,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
 
 }
 
-class MemoryVolumeOverlay extends GenericSdfgOverlay {
+export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
     constructor(overlay_manager, renderer) {
         super(
@@ -776,13 +779,13 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
     }
 
     calculate_volume_graph(g, symbol_map, volume_values) {
-        let that = this;
+        const that = this;
         g.nodes().forEach(v => {
-            let state = g.node(v);
-            let state_graph = state.data.graph;
+            const state = g.node(v);
+            const state_graph = state.data.graph;
             if (state_graph) {
                 state_graph.edges().forEach(e => {
-                    let edge = state_graph.edge(e);
+                    const edge = state_graph.edge(e);
                     if (edge instanceof Edge)
                         that.calculate_volume_edge(
                             edge,
@@ -792,10 +795,10 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 });
 
                 state_graph.nodes().forEach(v => {
-                    let node = state_graph.node(v);
+                    const node = state_graph.node(v);
                     if (node instanceof NestedSDFG) {
-                        let nested_symbols_map = {};
-                        let mapping = node.data.node.attributes.symbol_mapping;
+                        const nested_symbols_map = {};
+                        const mapping = node.data.node.attributes.symbol_mapping;
                         // Translate the symbol mappings for the nested SDFG
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol) => {
@@ -825,7 +828,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
     recalculate_volume_values(graph) {
         this.badness_scale_center = 5;
 
-        let volume_values = [0];
+        const volume_values = [0];
         this.calculate_volume_graph(
             graph,
             this.symbol_resolver.symbol_value_map,
@@ -851,7 +854,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
     }
 
     shade_edge(edge, ctx) {
-        let volume = edge.data.volume;
+        const volume = edge.data.volume;
         if (volume !== undefined) {
             // Only draw positive volumes.
             if (volume <= 0)
@@ -862,7 +865,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 badness = 0;
             if (badness > 1)
                 badness = 1;
-            let color = getTempColor(badness);
+            const color = getTempColor(badness);
 
             edge.shade(this.renderer, ctx, color);
         }
@@ -870,7 +873,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
     recursively_shade_sdfg(graph, ctx, ppp, visible_rect) {
         graph.nodes().forEach(v => {
-            let state = graph.node(v);
+            const state = graph.node(v);
 
             // If we're zoomed out enough that the contents aren't visible, we
             // skip the state.
@@ -882,10 +885,10 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 visible_rect.w, visible_rect.h))
                 return;
 
-            let state_graph = state.data.graph;
+            const state_graph = state.data.graph;
             if (state_graph && !state.data.state.attributes.is_collapsed) {
                 state_graph.nodes().forEach(v => {
-                    let node = state_graph.node(v);
+                    const node = state_graph.node(v);
 
                     // Skip the node if it's not visible.
                     if (ctx.lod && !node.intersect(visible_rect.x,
@@ -905,7 +908,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 });
 
                 state_graph.edges().forEach(e => {
-                    let edge = state_graph.edge(e);
+                    const edge = state_graph.edge(e);
 
                     if (ctx.lod && !edge.intersect(visible_rect.x,
                         visible_rect.y, visible_rect.w, visible_rect.h))
@@ -932,7 +935,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 foreground_elem instanceof Edge) {
                 if (foreground_elem.data.volume === undefined) {
                     if (foreground_elem.data.attributes.volume) {
-                        let that = this;
+                        const that = this;
                         this.symbol_resolver.parse_symbol_expression(
                             foreground_elem.data.attributes.volume,
                             that.symbol_resolver.symbol_value_map,
@@ -953,9 +956,9 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
 }
 
-class OverlayManager {
+export class OverlayManager {
 
-    constructor (renderer) {
+    constructor(renderer) {
         this.renderer = renderer;
 
         this.memory_volume_overlay_active = false;

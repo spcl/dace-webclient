@@ -1,6 +1,6 @@
 // Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
 
-class TableCategory {
+export class TableCategory {
 
     constructor(table, parent_row) {
         this._table = table;
@@ -10,8 +10,8 @@ class TableCategory {
         this._title_row.classList.add("diode_property_header");
 
         this._title_row.addEventListener('click', ev => {
-            for(let x of this._cat_rows) {
-                if(x.style.display == "none") {
+            for (const x of this._cat_rows) {
+                if (x.style.display == "none") {
                     x.style.display = null;
                     this._title_row.classList.remove("collapsed");
                 }
@@ -28,20 +28,22 @@ class TableCategory {
     }
 
 }
-class Table {
+
+
+export class Table {
     constructor() {
 
         this.init();
     }
 
-    init()  {
+    init() {
         this._table = document.createElement('table');
         this._thead = document.createElement('thead');
         this._tbody = document.createElement('tbody');
 
         this._table.appendChild(this._thead);
         this._table.appendChild(this._tbody);
-        
+
         this._is_collapsed = false;
     }
 
@@ -54,10 +56,10 @@ class Table {
 
         this._thead.innerHTML = "";
 
-        let tr = document.createElement("tr");
-        for(let x of this._columns) {
-            let th = document.createElement('th');
-            if(typeof(x) === 'string') {
+        const tr = document.createElement("tr");
+        for (const x of this._columns) {
+            const th = document.createElement('th');
+            if (typeof (x) === 'string') {
                 th.innerText = x;
             }
             else {
@@ -71,12 +73,12 @@ class Table {
 
     addRow(...columns) {
 
-        let tmp = columns;
-        
-        let tr = document.createElement("tr");
-        for(let x of tmp) {
-            let td = document.createElement('td');
-            if(typeof(x) === 'string') {
+        const tmp = columns;
+
+        const tr = document.createElement("tr");
+        for (const x of tmp) {
+            const td = document.createElement('td');
+            if (typeof (x) === 'string') {
                 td.innerText = x;
             }
             else {
@@ -100,7 +102,7 @@ class Table {
     }
 
     toggleVertically() {
-        if(this._is_collapsed) {
+        if (this._is_collapsed) {
             this.expandVertically();
         }
         else {
@@ -113,6 +115,3 @@ class Table {
     }
 
 }
-
-
-export {Table, TableCategory}

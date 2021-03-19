@@ -1,47 +1,71 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-var fr;
-var file = null;
-var instrumentation_file = null;
-var renderer = null;
+import { parse_sdfg } from "./utils/sdfg/json_serializer";
+import { sdfg_property_to_string } from "./utils/sdfg/sdfg_property_to_string";
+import { traverse_sdfg_scopes } from "./utils/sdfg/traverse_sdfg_scopes";
+import { mean, median } from 'mathjs';
+import { SDFGRenderer } from './renderer/renderer';
+const { $ } = globalThis;
+
+let fr;
+let file = null;
+let instrumentation_file = null;
+let renderer = null;
+
+
+if (document.currentScript.hasAttribute('data-sdfg-json')) {
+    init_sdfv(parse_sdfg(document.currentScript.getAttribute('data-sdfg-json')));
+} else {
+    const url = getParameterByName('url');
+    if (url)
+        load_sdfg_from_url(url);
+    else
+        init_sdfv(null);
+}
+
 
 function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
-    $('#sdfg-file-input').change(function(e){
+    $('#sdfg-file-input').change((e) => {
         if (e.target.files.length < 1)
             return;
         file = e.target.files[0];
         reload_file();
     });
-    $('#reload').click(function(e){
+    $('#menuclose').click(() => close_menu());
+    $('#reload').click(() => {
         reload_file();
     });
-    $('#instrumentation-report-file-input').change(function(e) {
+    $('#instrumentation-report-file-input').change((e) => {
         if (e.target.files.length < 1)
             return;
         instrumentation_file = e.target.files[0];
         load_instrumentation_report();
     });
-    $('#outline').click(function(e){
+    $('#outline').click(() => {
         if (renderer)
             setTimeout(() => outline(renderer, renderer.graph), 1);
     });
-    $('#search-btn').click(function(e){
+    $('#search-btn').click(() => {
         if (renderer)
-            setTimeout(() => {find_in_graph(renderer, renderer.graph, $('#search').val(),
-                                            $('#search-case')[0].checked);}, 1);
+            setTimeout(() => {
+                find_in_graph(renderer, renderer.graph, $('#search').val(),
+                    $('#search-case')[0].checked);
+            }, 1);
     });
-    $('#search').on('keydown', function(e) {
+    $('#search').on('keydown', (e) => {
         if (e.key == 'Enter' || e.which == 13) {
             if (renderer)
-                setTimeout(() => {find_in_graph(renderer, renderer.graph, $('#search').val(),
-                                                $('#search-case')[0].checked);}, 1);
+                setTimeout(() => {
+                    find_in_graph(renderer, renderer.graph, $('#search').val(),
+                        $('#search-case')[0].checked);
+                }, 1);
             e.preventDefault();
         }
     });
 
     if (sdfg !== null)
         renderer = new SDFGRenderer(sdfg, document.getElementById('contents'),
-                                    mouse_event, user_transform, debug_draw);
+            mouse_event, user_transform, debug_draw);
 }
 
 function reload_file() {
@@ -53,7 +77,7 @@ function reload_file() {
 }
 
 function file_read_complete() {
-    let sdfg = parse_sdfg(fr.result);
+    const sdfg = parse_sdfg(fr.result);
     if (renderer)
         renderer.destroy();
     renderer = new SDFGRenderer(sdfg, document.getElementById('contents'), mouse_event);
@@ -78,8 +102,8 @@ function load_instrumentation_report_callback() {
  * is recursive and causes a too high stack-length with long arrays.
  */
 function get_minmax(arr) {
-    var max = -Number.MAX_VALUE;
-    var min = Number.MAX_VALUE;
+    let max = -Number.MAX_VALUE;
+    let min = Number.MAX_VALUE;
     arr.forEach(val => {
         if (val > max)
             max = val;
@@ -90,7 +114,7 @@ function get_minmax(arr) {
 }
 
 function instrumentation_report_read_complete(report) {
-    let runtime_map = {};
+    const runtime_map = {};
 
     if (report.traceEvents && renderer && renderer.sdfg) {
         for (const event of report.traceEvents) {
@@ -121,8 +145,8 @@ function instrumentation_report_read_complete(report) {
             const runtime_summary = {
                 'min': min,
                 'max': max,
-                'mean': math.mean(values),
-                'med': math.median(values),
+                'mean': mean(values),
+                'med': median(values),
                 'count': values.length,
             };
             runtime_map[key] = runtime_summary;
@@ -146,9 +170,9 @@ function instrumentation_report_read_complete(report) {
 
 // https://stackoverflow.com/a/901144/6489142
 function getParameterByName(name) {
-    let url = window.location.href;
+    const url = window.location.href;
     name = name.replace(/[\[\]]/g, '\\$&');
-    var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+    const regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
         results = regex.exec(url);
     if (!results) return null;
     if (!results[2]) return '';
@@ -156,11 +180,11 @@ function getParameterByName(name) {
 }
 
 function load_sdfg_from_url(url) {
-    let request = new XMLHttpRequest();
+    const request = new XMLHttpRequest();
     request.responseType = 'text'; // Will be parsed as JSON by parse_sdfg
     request.onload = () => {
         if (request.status == 200) {
-            let sdfg = parse_sdfg(request.response);
+            const sdfg = parse_sdfg(request.response);
             if (renderer)
                 renderer.destroy();
             init_sdfv(sdfg);
@@ -178,8 +202,8 @@ function load_sdfg_from_url(url) {
 }
 
 function find_recursive(graph, query, results, case_sensitive) {
-    for (let nodeid of graph.nodes()) {
-        let node = graph.node(nodeid);
+    for (const nodeid of graph.nodes()) {
+        const node = graph.node(nodeid);
         let label = node.label();
         if (!case_sensitive)
             label = label.toLowerCase();
@@ -189,8 +213,8 @@ function find_recursive(graph, query, results, case_sensitive) {
         if (node.data.graph)
             find_recursive(node.data.graph, query, results, case_sensitive);
     }
-    for (let edgeid of graph.edges()) {
-        let edge = graph.edge(edgeid);
+    for (const edgeid of graph.edges()) {
+        const edge = graph.edge(edgeid);
         let label = edge.label();
         if (label !== undefined) {
             if (!case_sensitive)
@@ -217,15 +241,15 @@ function sidebar_show() {
 
 function fill_info(elem) {
     // Change contents
-    let contents = sidebar_get_contents();
+    const contents = sidebar_get_contents();
     let html = "";
     if (elem instanceof Edge && elem.data.type === "Memlet") {
-        let sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
+        const sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
         html += "<h4>Connectors: " + sdfg_edge.src_connector + " &rarr; " + sdfg_edge.dst_connector + "</h4>";
     }
     html += "<hr />";
 
-    for (let attr of Object.entries(elem.attributes())) {
+    for (const attr of Object.entries(elem.attributes())) {
         if (attr[0] === "layout" || attr[0] === "sdfg" || attr[0] === "_arrays" || attr[0].startsWith("_meta_")) continue;
         html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
         html += sdfg_property_to_string(attr[1], renderer.view_settings()) + "</p>";
@@ -233,9 +257,9 @@ function fill_info(elem) {
 
     // If access node, add array information too
     if (elem instanceof AccessNode) {
-        let sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
+        const sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
         html += "<br /><h4>" + sdfg_array.type + " properties:</h4>";
-        for (let attr of Object.entries(sdfg_array.attributes)) {
+        for (const attr of Object.entries(sdfg_array.attributes)) {
             if (attr[0] === "layout" || attr[0] === "sdfg" || attr[0].startsWith("_meta_")) continue;
             html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
             html += sdfg_property_to_string(attr[1], renderer.view_settings()) + "</p>";
@@ -245,10 +269,10 @@ function fill_info(elem) {
     contents.innerHTML = html;
 }
 
-function find_in_graph(renderer, sdfg, query, case_sensitive=false) {
+function find_in_graph(renderer, sdfg, query, case_sensitive = false) {
     sidebar_set_title('Search Results for "' + query + '"');
 
-    let results = [];
+    const results = [];
     if (!case_sensitive)
         query = query.toLowerCase();
     find_recursive(sdfg, query, results, case_sensitive);
@@ -258,13 +282,13 @@ function find_in_graph(renderer, sdfg, query, case_sensitive=false) {
         renderer.zoom_to_view(results);
 
     // Show clickable results in sidebar
-    let sidebar = sidebar_get_contents();
+    const sidebar = sidebar_get_contents();
     sidebar.innerHTML = '';
-    for (let result of results) {
-        let d = document.createElement('div');
+    for (const result of results) {
+        const d = document.createElement('div');
         d.className = 'context_menu_option';
         d.innerHTML = result.type() + ' ' + result.label();
-        d.onclick = () => {renderer.zoom_to_view([result])};
+        d.onclick = () => { renderer.zoom_to_view([result]) };
         d.onmouseenter = () => {
             if (!result.highlighted) {
                 result.highlighted = true;
@@ -286,7 +310,7 @@ function find_in_graph(renderer, sdfg, query, case_sensitive=false) {
 function recursive_find_graph(graph, sdfg_id) {
     let found = undefined;
     graph.nodes().forEach(n_id => {
-        let n = graph.node(n_id);
+        const n = graph.node(n_id);
         if (n && n.sdfg.sdfg_list_id === sdfg_id) {
             found = graph;
             return found;
@@ -332,8 +356,8 @@ function find_edge(state, edge_id) {
     return edge;
 }
 
-function find_graph_element(graph, type, sdfg_id, state_id=-1, el_id=-1) {
-    let requested_graph = recursive_find_graph(graph, sdfg_id);
+function find_graph_element(graph, type, sdfg_id, state_id = -1, el_id = -1) {
+    const requested_graph = recursive_find_graph(graph, sdfg_id);
     let state;
     if (requested_graph) {
         switch (type) {
@@ -368,18 +392,18 @@ function find_graph_element(graph, type, sdfg_id, state_id=-1, el_id=-1) {
 function outline(renderer, sdfg) {
     sidebar_set_title('SDFG Outline');
 
-    let sidebar = sidebar_get_contents();
+    const sidebar = sidebar_get_contents();
     sidebar.innerHTML = '';
 
     // Entire SDFG
-    let d = document.createElement('div');
+    const d = document.createElement('div');
     d.className = 'context_menu_option';
     d.innerHTML = '<i class="material-icons" style="font-size: inherit">filter_center_focus</i> SDFG ' +
         renderer.sdfg.attributes.name;
     d.onclick = () => renderer.zoom_to_view();
     sidebar.appendChild(d);
 
-    let stack = [sidebar];
+    const stack = [sidebar];
 
     // Add elements to tree view in sidebar
     traverse_sdfg_scopes(sdfg, (node, parent) => {
@@ -390,7 +414,7 @@ function outline(renderer, sdfg) {
         }
 
         // Create element
-        let d = document.createElement('div');
+        const d = document.createElement('div');
         d.className = 'context_menu_option';
         let is_collapsed = node.attributes().is_collapsed;
         is_collapsed = (is_collapsed === undefined) ? false : is_collapsed;
@@ -398,7 +422,7 @@ function outline(renderer, sdfg) {
 
         // If a scope has children, remove the name "Entry" from the type
         if (node.type().endsWith('Entry')) {
-            let state = node.sdfg.nodes[node.parent_id];
+            const state = node.sdfg.nodes[node.parent_id];
             if (state.scope_dict[node.id] !== undefined) {
                 node_type = node_type.slice(0, -5);
             }
@@ -407,11 +431,11 @@ function outline(renderer, sdfg) {
         d.innerHTML = node_type + ' ' + node.label() + (is_collapsed ? " (collapsed)" : "");
         d.onclick = (e) => {
             // Show node or entire scope
-            let nodes_to_display = [node];
+            const nodes_to_display = [node];
             if (node.type().endsWith('Entry')) {
-                let state = node.sdfg.nodes[node.parent_id];
+                const state = node.sdfg.nodes[node.parent_id];
                 if (state.scope_dict[node.id] !== undefined) {
-                    for (let subnode_id of state.scope_dict[node.id])
+                    for (const subnode_id of state.scope_dict[node.id])
                         nodes_to_display.push(parent.node(subnode_id));
                 }
             }
@@ -428,11 +452,11 @@ function outline(renderer, sdfg) {
         // If is collapsed, don't traverse further
         if (is_collapsed)
             return false;
-                        
+
     }, (node, parent) => {
         // After scope ends, pop ourselves as the current element 
         // and add to parent
-        let elem = stack.pop();
+        const elem = stack.pop();
         if (elem)
             stack[stack.length - 1].appendChild(elem);
     });
@@ -445,14 +469,14 @@ function mouse_event(evtype, event, mousepos, elements, renderer,
     if ((evtype === 'click' && !ends_drag) || evtype === 'dblclick') {
         if (renderer.menu)
             renderer.menu.destroy();
-        var element;
+        let element;
         if (selected_elements.length === 0)
             element = new SDFG(renderer.sdfg);
         else if (selected_elements.length === 1)
             element = selected_elements[0];
         else
             element = null;
-            
+
         if (element !== null) {
             sidebar_set_title(element.type() + " " + element.label());
             fill_info(element);
@@ -461,22 +485,22 @@ function mouse_event(evtype, event, mousepos, elements, renderer,
             sidebar_set_title("Multiple elements selected");
         }
         sidebar_show();
-        
+
     }
 }
 
 function close_menu() {
-  document.getElementById("sidebar").style.display = "none";
+    document.getElementById("sidebar").style.display = "none";
 }
 
 
 function init_menu() {
-    var right = document.getElementById('sidebar');
-    var bar = document.getElementById('dragbar');
+    const right = document.getElementById('sidebar');
+    const bar = document.getElementById('dragbar');
 
     const drag = (e) => {
-    document.selection ? document.selection.empty() : window.getSelection().removeAllRanges();
-    right.style.width = Math.max(((e.view.innerWidth - e.pageX)), 20) + 'px';
+        document.selection ? document.selection.empty() : window.getSelection().removeAllRanges();
+        right.style.width = Math.max(((e.view.innerWidth - e.pageX)), 20) + 'px';
     };
 
     bar.addEventListener('mousedown', () => {
@@ -487,6 +511,6 @@ function init_menu() {
     });
 }
 
-$('document').ready(function () {
+$('document').ready(() => {
     init_menu();
 });

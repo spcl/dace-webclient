@@ -1,6 +1,8 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-class ContextMenu {
+const { $ } = globalThis;
+
+export class ContextMenu {
     /*
         Implementation for a custom context menu
     */
@@ -20,7 +22,7 @@ class ContextMenu {
 
             ];
 
-            for(let x of this._click_close_handlers) {
+            for (let x of this._click_close_handlers) {
                 window.addEventListener(...x);
             }
         }, 30);
@@ -35,7 +37,7 @@ class ContextMenu {
 
     visible() { return this._cmenu_elem != null; }
 
-    addOption(name, onselect, onhover=null) {
+    addOption(name, onselect, onhover = null) {
         this._options.push({
             name: name,
             func: onselect,
@@ -43,7 +45,7 @@ class ContextMenu {
         });
     }
 
-    addCheckableOption(name, checked, onselect, onhover=null) {
+    addCheckableOption(name, checked, onselect, onhover = null) {
         this._options.push({
             name: name,
             checkbox: true,
@@ -62,7 +64,7 @@ class ContextMenu {
 
         document.body.removeChild(this._cmenu_elem);
 
-        for(let x of this._click_close_handlers) {
+        for (let x of this._click_close_handlers) {
             window.removeEventListener(...x);
         }
 
@@ -81,10 +83,10 @@ class ContextMenu {
         cmenu_div.classList.add("context_menu");
 
 
-        if(this._html_content == null) {
+        if (this._html_content == null) {
             // Set default context menu
 
-            for(let x of this._options) {
+            for (let x of this._options) {
 
                 let elem = document.createElement('div');
                 elem.addEventListener('click', x.func);
@@ -97,7 +99,7 @@ class ContextMenu {
                     elem.innerHTML += x.name;
                     elem.addEventListener('click', elem => {
                         x.checked = !x.checked;
-                        x.func(elem, x.checked); 
+                        x.func(elem, x.checked);
                     });
                 } else {
                     elem.innerText = x.name;

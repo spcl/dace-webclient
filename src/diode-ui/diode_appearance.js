@@ -1,14 +1,13 @@
 // Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
 
-
-class Appearance  {
+export class Appearance {
 
     constructor(config) {
-        if(config === null) {
+        if (config === null) {
             config = {};
             config.style = Appearance.default();
         }
-        if(typeof(config) == 'string')
+        if (typeof (config) == 'string')
             config = JSON.parse(config);
 
 
@@ -17,18 +16,18 @@ class Appearance  {
         this.insertStylesheet(config.style);
 
         this._constructor_values = {};
-        if(config.vals != undefined) {
+        if (config.vals != undefined) {
             this._constructor_values = config.vals;
         }
     }
 
     static getClassProperties(cssclassname) {
-        let elem = document.createElement('div');
+        const elem = document.createElement('div');
         elem.classList = cssclassname;
         elem.style = "width: 0; height: 0;";
         document.body.appendChild(elem);
 
-        let style = JSON.parse(JSON.stringify(window.getComputedStyle(elem)));
+        const style = JSON.parse(JSON.stringify(window.getComputedStyle(elem)));
         document.body.removeChild(elem);
 
         return style;
@@ -44,7 +43,7 @@ class Appearance  {
     }
 
     static font(shortname) {
-        switch(shortname) {
+        switch (shortname) {
             // Serif
             case "Georgia": return 'Georgia, serif';
             case "Palatino": return '"Palatino Linotype", "Book Antiqua", Palatino, serif';
@@ -73,7 +72,7 @@ class Appearance  {
     }
 
     setChanged() {
-        if(this._change_callback != null) {
+        if (this._change_callback != null) {
             this._change_callback(this);
         }
     }
@@ -87,16 +86,16 @@ class Appearance  {
         // This function does work in all browsers but IE (<= 8).
         let stylesheet = document.getElementById("appearance-stylesheet");
         let update = true;
-        if(stylesheet == null || stylesheet == undefined) {
+        if (stylesheet == null || stylesheet == undefined) {
             stylesheet = document.createElement('style');
             update = false;
             stylesheet.id = "appearance-stylesheet";
             stylesheet.type = "text/css";
         }
-        
+
         stylesheet.innerText = stylestring;
 
-        if(!update) {
+        if (!update) {
             document.head.appendChild(stylesheet);
         }
 
@@ -108,7 +107,7 @@ class Appearance  {
         return this;
     }
     setFont(shortname) {
-        let f = Appearance.font(shortname);
+        const f = Appearance.font(shortname);
         this._constructor_values['font-family'] = f;
         return this;
     }
@@ -120,8 +119,8 @@ class Appearance  {
     getCSS() {
         let inner = "";
 
-        for(let x of Object.entries(this._constructor_values)) {
-            inner += x[0] + ": " + x[1] + ";"; 
+        for (const x of Object.entries(this._constructor_values)) {
+            inner += x[0] + ": " + x[1] + ";";
         }
 
         let ret = ".diode_appearance { ";
@@ -149,12 +148,12 @@ class Appearance  {
             Note: The css class selector used to determine current values is: '.ace-' + `theme_name`
         */
 
-        let s = Appearance.getClassProperties("ace-" + theme_name);
+        const s = Appearance.getClassProperties("ace-" + theme_name);
 
-        let bgc = s['background-color'];
-        let bg = s['background'];
-        if(bgc) this.setValue('background-color', bgc);
-        if(bg) this.setValue('background', bg + " !important");
+        const bgc = s['background-color'];
+        const bg = s['background'];
+        if (bgc) this.setValue('background-color', bgc);
+        if (bg) this.setValue('background', bg + " !important");
         this.setValue('color', s['color']);
 
         this.insertStylesheet(this.getCSS());
@@ -164,7 +163,7 @@ class Appearance  {
         /*
             Builds a default configuration
         */
-        let cssstring = `
+        const cssstring = `
         .diode_appearance {
             font-family: ` + Appearance.font('Arial') + `
         }
@@ -175,5 +174,3 @@ class Appearance  {
     }
 
 }
-
-export {Appearance}

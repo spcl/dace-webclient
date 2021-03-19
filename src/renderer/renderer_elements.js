@@ -1,6 +1,10 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-class SDFGElement {
+import { sdfg_range_elem_to_string } from '../utils/sdfg/sdfg_range_elem_to_string';
+import { sdfg_property_to_string } from "../utils/sdfg/sdfg_property_to_string";
+import { check_and_redirect_edge } from "../utils/sdfg/check_and_redirect_edge";
+
+export class SDFGElement {
     // Parent ID is the state ID, if relevant
     constructor(elem, elem_id, sdfg, parent_id = null) {
         this.data = elem;
@@ -24,9 +28,9 @@ class SDFGElement {
         this.height = this.data.layout.height;
     }
 
-    draw(renderer, ctx, mousepos) {}
+    draw(renderer, ctx, mousepos) { }
 
-    shade(renderer, ctx, color, alpha='0.6') {}
+    shade(renderer, ctx, color, alpha = '0.6') { }
 
     debug_draw(renderer, ctx) {
         if (renderer.debug_draw) {
@@ -67,7 +71,7 @@ class SDFGElement {
         return { x: this.x - this.width / 2, y: this.y - this.height / 2 };
     }
 
-    strokeStyle(renderer=undefined) {
+    strokeStyle(renderer = undefined) {
         if (this.selected) {
             if (this.hovered)
                 return this.getCssProperty(renderer, '--color-selected-hovered');
@@ -103,15 +107,15 @@ class SDFGElement {
         if (w === 0 || h === 0)
             return false;
 
-        var box_start_x = x;
-        var box_end_x = x + w;
-        var box_start_y = y;
-        var box_end_y = y + h;
+        const box_start_x = x;
+        const box_end_x = x + w;
+        const box_start_y = y;
+        const box_end_y = y + h;
 
-        var el_start_x = this.x - (this.width / 2.0);
-        var el_end_x = this.x + (this.width / 2.0);
-        var el_start_y = this.y - (this.height / 2.0);
-        var el_end_y = this.y + (this.height / 2.0);
+        const el_start_x = this.x - (this.width / 2.0);
+        const el_end_x = this.x + (this.width / 2.0);
+        const el_start_y = this.y - (this.height / 2.0);
+        const el_end_y = this.y + (this.height / 2.0);
 
         return box_start_x <= el_start_x &&
             box_end_x >= el_end_x &&
@@ -125,7 +129,7 @@ class SDFGElement {
 }
 
 // SDFG as an element (to support properties)
-class SDFG extends SDFGElement {
+export class SDFG extends SDFGElement {
     constructor(sdfg) {
         super(sdfg, -1, sdfg);
     }
@@ -138,21 +142,25 @@ class SDFG extends SDFGElement {
     }
 }
 
-class State extends SDFGElement {
+export class State extends SDFGElement {
     draw(renderer, ctx, mousepos) {
-        let topleft = this.topleft();
-        let visible_rect = renderer.visible_rect;
-        let clamped = {x: Math.max(topleft.x, visible_rect.x),
-                       y: Math.max(topleft.y, visible_rect.y),
-                       x2: Math.min(topleft.x + this.width,
-                                    visible_rect.x + visible_rect.w),
-                       y2: Math.min(topleft.y + this.height,
-                                    visible_rect.y + visible_rect.h)};
+        const topleft = this.topleft();
+        const visible_rect = renderer.visible_rect;
+        let clamped = {
+            x: Math.max(topleft.x, visible_rect.x),
+            y: Math.max(topleft.y, visible_rect.y),
+            x2: Math.min(topleft.x + this.width,
+                visible_rect.x + visible_rect.w),
+            y2: Math.min(topleft.y + this.height,
+                visible_rect.y + visible_rect.h)
+        };
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
         if (!ctx.lod)
-            clamped = {x: topleft.x, y: topleft.y,
-                       w: this.width, h: this.height};
+            clamped = {
+                x: topleft.x, y: topleft.y,
+                w: this.width, h: this.height
+            };
 
         ctx.fillStyle = this.getCssProperty(renderer, '--state-background-color');
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
@@ -188,7 +196,7 @@ class State extends SDFGElement {
 
     simple_draw(renderer, ctx, mousepos) {
         // Fast drawing function for small states
-        let topleft = this.topleft();
+        const topleft = this.topleft();
 
         ctx.fillStyle = this.getCssProperty(renderer, '--state-background-color');
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
@@ -211,15 +219,15 @@ class State extends SDFGElement {
         */
     }
 
-    shade(renderer, ctx, color, alpha='0.6') {
+    shade(renderer, ctx, color, alpha = '0.6') {
         // Save the current style properties.
-        let orig_fill_style = ctx.fillStyle;
-        let orig_alpha = ctx.globalAlpha;
+        const orig_fill_style = ctx.fillStyle;
+        const orig_alpha = ctx.globalAlpha;
 
         ctx.globalAlpha = alpha;
         ctx.fillStyle = color;
 
-        let topleft = this.topleft();
+        const topleft = this.topleft();
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
 
         // Restore the previous style properties.
@@ -244,35 +252,35 @@ class State extends SDFGElement {
     }
 }
 
-class Node extends SDFGElement {
-    draw(renderer, ctx, mousepos, fgstyle='--node-foreground-color', bgstyle='--node-background-color') {
-        let topleft = this.topleft();
+export class SDFGNode extends SDFGElement {
+    draw(renderer, ctx, mousepos, fgstyle = '--node-foreground-color', bgstyle = '--node-background-color') {
+        const topleft = this.topleft();
         ctx.fillStyle = this.getCssProperty(renderer, bgstyle);
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
         ctx.strokeStyle = this.strokeStyle(renderer);
         ctx.strokeRect(topleft.x, topleft.y, this.width, this.height);
         ctx.fillStyle = this.getCssProperty(renderer, fgstyle);
-        let textw = ctx.measureText(this.label()).width;
+        const textw = ctx.measureText(this.label()).width;
         ctx.fillText(this.label(), this.x - textw / 2, this.y + LINEHEIGHT / 4);
     }
 
     simple_draw(renderer, ctx, mousepos) {
         // Fast drawing function for small nodes
-        let topleft = this.topleft();
+        const topleft = this.topleft();
         ctx.fillStyle = this.getCssProperty(renderer, '--node-background-color');
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
         ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
     }
 
-    shade(renderer, ctx, color, alpha='0.6') {
+    shade(renderer, ctx, color, alpha = '0.6') {
         // Save the current style properties.
-        let orig_fill_style = ctx.fillStyle;
-        let orig_alpha = ctx.globalAlpha;
+        const orig_fill_style = ctx.fillStyle;
+        const orig_alpha = ctx.globalAlpha;
 
         ctx.globalAlpha = alpha;
         ctx.fillStyle = color;
 
-        let topleft = this.topleft();
+        const topleft = this.topleft();
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
 
         // Restore the previous style properties.
@@ -298,7 +306,7 @@ class Node extends SDFGElement {
     }
 }
 
-class Edge extends SDFGElement {
+export class Edge extends SDFGElement {
 
     create_arrow_line(ctx) {
         ctx.beginPath();
@@ -309,8 +317,8 @@ class Edge extends SDFGElement {
         } else {
             let i;
             for (i = 1; i < this.points.length - 2; i++) {
-                let xm = (this.points[i].x + this.points[i + 1].x) / 2.0;
-                let ym = (this.points[i].y + this.points[i + 1].y) / 2.0;
+                const xm = (this.points[i].x + this.points[i + 1].x) / 2.0;
+                const ym = (this.points[i].y + this.points[i + 1].y) / 2.0;
                 ctx.quadraticCurveTo(this.points[i].x, this.points[i].y, xm, ym);
             }
             ctx.quadraticCurveTo(this.points[i].x, this.points[i].y,
@@ -319,7 +327,7 @@ class Edge extends SDFGElement {
     }
 
     draw(renderer, ctx, mousepos) {
-        let edge = this;
+        const edge = this;
 
         this.create_arrow_line(ctx);
 
@@ -348,22 +356,22 @@ class Edge extends SDFGElement {
         // Show anchor points for moving
         if (this.selected && renderer.mouse_mode === 'move') {
             let i;
-            for (i = 1; i < this.points.length - 1; i++)                
+            for (i = 1; i < this.points.length - 1; i++)
                 ctx.strokeRect(this.points[i].x - 5, this.points[i].y - 5, 8, 8);
         }
-          
+
         drawArrow(ctx, edge.points[edge.points.length - 2], edge.points[edge.points.length - 1], 3);
     }
 
-    shade(renderer, ctx, color, alpha='0.6') {
+    shade(renderer, ctx, color, alpha = '0.6') {
         this.create_arrow_line(ctx);
 
         // Save current style properties.
-        let orig_stroke_style = ctx.strokeStyle;
-        let orig_fill_style = ctx.fillStyle;
-        let orig_line_cap = ctx.lineCap;
-        let orig_line_width = ctx.lineWidth;
-        let orig_alpha = ctx.globalAlpha;
+        const orig_stroke_style = ctx.strokeStyle;
+        const orig_fill_style = ctx.fillStyle;
+        const orig_line_cap = ctx.lineCap;
+        const orig_line_width = ctx.lineWidth;
+        const orig_alpha = ctx.globalAlpha;
 
         ctx.globalAlpha = alpha;
         ctx.lineWidth = orig_line_width + 1;
@@ -388,8 +396,8 @@ class Edge extends SDFGElement {
 
     tooltip(container, renderer) {
         super.tooltip(container);
-        let dsettings = renderer.view_settings();
-        let attr = this.attributes();
+        const dsettings = renderer.view_settings();
+        const attr = this.attributes();
         // Memlet
         if (attr.subset !== undefined) {
             if (attr.subset === null) {  // Empty memlet
@@ -449,7 +457,7 @@ class Edge extends SDFGElement {
         // Then (if point), check distance from line
         if (w == 0 || h == 0) {
             for (let i = 0; i < this.points.length - 1; i++) {
-                let dist = ptLineDistance({ x: x, y: y }, this.points[i], this.points[i + 1]);
+                const dist = ptLineDistance({ x: x, y: y }, this.points[i], this.points[i + 1]);
                 if (dist <= 5.0)
                     return true;
             }
@@ -459,10 +467,10 @@ class Edge extends SDFGElement {
     }
 }
 
-class Connector extends SDFGElement {
+export class Connector extends SDFGElement {
     draw(renderer, ctx, mousepos) {
-        let scope_connector = (this.data.name.startsWith("IN_") || this.data.name.startsWith("OUT_"));
-        let topleft = this.topleft();
+        const scope_connector = (this.data.name.startsWith("IN_") || this.data.name.startsWith("OUT_"));
+        const topleft = this.topleft();
         ctx.beginPath();
         drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
         ctx.closePath();
@@ -512,15 +520,15 @@ class Connector extends SDFGElement {
     }
 }
 
-class AccessNode extends Node {
+export class AccessNode extends SDFGNode {
     draw(renderer, ctx, mousepos) {
-        let topleft = this.topleft();
+        const topleft = this.topleft();
         ctx.beginPath();
         drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
         ctx.closePath();
         ctx.strokeStyle = this.strokeStyle(renderer);
 
-        let nodedesc = this.sdfg.attributes._arrays[this.data.node.attributes.data];
+        const nodedesc = this.sdfg.attributes._arrays[this.data.node.attributes.data];
         // Streams have dashed edges
         if (nodedesc && nodedesc.type === "Stream") {
             ctx.setLineDash([5, 3]);
@@ -552,19 +560,19 @@ class AccessNode extends Node {
         }
         ctx.fill();
         ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
-        var textmetrics = ctx.measureText(this.label());
+        const textmetrics = ctx.measureText(this.label());
         ctx.fillText(this.label(), this.x - textmetrics.width / 2.0, this.y + LINEHEIGHT / 4.0);
     }
 
-    shade(renderer, ctx, color, alpha='0.6') {
+    shade(renderer, ctx, color, alpha = '0.6') {
         // Save the current style properties.
-        let orig_fill_style = ctx.fillStyle;
-        let orig_alpha = ctx.globalAlpha;
+        const orig_fill_style = ctx.fillStyle;
+        const orig_alpha = ctx.globalAlpha;
 
         ctx.globalAlpha = alpha;
         ctx.fillStyle = color;
 
-        let topleft = this.topleft();
+        const topleft = this.topleft();
         ctx.beginPath();
         drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
         ctx.closePath();
@@ -577,7 +585,7 @@ class AccessNode extends Node {
 
 }
 
-class ScopeNode extends Node {
+export class ScopeNode extends SDFGNode {
     draw(renderer, ctx, mousepos) {
         let draw_shape;
         if (this.data.node.attributes.is_collapsed) {
@@ -602,17 +610,17 @@ class ScopeNode extends Node {
         ctx.fill();
         ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
 
-        let far_label = this.far_label();
+        const far_label = this.far_label();
         drawAdaptiveText(ctx, renderer, far_label,
             this.close_label(renderer), this.x, this.y,
             this.width, this.height,
             SCOPE_LOD);
     }
 
-    shade(renderer, ctx, color, alpha='0.6') {
+    shade(renderer, ctx, color, alpha = '0.6') {
         // Save the current style properties.
-        let orig_fill_style = ctx.fillStyle;
-        let orig_alpha = ctx.globalAlpha;
+        const orig_fill_style = ctx.fillStyle;
+        const orig_alpha = ctx.globalAlpha;
 
         ctx.globalAlpha = alpha;
         ctx.fillStyle = color;
@@ -631,12 +639,12 @@ class ScopeNode extends Node {
     far_label() {
         let result = this.attributes().label;
         if (this.scopeend()) {  // Get label from scope entry
-            let entry = this.sdfg.nodes[this.parent_id].nodes[this.data.node.scope_entry];
+            const entry = this.sdfg.nodes[this.parent_id].nodes[this.data.node.scope_entry];
             if (entry !== undefined)
                 result = entry.attributes.label;
             else {
                 result = this.data.node.label;
-                let ind = result.indexOf('[');
+                const ind = result.indexOf('[');
                 if (ind > 0)
                     result = result.substring(0, ind);
             }
@@ -651,7 +659,7 @@ class ScopeNode extends Node {
         let result = this.far_label();
         let attrs = this.attributes();
         if (this.scopeend()) {
-            let entry = this.sdfg.nodes[this.parent_id].nodes[this.data.node.scope_entry];
+            const entry = this.sdfg.nodes[this.parent_id].nodes[this.data.node.scope_entry];
             if (entry !== undefined)
                 attrs = entry.attributes;
             else
@@ -672,24 +680,24 @@ class ScopeNode extends Node {
     }
 }
 
-class EntryNode extends ScopeNode {
+export class EntryNode extends ScopeNode {
     scopeend() { return false; }
 }
 
-class ExitNode extends ScopeNode {
+export class ExitNode extends ScopeNode {
     scopeend() { return true; }
 }
 
-class MapEntry extends EntryNode { stroketype(ctx) { ctx.setLineDash([1, 0]); } }
-class MapExit extends ExitNode { stroketype(ctx) { ctx.setLineDash([1, 0]); } }
-class ConsumeEntry extends EntryNode { stroketype(ctx) { ctx.setLineDash([5, 3]); } }
-class ConsumeExit extends ExitNode { stroketype(ctx) { ctx.setLineDash([5, 3]); } }
-class PipelineEntry extends EntryNode { stroketype(ctx) { ctx.setLineDash([10, 3]); } }
-class PipelineExit extends ExitNode { stroketype(ctx) { ctx.setLineDash([10, 3]); } }
+export class MapEntry extends EntryNode { stroketype(ctx) { ctx.setLineDash([1, 0]); } }
+export class MapExit extends ExitNode { stroketype(ctx) { ctx.setLineDash([1, 0]); } }
+export class ConsumeEntry extends EntryNode { stroketype(ctx) { ctx.setLineDash([5, 3]); } }
+export class ConsumeExit extends ExitNode { stroketype(ctx) { ctx.setLineDash([5, 3]); } }
+export class PipelineEntry extends EntryNode { stroketype(ctx) { ctx.setLineDash([10, 3]); } }
+export class PipelineExit extends ExitNode { stroketype(ctx) { ctx.setLineDash([10, 3]); } }
 
-class Tasklet extends Node {
+export class Tasklet extends SDFGNode {
     draw(renderer, ctx, mousepos) {
-        let topleft = this.topleft();
+        const topleft = this.topleft();
         drawOctagon(ctx, topleft, this.width, this.height);
         ctx.strokeStyle = this.strokeStyle(renderer);
         ctx.stroke();
@@ -699,11 +707,11 @@ class Tasklet extends Node {
         ctx.fill();
         ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
 
-        let ppp = renderer.canvas_manager.points_per_pixel();
+        const ppp = renderer.canvas_manager.points_per_pixel();
         if (!ctx.lod || ppp < TASKLET_LOD) {
             // If we are close to the tasklet, show its contents
-            let code = this.attributes().code.string_data;
-            let lines = code.split('\n');
+            const code = this.attributes().code.string_data;
+            const lines = code.split('\n');
             let maxline = 0, maxline_len = 0;
             for (let i = 0; i < lines.length; i++) {
                 if (lines[i].length > maxline_len) {
@@ -711,22 +719,22 @@ class Tasklet extends Node {
                     maxline_len = lines[i].length;
                 }
             }
-            let oldfont = ctx.font;
+            const oldfont = ctx.font;
             ctx.font = "10px courier new";
-            let textmetrics = ctx.measureText(lines[maxline]);
+            const textmetrics = ctx.measureText(lines[maxline]);
 
             // Fit font size to 80% height and width of tasklet
-            let height = lines.length * LINEHEIGHT * 1.05;
-            let width = textmetrics.width;
-            let TASKLET_WRATIO = 0.9, TASKLET_HRATIO = 0.5;
-            let hr = height / (this.height * TASKLET_HRATIO);
-            let wr = width / (this.width * TASKLET_WRATIO);
-            let FONTSIZE = Math.min(10 / hr, 10 / wr);
-            let text_yoffset = FONTSIZE / 4;
+            const height = lines.length * LINEHEIGHT * 1.05;
+            const width = textmetrics.width;
+            const TASKLET_WRATIO = 0.9, TASKLET_HRATIO = 0.5;
+            const hr = height / (this.height * TASKLET_HRATIO);
+            const wr = width / (this.width * TASKLET_WRATIO);
+            const FONTSIZE = Math.min(10 / hr, 10 / wr);
+            const text_yoffset = FONTSIZE / 4;
 
             ctx.font = FONTSIZE + "px courier new";
             // Set the start offset such that the middle row of the text is in this.y
-            let y = this.y + text_yoffset - ((lines.length - 1) / 2) * FONTSIZE * 1.05;
+            const y = this.y + text_yoffset - ((lines.length - 1) / 2) * FONTSIZE * 1.05;
             for (let i = 0; i < lines.length; i++)
                 ctx.fillText(lines[i], this.x - (this.width * TASKLET_WRATIO) / 2.0,
                     y + i * FONTSIZE * 1.05);
@@ -735,14 +743,14 @@ class Tasklet extends Node {
             return;
         }
 
-        let textmetrics = ctx.measureText(this.label());
+        const textmetrics = ctx.measureText(this.label());
         ctx.fillText(this.label(), this.x - textmetrics.width / 2.0, this.y + LINEHEIGHT / 2.0);
     }
 
-    shade(renderer, ctx, color, alpha='0.6') {
+    shade(renderer, ctx, color, alpha = '0.6') {
         // Save the current style properties.
-        let orig_fill_style = ctx.fillStyle;
-        let orig_alpha = ctx.globalAlpha;
+        const orig_fill_style = ctx.fillStyle;
+        const orig_alpha = ctx.globalAlpha;
 
         ctx.globalAlpha = alpha;
         ctx.fillStyle = color;
@@ -757,10 +765,10 @@ class Tasklet extends Node {
 
 }
 
-class Reduce extends Node {
+export class Reduce extends SDFGNode {
     draw(renderer, ctx, mousepos) {
-        let topleft = this.topleft();
-        let draw_shape = () => {
+        const topleft = this.topleft();
+        const draw_shape = () => {
             ctx.beginPath();
             ctx.moveTo(topleft.x, topleft.y);
             ctx.lineTo(topleft.x + this.width / 2, topleft.y + this.height);
@@ -777,22 +785,22 @@ class Reduce extends Node {
         ctx.fill();
         ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
 
-        let far_label = this.label().substring(4, this.label().indexOf(','));
+        const far_label = this.label().substring(4, this.label().indexOf(','));
         drawAdaptiveText(ctx, renderer, far_label,
             this.label(), this.x, this.y - this.height * 0.2,
             this.width, this.height,
             SCOPE_LOD);
     }
 
-    shade(renderer, ctx, color, alpha='0.6') {
+    shade(renderer, ctx, color, alpha = '0.6') {
         // Save the current style properties.
-        let orig_fill_style = ctx.fillStyle;
-        let orig_alpha = ctx.globalAlpha;
+        const orig_fill_style = ctx.fillStyle;
+        const orig_alpha = ctx.globalAlpha;
 
         ctx.globalAlpha = alpha;
         ctx.fillStyle = color;
 
-        let topleft = this.topleft();
+        const topleft = this.topleft();
         ctx.beginPath();
         ctx.moveTo(topleft.x, topleft.y);
         ctx.lineTo(topleft.x + this.width / 2, topleft.y + this.height);
@@ -808,10 +816,10 @@ class Reduce extends Node {
 
 }
 
-class NestedSDFG extends Node {
+export class NestedSDFG extends SDFGNode {
     draw(renderer, ctx, mousepos) {
         if (this.data.node.attributes.is_collapsed) {
-            let topleft = this.topleft();
+            const topleft = this.topleft();
             drawOctagon(ctx, topleft, this.width, this.height);
             ctx.strokeStyle = this.strokeStyle(renderer);
             ctx.stroke();
@@ -823,25 +831,25 @@ class NestedSDFG extends Node {
                 drawOctagon(ctx, { x: topleft.x + 2.5, y: topleft.y + 2.5 }, this.width - 5, this.height - 5);
             ctx.fill();
             ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
-            let label = this.data.node.attributes.label;
-            let textmetrics = ctx.measureText(label);
+            const label = this.data.node.attributes.label;
+            const textmetrics = ctx.measureText(label);
             ctx.fillText(label, this.x - textmetrics.width / 2.0, this.y + LINEHEIGHT / 4.0);
             return;
         }
 
         // Draw square around nested SDFG
-        super.draw(renderer, ctx, mousepos, '--nested-sdfg-foreground-color', 
-                   '--nested-sdfg-background-color');
+        super.draw(renderer, ctx, mousepos, '--nested-sdfg-foreground-color',
+            '--nested-sdfg-background-color');
 
         // Draw nested graph
         draw_sdfg(renderer, ctx, this.data.graph, mousepos);
     }
 
-    shade(renderer, ctx, color, alpha='0.6') {
+    shade(renderer, ctx, color, alpha = '0.6') {
         if (this.data.node.attributes.is_collapsed) {
             // Save the current style properties.
-            let orig_fill_style = ctx.fillStyle;
-            let orig_alpha = ctx.globalAlpha;
+            const orig_fill_style = ctx.fillStyle;
+            const orig_alpha = ctx.globalAlpha;
 
             ctx.globalAlpha = alpha;
             ctx.fillStyle = color;
@@ -859,14 +867,14 @@ class NestedSDFG extends Node {
 
     set_layout() {
         if (this.data.node.attributes.is_collapsed) {
-            let labelsize = this.data.node.attributes.label.length * LINEHEIGHT * 0.8;
-            let inconnsize = 2 * LINEHEIGHT * Object.keys(this.data.node.attributes.in_connectors).length - LINEHEIGHT;
-            let outconnsize = 2 * LINEHEIGHT * Object.keys(this.data.node.attributes.out_connectors).length - LINEHEIGHT;
-            let maxwidth = Math.max(labelsize, inconnsize, outconnsize);
+            const labelsize = this.data.node.attributes.label.length * LINEHEIGHT * 0.8;
+            const inconnsize = 2 * LINEHEIGHT * Object.keys(this.data.node.attributes.in_connectors).length - LINEHEIGHT;
+            const outconnsize = 2 * LINEHEIGHT * Object.keys(this.data.node.attributes.out_connectors).length - LINEHEIGHT;
+            const maxwidth = Math.max(labelsize, inconnsize, outconnsize);
             let maxheight = 2 * LINEHEIGHT;
             maxheight += 4 * LINEHEIGHT;
 
-            let size = { width: maxwidth, height: maxheight };
+            const size = { width: maxwidth, height: maxheight };
             size.width += 2.0 * (size.height / 3.0);
             size.height /= 1.75;
 
@@ -882,10 +890,10 @@ class NestedSDFG extends Node {
     label() { return ""; }
 }
 
-class LibraryNode extends Node {
+export class LibraryNode extends SDFGNode {
     _path(ctx) {
-        let hexseg = this.height / 6.0;
-        let topleft = this.topleft();
+        const hexseg = this.height / 6.0;
+        const topleft = this.topleft();
         ctx.beginPath();
         ctx.moveTo(topleft.x, topleft.y);
         ctx.lineTo(topleft.x + this.width - hexseg, topleft.y);
@@ -896,8 +904,8 @@ class LibraryNode extends Node {
     }
 
     _path2(ctx) {
-        let hexseg = this.height / 6.0;
-        let topleft = this.topleft();
+        const hexseg = this.height / 6.0;
+        const topleft = this.topleft();
         ctx.beginPath();
         ctx.moveTo(topleft.x + this.width - hexseg, topleft.y);
         ctx.lineTo(topleft.x + this.width - hexseg, topleft.y + hexseg);
@@ -914,14 +922,14 @@ class LibraryNode extends Node {
         this._path2(ctx);
         ctx.stroke();
         ctx.fillStyle = this.getCssProperty(renderer, '--node-foreground-color');
-        let textw = ctx.measureText(this.label()).width;
+        const textw = ctx.measureText(this.label()).width;
         ctx.fillText(this.label(), this.x - textw / 2, this.y + LINEHEIGHT / 4);
     }
 
-    shade(renderer, ctx, color, alpha='0.6') {
+    shade(renderer, ctx, color, alpha = '0.6') {
         // Save the current style properties.
-        let orig_fill_style = ctx.fillStyle;
-        let orig_alpha = ctx.globalAlpha;
+        const orig_fill_style = ctx.fillStyle;
+        const orig_alpha = ctx.globalAlpha;
 
         ctx.globalAlpha = alpha;
         ctx.fillStyle = color;
@@ -939,24 +947,24 @@ class LibraryNode extends Node {
 //////////////////////////////////////////////////////
 
 // Draw an entire SDFG
-function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
-    let ppp = renderer.canvas_manager.points_per_pixel();
+export function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
+    const ppp = renderer.canvas_manager.points_per_pixel();
 
     // Render state machine
-    let g = sdfg_dagre;
+    const g = sdfg_dagre;
     if (!ctx.lod || ppp < EDGE_LOD)
         g.edges().forEach(e => {
-            let edge = g.edge(e);
+            const edge = g.edge(e);
             edge.draw(renderer, ctx, mousepos);
             edge.debug_draw(renderer, ctx);
         });
 
 
-    visible_rect = renderer.visible_rect;
+    const visible_rect = renderer.visible_rect;
 
     // Render each visible state's contents
     g.nodes().forEach(v => {
-        let node = g.node(v);
+        const node = g.node(v);
 
         if (ctx.lod && (ppp >= STATE_LOD || node.width / ppp < STATE_LOD)) {
             node.simple_draw(renderer, ctx, mousepos);
@@ -970,11 +978,11 @@ function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
         node.draw(renderer, ctx, mousepos);
         node.debug_draw(renderer, ctx);
 
-        let ng = node.data.graph;
+        const ng = node.data.graph;
 
         if (!node.data.state.attributes.is_collapsed && ng) {
             ng.nodes().forEach(v => {
-                let n = ng.node(v);
+                const n = ng.node(v);
 
                 if (ctx.lod && !n.intersect(visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h))
                     return;
@@ -998,7 +1006,7 @@ function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
             if (ctx.lod && ppp >= EDGE_LOD)
                 return;
             ng.edges().forEach(e => {
-                let edge = ng.edge(e);
+                const edge = ng.edge(e);
                 if (ctx.lod && !edge.intersect(visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h))
                     return;
                 edge.draw(renderer, ctx, mousepos);
@@ -1009,16 +1017,16 @@ function draw_sdfg(renderer, ctx, sdfg_dagre, mousepos) {
 }
 
 // Translate an SDFG by a given offset
-function offset_sdfg(sdfg, sdfg_graph, offset) {
+export function offset_sdfg(sdfg, sdfg_graph, offset) {
     sdfg.nodes.forEach((state, id) => {
-        let g = sdfg_graph.node(id);
+        const g = sdfg_graph.node(id);
         g.x += offset.x;
         g.y += offset.y;
         if (!state.attributes.is_collapsed)
             offset_state(state, g, offset);
     });
     sdfg.edges.forEach((e, eid) => {
-        let edge = sdfg_graph.edge(e.src, e.dst);
+        const edge = sdfg_graph.edge(e.src, e.dst);
         edge.x += offset.x;
         edge.y += offset.y;
         edge.points.forEach((p) => {
@@ -1029,11 +1037,11 @@ function offset_sdfg(sdfg, sdfg_graph, offset) {
 }
 
 // Translate nodes, edges, and connectors in a given SDFG state by an offset
-function offset_state(state, state_graph, offset) {
-    let drawn_nodes = new Set();
+export function offset_state(state, state_graph, offset) {
+    const drawn_nodes = new Set();
 
     state.nodes.forEach((n, nid) => {
-        let node = state_graph.data.graph.node(nid);
+        const node = state_graph.data.graph.node(nid);
         if (!node) return;
         drawn_nodes.add(nid.toString());
 
@@ -1054,7 +1062,7 @@ function offset_state(state, state_graph, offset) {
     state.edges.forEach((e, eid) => {
         e = check_and_redirect_edge(e, drawn_nodes, state);
         if (!e) return;
-        let edge = state_graph.data.graph.edge(e.src, e.dst, eid);
+        const edge = state_graph.data.graph.edge(e.src, e.dst, eid);
         if (!edge) return;
         edge.x += offset.x;
         edge.y += offset.y;
@@ -1068,21 +1076,21 @@ function offset_state(state, state_graph, offset) {
 
 ///////////////////////////////////////////////////////
 
-function drawAdaptiveText(ctx, renderer, far_text, close_text,
-                          x, y, w, h, ppp_thres, max_font_size = 50,
-                          font_multiplier = 16) {
-    let ppp = renderer.canvas_manager.points_per_pixel();
+export function drawAdaptiveText(ctx, renderer, far_text, close_text,
+    x, y, w, h, ppp_thres, max_font_size = 50,
+    font_multiplier = 16) {
+    const ppp = renderer.canvas_manager.points_per_pixel();
     let label = close_text;
     let FONTSIZE = Math.min(ppp * font_multiplier, max_font_size);
     let yoffset = LINEHEIGHT / 2.0;
-    let oldfont = ctx.font;
+    const oldfont = ctx.font;
     if (ctx.lod && ppp >= ppp_thres) { // Far text
         ctx.font = FONTSIZE + "px sans-serif";
         label = far_text;
         yoffset = FONTSIZE / 2.0 - h / 6.0;
     }
 
-    let textmetrics = ctx.measureText(label);
+    const textmetrics = ctx.measureText(label);
     let tw = textmetrics.width;
     if (ctx.lod && ppp >= ppp_thres && tw > w) {
         FONTSIZE = FONTSIZE / (tw / w);
@@ -1097,9 +1105,9 @@ function drawAdaptiveText(ctx, renderer, far_text, close_text,
         ctx.font = oldfont;
 }
 
-function drawHexagon(ctx, x, y, w, h, offset) {
-    let topleft = { x: x - w / 2.0, y: y - h / 2.0 };
-    let hexseg = h / 3.0;
+export function drawHexagon(ctx, x, y, w, h, offset) {
+    const topleft = { x: x - w / 2.0, y: y - h / 2.0 };
+    const hexseg = h / 3.0;
     ctx.beginPath();
     ctx.moveTo(topleft.x, y);
     ctx.lineTo(topleft.x + hexseg, topleft.y);
@@ -1111,8 +1119,8 @@ function drawHexagon(ctx, x, y, w, h, offset) {
     ctx.closePath();
 }
 
-function drawOctagon(ctx, topleft, width, height) {
-    let octseg = height / 3.0;
+export function drawOctagon(ctx, topleft, width, height) {
+    const octseg = height / 3.0;
     ctx.beginPath();
     ctx.moveTo(topleft.x, topleft.y + octseg);
     ctx.lineTo(topleft.x + octseg, topleft.y);
@@ -1127,8 +1135,8 @@ function drawOctagon(ctx, topleft, width, height) {
 }
 
 // Adapted from https://stackoverflow.com/a/2173084/6489142
-function drawEllipse(ctx, x, y, w, h) {
-    var kappa = .5522848,
+export function drawEllipse(ctx, x, y, w, h) {
+    const kappa = .5522848,
         ox = (w / 2) * kappa, // control point offset horizontal
         oy = (h / 2) * kappa, // control point offset vertical
         xe = x + w,           // x-end
@@ -1143,11 +1151,11 @@ function drawEllipse(ctx, x, y, w, h) {
     ctx.bezierCurveTo(xm - ox, ye, x, ym + oy, x, ym);
 }
 
-function drawArrow(ctx, p1, p2, size, offset=0, padding=0) {
+export function drawArrow(ctx, p1, p2, size, offset = 0, padding = 0) {
     ctx.save();
     // Rotate the context to point along the path
-    let dx = p2.x - p1.x;
-    let dy = p2.y - p1.y;
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
     ctx.translate(p2.x, p2.y);
     ctx.rotate(Math.atan2(dy, dx));
 
@@ -1161,7 +1169,7 @@ function drawArrow(ctx, p1, p2, size, offset=0, padding=0) {
     ctx.restore();
 }
 
-function drawTrapezoid(ctx, topleft, node, inverted = false) {
+export function drawTrapezoid(ctx, topleft, node, inverted = false) {
     ctx.beginPath();
     if (inverted) {
         ctx.moveTo(topleft.x, topleft.y);
@@ -1180,10 +1188,10 @@ function drawTrapezoid(ctx, topleft, node, inverted = false) {
 }
 
 // Returns the distance from point p to line defined by two points (line1, line2)
-function ptLineDistance(p, line1, line2) {
-    let dx = (line2.x - line1.x);
-    let dy = (line2.y - line1.y);
-    let res = dy * p.x - dx * p.y + line2.x * line1.y - line2.y * line1.x;
+export function ptLineDistance(p, line1, line2) {
+    const dx = (line2.x - line1.x);
+    const dy = (line2.y - line1.y);
+    const res = dy * p.x - dx * p.y + line2.x * line1.y - line2.y * line1.x;
 
     return Math.abs(res) / Math.sqrt(dy * dy + dx * dx);
 }
@@ -1193,23 +1201,20 @@ function ptLineDistance(p, line1, line2) {
  * @param {Number} val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
  * @returns            HSL color string
  */
-function getTempColor(val){
+export function getTempColor(val) {
     if (val < 0)
         val = 0;
     if (val > 1)
         val = 1;
-    let hue = ((1 - val) * 120).toString(10);
+    const hue = ((1 - val) * 120).toString(10);
     return 'hsl(' + hue + ',100%,50%)';
 }
 
-var SDFGElements = {
-    SDFGElement: SDFGElement, SDFG: SDFG, State: State, Node: Node, Edge: Edge, Connector: Connector, AccessNode: AccessNode,
+export const SDFGElements = {
+    SDFGElement: SDFGElement, SDFG: SDFG, State: State, SDFGNode: SDFGNode, Edge: Edge, Connector: Connector, AccessNode: AccessNode,
     ScopeNode: ScopeNode, EntryNode: EntryNode, ExitNode: ExitNode, MapEntry: MapEntry, MapExit: MapExit,
     ConsumeEntry: ConsumeEntry, ConsumeExit: ConsumeExit, Tasklet: Tasklet, Reduce: Reduce,
     PipelineEntry: PipelineEntry, PipelineExit: PipelineExit, NestedSDFG: NestedSDFG, LibraryNode: LibraryNode
 };
 
-// Save as globals
-Object.keys(SDFGElements).forEach(function (elem) {
-    window[elem] = SDFGElements[elem];
-});
+Object.assign(globalThis, SDFGElements);

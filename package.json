@@ -1,0 +1,41 @@
+{
+    "name": "diode-webclient",
+    "version": "1.0.0",
+    "description": "This repository hosts the JavaScript side for web and VSCode clients of DaCe and the DIODE.",
+    "private": true,
+    "scripts": {
+        "clean": "rimraf dist",
+        "type-check": "tsc --noEmit",
+        "build-dev": "npm run clean && webpack --mode=development",
+        "watch": "npm run clean && webpack --watch --mode=development",
+        "serve": "npm run clean && webpack serve --mode=development",
+        "build-prod": "npm run clean && webpack --mode=production"
+    },
+    "author": "",
+    "license": "SEE LICENSE IN LICENSE",
+    "devDependencies": {
+        "@babel/cli": "^7.13.10",
+        "@babel/core": "^7.13.10",
+        "@babel/plugin-transform-runtime": "^7.13.10",
+        "@babel/preset-env": "^7.13.10",
+        "@babel/preset-typescript": "^7.13.0",
+        "@types/dagre": "^0.7.44",
+        "@types/jquery": "^3.5.5",
+        "@typescript-eslint/eslint-plugin": "^4.18.0",
+        "@typescript-eslint/parser": "^4.18.0",
+        "babel-loader": "^8.2.2",
+        "eslint": "^7.22.0",
+        "rimraf": "^3.0.2",
+        "typescript": "^4.2.3",
+        "webpack": "^5.26.3",
+        "webpack-cli": "^4.5.0",
+        "webpack-dev-server": "^3.11.2"
+    },
+    "dependencies": {
+        "@babel/runtime": "^7.13.10",
+        "@types/mathjs": "^6.0.11",
+        "dagre": "^0.8.5",
+        "jquery": "^3.6.0",
+        "mathjs": "^9.3.0"
+    }
+}
