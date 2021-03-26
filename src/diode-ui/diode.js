@@ -784,17 +784,17 @@ export class DIODE {
                 try {
                     _in.min = eval(__defs + __main(__r.val.start));
                 } catch (e) {
-                    console.warn("Got error when resolving expression");
+                    console.warn("Got error when resolving expression", e);
                 }
                 try {
                     _in.max = eval(__defs + __main(__r.val.end));
                 } catch (e) {
-                    console.warn("Got error when resolving expression");
+                    console.warn("Got error when resolving expression", e);
                 }
                 try {
                     _in.value = eval(__defs + __main(__r.val.start));
                 } catch (e) {
-                    console.warn("Got error when resolving expression");
+                    console.warn("Got error when resolving expression", e);
                 }
 
                 // Add the starting value as an expression to defs
@@ -1781,7 +1781,7 @@ export class DIODE {
             }, JSON.stringify(x.value));
         } else {
             console.log("Unimplemented property type: ", x);
-            alert("Unimplemented property type: " + x.metatype);
+            //alert("Unimplemented property type: " + x.metatype);
 
             return elem;
         }

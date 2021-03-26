@@ -3,6 +3,7 @@ import { find_exit_for_entry } from "../../utils/sdfg/find_exit_for_entry";
 import { parse_sdfg } from "../../utils/sdfg/json_serializer";
 import { ContextMenu } from "../../utils/context_menu";
 import { DIODE_Context } from "./context";
+import { SDFGRenderer } from "../../renderer/renderer";
 
 
 export class DIODE_Context_SDFG extends DIODE_Context {

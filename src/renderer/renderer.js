@@ -11,6 +11,8 @@ import { check_and_redirect_edge } from '../utils/sdfg/check_and_redirect_edge';
 import { memlet_tree_complete } from '../utils/sdfg/memlet_tree';
 import { CanvasManager } from './canvas_manager';
 import { boundingBox, calculateBoundingBox, calculateEdgeBoundingBox } from '../utils/bounding_box';
+import { OverlayManager } from '../overlay_manager';
+import { GenericSdfgOverlay } from "../overlays/generic_sdfg_overlay";
 
 export class SDFGRenderer {
     constructor(sdfg, container, on_mouse_event = null, user_transform = null,
@@ -61,6 +63,7 @@ export class SDFGRenderer {
         try {
             this.overlay_manager = new OverlayManager(this);
         } catch (ex) {
+            console.error("Error initializing overlay manager!", ex);
             this.overlay_manager = null;
         }
 
@@ -83,7 +86,8 @@ export class SDFGRenderer {
             this.container.removeChild(this.toolbar);
             this.container.removeChild(this.tooltip_container);
         } catch (ex) {
-            // Do nothing
+            // TODO instead of catching exceptions, make sure non are thrown?
+            console.error(`Error destroying renderer!`, ex);
         }
     }
 
@@ -176,12 +180,7 @@ export class SDFGRenderer {
         this.toolbar.style = 'position:absolute; top:10px; left: 10px;';
         let d;
 
-        let in_vscode = false;
-        try {
-            vscode;
-            if (vscode)
-                in_vscode = true;
-        } catch (ex) { }
+        let in_vscode = typeof vscode !== 'undefined';
 
         // Menu bar
         try {
@@ -456,10 +455,8 @@ export class SDFGRenderer {
             this.overlay_manager.refresh();
 
         // If we're in a VSCode context, we also want to refresh the outline.
-        try {
-            if (vscode)
-                outline(this, this.graph);
-        } catch (ex) { }
+        if (typeof vscode !== 'undefined')
+            outline(this, this.graph);
 
         return this.graph;
     }
@@ -513,6 +510,9 @@ export class SDFGRenderer {
         this.save('sdfg.png', this.canvas.toDataURL('image/png'));
     }
 
+    /**
+     * Some environments (notably Jupyter Notebooks) don't support PDF export
+     */
     has_pdf() {
         try {
             blobStream;
@@ -639,7 +639,9 @@ export class SDFGRenderer {
 
         try {
             this.ctx.end();
-        } catch (ex) { }
+        } catch (ex) {
+            // TODO make sure no error is thrown instead of catching and silently ignoring it?
+        }
 
         if (this.tooltip) {
             const br = this.canvas.getBoundingClientRect();

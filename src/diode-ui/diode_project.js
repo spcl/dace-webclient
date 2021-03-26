@@ -130,6 +130,7 @@ export class DIODE_Project {
         try {
             sessionStorage.setItem(this._project_id + "-closed-window-list", JSON.stringify(this._closed_windows));
         } catch (e) {
+            console.error(`Error when adding to closed windows list!`, e);
             sessionStorage.clear();
         }
     }

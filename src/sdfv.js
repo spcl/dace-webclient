@@ -5,6 +5,7 @@ import { sdfg_property_to_string } from "./utils/sdfg/sdfg_property_to_string";
 import { traverse_sdfg_scopes } from "./utils/sdfg/traverse_sdfg_scopes";
 import { mean, median } from 'mathjs';
 import { SDFGRenderer } from './renderer/renderer';
+import { GenericSdfgOverlay } from "./overlays/generic_sdfg_overlay";
 const { $ } = globalThis;
 
 let fr;

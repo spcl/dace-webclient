@@ -13,8 +13,8 @@ function render_button_to_graphic(button, mode="canvas_element") {
     c.width = button.button_subwindow.targetwidth;
     c.height = button.button_subwindow.targetheight;
 
-    // Recreate the button from the type name
-    let new_obj = eval("new " + button_class + "(ctx, " + "...(button.dataparams)" + ");");
+    // Recreate the button
+    let new_obj = new button.constructor(ctx, ...(button.dataparams));
 
     new_obj.button_subwindow_state = 'open';
     new_obj.is_locked_open = true;
