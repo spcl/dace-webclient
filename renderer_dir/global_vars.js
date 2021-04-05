@@ -1,4 +1,4 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 var LINEHEIGHT = 10;
 var TASKLET_LOD = 0.35; // Points-per-pixel threshold for drawing tasklet contents
 var SCOPE_LOD = 1.5; // Points-per-pixel threshold for simple version of map nodes (label only)

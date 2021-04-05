@@ -1,4 +1,4 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 import { REST_request, FormBuilder, setup_drag_n_drop } from "./main.js"
 import { Appearance } from "./diode_appearance.js"
 import { SDFG_Parser, SDFG_PropUtil } from "./sdfg_parser.js"

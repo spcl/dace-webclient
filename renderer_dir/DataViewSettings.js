@@ -1,4 +1,4 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 // This is a file that provides functionality of View Settings
 import { ClientSide } from "./windowing.js";
 import {ObjectHelper, MathHelper} from "./datahelper.js";
