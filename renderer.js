@@ -1632,7 +1632,7 @@ class SDFGRenderer {
             }
             this.mode_selected_bg_color = '#22A4FE';
         } else {
-            // Mode buttons are empty in plain webview
+            // Mode buttons are empty in standalone SDFV
             this.addmode_btns = [];
 
             // Create pan mode button
@@ -1782,7 +1782,7 @@ class SDFGRenderer {
         if (user_transform === null)
             this.zoom_to_view();
 
-        let svgs = {}
+        let svgs = {};
         svgs['Map'] =
             `<svg width="8rem" height="2rem" viewBox="0 0 800 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <line x1="10" x2="190" y1="190" y2="10"/>
@@ -2060,7 +2060,6 @@ class SDFGRenderer {
                 obj.attributes.is_collapsed = true;
         });
 
-        // Send updated SDFG to vscode extension
         this.send_new_sdfg_to_vscode();
 
         this.relayout();
@@ -2934,10 +2933,9 @@ class SDFGRenderer {
                     dirty = true;
                     element_focus_changed = true;
                 }
-                if (this.mouse_mode === 'move') {
-                    // Send new SDFG to vscode extension
+
+                if (this.mouse_mode === 'move')
                     this.send_new_sdfg_to_vscode();
-                }
             } else {
                 if (this.mouse_mode == 'add') {
                     if ((this.add_type == 'SDFGState' && (foreground_elem instanceof NestedSDFG || foreground_elem == null)) ||

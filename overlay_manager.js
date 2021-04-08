@@ -960,7 +960,7 @@ class ConstructionOverlay extends GenericSdfgOverlay {
         super(
             overlay_manager,
             renderer,
-            GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
+            GenericSdfgOverlay.OVERLAY_TYPE.CONSTRUCTION
         );
     }
 
@@ -969,10 +969,8 @@ class ConstructionOverlay extends GenericSdfgOverlay {
     }
 
     recursively_shade_sdfg(graph, ctx, visible_rect) {
-        // First go over visible states, skipping invisible ones. We only draw
-        // something if the state is collapsed or we're zoomed out far enough.
-        // In that case, we draw the FLOPS calculated for the entire state.
-        // If it's expanded or zoomed in close enough, we traverse inside.
+        // We shade a highlight for items being added. We only shade what is
+        // visible.
         graph.nodes().forEach(v => {
             let state = graph.node(v);
 

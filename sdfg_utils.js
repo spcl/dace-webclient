@@ -167,6 +167,7 @@ function check_and_redirect_edge(edge, drawn_nodes, sdfg_state) {
 function equals(a, b) {
      return JSON.stringify(a) === JSON.stringify(b);
 }
+
 /**
  * Initializes positioning information on the given element.
  *
