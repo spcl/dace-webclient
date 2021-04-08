@@ -1,4 +1,4 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 var base_url = "//" + window.location.host;
 
 window.base_url = base_url;
@@ -222,12 +222,11 @@ class FormBuilder {
         });
         elem.classList.add("code_ref");
 
-        if(obj == null) {
+        if(obj == null || obj.filename == null) {
             elem.innerText = "N/A";
             elem.title = "The DebugInfo for this element is not defined";
         }
         else {
-
             let split = obj.filename.split("/");
             let fname = split[split.length - 1];
 

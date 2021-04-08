@@ -1,4 +1,4 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 import { max_func, min_func, max_func_obj } from "./renderer_util.js";
 
 // Similar to the same class in python

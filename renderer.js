@@ -1,4 +1,4 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 const animation_duration = 1000;
 const animation_function = t => 1 - Math.pow(1 - t, 3);  // cubic ease out
