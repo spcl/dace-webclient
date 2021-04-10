@@ -178,20 +178,21 @@ function initialize_positioning_info(elem) {
     let position;
     if (elem instanceof Edge || elem.type === "MultiConnectorEdge") {
         let points = undefined;
-        if (elem.points) {
+        if (elem.points)
             points = Array(elem.points.length);
-        }
+
         position = {
             points: points,
             scope_dx: 0,
             scope_dy: 0
-        }
-        for (let i = 0; elem.points && i < elem.points.length; i++) {
+        };
+
+        for (let i = 0; elem.points && i < elem.points.length; i++)
             position.points[i] = { dx: 0, dy: 0 };
-        }
     } else {
         position = { dx: 0, dy: 0, scope_dx: 0, scope_dy: 0 };
     }
+
     set_positioning_info(elem, position);
 
     return position;
@@ -304,7 +305,8 @@ function add_elem_to_sdfg(sdfg, elem_type, state) {
         default:
             return null;
     }
-    if (elem_type != "SDFGState") {
+
+    if (elem_type !== "SDFGState") {
         state.data.state.scope_dict['-1'].push(new_elem.id);
         state.data.state.nodes.push(new_elem);
     }
@@ -313,9 +315,8 @@ function add_elem_to_sdfg(sdfg, elem_type, state) {
 }
 
 function reviver(name, val) {
-    if (name == 'sdfg' && val && typeof val === 'string' && val[0] === '{') {
+    if (name === 'sdfg' && val && typeof val === 'string' && val[0] === '{')
         return JSON.parse(val, reviver);
-    }
     return val;
 }
 
@@ -328,7 +329,7 @@ function replacer(name, val) {
     if (val instanceof Edge)
         return undefined;
 
-    if (name == 'layout')
+    if (name === 'layout')
         return undefined;
 
     return val;
