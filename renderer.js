@@ -1611,6 +1611,7 @@ class SDFGRenderer {
 
     set_sdfg(new_sdfg) {
         this.sdfg = new_sdfg;
+        this.all_memlet_trees_sdfg = memlet_tree_complete(this.sdfg);
         this.relayout();
         this.draw_async();
     }
