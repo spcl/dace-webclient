@@ -226,7 +226,7 @@ pre.code code {
   transform: rotate(45deg);
 }
 
-.modal_background {
+.sdfv_modal_background {
   position: absolute;
   top: 0;
   left: 0;
@@ -237,7 +237,7 @@ pre.code code {
   z-index: 10;
 }
 
-.modal {
+.sdfv_modal {
   position: fixed;
   top: 50%;
   left: 50%;
@@ -255,7 +255,7 @@ pre.code code {
   z-index: 11;
 }
 
-.modal > .modal_title_bar {
+.sdfv_modal > .sdfv_modal_title_bar {
   padding: .3rem;
   background-color: #ccc;
   border-bottom: .1rem solid #666;
@@ -263,23 +263,23 @@ pre.code code {
   border-top-right-radius: inherit;
 }
 
-.modal > .modal_title_bar > .modal_title {
+.sdfv_modal > .sdfv_modal_title_bar > .sdfv_modal_title {
   color: #222;
   font-size: 1.2rem;
   font-weight: bolder;
 }
 
-.modal > .modal_title_bar > .modal_close {
+.sdfv_modal > .sdfv_modal_title_bar > .sdfv_modal_close {
   color: #222;
   cursor: pointer;
   float: right;
 }
 
-.modal > .modal_content_box {
+.sdfv_modal > .sdfv_modal_content_box {
   padding: .3rem;
 }
 
-.modal > .modal_footer_bar {
+.sdfv_modal > .sdfv_modal_footer_bar {
   padding: .3rem;
   background-color: #ccc;
   border-top: .1rem solid #666;
@@ -287,15 +287,15 @@ pre.code code {
   border-bottom-right-radius: inherit;
 }
 
-.modal > .modal_footer_bar > .modal_confirm_button {
+.sdfv_modal > .sdfv_modal_footer_bar > .sdfv_modal_confirm_button {
   float: right;
 }
 
-.modal > .modal_content_box > .modal_content {
+.sdfv_modal > .sdfv_modal_content_box > .sdfv_modal_content {
   color: #222;
 }
 
-.modal .modal_input_text:invalid {
+.sdfv_modal .sdfv_modal_input_text:invalid {
   border-color: rgba(255, 0, 0, 1);
 }
 
