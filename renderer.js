@@ -198,7 +198,7 @@ class CanvasManager {
         this.request_scale = true;
         if(this.isBlank()) {
             this.renderer.bgcolor = 'black';
-            this.renderer.zoom_to_view();
+            this.renderer.zoom_to_view(null, false);
             diff = 0.01;
         }
 
@@ -1681,12 +1681,12 @@ class SDFGRenderer {
 
     // Change translation and scale such that the chosen elements
     // (or entire graph if null) is in view
-    zoom_to_view(elements = null) {
+    zoom_to_view(elements = null, animate = true) {
         if (!elements || elements.length == 0)
             elements = this.graph.nodes().map(x => this.graph.node(x));
 
         let bb = boundingBox(elements);
-        this.canvas_manager.set_view(bb, true);
+        this.canvas_manager.set_view(bb, animate);
 
         this.draw_async();
     }
