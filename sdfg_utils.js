@@ -57,21 +57,18 @@ function recursively_find_graph(graph, graph_id, ns_node=undefined) {
             graph: undefined,
             node: undefined,
         };
-        graph.nodes().forEach((state_id) => {
-            const state = graph.node(state_id);
-            if (state.data.graph !== undefined && state.data.graph !== null)
-                state.data.graph.nodes().forEach((node_id) => {
-                    const node = state.data.graph.node(node_id);
-                    if (node instanceof NestedSDFG) {
-                        const search_graph = recursively_find_graph(
-                            node.data.graph, graph_id, node
-                        );
-                        if (search_graph.graph !== undefined) {
-                            result = search_graph;
-                            return result;
-                        }
+        graph.nodes().forEach((state) => {
+            state.data.graph.nodes().forEach(node => {
+                if (node instanceof NestedSDFG) {
+                    const search_graph = recursively_find_graph(
+                        node.data.graph, graph.id, node
+                    );
+                    if (search_graph.graph !== undefined) {
+                        result = search_graph;
+                        return result;
                     }
-                });
+                }
+            });
             return result;
         });
         return result;
@@ -110,13 +107,13 @@ function find_graph_element_by_uuid(p_graph, uuid) {
         };
     }
 
-    if (node_id !== -1 && state !== undefined && state.data.graph !== null) {
+    if (node_id !== -1 && state !== undefined) {
         // Look for a node in a state.
         result = {
             parent: state.data.graph,
             element: state.data.graph.node(node_id),
         };
-    } else if (edge_id !== -1 && state !== undefined && state.data.graph !== null) {
+    } else if (edge_id !== -1 && state !== undefined) {
         // Look for an edge in a state.
         result = {
             parent: state.data.graph,
@@ -324,7 +321,7 @@ function traverse_sdfg_scopes(sdfg, func, post_subscope_func=null) {
                     if (state !== undefined && state.scope_dict[-1] !== undefined)
                         scopes_recursive(node.data.graph, state.scope_dict[-1]);
                     else // No scope_dict, traverse all nodes as a flat hierarchy
-                        scopes_recursive(node.data.graph, node.data.graph.nodes());
+                        scopes_recursive(node.data.graph, node.data.graph.nodes().map(node => node.id));
                 }
             }
             
@@ -334,7 +331,7 @@ function traverse_sdfg_scopes(sdfg, func, post_subscope_func=null) {
             processed_nodes.add(node.id.toString());
         }
     }
-    scopes_recursive(sdfg, sdfg.nodes());
+    scopes_recursive(sdfg, sdfg.nodes().map(node => node.id));
 }
 
 /**
