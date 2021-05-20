@@ -232,6 +232,10 @@ function sdfg_range_elem_to_string(range, settings=null) {
 
 function string_to_sdfg_typeclass(str) {
     str.replace(/\s+/g, '');
+
+    if (str === '' || str === 'null')
+        return null;
+
     if (str.endsWith(')')) {
         if (str.startsWith('vector(')) {
             const argstring = str.substring(7, str.length - 1);
@@ -300,6 +304,9 @@ function string_to_sdfg_typeclass(str) {
 }
 
 function sdfg_typeclass_to_string(typeclass) {
+    if (typeclass === undefined || typeclass === null)
+        return 'null';
+
     if (typeclass.constructor === Object) {
         if (typeclass.type !== undefined) {
             switch (typeclass.type) {
