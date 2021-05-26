@@ -1,7 +1,7 @@
 {
-    "name": "diode-webclient",
+    "name": "dace-webclient",
     "version": "1.0.0",
-    "description": "This repository hosts the JavaScript side for web and VSCode clients of DaCe and the DIODE.",
+    "description": "This repository hosts the JavaScript side for web and VSCode clients of DaCe.",
     "private": true,
     "scripts": {
         "clean": "rimraf dist",
@@ -11,8 +11,6 @@
         "serve": "npm run clean && webpack serve --mode=development",
         "build-prod": "npm run clean && webpack --mode=production"
     },
-    "author": "",
-    "license": "SEE LICENSE IN LICENSE",
     "devDependencies": {
         "@babel/cli": "^7.13.10",
         "@babel/core": "^7.13.10",

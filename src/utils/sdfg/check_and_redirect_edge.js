@@ -1,4 +1,4 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 export function check_and_redirect_edge(edge, drawn_nodes, sdfg_state) {
     // If destination is not drawn, no need to draw the edge
