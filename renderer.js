@@ -2544,7 +2544,9 @@ class SDFGRenderer {
             // viewport and tell it to re-sort the shown transformations.
             try {
                 if (vscode)
-                    sort_transformations(refresh_transformation_list);
+                    vscode_handle_event(
+                        'on_renderer_selection_changed', undefined
+                    );
             } catch (ex) {
                 // Do nothing
             }
