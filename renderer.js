@@ -2543,8 +2543,12 @@ class SDFGRenderer {
             // If a listener in VSCode is present, update it about the new
             // viewport and tell it to re-sort the shown transformations.
             try {
-                if (vscode)
-                    sort_transformations(refresh_transformation_list);
+                if (vscode) {
+                    if (this.selected_elements.length > 1)
+                        get_applicable_transformations();
+                    else
+                        sort_transformations(refresh_transformation_list);
+                }
             } catch (ex) {
                 // Do nothing
             }
