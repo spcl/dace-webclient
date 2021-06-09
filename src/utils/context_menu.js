@@ -96,7 +96,7 @@ export class ContextMenu {
                     let markelem = document.createElement('span');
                     markelem.classList = x.checked ? 'checkmark_checked' : 'checkmark';
                     elem.appendChild(markelem);
-                    elem.innerHTML += x.name;
+                    elem.innerHTML += htmlSanitize`${x.name}`;
                     elem.addEventListener('click', elem => {
                         x.checked = !x.checked;
                         x.func(elem, x.checked);

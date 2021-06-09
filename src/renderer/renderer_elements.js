@@ -236,7 +236,7 @@ export class State extends SDFGElement {
     }
 
     tooltip(container) {
-        container.innerHTML = 'State: ' + this.label();
+        container.innerText = 'State: ' + this.label();
     }
 
     attributes() {

@@ -6,6 +6,7 @@ import { RuntimeMicroSecondsOverlay } from './overlays/runtime_micro_seconds_ove
 import { StaticFlopsOverlay } from './overlays/static_flops_overlay';
 import { MemoryVolumeOverlay } from './overlays/memory_volume_overlay';
 import { parse } from 'mathjs';
+import { htmlSanitize } from "./utils/sanitization";
 
 class SymbolResolver {
 
@@ -139,7 +140,7 @@ class SymbolResolver {
             ['sdfv_modal_title'], header_bar);
         let close_button = createElement('div', '', ['modal_close'],
             header_bar);
-        close_button.innerHTML = '<i class="material-icons">close</i>';
+        close_button.innerHTML = htmlSanitize`<i class="material-icons">close</i>`;
         close_button.addEventListener('click', () => {
             popup_dialogue._hide();
         });

@@ -7,6 +7,7 @@ import { parse_sdfg, stringify_sdfg } from "../utils/sdfg/json_serializer";
 import * as DiodeTables from "./table";
 import { DIODE_Settings } from "./diode_settings";
 import { DIODE_Project } from "./diode_project";
+import { htmlSanitize } from "../utils/sanitization";
 const { $ } = globalThis;
 
 export class DIODE {

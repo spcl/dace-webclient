@@ -5,6 +5,7 @@ import { mean, median } from 'mathjs';
 import { SDFGRenderer } from './renderer/renderer';
 import { GenericSdfgOverlay } from "./overlays/generic_sdfg_overlay";
 import { SDFVUIHandlers } from "./sdfv_ui_handlers";
+import { htmlSanitize } from "./utils/sanitization";
 const { $ } = globalThis;
 
 let fr;
@@ -246,7 +247,7 @@ function find_in_graph(renderer, sdfg, query, case_sensitive = false) {
     for (const result of results) {
         const d = document.createElement('div');
         d.className = 'context_menu_option';
-        d.innerHTML = result.type() + ' ' + result.label();
+        d.innerHTML = htmlSanitize`${result.type()} ${result.label()}`;
         d.onclick = () => { renderer.zoom_to_view([result]) };
         d.onmouseenter = () => {
             if (!result.highlighted) {
