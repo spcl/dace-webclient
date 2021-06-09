@@ -8,7 +8,7 @@ export const SDFVUIHandlers = {
     on_init_menu,
     on_sidebar_set_title,
     on_sidebar_show,
-    on_sidebar_get_contents,
+    sidebar_get_contents,
     on_close_menu,
     on_outline,
     on_fill_info,
@@ -19,7 +19,7 @@ function on_sidebar_set_title(title) {
     document.getElementById("sidebar-header").innerText = title;
 }
 
-function on_sidebar_get_contents() {
+function sidebar_get_contents() {
     return document.getElementById("sidebar-contents");
 }
 
@@ -59,7 +59,7 @@ function on_fill_info(elem) {
 }
 
 function on_outline(renderer, sdfg) {
-    sidebar_set_title('SDFG Outline');
+    on_sidebar_set_title('SDFG Outline');
 
     const sidebar = sidebar_get_contents();
     sidebar.innerHTML = '';
@@ -130,7 +130,7 @@ function on_outline(renderer, sdfg) {
             stack[stack.length - 1].appendChild(elem);
     });
 
-    sidebar_show();
+    on_sidebar_show();
 }
 
 function on_close_menu() {

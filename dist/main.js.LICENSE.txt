@@ -1,39 +1,14 @@
-/*!
- * Sizzle CSS Selector Engine v2.3.6
- * https://sizzlejs.com/
- *
- * Copyright JS Foundation and other contributors
- * Released under the MIT license
- * https://js.foundation/
- *
- * Date: 2021-02-16
- */
-
-/*!
- * jQuery JavaScript Library v3.6.0
- * https://jquery.com/
- *
- * Includes Sizzle.js
- * https://sizzlejs.com/
- *
- * Copyright OpenJS Foundation and other contributors
- * Released under the MIT license
- * https://jquery.org/license
- *
- * Date: 2021-03-02T17:08Z
- */
-
 /**
- * @license Complex.js v2.0.12 11/02/2016
+ * @license Complex.js v2.0.13 12/05/2020
  *
- * Copyright (c) 2016, Robert Eisele (robert@xarg.org)
+ * Copyright (c) 2020, Robert Eisele (robert@xarg.org)
  * Dual licensed under the MIT or GPL Version 2 licenses.
  **/
 
 /**
- * @license Fraction.js v4.0.12 09/09/2015
- * http://www.xarg.org/2014/03/rational-numbers-in-javascript/
+ * @license Fraction.js v4.1.1 23/05/2021
+ * https://www.xarg.org/2014/03/rational-numbers-in-javascript/
  *
- * Copyright (c) 2015, Robert Eisele (robert@xarg.org)
+ * Copyright (c) 2021, Robert Eisele (robert@xarg.org)
  * Dual licensed under the MIT or GPL Version 2 licenses.
  **/

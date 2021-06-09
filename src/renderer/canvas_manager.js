@@ -206,7 +206,7 @@ export class CanvasManager {
         this.request_scale = true;
         if (this.isBlank()) {
             this.renderer.bgcolor = 'black';
-            this.renderer.zoom_to_view();
+            this.renderer.zoom_to_view(null, false);
             diff = 0.01;
         }
 

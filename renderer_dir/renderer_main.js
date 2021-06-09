@@ -1,4 +1,4 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 import {CanvasDrawManager, Bracket, min_func, max_func, Pos} from "./renderer_util.js"
 import {DrawNodeState} from "./sdfg_renderer.js"
 import {ObjectHelper, MathHelper, CriticalPathAnalysis, MemoryAnalysis} from "./datahelper.js"

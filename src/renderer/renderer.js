@@ -16,7 +16,7 @@ import { GenericSdfgOverlay } from "../overlays/generic_sdfg_overlay";
 
 export class SDFGRenderer {
     constructor(sdfg, container, on_mouse_event = null, user_transform = null,
-        debug_draw = false, background = null) {
+                debug_draw = false, background = null) {
         // DIODE/SDFV-related fields
         this.sdfg = sdfg;
         this.sdfg_list = {};
@@ -60,12 +60,11 @@ export class SDFGRenderer {
         this.selected_elements = [];
 
         // Overlay fields
-        try {
-            this.overlay_manager = new OverlayManager(this);
-        } catch (ex) {
-            console.error("Error initializing overlay manager!", ex);
-            this.overlay_manager = null;
-        }
+		try {
+			this.overlay_manager = new OverlayManager(this);
+		} catch (ex) {
+			this.overlay_manager = null;
+		}
 
         // Draw debug aids.
         this.debug_draw = debug_draw;
@@ -86,8 +85,7 @@ export class SDFGRenderer {
             this.container.removeChild(this.toolbar);
             this.container.removeChild(this.tooltip_container);
         } catch (ex) {
-            // TODO instead of catching exceptions, make sure non are thrown?
-            console.error(`Error destroying renderer!`, ex);
+            // Do nothing
         }
     }
 
@@ -164,8 +162,8 @@ export class SDFGRenderer {
         this.interaction_info_box = document.createElement('div');
         this.interaction_info_box.style.position = 'absolute';
         this.interaction_info_box.style.bottom = '.5rem',
-            this.interaction_info_box.style.left = '.5rem',
-            this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        this.interaction_info_box.style.left = '.5rem',
+        this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
         this.interaction_info_box.style.borderRadius = '5px';
         this.interaction_info_box.style.padding = '.3rem';
         this.interaction_info_box.style.display = 'none';
@@ -180,22 +178,28 @@ export class SDFGRenderer {
         this.toolbar.style = 'position:absolute; top:10px; left: 10px;';
         let d;
 
-        let in_vscode = typeof vscode !== 'undefined';
+        let in_vscode = false;
+        try {
+            vscode;
+            if (vscode)
+                in_vscode = true;
+        } catch (ex) { }
 
         // Menu bar
         try {
+            ContextMenu;
             d = document.createElement('button');
             d.className = 'button';
             d.innerHTML = '<i class="material-icons">menu</i>';
             d.style = 'padding-bottom: 0px; user-select: none';
-            const that = this;
+            let that = this;
             d.onclick = function () {
                 if (that.menu && that.menu.visible()) {
                     that.menu.destroy();
                     return;
                 }
-                const rect = this.getBoundingClientRect();
-                const cmenu = new ContextMenu();
+                let rect = this.getBoundingClientRect();
+                let cmenu = new ContextMenu();
                 cmenu.addOption("Save view as PNG", x => that.save_as_png());
                 if (that.has_pdf()) {
                     cmenu.addOption("Save view as PDF", x => that.save_as_pdf());
@@ -211,8 +215,8 @@ export class SDFGRenderer {
                                 that.overlays_menu.destroy();
                                 return;
                             }
-                            const rect = cmenu._cmenu_elem.getBoundingClientRect();
-                            const overlays_cmenu = new ContextMenu();
+                            let rect = cmenu._cmenu_elem.getBoundingClientRect();
+                            let overlays_cmenu = new ContextMenu();
                             overlays_cmenu.addCheckableOption(
                                 'Memory volume analysis',
                                 that.overlay_manager.memory_volume_overlay_active,
@@ -234,15 +238,13 @@ export class SDFGRenderer {
                             that.overlays_menu.show(rect.left, rect.top);
                         }
                     );
-                cmenu.addCheckableOption("Hide Access Nodes", that.omit_access_nodes, (x, checked) => { that.omit_access_nodes = checked; that.relayout() });
+                cmenu.addCheckableOption("Hide Access Nodes", that.omit_access_nodes, (x, checked) => { that.omit_access_nodes = checked; that.relayout()});
                 that.menu = cmenu;
                 that.menu.show(rect.left, rect.bottom);
             };
             d.title = 'Menu';
             this.toolbar.appendChild(d);
-        } catch (ex) {
-            console.error(`Error setting up menu bar - is this intentional?`);
-        }
+        } catch (ex) { }
 
         // Zoom to fit
         d = document.createElement('button');
@@ -272,7 +274,7 @@ export class SDFGRenderer {
         this.toolbar.appendChild(d);
 
         // Enter object moving mode
-        const move_mode_btn = document.createElement('button');
+        let move_mode_btn = document.createElement('button');
         this.movemode_btn = move_mode_btn;
         move_mode_btn.className = 'button';
         move_mode_btn.innerHTML = '<i class="material-icons">open_with</i>';
@@ -288,7 +290,7 @@ export class SDFGRenderer {
         this.toolbar.appendChild(move_mode_btn);
 
         // Enter box selection mode
-        const box_select_btn = document.createElement('button');
+        let box_select_btn = document.createElement('button');
         this.selectmode_btn = box_select_btn;
         box_select_btn.className = 'button';
         box_select_btn.innerHTML =
@@ -306,7 +308,7 @@ export class SDFGRenderer {
 
         // Exit previewing mode
         if (in_vscode) {
-            const exit_preview_btn = document.createElement('button');
+            let exit_preview_btn = document.createElement('button');
             exit_preview_btn.id = 'exit-preview-button';
             exit_preview_btn.className = 'button hidden';
             exit_preview_btn.innerHTML = '<i class="material-icons">close</i>';
@@ -344,8 +346,8 @@ export class SDFGRenderer {
         this.error_popover_container.innerHTML = '';
         this.error_popover_container.className = 'invalid_popup';
         this.error_popover_text = document.createElement('div');
-        const error_popover_dismiss = document.createElement('button');
-        const that = this;
+        let error_popover_dismiss = document.createElement('button');
+        let that = this;
         error_popover_dismiss.onclick = () => {
             that.sdfg.error = undefined;
             that.error_popover_text.innerText = '';
@@ -367,7 +369,7 @@ export class SDFGRenderer {
             this.canvas_manager.user_transform = user_transform;
 
         // Resize event for container
-        const observer = new MutationObserver((mutations) => { this.onresize(); this.draw_async(); });
+        let observer = new MutationObserver((mutations) => { this.onresize(); this.draw_async(); });
         observer.observe(this.container, { attributes: true });
 
         // Set inherited properties
@@ -396,23 +398,24 @@ export class SDFGRenderer {
 
     set_sdfg(new_sdfg) {
         this.sdfg = new_sdfg;
+        this.all_memlet_trees_sdfg = memlet_tree_complete(this.sdfg);
         this.relayout();
         this.draw_async();
     }
 
     // Set mouse events (e.g., click, drag, zoom)
     set_mouse_handlers() {
-        const canvas = this.canvas;
-        const br = () => canvas.getBoundingClientRect();
+        let canvas = this.canvas;
+        let br = () => canvas.getBoundingClientRect();
 
-        const comp_x = event => this.canvas_manager.mapPixelToCoordsX(event.clientX - br().left);
-        const comp_y = event => this.canvas_manager.mapPixelToCoordsY(event.clientY - br().top);
+        let comp_x = event => this.canvas_manager.mapPixelToCoordsX(event.clientX - br().left);
+        let comp_y = event => this.canvas_manager.mapPixelToCoordsY(event.clientY - br().top);
 
         // Mouse handler event types
-        for (const evtype of ['mousedown', 'mousemove', 'mouseup', 'touchstart', 'touchmove', 'touchend',
+        for (let evtype of ['mousedown', 'mousemove', 'mouseup', 'touchstart', 'touchmove', 'touchend',
             'wheel', 'click', 'dblclick', 'contextmenu']) {
             canvas.addEventListener(evtype, x => {
-                const cancelled = this.on_mouse_event(x, comp_x, comp_y, evtype);
+                let cancelled = this.on_mouse_event(x, comp_x, comp_y, evtype);
                 if (cancelled)
                     return;
                 x.stopPropagation();
@@ -432,9 +435,9 @@ export class SDFGRenderer {
     // Update memlet tree collection for faster lookup
     update_fast_memlet_lookup() {
         this.all_memlet_trees = [];
-        for (const tree of this.all_memlet_trees_sdfg) {
-            const s = new Set();
-            for (const edge of tree) {
+        for (let tree of this.all_memlet_trees_sdfg) {
+            let s = new Set();
+            for (let edge of tree) {
                 s.add(edge.attributes.data.edge);
             }
             this.all_memlet_trees.push(s);
@@ -451,24 +454,26 @@ export class SDFGRenderer {
         this.update_fast_memlet_lookup();
 
         // Make sure all visible overlays get recalculated if there are any.
-        if (this.overlay_manager !== null)
-            this.overlay_manager.refresh();
+		if (this.overlay_manager !== null)
+			this.overlay_manager.refresh();
 
         // If we're in a VSCode context, we also want to refresh the outline.
-        if (typeof vscode !== 'undefined')
-            outline(this, this.graph);
+        try {
+            if (vscode)
+                outline(this, this.graph);
+        } catch (ex) { }
 
         return this.graph;
     }
 
     // Change translation and scale such that the chosen elements
     // (or entire graph if null) is in view
-    zoom_to_view(elements = null) {
+    zoom_to_view(elements = null, animate = true) {
         if (!elements || elements.length == 0)
             elements = this.graph.nodes().map(x => this.graph.node(x));
 
-        const bb = boundingBox(elements);
-        this.canvas_manager.set_view(bb, true);
+        let bb = boundingBox(elements);
+        this.canvas_manager.set_view(bb, animate);
 
         this.draw_async();
     }
@@ -493,14 +498,14 @@ export class SDFGRenderer {
 
     // Save functions
     save(filename, contents) {
-        const link = document.createElement('a');
+        var link = document.createElement('a');
         link.setAttribute('download', filename);
         link.href = contents;
         document.body.appendChild(link);
 
         // wait for the link to be added to the document
-        window.requestAnimationFrame(() => {
-            const event = new MouseEvent('click');
+        window.requestAnimationFrame(function () {
+            var event = new MouseEvent('click');
             link.dispatchEvent(event);
             document.body.removeChild(link);
         });
@@ -510,9 +515,6 @@ export class SDFGRenderer {
         this.save('sdfg.png', this.canvas.toDataURL('image/png'));
     }
 
-    /**
-     * Some environments (notably Jupyter Notebooks) don't support PDF export
-     */
     has_pdf() {
         try {
             blobStream;
@@ -524,30 +526,30 @@ export class SDFGRenderer {
     }
 
     save_as_pdf(save_all = false) {
-        const stream = blobStream();
+        let stream = blobStream();
 
         // Compute document size
-        const curx = this.canvas_manager.mapPixelToCoordsX(0);
-        const cury = this.canvas_manager.mapPixelToCoordsY(0);
+        let curx = this.canvas_manager.mapPixelToCoordsX(0);
+        let cury = this.canvas_manager.mapPixelToCoordsY(0);
         let size;
         if (save_all) {
             // Get size of entire graph
-            const elements = this.graph.nodes().map(x => this.graph.node(x));
-            const bb = boundingBox(elements);
+            let elements = this.graph.nodes().map(x => this.graph.node(x));
+            let bb = boundingBox(elements);
             size = [bb.width, bb.height];
         } else {
             // Get size of current view
-            const endx = this.canvas_manager.mapPixelToCoordsX(this.canvas.width);
-            const endy = this.canvas_manager.mapPixelToCoordsY(this.canvas.height);
-            const curw = endx - curx, curh = endy - cury;
+            let endx = this.canvas_manager.mapPixelToCoordsX(this.canvas.width);
+            let endy = this.canvas_manager.mapPixelToCoordsY(this.canvas.height);
+            let curw = endx - curx, curh = endy - cury;
             size = [curw, curh];
         }
         //
 
-        const ctx = new canvas2pdf.PdfContext(stream, {
+        let ctx = new canvas2pdf.PdfContext(stream, {
             size: size
         });
-        const oldctx = this.ctx;
+        let oldctx = this.ctx;
         this.ctx = ctx;
         this.ctx.lod = !save_all;
         this.ctx.pdf = true;
@@ -1331,7 +1333,9 @@ export class SDFGRenderer {
             // viewport and tell it to re-sort the shown transformations.
             try {
                 if (vscode)
-                    sort_transformations(refresh_transformation_list);
+                    vscode_handle_event(
+                        'on_renderer_selection_changed', undefined
+                    );
             } catch (ex) {
                 // Do nothing
             }

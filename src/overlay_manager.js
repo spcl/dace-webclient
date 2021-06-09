@@ -1,4 +1,4 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { createElement } from "./utils/utils";
 import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
@@ -6,7 +6,6 @@ import { RuntimeMicroSecondsOverlay } from './overlays/runtime_micro_seconds_ove
 import { StaticFlopsOverlay } from './overlays/static_flops_overlay';
 import { MemoryVolumeOverlay } from './overlays/memory_volume_overlay';
 import { parse } from 'mathjs';
-import { type } from 'jquery';
 
 class SymbolResolver {
 
@@ -117,8 +116,8 @@ class SymbolResolver {
     }
 
     init_overlay_popup_dialogue() {
-        const dialogue_background = createElement('div', '', ['modal_background'],
-            document.body);
+        let dialogue_background = createElement('div', '',
+            ['sdfv_modal_background'], document.body);
         dialogue_background._show = function () {
             this.style.display = 'block';
         };
@@ -126,35 +125,35 @@ class SymbolResolver {
             this.style.display = 'none';
         };
 
-        const popup_dialogue = createElement('div', 'sdfv_overlay_dialogue',
-            ['modal'], dialogue_background);
+        let popup_dialogue = createElement('div', 'sdfv_overlay_dialogue',
+            ['sdfv_modal'], dialogue_background);
         popup_dialogue.addEventListener('click', (ev) => {
             ev.stopPropagation();
         });
         popup_dialogue.style.display = 'none';
         this.popup_dialogue = popup_dialogue;
 
-        const header_bar = createElement('div', '', ['modal_title_bar'],
+        let header_bar = createElement('div', '', ['sdfv_modal_title_bar'],
             this.popup_dialogue);
-        this.popup_dialogue._title = createElement('span', '', ['modal_title'],
-            header_bar);
-        const close_button = createElement('div', '', ['modal_close'],
+        this.popup_dialogue._title = createElement('span', '',
+            ['sdfv_modal_title'], header_bar);
+        let close_button = createElement('div', '', ['modal_close'],
             header_bar);
         close_button.innerHTML = '<i class="material-icons">close</i>';
         close_button.addEventListener('click', () => {
             popup_dialogue._hide();
         });
 
-        const content_box = createElement('div', '', ['modal_content_box'],
+        let content_box = createElement('div', '', ['sdfv_modal_content_box'],
             this.popup_dialogue);
         this.popup_dialogue._content = createElement('div', '',
-            ['modal_content'], content_box);
+            ['sdfv_modal_content'], content_box);
         this.popup_dialogue._input = createElement('input', 'symbol_input',
-            ['modal_input_text'], this.popup_dialogue._content);
-
+            ['sdfv_modal_input_text'], this.popup_dialogue._content);
+        
         function set_val() {
             if (popup_dialogue._map && popup_dialogue._symbol) {
-                const val = popup_dialogue._input.value;
+                let val = popup_dialogue._input.value;
                 if (val && !isNaN(val) && Number.isInteger(+val) && val > 0) {
                     popup_dialogue._map[popup_dialogue._symbol] = val;
                     popup_dialogue._hide();
@@ -170,12 +169,12 @@ class SymbolResolver {
                 set_val();
         });
 
-        const footer_bar = createElement('div', '', ['modal_footer_bar'],
+        let footer_bar = createElement('div', '', ['sdfv_modal_footer_bar'],
             this.popup_dialogue);
-        const confirm_button = createElement('div', '',
-            ['button', 'modal_confirm_button'], footer_bar);
+        let confirm_button = createElement('div', '',
+            ['button', 'sdfv_modal_confirm_button'], footer_bar);
         confirm_button.addEventListener('click', (ev) => { set_val(); });
-        const confirm_button_text = createElement('span', '', [], confirm_button);
+        let confirm_button_text = createElement('span', '', [], confirm_button);
         confirm_button_text.innerText = 'Confirm';
         createElement('div', '', ['clearfix'], footer_bar);
 

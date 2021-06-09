@@ -1,5 +1,5 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
-import { ObjectHelper } from "./datahelper.js";
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
+import {ObjectHelper} from "./datahelper.js"
 // Contains resources used to provide a "native" multi-window interface
 
 // Class to create the window on the parent side

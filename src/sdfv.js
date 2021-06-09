@@ -1,8 +1,6 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { parse_sdfg } from "./utils/sdfg/json_serializer";
-import { sdfg_property_to_string } from "./utils/sdfg/display";
-import { traverse_sdfg_scopes } from "./utils/sdfg/traversal";
 import { mean, median } from 'mathjs';
 import { SDFGRenderer } from './renderer/renderer';
 import { GenericSdfgOverlay } from "./overlays/generic_sdfg_overlay";
@@ -14,7 +12,7 @@ let file = null;
 let instrumentation_file = null;
 
 globalThis.daceRenderer = null;
-globalThis.daceUIHandlers ||= SDFVUIHandlers;
+globalThis.daceUIHandlers ||= SDFVUIHandlers;  // possibly overriden by plug-ins
 
 
 if (document.currentScript.hasAttribute('data-sdfg-json')) {
@@ -230,7 +228,7 @@ function find_recursive(graph, query, results, case_sensitive) {
     }
 }
 
-function find_in_graph(daceRenderer, sdfg, query, case_sensitive = false) {
+function find_in_graph(renderer, sdfg, query, case_sensitive = false) {
     sidebar_set_title('Search Results for "' + query + '"');
 
     const results = [];
@@ -376,31 +374,31 @@ function mouse_event(evtype, event, mousepos, elements, renderer,
 }
 
 function init_menu() {
-    globalThis.daceUIHandlers.on_init_menu();
+    return globalThis.daceUIHandlers.on_init_menu();
 }
 
-function sidebar_set_title() {
-    globalThis.daceUIHandlers.on_sidebar_set_title();
+function sidebar_set_title(title) {
+    return globalThis.daceUIHandlers.on_sidebar_set_title(title);
 }
 
 function sidebar_show() {
-    globalThis.daceUIHandlers.on_sidebar_show();
+    return globalThis.daceUIHandlers.on_sidebar_show();
 }
 
 function sidebar_get_contents() {
-    globalThis.daceUIHandlers.on_sidebar_get_contents();
+    return globalThis.daceUIHandlers.sidebar_get_contents();
 }
 
 function close_menu() {
-    globalThis.daceUIHandlers.on_close_menu();
+    return globalThis.daceUIHandlers.on_close_menu();
 }
 
-function outline() {
-    globalThis.daceUIHandlers.on_outline();
+function outline(renderer, sdfg) {
+    return globalThis.daceUIHandlers.on_outline(renderer, sdfg);
 }
 
-function fill_info() {
-    globalThis.daceUIHandlers.on_fill_info();
+function fill_info(elem) {
+    return globalThis.daceUIHandlers.on_fill_info(elem);
 }
 
 $('document').ready(() => {

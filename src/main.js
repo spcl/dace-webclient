@@ -1,4 +1,4 @@
-// Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 import { DIODE } from "./diode-ui/diode"
 import { DIODE_Context_Settings } from "./diode-ui/contexts/settings";
 import { DIODE_Context_DIODESettings } from "./diode-ui/contexts/diode_settings";
