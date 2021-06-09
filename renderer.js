@@ -304,11 +304,11 @@ class CanvasManager {
 
         if (parent_graph && !(el instanceof Edge)) {
             // Find all the edges connected to the moving node
-            parent_graph.outEdges(el.id).forEach(edge_id => {
-                out_edges.push(parent_graph.edge(edge_id));
+            parent_graph.outEdges(el.id).forEach(edge => {
+                out_edges.push(edge);
             });
-            parent_graph.inEdges(el.id).forEach(edge_id => {
-                in_edges.push(parent_graph.edge(edge_id));
+            parent_graph.inEdges(el.id).forEach(edge => {
+                in_edges.push(edge);
             });
         }
 
@@ -343,22 +343,18 @@ class CanvasManager {
             // Calculate the box to bind the element to. This is given by
             // the parent element, i.e. the element where out to-be-moved
             // element is contained within
-            const parent_left_border =
-                (parent_element.x - (parent_element.width / 2));
-            const parent_right_border =
-                parent_left_border + parent_element.width;
-            const parent_top_border =
-                (parent_element.y - (parent_element.height / 2));
-            const parent_bottom_border =
-                parent_top_border + parent_element.height;
+            const parent_left_border = parent_element.x;
+            const parent_right_border = parent_left_border + parent_element.width;
+            const parent_top_border = parent_element.y;
+            const parent_bottom_border = parent_top_border + parent_element.height;
 
-            let el_h_margin = el.height / 2;
-            let el_w_margin = el.width / 2;
+            let el_h_margin = el.height;
+            let el_w_margin = el.width;
             if (el instanceof Edge) {
                 el_h_margin = el_w_margin = 0;
             }
-            const min_x = parent_left_border + el_w_margin;
-            const min_y = parent_top_border + el_h_margin;
+            const min_x = parent_left_border;
+            const min_y = parent_top_border;
             const max_x = parent_right_border - el_w_margin;
             const max_y = parent_bottom_border - el_h_margin;
 
@@ -411,7 +407,7 @@ class CanvasManager {
                 el.points[pt].y += dy;
 
                 // Move edge bounding box
-                updateEdgeBoundingBox(el);
+                el.updateBoundingBox();
             }
             // The rest of the method doesn't apply to Edges
             return;
@@ -423,13 +419,13 @@ class CanvasManager {
             node.y += dy;
             if (node.data.node && node.data.node.type === 'NestedSDFG')
                 translate_recursive(node.data.graph);
-            if (node.in_connectors)
-                node.in_connectors.forEach(c => {
+            if (node.inConnectors)
+                node.inConnectors.forEach(c => {
                     c.x += dx;
                     c.y += dy;
                 });
-            if (node.out_connectors)
-                node.out_connectors.forEach(c => {
+            if (node.outConnectors)
+                node.outConnectors.forEach(c => {
                     c.x += dx;
                     c.y += dy;
                 });
@@ -437,38 +433,22 @@ class CanvasManager {
 
         // Allow recursive translation of nested SDFGs
         function translate_recursive(ng) {
-            ng.nodes().forEach(state_id => {
-                const state = ng.node(state_id);
+            ng.nodes().forEach(state => {
                 state.x += dx;
                 state.y += dy;
                 const g = state.data.graph;
                 if (g) {
-                    g.nodes().forEach(node_id => {
-                        const node = g.node(node_id);
+                    g.nodes().forEach(node => {
                         move_node_and_connectors(node);
                     });
 
-                    g.edges().forEach(edge_id => {
-                        const edge = g.edge(edge_id);
-                        edge.x += dx;
-                        edge.y += dy;
-                        edge.points.forEach(point => {
-                            point.x += dx;
-                            point.y += dy;
-                        });
-                        updateEdgeBoundingBox(edge);
+                    g.edges().forEach(edge => {
+                        edge.offset(dx, dy);
                     });
                 }
             });
-            ng.edges().forEach(edge_id => {
-                const edge = ng.edge(edge_id);
-                edge.x += dx;
-                edge.y += dy;
-                edge.points.forEach(point => {
-                    point.x += dx;
-                    point.y += dy;
-                });
-                updateEdgeBoundingBox(edge);
+            ng.edges().forEach(edge => {
+                edge.offset(dx, dy);
             });
         }
 
@@ -478,60 +458,28 @@ class CanvasManager {
         if (el.data.state && !el.data.state.attributes.is_collapsed) {
             // We're moving a state, move all its contained elements
             const graph = el.data.graph;
-            graph.nodes().forEach(node_id => {
-                const node = graph.node(node_id);
+            graph.nodes().forEach(node => {
                 move_node_and_connectors(node);
             });
 
             // Drag all the edges along
-            graph.edges().forEach(edge_id => {
-                const edge = graph.edge(edge_id);
-                edge.x += dx;
-                edge.y += dy;
-                edge.points.forEach(point => {
-                    point.x += dx;
-                    point.y += dy;
-                });
-                updateEdgeBoundingBox(edge);
+            graph.edges().forEach(edge => {
+                edge.offset(dx, dy);
             });
         }
 
         // Move the connected edges along with the element
+        console.log(out_edges);
         out_edges.forEach(edge => {
-            const n = edge.points.length - 1;
-            let moved = false;
-            if (edge.src_connector !== null) {
-                for (let i = 0; i < el.out_connectors.length; i++) {
-                    if (el.out_connectors[i].data.name === edge.src_connector) {
-                        edge.points[0] = dagre.util.intersectRect(el.out_connectors[i], edge.points[1]);
-                        moved = true;
-                        break;
-                    }
-                }
-            }
-            if (!moved) {
-                edge.points[0].x += dx;
-                edge.points[0].y += dy;
-            }
-            updateEdgeBoundingBox(edge);
+            edge.points[0].x += dx;
+            edge.points[0].y += dy;
+            edge.updateBoundingBox();
         });
         in_edges.forEach(edge => {
             const n = edge.points.length - 1;
-            let moved = false;
-            if (edge.dst_connector !== null) {
-                for (let i = 0; i < el.in_connectors.length; i++) {
-                    if (el.in_connectors[i].data.name === edge.dst_connector) {
-                        edge.points[n] = dagre.util.intersectRect(el.in_connectors[i], edge.points[n-1]);
-                        moved = true;
-                        break;
-                    }
-                }
-            }
-            if (!moved) {
-                edge.points[n].x += dx;
-                edge.points[n].y += dy;
-            }
-            updateEdgeBoundingBox(edge);
+            edge.points[n].x += dx;
+            edge.points[n].y += dy;
+            edge.updateBoundingBox();
         });
     }
 
@@ -727,10 +675,17 @@ function calculateBoundingBox(g) {
     bb.height = 0;
 
     g.nodes().forEach(function (v) {
-        let x = g.node(v).x + g.node(v).width / 2.0;
-        let y = g.node(v).y + g.node(v).height / 2.0;
+        let x = v.x + v.width;
+        let y = v.y + v.height;
         if (x > bb.width) bb.width = x;
         if (y > bb.height) bb.height = y;
+    });
+
+    g.edges().forEach(function (e) {
+        e.points.forEach(function (p) {
+            if (p.x > bb.width) bb.width = p.x;
+            if (p.y > bb.height) bb.height = p.y;
+        });
     });
 
     return bb;
@@ -744,8 +699,8 @@ function boundingBox(elements) {
         if (bb.x1 === null || topleft.x < bb.x1) bb.x1 = topleft.x;
         if (bb.y1 === null || topleft.y < bb.y1) bb.y1 = topleft.y;
 
-        let x2 = v.x + v.width / 2.0;
-        let y2 = v.y + v.height / 2.0;
+        let x2 = v.x + v.width;
+        let y2 = v.y + v.height;
 
         if (bb.x2 === null || x2 > bb.x2) bb.x2 = x2;
         if (bb.y2 === null || y2 > bb.y2) bb.y2 = y2;
@@ -782,14 +737,6 @@ function calculateEdgeBoundingBox(edge) {
         bb.y -= 5;
     }
     return bb;
-}
-
-function updateEdgeBoundingBox(edge) {
-    let bb = calculateEdgeBoundingBox(edge);
-    edge.x = bb.x + bb.width/2;
-    edge.y = bb.y + bb.height/2;
-    edge.width = bb.width;
-    edge.height = bb.height;
 }
 
 function calculateNodeSize(sdfg_state, node, ctx) {
@@ -834,14 +781,10 @@ function calculateNodeSize(sdfg_state, node, ctx) {
     return size;
 }
 
-// Layout SDFG elements (states, nodes, scopes, nested SDFGs)
-function relayout_sdfg(ctx, sdfg, sdfg_list, state_parent_list, omit_access_nodes) {
+function get_sdfg_graph(ctx, sdfg, sdfg_list, state_parent_list, omit_access_nodes) {
     let STATE_MARGIN = 4 * LINEHEIGHT;
 
-    // Layout the SDFG as a dagre graph
-    let g = new dagre.graphlib.Graph();
-    g.setGraph({});
-    g.setDefaultEdgeLabel(function (u, v) { return {}; });
+    let g = new layoutLib.RenderGraph();
 
     // layout each state to get its size
     sdfg.nodes.forEach((state) => {
@@ -849,96 +792,121 @@ function relayout_sdfg(ctx, sdfg, sdfg_list, state_parent_list, omit_access_node
 
         stateinfo.label = state.id;
         let state_g = null;
-        if (state.attributes.is_collapsed) {
-            stateinfo.width = ctx.measureText(stateinfo.label).width;
-            stateinfo.height = LINEHEIGHT;
-        }
-        else {
-            state_g = relayout_state(ctx, state, sdfg, sdfg_list,
+        stateinfo.width = ctx.measureText(stateinfo.label).width;
+        stateinfo.height = LINEHEIGHT;
+        if (!state.attributes.is_collapsed) {
+            state_g = get_state_graph(ctx, state, sdfg, sdfg_list,
                 state_parent_list, omit_access_nodes);
-            stateinfo = calculateBoundingBox(state_g);
         }
         stateinfo.width += 2 * STATE_MARGIN;
         stateinfo.height += 2 * STATE_MARGIN;
-        g.setNode(state.id, new State({
+        const state_obj = new State({
             state: state,
             layout: stateinfo,
             graph: state_g
-        }, state.id, sdfg));
+        }, state.id, sdfg);
+        state_obj.childGraph = state_g;
+        g.addNode(state_obj, parseInt(state.id));
     });
 
     sdfg.edges.forEach((edge, id) => {
-        g.setEdge(edge.src, edge.dst, new Edge(edge.attributes.data, id, sdfg));
+        const edge_obj = new Edge(edge.attributes.data, id, sdfg);
+        edge_obj.src = parseInt(edge.src);
+        edge_obj.dst = parseInt(edge.dst);
+        edge_obj.srcConnector = null;
+        edge_obj.dstConnector = null;
+        g.addEdge(edge_obj, id);
     });
-
-    dagre.layout(g);
-
-    // Annotate the sdfg with its layout info
-    sdfg.nodes.forEach(function (state) {
-        let gnode = g.node(state.id);
-        state.attributes.layout = {};
-        state.attributes.layout.x = gnode.x;
-        state.attributes.layout.y = gnode.y;
-        state.attributes.layout.width = gnode.width;
-        state.attributes.layout.height = gnode.height;
-    });
-
-    sdfg.edges.forEach(function (edge) {
-        let gedge = g.edge(edge.src, edge.dst);
-        let bb = calculateEdgeBoundingBox(gedge);
-        // Convert from top-left to center
-        bb.x += bb.width / 2.0;
-        bb.y += bb.height / 2.0;
-
-        gedge.x = bb.x;
-        gedge.y = bb.y;
-        gedge.width = bb.width;
-        gedge.height = bb.height;
-        edge.attributes.layout = {};
-        edge.attributes.layout.width = bb.width;
-        edge.attributes.layout.height = bb.height;
-        edge.attributes.layout.x = bb.x;
-        edge.attributes.layout.y = bb.y;
-        edge.attributes.layout.points = gedge.points;
-    });
-
-    // Offset node and edge locations to be in state margins
-    sdfg.nodes.forEach((s, sid) => {
-        if (s.attributes.is_collapsed)
-            return;
-
-        let state = g.node(sid);
-        let topleft = state.topleft();
-        offset_state(s, state, {
-            x: topleft.x + STATE_MARGIN,
-            y: topleft.y + STATE_MARGIN
-        });
-    });
-
-    let bb = calculateBoundingBox(g);
-    g.width = bb.width;
-    g.height = bb.height;
-
-    // Add SDFG to global store
-    sdfg_list[sdfg.sdfg_list_id] = g;
 
     return g;
 }
 
-function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omit_access_nodes) {
-    // layout the state as a dagre graph
-    let g = new dagre.graphlib.Graph({ multigraph: true });
+// Layout SDFG elements (states, nodes, scopes, nested SDFGs)
+function relayout_sdfg(ctx, sdfg, sdfg_list, state_parent_list, omit_access_nodes) {
+    const g = get_sdfg_graph(ctx, sdfg,  sdfg_list, state_parent_list, omit_access_nodes);
 
-    // Set layout options and a simpler algorithm for large graphs
-    let layout_options = {ranksep: 30};
-    if (sdfg_state.nodes.length >= 1000)
-        layout_options.ranker = 'longest-path';
+    const layouter = new layoutLib.layouter.SugiyamaLayouter({shuffles: 0, shuffleGlobal: false, optimizeAngles: false, bundle: false});
+    layouter.layout(g);
 
-    g.setGraph(layout_options);
+    function postlayout_sdfg(g, sdfg) {
+        sdfg.nodes.forEach((sdfg_state) => {
+            const stateNode = g.node(sdfg_state.id);
+            if (stateNode.childGraph === null) {
+                // ignore collapsed states
+                return;
+            }
+            sdfg_state.nodes.forEach(function (node, id) {
+                let gnode = stateNode.childGraph.node(id);
+                if (!gnode || (omit_access_nodes && gnode instanceof AccessNode)) {
+                    // ignore nodes that should not be drawn
+                    return;
+                }
 
+                // recursively process nested sdfgs
+                if (node.type === "NestedSDFG" && !node.attributes.is_collapsed) {
+                    postlayout_sdfg(gnode.childGraph, node.attributes.sdfg);
+                }
+            });
 
-    // Set an object for the graph label
-    g.setDefaultEdgeLabel(function (u, v) { return {}; });
+            sdfg_state.edges.forEach(function (edge, id) {
+                edge = check_and_redirect_edge(edge, stateNode.childGraph.drawn_nodes, sdfg_state);
+                if (!edge) return;
+                let gedge = stateNode.childGraph.edge(id);
+                if (!gedge || (omit_access_nodes && gedge.data.attributes.shortcut === false)
+                    || (!omit_access_nodes && gedge.data.attributes.shortcut)) {
+                    // if access nodes omitted, don't draw non-shortcut edges and vice versa
+                    return;
+                }
+
+                gedge.updateBoundingBox();
+            });
+        });
+
+        // Annotate the sdfg with its layout info
+        sdfg.nodes.forEach(function (state) {
+            let gnode = g.node(state.id);
+            state.attributes.layout = {};
+            state.attributes.layout.x = gnode.x;
+            state.attributes.layout.y = gnode.y;
+            state.attributes.layout.width = gnode.width;
+            state.attributes.layout.height = gnode.height;
+        });
+
+        g.edges().forEach(function (edge) {
+            let gedge = edge;
+            let bb = calculateEdgeBoundingBox(gedge);
+            // Convert from top-left to center
+            bb.x += bb.width / 2.0;
+            bb.y += bb.height / 2.0;
+
+            gedge.x = bb.x;
+            gedge.y = bb.y;
+            gedge.width = bb.width;
+            gedge.height = bb.height;
+            edge.attributes.layout = {};
+            edge.attributes.layout.width = bb.width;
+            edge.attributes.layout.height = bb.height;
+            edge.attributes.layout.x = bb.x;
+            edge.attributes.layout.y = bb.y;
+            edge.attributes.layout.points = gedge.points;
+        });
+
+        let bb = calculateBoundingBox(g);
+        g.width = bb.width;
+        g.height = bb.height;
+
+        // Add SDFG to global store
+        sdfg_list[sdfg.sdfg_list_id] = g;
+    }
+
+    postlayout_sdfg(g, sdfg);
+
+    return g;
+}
+
+function get_state_graph(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omit_access_nodes) {
+    // layout the state as a render graph
+    let g = new layoutLib.RenderGraph();
 
     // Add nodes to the graph. The first argument is the node id. The
     // second is metadata about the node (label, width, height),
@@ -948,7 +916,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
     let toplevel_nodes = sdfg_state.scope_dict[-1];
     if (toplevel_nodes === undefined)
         toplevel_nodes = Object.keys(sdfg_state.nodes);
-    let drawn_nodes = new Set();
+    g.drawn_nodes = new Set();
     let hidden_nodes = new Map();
 
     function layout_node(node) {
@@ -957,7 +925,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
             hidden_nodes.set(node.id.toString(), {node: node, src: null, dsts: []});
             return;
         }
-    
+
         let nested_g = null;
         node.attributes.layout = {};
 
@@ -973,12 +941,9 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
         node.attributes.layout.height = nodesize.height;
         node.attributes.layout.label = node.label;
 
-        // Recursively lay out nested SDFGs
-        if (node.type === "NestedSDFG") {
-            nested_g = relayout_sdfg(ctx, node.attributes.sdfg, sdfg_list, state_parent_list, omit_access_nodes);
-            let sdfginfo = calculateBoundingBox(nested_g);
-            node.attributes.layout.width = sdfginfo.width + 2 * LINEHEIGHT;
-            node.attributes.layout.height = sdfginfo.height + 2 * LINEHEIGHT;
+        // Recursively add nested SDFGs
+        if (node.type === "NestedSDFG" && !node.attributes.is_collapsed) {
+            nested_g = get_sdfg_graph(ctx, node.attributes.sdfg, sdfg_list, state_parent_list, omit_access_nodes);
         }
 
         // Dynamically create node type
@@ -998,7 +963,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
             conns = Object.keys(node.attributes.layout.in_connectors);
         for (let cname of conns) {
             let conn = new Connector({ name: cname }, i, sdfg, node.id);
-            obj.in_connectors.push(conn);
+            obj.inConnectors.push(conn);
             i += 1;
         }
 
@@ -1010,12 +975,12 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
             conns = Object.keys(node.attributes.layout.out_connectors);
         for (let cname of conns) {
             let conn = new Connector({ name: cname }, i, sdfg, node.id);
-            obj.out_connectors.push(conn);
+            obj.outConnectors.push(conn);
             i += 1;
         }
 
-        g.setNode(node.id, obj);
-        drawn_nodes.add(node.id.toString());
+        g.addNode(obj, node.id);
+        g.drawn_nodes.add(node.id.toString());
 
         // Recursively draw nodes
         if (node.id in sdfg_state.scope_dict) {
@@ -1057,19 +1022,21 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
 
         // if it is a shortcut edge, but we don't omit access nodes, then ignore this edge
         if (!omit_access_nodes && edge.attributes.data.attributes.shortcut) return true;
-        
+
         return false;
     }
 
     sdfg_state.edges.forEach((edge, id) => {
         if (add_edge_info_if_hidden(edge)) return;
-        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
+        edge = check_and_redirect_edge(edge, g.drawn_nodes, sdfg_state);
         if (!edge) return;
         let e = new Edge(edge.attributes.data, id, sdfg, sdfg_state.id);
         edge.attributes.data.edge = e;
-        e.src_connector = edge.src_connector;
-        e.dst_connector = edge.dst_connector;
-        g.setEdge(edge.src, edge.dst, e, id);
+        e.srcConnector = edge.src_connector || null;
+        e.dstConnector = edge.dst_connector || null;
+        e.src = parseInt(edge.src);
+        e.dst = parseInt(edge.dst);
+        g.addEdge(e, id);
     });
 
     hidden_nodes.forEach( hidden_node => {
@@ -1087,7 +1054,7 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
                 shortcut_e.attributes.data.attributes.shortcut = true;
 
                 // draw the redirected edge
-                let redirected_e = check_and_redirect_edge(shortcut_e, drawn_nodes, sdfg_state);
+                let redirected_e = check_and_redirect_edge(shortcut_e, g.drawn_nodes, sdfg_state);
                 if (!redirected_e) return;
 
                 // abort if shortcut edge already exists
@@ -1104,125 +1071,17 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
                 // add redirected shortcut edge to graph
                 let edge_id = sdfg_state.edges.length - 1;
                 let shortcut_edge = new Edge(deepCopy(redirected_e.attributes.data), edge_id, sdfg, sdfg_state.id);
-                shortcut_edge.src_connector = redirected_e.src_connector;
-                shortcut_edge.dst_connector = redirected_e.dst_connector;
+                shortcut_edge.srcConnector = redirected_e.src_connector || null;
+                shortcut_edge.dstConnector = redirected_e.dst_connector || null;
                 shortcut_edge.data.attributes.shortcut = true;
 
-                g.setEdge(redirected_e.src, redirected_e.dst, shortcut_edge, edge_id);
+                shortcut_edge.src = redirected_e.src;
+                shortcut_edge.dst = redirected_e.dst;
+
+                g.addEdge(shortcut_edge, edge_id);
             });
         }
     });
-
-    dagre.layout(g);
-
-
-    // Layout connectors and nested SDFGs
-    sdfg_state.nodes.forEach(function (node, id) {
-        let gnode = g.node(id);
-        if (!gnode || (omit_access_nodes && gnode instanceof AccessNode)) {
-            // ignore nodes that should not be drawn
-            return;
-        }
-        let topleft = gnode.topleft();
-
-        // Offset nested SDFG
-        if (node.type === "NestedSDFG") {
-
-            offset_sdfg(node.attributes.sdfg, gnode.data.graph, {
-                x: topleft.x + LINEHEIGHT,
-                y: topleft.y + LINEHEIGHT
-            });
-        }
-        // Connector management 
-        let SPACING = LINEHEIGHT;
-        let iconn_length = (LINEHEIGHT + SPACING) * Object.keys(node.attributes.layout.in_connectors).length - SPACING;
-        let oconn_length = (LINEHEIGHT + SPACING) * Object.keys(node.attributes.layout.out_connectors).length - SPACING;
-        let iconn_x = gnode.x - iconn_length / 2.0 + LINEHEIGHT / 2.0;
-        let oconn_x = gnode.x - oconn_length / 2.0 + LINEHEIGHT / 2.0;
-
-        for (let c of gnode.in_connectors) {
-            c.width = LINEHEIGHT;
-            c.height = LINEHEIGHT;
-            c.x = iconn_x;
-            iconn_x += LINEHEIGHT + SPACING;
-            c.y = topleft.y;
-        }
-        for (let c of gnode.out_connectors) {
-            c.width = LINEHEIGHT;
-            c.height = LINEHEIGHT;
-            c.x = oconn_x;
-            oconn_x += LINEHEIGHT + SPACING;
-            c.y = topleft.y + gnode.height;
-        }
-    });
-
-    sdfg_state.edges.forEach(function (edge, id) {
-        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
-        if (!edge) return;
-        let gedge = g.edge(edge.src, edge.dst, id);
-        if (!gedge || (omit_access_nodes && gedge.data.attributes.shortcut === false
-                    || !omit_access_nodes && gedge.data.attributes.shortcut)) {
-            // if access nodes omitted, don't draw non-shortcut edges and vice versa
-            return;
-        }
-
-        // Reposition first and last points according to connectors
-        let src_conn = null, dst_conn = null;
-        if (edge.src_connector) {
-            let src_node = g.node(edge.src);
-            let cindex = -1;
-            for (let i = 0; i < src_node.out_connectors.length; i++) {
-                if (src_node.out_connectors[i].data.name == edge.src_connector) {
-                    cindex = i;
-                    break;
-                }
-            }
-            if (cindex >= 0) {
-                gedge.points[0].x = src_node.out_connectors[cindex].x;
-                gedge.points[0].y = src_node.out_connectors[cindex].y;
-                src_conn = src_node.out_connectors[cindex];
-            }
-        }
-        if (edge.dst_connector) {
-            let dst_node = g.node(edge.dst);
-            let cindex = -1;
-            for (let i = 0; i < dst_node.in_connectors.length; i++) {
-                if (dst_node.in_connectors[i].data.name == edge.dst_connector) {
-                    cindex = i;
-                    break;
-                }
-            }
-            if (cindex >= 0) {
-                gedge.points[gedge.points.length - 1].x = dst_node.in_connectors[cindex].x;
-                gedge.points[gedge.points.length - 1].y = dst_node.in_connectors[cindex].y;
-                dst_conn = dst_node.in_connectors[cindex];
-            }
-        }
-
-        let n = gedge.points.length - 1;
-        if (src_conn !== null)
-            gedge.points[0] = dagre.util.intersectRect(src_conn, gedge.points[n]);
-        if (dst_conn !== null)
-            gedge.points[n] = dagre.util.intersectRect(dst_conn, gedge.points[0]);
-
-        if (gedge.points.length == 3 && gedge.points[0].x == gedge.points[n].x)
-            gedge.points = [gedge.points[0], gedge.points[n]];
-
-        let bb = calculateEdgeBoundingBox(gedge);
-        // Convert from top-left to center
-        bb.x += bb.width / 2.0;
-        bb.y += bb.height / 2.0;
-
-        edge.width = bb.width;
-        edge.height = bb.height;
-        edge.x = bb.x;
-        edge.y = bb.y;
-        gedge.width = bb.width;
-        gedge.height = bb.height;
-        gedge.x = bb.x;
-        gedge.y = bb.y;
-    });
-
 
     return g;
 }
@@ -1683,7 +1542,7 @@ class SDFGRenderer {
     // (or entire graph if null) is in view
     zoom_to_view(elements = null, animate = true) {
         if (!elements || elements.length == 0)
-            elements = this.graph.nodes().map(x => this.graph.node(x));
+            elements = this.graph.nodes();
 
         let bb = boundingBox(elements);
         this.canvas_manager.set_view(bb, animate);
@@ -1747,7 +1606,7 @@ class SDFGRenderer {
         let size;
         if (save_all) {
             // Get size of entire graph
-            let elements = this.graph.nodes().map(x => this.graph.node(x));
+            let elements = this.graph.nodes();
             let bb = boundingBox(elements);
             size = [bb.width, bb.height];
         } else {
@@ -1968,13 +1827,12 @@ class SDFGRenderer {
     do_for_intersected_elements(x, y, w, h, func) {
         // Traverse nested SDFGs recursively
         function traverse_recursive(g, sdfg_name, sdfg_id) {
-            g.nodes().forEach(state_id => {
-                let state = g.node(state_id);
+            g.nodes().forEach(state => {
                 if (!state) return;
 
                 if (state.intersect(x, y, w, h)) {
                     // States
-                    func('states', { sdfg: sdfg_name, sdfg_id: sdfg_id, id: state_id }, state);
+                    func('states', { sdfg: sdfg_name, sdfg_id: sdfg_id, id: state.id }, state);
 
                     if (state.data.state.attributes.is_collapsed)
                         return;
@@ -1982,48 +1840,46 @@ class SDFGRenderer {
                     let ng = state.data.graph;
                     if (!ng)
                         return;
-                    ng.nodes().forEach(node_id => {
-                        let node = ng.node(node_id);
+                    ng.nodes().forEach(node => {
                         if (node.intersect(x, y, w, h)) {
                             // Selected nodes
-                            func('nodes', { sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, id: node_id }, node);
+                            func('nodes', { sdfg: sdfg_name, sdfg_id: sdfg_id, state: state.id, id: node.id }, node);
 
                             // If nested SDFG, traverse recursively
-                            if (node.data.node.type === "NestedSDFG")
+                            if (node.data.node.type === "NestedSDFG" && !node.data.node.attributes.is_collapsed) {
                                 traverse_recursive(node.data.graph,
                                     node.data.node.attributes.sdfg.attributes.name,
                                     node.data.node.attributes.sdfg.sdfg_list_id);
+                            }
                         }
                         // Connectors
-                        node.in_connectors.forEach((c, i) => {
+                        node.inConnectors.forEach((c, i) => {
                             if (c.intersect(x, y, w, h))
                                 func('connectors', {
-                                    sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, node: node_id,
+                                    sdfg: sdfg_name, sdfg_id: sdfg_id, state: state.id, node: node.id,
                                     connector: i, conntype: "in"
                                 }, c);
                         });
-                        node.out_connectors.forEach((c, i) => {
+                        node.outConnectors.forEach((c, i) => {
                             if (c.intersect(x, y, w, h))
                                 func('connectors', {
-                                    sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, node: node_id,
+                                    sdfg: sdfg_name, sdfg_id: sdfg_id, state: state.id, node: node.id,
                                     connector: i, conntype: "out"
                                 }, c);
                         });
                     });
 
                     // Selected edges
-                    ng.edges().forEach(edge_id => {
-                        let edge = ng.edge(edge_id);
+                    ng.edges().forEach(edge => {
                         if (edge.intersect(x, y, w, h)) {
-                            func('edges', { sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, id: edge.id }, edge);
+                            func('edges', { sdfg: sdfg_name, sdfg_id: sdfg_id, state: state.id, id: edge.id }, edge);
                         }
                     });
                 }
             });
 
             // Selected inter-state edges
-            g.edges().forEach(isedge_id => {
-                let isedge = g.edge(isedge_id);
+            g.edges().forEach(isedge => {
                 if (isedge.intersect(x, y, w, h)) {
                     func('isedges', { sdfg: sdfg_name, sdfg_id: sdfg_id, id: isedge.id }, isedge);
                 }
@@ -2047,7 +1903,7 @@ class SDFGRenderer {
                     func('nodes', { sdfg: sdfg, state: state_id, id: node_id }, node);
 
                     // If nested SDFG, traverse recursively
-                    if (node.type === "NestedSDFG")
+                    if (node.type === "NestedSDFG" && !node.data.node.attributes.is_collapsed)
                         traverse_recursive(node.attributes.sdfg);
                 });
 
@@ -2070,12 +1926,11 @@ class SDFGRenderer {
     for_all_elements(x, y, w, h, func) {
         // Traverse nested SDFGs recursively
         function traverse_recursive(g, sdfg_name) {
-            g.nodes().forEach(state_id => {
-                let state = g.node(state_id);
+            g.nodes().forEach(state => {
                 if (!state) return;
 
                 // States
-                func('states', { sdfg: sdfg_name, id: state_id, graph: g }, state, state.intersect(x, y, w, h));
+                func('states', { sdfg: sdfg_name, id: state.id, graph: g }, state, state.intersect(x, y, w, h));
 
                 if (state.data.state.attributes.is_collapsed)
                     return;
@@ -2083,40 +1938,37 @@ class SDFGRenderer {
                 let ng = state.data.graph;
                 if (!ng)
                     return;
-                ng.nodes().forEach(node_id => {
-                    let node = ng.node(node_id);
+                ng.nodes().forEach(node => {
                     // Selected nodes
-                    func('nodes', { sdfg: sdfg_name, state: state_id, id: node_id, graph: ng }, node, node.intersect(x, y, w, h));
+                    func('nodes', { sdfg: sdfg_name, state: state.id, id: node.id, graph: ng }, node, node.intersect(x, y, w, h));
 
                     // If nested SDFG, traverse recursively
-                    if (node.data.node.type === "NestedSDFG")
+                    if (node.data.node.type === "NestedSDFG" && !node.data.node.attributes.is_collapsed)
                         traverse_recursive(node.data.graph, node.data.node.attributes.sdfg.attributes.name);
 
                     // Connectors
-                    node.in_connectors.forEach((c, i) => {
+                    node.inConnectors.forEach((c, i) => {
                         func('connectors', {
-                            sdfg: sdfg_name, state: state_id, node: node_id,
+                            sdfg: sdfg_name, state: state.id, node: node.id,
                             connector: i, conntype: "in", graph: ng
                         }, c, c.intersect(x, y, w, h));
                     });
-                    node.out_connectors.forEach((c, i) => {
+                    node.outConnectors.forEach((c, i) => {
                         func('connectors', {
-                            sdfg: sdfg_name, state: state_id, node: node_id,
+                            sdfg: sdfg_name, state: state.id, node: node.id,
                             connector: i, conntype: "out", graph: ng
                         }, c, c.intersect(x, y, w, h));
                     });
                 });
 
                 // Selected edges
-                ng.edges().forEach(edge_id => {
-                    let edge = ng.edge(edge_id);
-                    func('edges', { sdfg: sdfg_name, state: state_id, id: edge.id, graph: ng }, edge, edge.intersect(x, y, w, h));
+                ng.edges().forEach(edge => {
+                    func('edges', { sdfg: sdfg_name, state: state.id, id: edge.id, graph: ng }, edge, edge.intersect(x, y, w, h));
                 });
             });
 
             // Selected inter-state edges
-            g.edges().forEach(isedge_id => {
-                let isedge = g.edge(isedge_id);
+            g.edges().forEach(isedge => {
                 func('isedges', { sdfg: sdfg_name, id: isedge.id, graph: g }, isedge, isedge.intersect(x, y, w, h));
             });
         }

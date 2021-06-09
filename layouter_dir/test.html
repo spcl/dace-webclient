@@ -1,0 +1,44 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+        canvas {
+            display: block;
+        }
+        #coordinateBox {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            background: rgba(200, 200, 200, 0.5);
+            padding: 10px;
+            font-family: monospace, sans-serif;
+            font-size: 12px;
+        }
+    </style>
+    <script src="./dist/renderLib.js"></script>
+    <script>
+        window.addEventListener("load", function () {
+            const options = {shuffles: 0, shuffleGlobal: false, preorderConnectors: false, optimizeAngles: true, bundle: true};
+            const layouter = new renderLib.layouter.SugiyamaLayouter(options);
+            const renderer = new renderLib.Renderer(document.body, document.getElementById("coordinateBox"));
+            const graph = (new URLSearchParams(window.location.search)).get('graph') || "symm";
+            renderer.show(layouter, graph);
+        });
+    </script>
+</head>
+<body>
+    <div id="coordinateBox"></div>
+</body>
+</html>

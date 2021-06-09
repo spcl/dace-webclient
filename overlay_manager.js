@@ -374,8 +374,7 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
         // something if the state is collapsed or we're zoomed out far enough.
         // In that case, we draw the measured runtime for the entire state.
         // If it's expanded or zoomed in close enough, we traverse inside.
-        graph.nodes().forEach(v => {
-            let state = graph.node(v);
+        graph.nodes().forEach(state => {
 
             // If the node's invisible, we skip it.
             if (ctx.lod && !state.intersect(visible_rect.x, visible_rect.y,
@@ -389,9 +388,7 @@ class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
             } else {
                 let state_graph = state.data.graph;
                 if (state_graph) {
-                    state_graph.nodes().forEach(v => {
-                        let node = state_graph.node(v);
-
+                    state_graph.nodes().forEach(node => {
                         // Skip the node if it's not visible.
                         if (ctx.lod && !node.intersect(visible_rect.x,
                             visible_rect.y, visible_rect.w, visible_rect.h))
@@ -517,13 +514,11 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
     
     calculate_flops_graph(g, symbol_map, flops_values) {
         let that = this;
-        g.nodes().forEach(v => {
-            let state = g.node(v);
+        g.nodes().forEach(state => {
             that.calculate_flops_node(state, symbol_map, flops_values);
             let state_graph = state.data.graph;
             if (state_graph) {
-                state_graph.nodes().forEach(v => {
-                    let node = state_graph.node(v);
+                state_graph.nodes().forEach(node => {
                     if (node instanceof NestedSDFG) {
                         let nested_symbols_map = {};
                         let mapping = node.data.node.attributes.symbol_mapping;
@@ -650,9 +645,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
         // something if the state is collapsed or we're zoomed out far enough.
         // In that case, we draw the FLOPS calculated for the entire state.
         // If it's expanded or zoomed in close enough, we traverse inside.
-        graph.nodes().forEach(v => {
-            let state = graph.node(v);
-
+        graph.nodes().forEach(state => {
             // If the node's invisible, we skip it.
             if (ctx.lod && !state.intersect(visible_rect.x, visible_rect.y,
                 visible_rect.w, visible_rect.h))
@@ -665,9 +658,7 @@ class StaticFlopsOverlay extends GenericSdfgOverlay {
             } else {
                 let state_graph = state.data.graph;
                 if (state_graph) {
-                    state_graph.nodes().forEach(v => {
-                        let node = state_graph.node(v);
-
+                    state_graph.nodes().forEach(node => {
                         // Skip the node if it's not visible.
                         if (ctx.lod && !node.intersect(visible_rect.x,
                             visible_rect.y, visible_rect.w, visible_rect.h))
@@ -777,12 +768,10 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
     calculate_volume_graph(g, symbol_map, volume_values) {
         let that = this;
-        g.nodes().forEach(v => {
-            let state = g.node(v);
+        g.nodes().forEach(state => {
             let state_graph = state.data.graph;
             if (state_graph) {
-                state_graph.edges().forEach(e => {
-                    let edge = state_graph.edge(e);
+                state_graph.edges().forEach(edge => {
                     if (edge instanceof Edge)
                         that.calculate_volume_edge(
                             edge,
@@ -791,8 +780,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
                         );
                 });
 
-                state_graph.nodes().forEach(v => {
-                    let node = state_graph.node(v);
+                state_graph.nodes().forEach(node => {
                     if (node instanceof NestedSDFG) {
                         let nested_symbols_map = {};
                         let mapping = node.data.node.attributes.symbol_mapping;
@@ -869,9 +857,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
     }
 
     recursively_shade_sdfg(graph, ctx, ppp, visible_rect) {
-        graph.nodes().forEach(v => {
-            let state = graph.node(v);
-
+        graph.nodes().forEach(state => {
             // If we're zoomed out enough that the contents aren't visible, we
             // skip the state.
             if (ctx.lod && (ppp >= STATE_LOD || state.width / ppp < STATE_LOD))
@@ -884,9 +870,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
             let state_graph = state.data.graph;
             if (state_graph && !state.data.state.attributes.is_collapsed) {
-                state_graph.nodes().forEach(v => {
-                    let node = state_graph.node(v);
-
+                state_graph.nodes().forEach(node => {
                     // Skip the node if it's not visible.
                     if (ctx.lod && !node.intersect(visible_rect.x,
                         visible_rect.y, visible_rect.w, visible_rect.h))
@@ -904,9 +888,7 @@ class MemoryVolumeOverlay extends GenericSdfgOverlay {
                         );
                 });
 
-                state_graph.edges().forEach(e => {
-                    let edge = state_graph.edge(e);
-
+                state_graph.edges().forEach(edge => {
                     if (ctx.lod && !edge.intersect(visible_rect.x,
                         visible_rect.y, visible_rect.w, visible_rect.h))
                         return;

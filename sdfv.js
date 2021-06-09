@@ -178,8 +178,7 @@ function load_sdfg_from_url(url) {
 }
 
 function find_recursive(graph, query, results, case_sensitive) {
-    for (let nodeid of graph.nodes()) {
-        let node = graph.node(nodeid);
+    for (let node of graph.nodes()) {
         let label = node.label();
         if (!case_sensitive)
             label = label.toLowerCase();
@@ -189,8 +188,7 @@ function find_recursive(graph, query, results, case_sensitive) {
         if (node.data.graph)
             find_recursive(node.data.graph, query, results, case_sensitive);
     }
-    for (let edgeid of graph.edges()) {
-        let edge = graph.edge(edgeid);
+    for (let edge of graph.edges()) {
         let label = edge.label();
         if (label !== undefined) {
             if (!case_sensitive)
@@ -285,8 +283,7 @@ function find_in_graph(renderer, sdfg, query, case_sensitive=false) {
 
 function recursive_find_graph(graph, sdfg_id) {
     let found = undefined;
-    graph.nodes().forEach(n_id => {
-        let n = graph.node(n_id);
+    graph.nodes().forEach(n => {
         if (n && n.sdfg.sdfg_list_id === sdfg_id) {
             found = graph;
             return found;
@@ -300,36 +297,15 @@ function recursive_find_graph(graph, sdfg_id) {
 }
 
 function find_state(graph, state_id) {
-    let state = undefined;
-    graph.nodes().forEach(s_id => {
-        if (Number(s_id) === state_id) {
-            state = graph.node(s_id);
-            return state;
-        }
-    });
-    return state;
+    return graph.node(state_id);
 }
 
 function find_node(state, node_id) {
-    let node = undefined;
-    state.data.graph.nodes().forEach(n_id => {
-        if (Number(n_id) === node_id) {
-            node = state.data.graph.node(n_id);
-            return node;
-        }
-    });
-    return node;
+    return state.data.graph.node(node_id);
 }
 
 function find_edge(state, edge_id) {
-    let edge = undefined;
-    state.data.graph.edges().forEach(e_id => {
-        if (Number(e_id.name) === edge_id) {
-            edge = state.data.graph.edge(e_id);
-            return edge;
-        }
-    });
-    return edge;
+    return state.data.graph.edge(edge_id);
 }
 
 function find_graph_element(graph, type, sdfg_id, state_id=-1, el_id=-1) {
