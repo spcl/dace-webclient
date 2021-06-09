@@ -2,13 +2,13 @@
 
 import dagre from 'dagre';
 import { intersectRect } from 'dagre/lib/util';
-import { find_exit_for_entry } from '../utils/sdfg/find_exit_for_entry';
-import { deepCopy } from '../utils/deep_copy';
-import { traverse_sdfg_scopes } from "../utils/sdfg/traverse_sdfg_scopes";
+import { find_exit_for_entry } from '../utils/sdfg/sdfg_utils';
+import { deepCopy } from '../utils/utils.ts';
+import { traverse_sdfg_scopes } from "../utils/sdfg/traversal";
 import { ContextMenu } from "../utils/context_menu";
 import { Connector, Edge, offset_state, SDFGElements, draw_sdfg } from "./renderer_elements";
-import { check_and_redirect_edge } from '../utils/sdfg/check_and_redirect_edge';
-import { memlet_tree_complete } from '../utils/sdfg/memlet_tree';
+import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
+import { memlet_tree_complete } from '../utils/sdfg/traversal';
 import { CanvasManager } from './canvas_manager';
 import { boundingBox, calculateBoundingBox, calculateEdgeBoundingBox } from '../utils/bounding_box';
 import { OverlayManager } from '../overlay_manager';

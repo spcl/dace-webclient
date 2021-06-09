@@ -20,7 +20,7 @@ import { DIODE_Context_Roofline } from "./diode-ui/contexts/roofline";
 const base_url = "//" + window.location.host;
 globalThis.base_url = base_url;
 
-// we cannot import jQuery because w2ui only hijacks the global jQuery instance and has no npm package available
+// we cannot import jQuery from npm because w2ui only hijacks the global jQuery instance and has no npm package available
 const { $ } = globalThis;
 
 start_DIODE();

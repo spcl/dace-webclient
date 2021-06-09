@@ -1,8 +1,8 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { sdfg_range_elem_to_string } from '../utils/sdfg/sdfg_range_elem_to_string';
-import { sdfg_property_to_string } from "../utils/sdfg/sdfg_property_to_string";
-import { check_and_redirect_edge } from "../utils/sdfg/check_and_redirect_edge";
+import { sdfg_range_elem_to_string } from '../utils/sdfg/display';
+import { sdfg_property_to_string } from "../utils/sdfg/display";
+import { check_and_redirect_edge } from "../utils/sdfg/sdfg_utils";
 
 export class SDFGElement {
     // Parent ID is the state ID, if relevant
@@ -1217,4 +1217,5 @@ export const SDFGElements = {
     PipelineEntry: PipelineEntry, PipelineExit: PipelineExit, NestedSDFG: NestedSDFG, LibraryNode: LibraryNode
 };
 
+// TODO remove this global variable assignment once DIODE is removed/no longer relies on it
 Object.assign(globalThis, SDFGElements);

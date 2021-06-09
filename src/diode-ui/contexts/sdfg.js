@@ -1,5 +1,5 @@
 import { SDFG_PropUtil } from "../../utils/sdfg/sdfg_parser";
-import { find_exit_for_entry } from "../../utils/sdfg/find_exit_for_entry";
+import { find_exit_for_entry } from "../../utils/sdfg/sdfg_utils";
 import { parse_sdfg } from "../../utils/sdfg/json_serializer";
 import { ContextMenu } from "../../utils/context_menu";
 import { DIODE_Context } from "./context";

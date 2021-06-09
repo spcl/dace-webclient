@@ -4,6 +4,7 @@
     "description": "This repository hosts the JavaScript side for web and VSCode clients of DaCe.",
     "private": true,
     "scripts": {
+        "start": "npm run serve",
         "clean": "rimraf dist",
         "type-check": "tsc --noEmit",
         "build-dev": "npm run clean && webpack --mode=development",

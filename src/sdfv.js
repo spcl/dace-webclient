@@ -1,17 +1,20 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { parse_sdfg } from "./utils/sdfg/json_serializer";
-import { sdfg_property_to_string } from "./utils/sdfg/sdfg_property_to_string";
-import { traverse_sdfg_scopes } from "./utils/sdfg/traverse_sdfg_scopes";
+import { sdfg_property_to_string } from "./utils/sdfg/display";
+import { traverse_sdfg_scopes } from "./utils/sdfg/traversal";
 import { mean, median } from 'mathjs';
 import { SDFGRenderer } from './renderer/renderer';
 import { GenericSdfgOverlay } from "./overlays/generic_sdfg_overlay";
+import { SDFVUIHandlers } from "./sdfv_ui_handlers";
 const { $ } = globalThis;
 
 let fr;
 let file = null;
 let instrumentation_file = null;
-let renderer = null;
+
+globalThis.daceRenderer = null;
+globalThis.daceUIHandlers ||= SDFVUIHandlers;
 
 
 if (document.currentScript.hasAttribute('data-sdfg-json')) {
@@ -43,21 +46,21 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
         load_instrumentation_report();
     });
     $('#outline').click(() => {
-        if (renderer)
-            setTimeout(() => outline(renderer, renderer.graph), 1);
+        if (globalThis.daceRenderer)
+            setTimeout(() => outline(globalThis.daceRenderer, globalThis.daceRenderer.graph), 1);
     });
     $('#search-btn').click(() => {
-        if (renderer)
+        if (globalThis.daceRenderer)
             setTimeout(() => {
-                find_in_graph(renderer, renderer.graph, $('#search').val(),
+                find_in_graph(globalThis.daceRenderer, globalThis.daceRenderer.graph, $('#search').val(),
                     $('#search-case')[0].checked);
             }, 1);
     });
     $('#search').on('keydown', (e) => {
         if (e.key == 'Enter' || e.which == 13) {
-            if (renderer)
+            if (globalThis.daceRenderer)
                 setTimeout(() => {
-                    find_in_graph(renderer, renderer.graph, $('#search').val(),
+                    find_in_graph(globalThis.daceRenderer, globalThis.daceRenderer.graph, $('#search').val(),
                         $('#search-case')[0].checked);
                 }, 1);
             e.preventDefault();
@@ -65,7 +68,7 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
     });
 
     if (sdfg !== null)
-        renderer = new SDFGRenderer(sdfg, document.getElementById('contents'),
+        globalThis.daceRenderer = new SDFGRenderer(sdfg, document.getElementById('contents'),
             mouse_event, user_transform, debug_draw);
 }
 
@@ -79,9 +82,8 @@ function reload_file() {
 
 function file_read_complete() {
     const sdfg = parse_sdfg(fr.result);
-    if (renderer)
-        renderer.destroy();
-    renderer = new SDFGRenderer(sdfg, document.getElementById('contents'), mouse_event);
+    globalThis.daceRenderer?.destroy();
+    globalThis.daceRenderer = new SDFGRenderer(sdfg, document.getElementById('contents'), mouse_event);
     close_menu();
 }
 
@@ -117,7 +119,7 @@ function get_minmax(arr) {
 function instrumentation_report_read_complete(report) {
     const runtime_map = {};
 
-    if (report.traceEvents && renderer && renderer.sdfg) {
+    if (report.traceEvents && globalThis.daceRenderer?.sdfg) {
         for (const event of report.traceEvents) {
             if (event.ph === 'X') {
                 let uuid = event.args.sdfg_id + '/';
@@ -153,6 +155,8 @@ function instrumentation_report_read_complete(report) {
             runtime_map[key] = runtime_summary;
         }
 
+        const renderer = globalThis.daceRenderer;
+
         if (renderer.overlay_manager) {
             if (!renderer.overlay_manager.runtime_us_overlay_active)
                 renderer.overlay_manager.register_overlay(
@@ -186,8 +190,8 @@ function load_sdfg_from_url(url) {
     request.onload = () => {
         if (request.status == 200) {
             const sdfg = parse_sdfg(request.response);
-            if (renderer)
-                renderer.destroy();
+            if (globalThis.daceRenderer)
+                globalThis.daceRenderer.destroy();
             init_sdfv(sdfg);
         } else {
             alert("Failed to load SDFG from URL");
@@ -226,51 +230,7 @@ function find_recursive(graph, query, results, case_sensitive) {
     }
 }
 
-function sidebar_set_title(title) {
-    // Modify sidebar header
-    document.getElementById("sidebar-header").innerText = title;
-}
-
-function sidebar_get_contents() {
-    return document.getElementById("sidebar-contents");
-}
-
-function sidebar_show() {
-    // Open sidebar if closed
-    document.getElementById("sidebar").style.display = "flex";
-}
-
-function fill_info(elem) {
-    // Change contents
-    const contents = sidebar_get_contents();
-    let html = "";
-    if (elem instanceof Edge && elem.data.type === "Memlet") {
-        const sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
-        html += "<h4>Connectors: " + sdfg_edge.src_connector + " &rarr; " + sdfg_edge.dst_connector + "</h4>";
-    }
-    html += "<hr />";
-
-    for (const attr of Object.entries(elem.attributes())) {
-        if (attr[0] === "layout" || attr[0] === "sdfg" || attr[0] === "_arrays" || attr[0].startsWith("_meta_")) continue;
-        html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
-        html += sdfg_property_to_string(attr[1], renderer.view_settings()) + "</p>";
-    }
-
-    // If access node, add array information too
-    if (elem instanceof AccessNode) {
-        const sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
-        html += "<br /><h4>" + sdfg_array.type + " properties:</h4>";
-        for (const attr of Object.entries(sdfg_array.attributes)) {
-            if (attr[0] === "layout" || attr[0] === "sdfg" || attr[0].startsWith("_meta_")) continue;
-            html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
-            html += sdfg_property_to_string(attr[1], renderer.view_settings()) + "</p>";
-        }
-    }
-
-    contents.innerHTML = html;
-}
-
-function find_in_graph(renderer, sdfg, query, case_sensitive = false) {
+function find_in_graph(daceRenderer, sdfg, query, case_sensitive = false) {
     sidebar_set_title('Search Results for "' + query + '"');
 
     const results = [];
@@ -390,86 +350,11 @@ function find_graph_element(graph, type, sdfg_id, state_id = -1, el_id = -1) {
     return undefined;
 }
 
-function outline(renderer, sdfg) {
-    sidebar_set_title('SDFG Outline');
-
-    const sidebar = sidebar_get_contents();
-    sidebar.innerHTML = '';
-
-    // Entire SDFG
-    const d = document.createElement('div');
-    d.className = 'context_menu_option';
-    d.innerHTML = '<i class="material-icons" style="font-size: inherit">filter_center_focus</i> SDFG ' +
-        renderer.sdfg.attributes.name;
-    d.onclick = () => renderer.zoom_to_view();
-    sidebar.appendChild(d);
-
-    const stack = [sidebar];
-
-    // Add elements to tree view in sidebar
-    traverse_sdfg_scopes(sdfg, (node, parent) => {
-        // Skip exit nodes when scopes are known
-        if (node.type().endsWith('Exit') && node.data.node.scope_entry >= 0) {
-            stack.push(null);
-            return true;
-        }
-
-        // Create element
-        const d = document.createElement('div');
-        d.className = 'context_menu_option';
-        let is_collapsed = node.attributes().is_collapsed;
-        is_collapsed = (is_collapsed === undefined) ? false : is_collapsed;
-        let node_type = node.type();
-
-        // If a scope has children, remove the name "Entry" from the type
-        if (node.type().endsWith('Entry')) {
-            const state = node.sdfg.nodes[node.parent_id];
-            if (state.scope_dict[node.id] !== undefined) {
-                node_type = node_type.slice(0, -5);
-            }
-        }
-
-        d.innerHTML = node_type + ' ' + node.label() + (is_collapsed ? " (collapsed)" : "");
-        d.onclick = (e) => {
-            // Show node or entire scope
-            const nodes_to_display = [node];
-            if (node.type().endsWith('Entry')) {
-                const state = node.sdfg.nodes[node.parent_id];
-                if (state.scope_dict[node.id] !== undefined) {
-                    for (const subnode_id of state.scope_dict[node.id])
-                        nodes_to_display.push(parent.node(subnode_id));
-                }
-            }
-
-            renderer.zoom_to_view(nodes_to_display);
-
-            // Ensure that the innermost div is the one that handles the event
-            if (!e) e = window.event;
-            e.cancelBubble = true;
-            if (e.stopPropagation) e.stopPropagation();
-        };
-        stack.push(d);
-
-        // If is collapsed, don't traverse further
-        if (is_collapsed)
-            return false;
-
-    }, (node, parent) => {
-        // After scope ends, pop ourselves as the current element 
-        // and add to parent
-        const elem = stack.pop();
-        if (elem)
-            stack[stack.length - 1].appendChild(elem);
-    });
-
-    sidebar_show();
-}
-
 function mouse_event(evtype, event, mousepos, elements, renderer,
     selected_elements, ends_drag) {
     if ((evtype === 'click' && !ends_drag) || evtype === 'dblclick') {
         if (renderer.menu)
-            renderer.menu.destroy();
+        renderer.menu.destroy();
         let element;
         if (selected_elements.length === 0)
             element = new SDFG(renderer.sdfg);
@@ -490,26 +375,32 @@ function mouse_event(evtype, event, mousepos, elements, renderer,
     }
 }
 
-function close_menu() {
-    document.getElementById("sidebar").style.display = "none";
+function init_menu() {
+    globalThis.daceUIHandlers.on_init_menu();
 }
 
+function sidebar_set_title() {
+    globalThis.daceUIHandlers.on_sidebar_set_title();
+}
 
-function init_menu() {
-    const right = document.getElementById('sidebar');
-    const bar = document.getElementById('dragbar');
+function sidebar_show() {
+    globalThis.daceUIHandlers.on_sidebar_show();
+}
 
-    const drag = (e) => {
-        document.selection ? document.selection.empty() : window.getSelection().removeAllRanges();
-        right.style.width = Math.max(((e.view.innerWidth - e.pageX)), 20) + 'px';
-    };
+function sidebar_get_contents() {
+    globalThis.daceUIHandlers.on_sidebar_get_contents();
+}
 
-    bar.addEventListener('mousedown', () => {
-        document.addEventListener('mousemove', drag);
-        document.addEventListener('mouseup', () => {
-            document.removeEventListener('mousemove', drag);
-        });
-    });
+function close_menu() {
+    globalThis.daceUIHandlers.on_close_menu();
+}
+
+function outline() {
+    globalThis.daceUIHandlers.on_outline();
+}
+
+function fill_info() {
+    globalThis.daceUIHandlers.on_fill_info();
 }
 
 $('document').ready(() => {

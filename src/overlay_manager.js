@@ -1,6 +1,6 @@
 // Copyright 2019-2020 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { createElement } from './utils/create_element';
+import { createElement } from "./utils/utils";
 import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
 import { RuntimeMicroSecondsOverlay } from './overlays/runtime_micro_seconds_overlay';
 import { StaticFlopsOverlay } from './overlays/static_flops_overlay';
