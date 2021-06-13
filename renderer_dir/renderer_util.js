@@ -1978,31 +1978,31 @@ class CanvasDrawManager {
         };
         let transform_func = _ctx.scale;
         _ctx.transform = function(a,b,c,d,e,f){
-			let m2 = svg.createSVGMatrix();
-			m2.a=a; m2.b=b; m2.c=c; m2.d=d; m2.e=e; m2.f=f;
+            let m2 = svg.createSVGMatrix();
+            m2.a=a; m2.b=b; m2.c=c; m2.d=d; m2.e=e; m2.f=f;
             _ctx._custom_transform_matrix = _ctx._custom_transform_matrix.multiply(m2);
             checker();
-			return transform_func.call(_ctx,a,b,c,d,e,f);
-		};
+            return transform_func.call(_ctx,a,b,c,d,e,f);
+        };
 
         let setTransform_func = _ctx.setTransform;
-		_ctx.setTransform = function(a,b,c,d,e,f){
-			_ctx._custom_transform_matrix.a = a;
-			_ctx._custom_transform_matrix.b = b;
-			_ctx._custom_transform_matrix.c = c;
-			_ctx._custom_transform_matrix.d = d;
-			_ctx._custom_transform_matrix.e = e;
+        _ctx.setTransform = function(a,b,c,d,e,f){
+            _ctx._custom_transform_matrix.a = a;
+            _ctx._custom_transform_matrix.b = b;
+            _ctx._custom_transform_matrix.c = c;
+            _ctx._custom_transform_matrix.d = d;
+            _ctx._custom_transform_matrix.e = e;
             _ctx._custom_transform_matrix.f = f;
             checker();
-			return setTransform_func.call(_ctx,a,b,c,d,e,f);
-		};
-		
-		_ctx.custom_inverseTransformMultiply = function(x,y){
+            return setTransform_func.call(_ctx,a,b,c,d,e,f);
+        };
+        
+        _ctx.custom_inverseTransformMultiply = function(x,y){
             let pt  = svg.createSVGPoint();
             pt.x=x; pt.y=y;
             checker();
-			return pt.matrixTransform(_ctx._custom_transform_matrix.inverse());
-		}
+            return pt.matrixTransform(_ctx._custom_transform_matrix.inverse());
+        }
     }
 
     destroy() {

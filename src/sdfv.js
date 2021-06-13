@@ -353,7 +353,7 @@ function mouse_event(evtype, event, mousepos, elements, renderer,
     selected_elements, ends_drag) {
     if ((evtype === 'click' && !ends_drag) || evtype === 'dblclick') {
         if (renderer.menu)
-        renderer.menu.destroy();
+            renderer.menu.destroy();
         let element;
         if (selected_elements.length === 0)
             element = new SDFG(renderer.sdfg);

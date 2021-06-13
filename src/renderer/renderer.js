@@ -60,11 +60,11 @@ export class SDFGRenderer {
         this.selected_elements = [];
 
         // Overlay fields
-		try {
-			this.overlay_manager = new OverlayManager(this);
-		} catch (ex) {
-			this.overlay_manager = null;
-		}
+        try {
+            this.overlay_manager = new OverlayManager(this);
+        } catch (ex) {
+            this.overlay_manager = null;
+        }
 
         // Draw debug aids.
         this.debug_draw = debug_draw;
@@ -454,8 +454,8 @@ export class SDFGRenderer {
         this.update_fast_memlet_lookup();
 
         // Make sure all visible overlays get recalculated if there are any.
-		if (this.overlay_manager !== null)
-			this.overlay_manager.refresh();
+        if (this.overlay_manager !== null)
+            this.overlay_manager.refresh();
 
         // If we're in a VSCode context, we also want to refresh the outline.
         try {
