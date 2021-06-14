@@ -6,7 +6,7 @@ import { find_exit_for_entry } from '../utils/sdfg/sdfg_utils';
 import { deepCopy } from '../utils/utils.ts';
 import { traverse_sdfg_scopes } from "../utils/sdfg/traversal";
 import { ContextMenu } from "../utils/context_menu";
-import { Connector, Edge, offset_state, SDFGElements, draw_sdfg } from "./renderer_elements";
+import { Connector, Edge, offset_state, SDFGElements, draw_sdfg, offset_sdfg } from "./renderer_elements";
 import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
 import { memlet_tree_complete } from '../utils/sdfg/traversal';
 import { CanvasManager } from './canvas_manager';
