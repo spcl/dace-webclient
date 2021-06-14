@@ -16,7 +16,7 @@ let instrumentation_file = null;
 
 
 export const globals = assignIfNotExists(
-    globalThis,
+    /** @type {{}} */ (globalThis),
     {
         daceRenderer: null,
         daceUIHandlers: SDFVUIHandlers,
