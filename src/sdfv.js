@@ -8,6 +8,9 @@ import { SDFVUIHandlers } from "./sdfv_ui_handlers";
 import { htmlSanitize } from "./utils/sanitization";
 import { SDFGElements } from "./renderer/renderer_elements";
 import { assignIfNotExists } from "./utils/utils"
+import { sdfg_property_to_string, sdfg_range_elem_to_string } from "./utils/sdfg/display";
+import { find_graph_element_by_uuid, get_uuid_graph_element } from "./utils/sdfg/sdfg_utils";
+import { traverse_sdfg_scopes } from "./utils/sdfg/traversal";
 const { $ } = globalThis;
 
 let fr;
@@ -23,7 +26,13 @@ export const globals = assignIfNotExists(
         daceInitSDFV: init_sdfv,
         daceParseSDFG: parse_sdfg,
         daceStringifySDFG: stringify_sdfg,
+        daceSDFGPropertyToString: sdfg_property_to_string,
+        daceSDFGRangeElemToString: sdfg_range_elem_to_string,
+        daceGetUUIDGraphElement: get_uuid_graph_element,
+        daceFindGraphElementByUUID: find_graph_element_by_uuid,
+        daceTraverseSDFGScopes: traverse_sdfg_scopes,
         daceSDFGElements: SDFGElements,
+        daceGenericSDFGOverlay: GenericSdfgOverlay,
     }
 );
 
