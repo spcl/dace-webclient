@@ -44,3 +44,14 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
         parent.appendChild(element);
     return element;
 }
+
+/**
+ * Similar to Object.assign, but skips properties that already exist in `obj`.
+ */
+export function assignIfNotExists<T, E>(obj: T, other: E): T & Omit<E, keyof T> {
+    const o = obj as any;
+    for (const [key, val] of Object.entries(other)) {
+        if (!(key in obj)) o[key] = val;
+    }
+    return o;
+}

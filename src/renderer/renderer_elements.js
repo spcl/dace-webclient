@@ -1211,10 +1211,8 @@ export function getTempColor(val) {
 }
 
 export const SDFGElements = {
-    SDFGElement: SDFGElement, SDFG: SDFG, State: State, SDFGNode: SDFGNode, Edge: Edge, Connector: Connector, AccessNode: AccessNode,
-    ScopeNode: ScopeNode, EntryNode: EntryNode, ExitNode: ExitNode, MapEntry: MapEntry, MapExit: MapExit,
-    ConsumeEntry: ConsumeEntry, ConsumeExit: ConsumeExit, Tasklet: Tasklet, Reduce: Reduce,
-    PipelineEntry: PipelineEntry, PipelineExit: PipelineExit, NestedSDFG: NestedSDFG, LibraryNode: LibraryNode
+    SDFGElement, SDFG, State, SDFGNode, Edge, Connector, AccessNode, ScopeNode, EntryNode, ExitNode, MapEntry, MapExit,
+    ConsumeEntry, ConsumeExit, Tasklet, Reduce, PipelineEntry, PipelineExit, NestedSDFG, LibraryNode
 };
 
 // TODO remove this global variable assignment once DIODE is removed/no longer relies on it

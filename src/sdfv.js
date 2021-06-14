@@ -1,19 +1,32 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { parse_sdfg } from "./utils/sdfg/json_serializer";
+import { parse_sdfg, stringify_sdfg } from "./utils/sdfg/json_serializer";
 import { mean, median } from 'mathjs';
 import { SDFGRenderer } from './renderer/renderer';
 import { GenericSdfgOverlay } from "./overlays/generic_sdfg_overlay";
 import { SDFVUIHandlers } from "./sdfv_ui_handlers";
 import { htmlSanitize } from "./utils/sanitization";
+import { SDFGElements } from "./renderer/renderer_elements";
+import { assignIfNotExists } from "./utils/utils"
 const { $ } = globalThis;
 
 let fr;
 let file = null;
 let instrumentation_file = null;
 
-globalThis.daceRenderer = null;
-globalThis.daceUIHandlers ||= SDFVUIHandlers;  // possibly overriden by plug-ins
+
+export const globals = assignIfNotExists(
+    globalThis,
+    {
+        daceRenderer: null,
+        daceUIHandlers: SDFVUIHandlers,
+        daceInitSDFV: init_sdfv,
+        daceParseSDFG: parse_sdfg,
+        daceStringifySDFG: stringify_sdfg,
+        daceSDFGElements: SDFGElements,
+    }
+);
+
 
 
 if (document.currentScript.hasAttribute('data-sdfg-json')) {
@@ -45,21 +58,21 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
         load_instrumentation_report();
     });
     $('#outline').click(() => {
-        if (globalThis.daceRenderer)
-            setTimeout(() => outline(globalThis.daceRenderer, globalThis.daceRenderer.graph), 1);
+        if (globals.daceRenderer)
+            setTimeout(() => outline(globals.daceRenderer, globals.daceRenderer.graph), 1);
     });
     $('#search-btn').click(() => {
-        if (globalThis.daceRenderer)
+        if (globals.daceRenderer)
             setTimeout(() => {
-                find_in_graph(globalThis.daceRenderer, globalThis.daceRenderer.graph, $('#search').val(),
+                find_in_graph(globals.daceRenderer, globals.daceRenderer.graph, $('#search').val(),
                     $('#search-case')[0].checked);
             }, 1);
     });
     $('#search').on('keydown', (e) => {
         if (e.key == 'Enter' || e.which == 13) {
-            if (globalThis.daceRenderer)
+            if (globals.daceRenderer)
                 setTimeout(() => {
-                    find_in_graph(globalThis.daceRenderer, globalThis.daceRenderer.graph, $('#search').val(),
+                    find_in_graph(globals.daceRenderer, globals.daceRenderer.graph, $('#search').val(),
                         $('#search-case')[0].checked);
                 }, 1);
             e.preventDefault();
@@ -67,7 +80,7 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
     });
 
     if (sdfg !== null)
-        globalThis.daceRenderer = new SDFGRenderer(sdfg, document.getElementById('contents'),
+        globals.daceRenderer = new SDFGRenderer(sdfg, document.getElementById('contents'),
             mouse_event, user_transform, debug_draw);
 }
 
@@ -81,8 +94,8 @@ function reload_file() {
 
 function file_read_complete() {
     const sdfg = parse_sdfg(fr.result);
-    globalThis.daceRenderer?.destroy();
-    globalThis.daceRenderer = new SDFGRenderer(sdfg, document.getElementById('contents'), mouse_event);
+    globals.daceRenderer?.destroy();
+    globals.daceRenderer = new SDFGRenderer(sdfg, document.getElementById('contents'), mouse_event);
     close_menu();
 }
 
@@ -118,7 +131,7 @@ function get_minmax(arr) {
 function instrumentation_report_read_complete(report) {
     const runtime_map = {};
 
-    if (report.traceEvents && globalThis.daceRenderer?.sdfg) {
+    if (report.traceEvents && globals.daceRenderer?.sdfg) {
         for (const event of report.traceEvents) {
             if (event.ph === 'X') {
                 let uuid = event.args.sdfg_id + '/';
@@ -154,7 +167,7 @@ function instrumentation_report_read_complete(report) {
             runtime_map[key] = runtime_summary;
         }
 
-        const renderer = globalThis.daceRenderer;
+        const renderer = globals.daceRenderer;
 
         if (renderer.overlay_manager) {
             if (!renderer.overlay_manager.runtime_us_overlay_active)
@@ -189,8 +202,8 @@ function load_sdfg_from_url(url) {
     request.onload = () => {
         if (request.status == 200) {
             const sdfg = parse_sdfg(request.response);
-            if (globalThis.daceRenderer)
-                globalThis.daceRenderer.destroy();
+            if (globals.daceRenderer)
+                globals.daceRenderer.destroy();
             init_sdfv(sdfg);
         } else {
             alert("Failed to load SDFG from URL");
@@ -375,31 +388,31 @@ function mouse_event(evtype, event, mousepos, elements, renderer,
 }
 
 function init_menu() {
-    return globalThis.daceUIHandlers.on_init_menu();
+    return globals.daceUIHandlers.on_init_menu();
 }
 
 function sidebar_set_title(title) {
-    return globalThis.daceUIHandlers.on_sidebar_set_title(title);
+    return globals.daceUIHandlers.on_sidebar_set_title(title);
 }
 
 function sidebar_show() {
-    return globalThis.daceUIHandlers.on_sidebar_show();
+    return globals.daceUIHandlers.on_sidebar_show();
 }
 
 function sidebar_get_contents() {
-    return globalThis.daceUIHandlers.sidebar_get_contents();
+    return globals.daceUIHandlers.sidebar_get_contents();
 }
 
 function close_menu() {
-    return globalThis.daceUIHandlers.on_close_menu();
+    return globals.daceUIHandlers.on_close_menu();
 }
 
 function outline(renderer, sdfg) {
-    return globalThis.daceUIHandlers.on_outline(renderer, sdfg);
+    return globals.daceUIHandlers.on_outline(renderer, sdfg);
 }
 
 function fill_info(elem) {
-    return globalThis.daceUIHandlers.on_fill_info(elem);
+    return globals.daceUIHandlers.on_fill_info(elem);
 }
 
 $('document').ready(() => {
