@@ -35,7 +35,7 @@ export const globals = assignIfNotExists(
         daceSDFGRenderer: SDFGRenderer,
         daceSDFGElements: SDFGElements,
         daceGenericSDFGOverlay: GenericSdfgOverlay,
-		daceMouseEvent: mouse_event
+        daceMouseEvent: mouse_event,
     }
 );
 
