@@ -32,6 +32,7 @@ export const globals = assignIfNotExists(
         daceFindGraphElementByUUID: find_graph_element_by_uuid,
         daceTraverseSDFGScopes: traverse_sdfg_scopes,
         daceSDFGTypeclassToString: sdfg_typeclass_to_string,
+        daceSDFGRenderer: SDFGRenderer,
         daceSDFGElements: SDFGElements,
         daceGenericSDFGOverlay: GenericSdfgOverlay,
     }
