@@ -82,7 +82,7 @@ export function sdfg_property_to_string(prop, settings = null) {
     }
 }
 
-function string_to_sdfg_typeclass(str) {
+export function string_to_sdfg_typeclass(str) {
     str.replace(/\s+/g, '');
 
     if (str === '' || str === 'null')
