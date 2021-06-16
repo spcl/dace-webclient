@@ -8,8 +8,16 @@ import { SDFVUIHandlers } from "./sdfv_ui_handlers";
 import { htmlSanitize } from "./utils/sanitization";
 import { SDFGElements } from "./renderer/renderer_elements";
 import { assignIfNotExists } from "./utils/utils"
-import { sdfg_property_to_string, sdfg_range_elem_to_string, sdfg_typeclass_to_string } from "./utils/sdfg/display";
-import { find_graph_element_by_uuid, get_uuid_graph_element } from "./utils/sdfg/sdfg_utils";
+import {
+    sdfg_property_to_string,
+    sdfg_range_elem_to_string,
+    sdfg_typeclass_to_string,
+    string_to_sdfg_typeclass
+} from "./utils/sdfg/display";
+import {
+    find_graph_element_by_uuid,
+    get_uuid_graph_element
+} from "./utils/sdfg/sdfg_utils";
 import { traverse_sdfg_scopes } from "./utils/sdfg/traversal";
 const { $ } = globalThis;
 
@@ -32,6 +40,7 @@ export const globals = assignIfNotExists(
         daceFindGraphElementByUUID: find_graph_element_by_uuid,
         daceTraverseSDFGScopes: traverse_sdfg_scopes,
         daceSDFGTypeclassToString: sdfg_typeclass_to_string,
+        daceStringToSDFGTypeclass: string_to_sdfg_typeclass,
         daceSDFGRenderer: SDFGRenderer,
         daceSDFGElements: SDFGElements,
         daceGenericSDFGOverlay: GenericSdfgOverlay,
