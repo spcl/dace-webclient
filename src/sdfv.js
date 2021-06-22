@@ -12,11 +12,11 @@ import {
     sdfg_property_to_string,
     sdfg_range_elem_to_string,
     sdfg_typeclass_to_string,
-    string_to_sdfg_typeclass
+    string_to_sdfg_typeclass,
 } from "./utils/sdfg/display";
 import {
     find_graph_element_by_uuid,
-    get_uuid_graph_element
+    get_uuid_graph_element,
 } from "./utils/sdfg/sdfg_utils";
 import { traverse_sdfg_scopes } from "./utils/sdfg/traversal";
 const { $ } = globalThis;
@@ -113,7 +113,7 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
             pan: pan_btn,
             move: move_btn,
             select: select_btn,
-            add_btns: add_btns
+            add_btns: add_btns,
         };
 
     if (sdfg !== null)
@@ -289,55 +289,6 @@ function find_recursive(graph, query, results, case_sensitive) {
                 results.push(edge);
         }
     }
-}
-
-function sidebar_set_title(title) {
-    document.getElementById("sidebar-header").innerText = title;
-}
-
-function sidebar_get_contents() {
-    return document.getElementById("sidebar-contents");
-}
-
-function sidebar_show() {
-    document.getElementById("sidebar").style.display = "flex";
-}
-
-function fill_info(elem) {
-    let contents = sidebar_get_contents();
-    let html = "";
-    if (elem instanceof Edge && elem.data.type === "Memlet") {
-        let sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
-        html += "<h4>Connectors: " + sdfg_edge.src_connector + " &rarr; " +
-            sdfg_edge.dst_connector + "</h4>";
-    }
-    html += "<hr />";
-
-    for (let attr of Object.entries(elem.attributes())) {
-        if (attr[0] === "layout" || attr[0] === "sdfg" ||
-            attr[0] === "_arrays" || attr[0].startsWith("_meta_") ||
-            attr[0] == "position")
-            continue;
-        html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
-        html += sdfg_property_to_string(attr[1], renderer.view_settings()) +
-            "</p>";
-    }
-
-    // If access node, add array information too
-    if (elem instanceof AccessNode) {
-        let sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
-        html += "<br /><h4>" + sdfg_array.type + " properties:</h4>";
-        for (let attr of Object.entries(sdfg_array.attributes)) {
-            if (attr[0] === "layout" || attr[0] === "sdfg" ||
-                attr[0].startsWith("_meta_"))
-                continue;
-            html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
-            html += sdfg_property_to_string(attr[1], renderer.view_settings()) +
-                "</p>";
-        }
-    }
-
-    contents.innerHTML = html;
 }
 
 function find_in_graph(renderer, sdfg, query, case_sensitive=false) {

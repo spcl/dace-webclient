@@ -2,7 +2,12 @@
 
 import dagre from 'dagre';
 import { intersectRect } from 'dagre/lib/util';
-import { find_exit_for_entry } from '../utils/sdfg/sdfg_utils';
+import {
+    find_exit_for_entry,
+    get_positioning_info,
+    delete_positioning_info,
+    get_uuid_graph_element,
+} from '../utils/sdfg/sdfg_utils';
 import { deepCopy } from '../utils/utils.ts';
 import { traverse_sdfg_scopes } from '../utils/sdfg/traversal';
 import { ContextMenu } from '../utils/context_menu';
@@ -24,6 +29,7 @@ import {
 } from '../utils/bounding_box';
 import { OverlayManager } from '../overlay_manager';
 import { GenericSdfgOverlay } from "../overlays/generic_sdfg_overlay";
+import { stringify_sdfg } from '../utils/sdfg/json_serializer';
 
 export class SDFGRenderer {
     constructor(sdfg, container, on_mouse_event = null, user_transform = null,
@@ -570,13 +576,8 @@ export class SDFGRenderer {
     }
 
     send_new_sdfg_to_vscode() {
-        this.sdfg_stringified = stringify_sdfg(this.sdfg, 4)
-        try {
-            vscode.postMessage({
-                type: 'dace.write_edit_to_sdfg',
-                sdfg: this.sdfg_stringified
-            });
-        } catch (e) { }
+        // This function is only implemented in the context of VSCode.
+        return;
     }
 
     set_sdfg(new_sdfg) {

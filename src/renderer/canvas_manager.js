@@ -4,6 +4,10 @@ import { intersectRect } from 'dagre/lib/util';
 import { Edge } from "./renderer_elements";
 import { lerpMatrix } from '../utils/lerp_matrix';
 import { updateEdgeBoundingBox } from '../utils/bounding_box';
+import {
+    get_positioning_info,
+    initialize_positioning_info,
+} from "../utils/sdfg/sdfg_utils";
 
 const animation_duration = 1000;
 const animation_function = t => 1 - Math.pow(1 - t, 3);  // cubic ease out
@@ -579,7 +583,7 @@ export class CanvasManager {
             if (edge.src_connector !== null) {
                 for (let i = 0; i < el.out_connectors.length; i++) {
                     if (el.out_connectors[i].data.name === edge.src_connector) {
-                        edge.points[0] = dagre.util.intersectRect(el.out_connectors[i], edge.points[1]);
+                        edge.points[0] = intersectRect(el.out_connectors[i], edge.points[1]);
                         moved = true;
                         break;
                     }
@@ -596,7 +600,7 @@ export class CanvasManager {
                 if (dst_el) {
                     for (let i = 0; i < dst_el.in_connectors.length; i++) {
                         if (dst_el.in_connectors[i].data.name === edge.dst_connector) {
-                            edge.points[n] = dagre.util.intersectRect(dst_el.in_connectors[i], edge.points[n - 1]);
+                            edge.points[n] = intersectRect(dst_el.in_connectors[i], edge.points[n - 1]);
                             break;
                         }
                     }
@@ -610,7 +614,7 @@ export class CanvasManager {
             if (edge.dst_connector !== null) {
                 for (let i = 0; i < el.in_connectors.length; i++) {
                     if (el.in_connectors[i].data.name === edge.dst_connector) {
-                        edge.points[n] = dagre.util.intersectRect(el.in_connectors[i], edge.points[n-1]);
+                        edge.points[n] = intersectRect(el.in_connectors[i], edge.points[n-1]);
                         moved = true;
                         break;
                     }
@@ -627,7 +631,7 @@ export class CanvasManager {
                 if (src_el) {
                     for (let i = 0; i < src_el.out_connectors.length; i++) {
                         if (src_el.out_connectors[i].data.name === edge.src_connector) {
-                            edge.points[0] = dagre.util.intersectRect(src_el.out_connectors[i], edge.points[1]);
+                            edge.points[0] = intersectRect(src_el.out_connectors[i], edge.points[1]);
                             break;
                         }
                     }

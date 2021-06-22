@@ -29,29 +29,36 @@ function on_sidebar_show() {
 }
 
 function on_fill_info(elem) {
-    // Change contents
-    const contents = sidebar_get_contents();
-    let html = htmlSanitize``;
+    let contents = sidebar_get_contents();
+    let html = "";
     if (elem instanceof Edge && elem.data.type === "Memlet") {
-        const sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
-        html += htmlSanitize`<h4>Connectors: ${sdfg_edge.src_connector} &rarr; ${sdfg_edge.dst_connector}</h4>`;
+        let sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
+        html += "<h4>Connectors: " + sdfg_edge.src_connector + " &rarr; " +
+            sdfg_edge.dst_connector + "</h4>";
     }
-    html += htmlSanitize`<hr />`;
+    html += "<hr />";
 
-    for (const attr of Object.entries(elem.attributes())) {
-        if (attr[0] === "layout" || attr[0] === "sdfg" || attr[0] === "_arrays" || attr[0].startsWith("_meta_")) continue;
-        html += htmlSanitize`<p><b>${attr[0]}</b>:&nbsp;&nbsp;`;
-        html += htmlSanitize`${sdfg_property_to_string(attr[1], globalThis.daceRenderer.view_settings())}</p>`;
+    for (let attr of Object.entries(elem.attributes())) {
+        if (attr[0] === "layout" || attr[0] === "sdfg" ||
+            attr[0] === "_arrays" || attr[0].startsWith("_meta_") ||
+            attr[0] == "position")
+            continue;
+        html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
+        html += sdfg_property_to_string(attr[1], renderer.view_settings()) +
+            "</p>";
     }
 
     // If access node, add array information too
     if (elem instanceof AccessNode) {
-        const sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
-        html += htmlSanitize`<br /><h4>${sdfg_array.type} properties:</h4>`;
-        for (const attr of Object.entries(sdfg_array.attributes)) {
-            if (attr[0] === "layout" || attr[0] === "sdfg" || attr[0].startsWith("_meta_")) continue;
-            html += htmlSanitize`<p><b>${attr[0]}</b>:&nbsp;&nbsp;`;
-            html += htmlSanitize`${sdfg_property_to_string(attr[1], globalThis.daceRenderer.view_settings())}</p>`;
+        let sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
+        html += "<br /><h4>" + sdfg_array.type + " properties:</h4>";
+        for (let attr of Object.entries(sdfg_array.attributes)) {
+            if (attr[0] === "layout" || attr[0] === "sdfg" ||
+                attr[0].startsWith("_meta_"))
+                continue;
+            html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
+            html += sdfg_property_to_string(attr[1], renderer.view_settings()) +
+                "</p>";
         }
     }
 
