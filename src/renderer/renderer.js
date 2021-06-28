@@ -413,8 +413,8 @@ export class SDFGRenderer {
         };
 
         // React to ctrl and shift key presses
-        window.onkeydown = e => this.on_key_event(e);
-        window.onkeyup = e => this.on_key_event(e);
+        document.addEventListener('keydown', (e) => this.on_key_event(e));
+        document.addEventListener('keyup', (e) => this.on_key_event(e));
 
         // Exit previewing mode
         if (in_vscode) {
@@ -1293,6 +1293,8 @@ export class SDFGRenderer {
 
         if (event.shiftKey && !event.ctrlKey)
             this.movemode_btn.onclick(event, true);
+
+        return true;
     }
 
     on_mouse_event(event, comp_x_func, comp_y_func, evtype = "other") {
