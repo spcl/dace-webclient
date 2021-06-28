@@ -212,7 +212,7 @@ export function initialize_positioning_info(elem) {
 export function set_positioning_info(elem, position) {
     if (elem instanceof State)
         elem.data.state.attributes.position = position;
-    else if (elem instanceof Node)
+    else if (elem instanceof SDFGNode)
         elem.data.node.attributes.position = position;
     else if (elem instanceof Edge)
         elem.data.attributes.position = position;
@@ -232,7 +232,7 @@ export function set_positioning_info(elem, position) {
 export function get_positioning_info(elem) {
     if (elem instanceof State)
         return elem.data.state.attributes.position;
-    if (elem instanceof Node)
+    if (elem instanceof SDFGNode)
         return elem.data.node.attributes.position;
     if (elem instanceof Edge)
         return elem.data.attributes.position;
@@ -253,7 +253,7 @@ export function get_positioning_info(elem) {
 export function delete_positioning_info(elem) {
     if (elem instanceof State)
         delete elem.data.state.attributes.position;
-    if (elem instanceof Node)
+    if (elem instanceof SDFGNode)
         delete elem.data.node.attributes.position;
     if (elem instanceof Edge)
         delete elem.data.attributes.position;

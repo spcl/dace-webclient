@@ -344,7 +344,8 @@ export class CanvasManager {
                 if (drag_start.edge_point === undefined) {
                     let dist = null;
                     el.points.forEach((p, i) => {
-                        // Only allow dragging if the memlet has more than two points
+                        // Only allow dragging if the memlet has more than two
+                        // points
                         if (i == 0 || i == el.points.length - 1)
                             return;
                         let ddx = p.x - drag_start.cx;
@@ -356,8 +357,9 @@ export class CanvasManager {
                         }
                     });
                     drag_start.edge_point = pt;
-                } else
+                } else {
                     pt = drag_start.edge_point;
+                }
             }
         }
 
@@ -599,8 +601,11 @@ export class CanvasManager {
                 let dst_el = parent_graph.node(e?.dst);
                 if (dst_el) {
                     for (let i = 0; i < dst_el.in_connectors.length; i++) {
-                        if (dst_el.in_connectors[i].data.name === edge.dst_connector) {
-                            edge.points[n] = intersectRect(dst_el.in_connectors[i], edge.points[n - 1]);
+                        let dst_name = dst_el.in_connectors[i].data.name;
+                        if (dst_name === edge.dst_connector) {
+                            edge.points[n] = intersectRect(
+                                dst_el.in_connectors[i], edge.points[n - 1]
+                            );
                             break;
                         }
                     }
@@ -614,7 +619,9 @@ export class CanvasManager {
             if (edge.dst_connector !== null) {
                 for (let i = 0; i < el.in_connectors.length; i++) {
                     if (el.in_connectors[i].data.name === edge.dst_connector) {
-                        edge.points[n] = intersectRect(el.in_connectors[i], edge.points[n-1]);
+                        edge.points[n] = intersectRect(
+                            el.in_connectors[i], edge.points[n-1]
+                        );
                         moved = true;
                         break;
                     }
@@ -630,8 +637,11 @@ export class CanvasManager {
                 let src_el = parent_graph.node(e?.src);
                 if (src_el) {
                     for (let i = 0; i < src_el.out_connectors.length; i++) {
-                        if (src_el.out_connectors[i].data.name === edge.src_connector) {
-                            edge.points[0] = intersectRect(src_el.out_connectors[i], edge.points[1]);
+                        let out_name = src_el.out_connectors[i].data.name;
+                        if (out_name === edge.src_connector) {
+                            edge.points[0] = intersectRect(
+                                src_el.out_connectors[i], edge.points[1]
+                            );
                             break;
                         }
                     }

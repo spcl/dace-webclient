@@ -688,7 +688,8 @@ export class SDFGRenderer {
                 if (n.data.node.scope_entry) {
                     let scope_entry_node = graph.node(n.data.node.scope_entry);
                     let sp = get_positioning_info(scope_entry_node);
-                    if (sp && Number.isFinite(sp.scope_dx) && Number.isFinite(sp.scope_dy)) {
+                    if (sp && Number.isFinite(sp.scope_dx) &&
+                        Number.isFinite(sp.scope_dy)) {
                         scope_dx += sp.scope_dx;
                         scope_dy += sp.scope_dy;
                     }
@@ -713,9 +714,11 @@ export class SDFGRenderer {
 
             if (dx || dy) {
                 // Move the element
-                this.canvas_manager.translate_element(node, { x: node.x, y: node.y },
-                    { x: node.x + dx, y: node.y + dy }, this.graph, this.sdfg_list,
-                    this.state_parent_list, undefined, false);
+                this.canvas_manager.translate_element(
+                    node, { x: node.x, y: node.y },
+                    { x: node.x + dx, y: node.y + dy }, this.graph,
+                    this.sdfg_list, this.state_parent_list, undefined, false
+                );
             }
 
             graph.inEdges(node.id).forEach(_ => {});
@@ -1326,34 +1329,57 @@ export class SDFGRenderer {
                         this.drag_start.cx = comp_x_func(this.drag_start);
                         this.drag_start.cy = comp_y_func(this.drag_start);
                         let elements_to_move = [this.last_dragged_element];
-                        if (this.selected_elements.includes(this.last_dragged_element) && this.selected_elements.length > 1) {
-                            elements_to_move = this.selected_elements.filter(el => {
-                                // Do not move connectors (individually)
-                                if (el instanceof Connector)
-                                    return false;
-                                let list_id = el.sdfg.sdfg_list_id;
-                                // Do not move element individually if it is moved together with a nested SDFG
-                                let nested_sdfg_parent = this.state_parent_list[list_id];
-                                if (nested_sdfg_parent && this.selected_elements.includes(nested_sdfg_parent))
-                                    return false;
-                                // Do not move element individually if it is moved together with its parent state
-                                let state_parent = this.sdfg_list[list_id].node(el.parent_id);
-                                if (state_parent && this.selected_elements.includes(state_parent))
-                                    return false;
-                                // Otherwise move individually
-                                return true;
-                            });
+                        if (this.selected_elements.includes(
+                                this.last_dragged_element
+                            ) && this.selected_elements.length > 1) {
+                            elements_to_move = this.selected_elements.filter(
+                                el => {
+                                    // Do not move connectors (individually)
+                                    if (el instanceof Connector)
+                                        return false;
+                                    let list_id = el.sdfg.sdfg_list_id;
+
+                                    // Do not move element individually if it is
+                                    // moved together with a nested SDFG
+                                    let nested_sdfg_parent =
+                                        this.state_parent_list[list_id];
+                                    if (nested_sdfg_parent &&
+                                        this.selected_elements.includes(
+                                            nested_sdfg_parent
+                                        ))
+                                        return false;
+
+                                    // Do not move element individually if it is
+                                    // moved together with its parent state
+                                    let state_parent =
+                                        this.sdfg_list[list_id].node(
+                                            el.parent_id
+                                        );
+                                    if (state_parent &&
+                                        this.selected_elements.includes(
+                                            state_parent
+                                        ))
+                                        return false;
+
+                                    // Otherwise move individually
+                                    return true;
+                                }
+                            );
                         }
+
+                        let move_entire_edge = elements_to_move.length > 1;
                         for (let el of elements_to_move) {
                             this.canvas_manager.translate_element(
                                 el,
                                 old_mousepos, this.mousepos,
-                                this.graph, this.sdfg_list, this.state_parent_list,
+                                this.graph, this.sdfg_list,
+                                this.state_parent_list,
                                 this.drag_start,
                                 true,
-                                elements_to_move.length > 1 // move the entire edge if more than one element selected
+                                move_entire_edge
                             );
                         }
+
                         dirty = true;
                         this.draw_async();
                         return false;
@@ -1463,15 +1489,20 @@ export class SDFGRenderer {
 
         if (this.mouse_mode == 'add') {
             let el = this.mouse_follow_element;
-            if ((this.add_type == 'SDFGState' && (foreground_elem instanceof NestedSDFG || foreground_elem == null)) ||
-                 (this.add_type != 'SDFGState' && foreground_elem instanceof State)) {
+            if ((this.add_type == 'SDFGState' &&
+                 (foreground_elem instanceof NestedSDFG ||
+                  foreground_elem == null)) ||
+                 (this.add_type != 'SDFGState' &&
+                  foreground_elem instanceof State)) {
                 el.firstElementChild.setAttribute('stroke', 'green');
             } else {
                 el.firstElementChild.setAttribute('stroke', 'red');
             }
 
-            el.style.left = (event.layerX - el.firstElementChild.clientWidth / 2) + 'px';
-            el.style.top = (event.layerY - el.firstElementChild.clientHeight / 2) + 'px';
+            el.style.left =
+                (event.layerX - el.firstElementChild.clientWidth / 2) + 'px';
+            el.style.top =
+                (event.layerY - el.firstElementChild.clientHeight / 2) + 'px';
         }
 
         // Change mouse cursor accordingly
@@ -1644,8 +1675,11 @@ export class SDFGRenderer {
                     this.send_new_sdfg_to_vscode();
             } else {
                 if (this.mouse_mode == 'add') {
-                    if ((this.add_type == 'SDFGState' && (foreground_elem instanceof NestedSDFG || foreground_elem == null)) ||
-                        (this.add_type != 'SDFGState' && foreground_elem instanceof State)) {
+                    if ((this.add_type == 'SDFGState' &&
+                         (foreground_elem instanceof NestedSDFG ||
+                          foreground_elem == null)) ||
+                        (this.add_type != 'SDFGState' &&
+                         foreground_elem instanceof State)) {
 
                         this.add_position = this.mousepos;
 
@@ -1705,7 +1739,8 @@ export class SDFGRenderer {
                 for (let el of elements_to_reset) {
                     let position = get_positioning_info(el);
                     if (el && !(el instanceof Connector) && position) {
-                        // Reset the position of the element (if it has been manually moved)
+                        // Reset the position of the element (if it has been
+                        // manually moved)
                         if (el instanceof Edge) {
                             if (!position.points)
                                 continue;
@@ -1723,16 +1758,20 @@ export class SDFGRenderer {
                             }
 
                             // Move it to original position
-                            this.canvas_manager.translate_element(el, { x: 0, y: 0 },
-                                { x: 0, y: 0 }, this.graph, this.sdfg_list,
-                                this.state_parent_list, undefined, false, false, new_points);
+                            this.canvas_manager.translate_element(
+                                el, { x: 0, y: 0 }, { x: 0, y: 0 }, this.graph,
+                                this.sdfg_list, this.state_parent_list,
+                                undefined, false, false, new_points
+                            );
 
                             element_moved = true;
                         } else {
                             let new_x, new_y;
                             if (!position.dx && !position.dy)
                                 continue;
-                            // Calculate original position with the relative movement
+
+                            // Calculate original position with the relative
+                            // movement
                             new_x = el.x - position.dx;
                             new_y = el.y - position.dy;
 
@@ -1740,9 +1779,12 @@ export class SDFGRenderer {
                             position.dy = 0;
 
                             // Move it to original position
-                            this.canvas_manager.translate_element(el, { x: el.x, y: el.y },
-                                { x: new_x, y: new_y }, this.graph, this.sdfg_list,
-                                this.state_parent_list, undefined, false);
+                            this.canvas_manager.translate_element(
+                                el, { x: el.x, y: el.y },
+                                { x: new_x, y: new_y }, this.graph,
+                                this.sdfg_list, this.state_parent_list,
+                                undefined, false, false, undefined
+                            );
 
                             element_moved = true;
                         }
