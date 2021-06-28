@@ -580,6 +580,11 @@ export class SDFGRenderer {
         return;
     }
 
+    add_node_to_graph() {
+        // This function is only implemented in the context of VSCode.
+        return;
+    }
+
     set_sdfg(new_sdfg) {
         let new_sdfg_stringified = stringify_sdfg(new_sdfg, 4);
         if (new_sdfg_stringified == this.sdfg_stringified) {
@@ -604,9 +609,10 @@ export class SDFGRenderer {
         let first = uuids[0];
         let el = find_graph_element_by_uuid(this.graph, first).element;
         // TODO: set in construction attribute
-        this.canvas_manager.translate_element(el, { x: el.x, y: el.y },
-            this.add_position, this.sdfg, this.sdfg_list,
-            this.state_parent_list, null, true);
+        this.canvas_manager.translate_element(
+            el, { x: el.x, y: el.y }, this.add_position, this.sdfg,
+            this.sdfg_list, this.state_parent_list, null, true
+        );
 
         this.add_position = null;
 
@@ -1685,14 +1691,13 @@ export class SDFGRenderer {
 
                         this.add_position = this.mousepos;
 
-                        vscode.postMessage({
-                            type: 'dace.insert_node',
-                            sdfg: stringify_sdfg(this.sdfg),
-                            add_type: this.add_type,
-                            parent: get_uuid_graph_element(foreground_elem)
-                        });
+                        this.add_node_to_graph(
+                            this.add_type,
+                            get_uuid_graph_element(foreground_elem)
+                        );
                     }
                 }
+
                 if (foreground_elem) {
                     if (event.ctrlKey) {
                         // Ctrl + click on an object, add it, or remove it from
