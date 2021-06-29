@@ -84,6 +84,16 @@ export function find_exit_for_entry(nodes, entry_node) {
             element.id + '/' +
             undefined_val
         );
+    } else if (element instanceof Edge) {
+        let parent_id = undefined_val;
+        if (element.parent_id !== null && element.parent_id !== undefined)
+            parent_id = element.parent_id;
+        return (
+            element.sdfg.sdfg_list_id + '/' +
+            parent_id + '/' +
+            undefined_val + '/' +
+            element.id
+        );
     }
     return (
         undefined_val + '/' +

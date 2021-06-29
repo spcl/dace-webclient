@@ -33,13 +33,15 @@ import { OverlayManager } from '../overlay_manager';
 import { GenericSdfgOverlay } from "../overlays/generic_sdfg_overlay";
 import { fill_info } from '../sdfv';
 
-function check_valid_add_position(type, foreground_elem) {
+function check_valid_add_position(type, foreground_elem, mousepos) {
     switch (type) {
         case 'SDFGState':
             return (foreground_elem instanceof NestedSDFG ||
                     foreground_elem === null);
         case 'Connector':
             return foreground_elem instanceof SDFGNode;
+        case 'Edge':
+            //return true;
         default:
             return foreground_elem instanceof State;
     }
@@ -1537,7 +1539,9 @@ export class SDFGRenderer {
 
         if (this.mouse_mode == 'add') {
             let el = this.mouse_follow_element;
-            if (check_valid_add_position(this.add_type, foreground_elem))
+            if (check_valid_add_position(
+                this.add_type, foreground_elem, this.mousepos
+            ))
                 el.firstElementChild.setAttribute('stroke', 'green');
             else
                 el.firstElementChild.setAttribute('stroke', 'red');
@@ -1718,7 +1722,9 @@ export class SDFGRenderer {
                     this.send_new_sdfg_to_vscode();
             } else {
                 if (this.mouse_mode == 'add') {
-                    if (check_valid_add_position(this.type, foreground_elem)) {
+                    if (check_valid_add_position(
+                        this.type, foreground_elem, this.mousepos
+                    )) {
                         this.add_position = this.mousepos;
 
                         this.add_node_to_graph(
