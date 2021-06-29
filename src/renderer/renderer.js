@@ -19,6 +19,7 @@ import {
     SDFGElements,
     draw_sdfg,
     offset_sdfg,
+    NestedSDFG,
 } from './renderer_elements';
 import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
 import { memlet_tree_complete } from '../utils/sdfg/traversal';
@@ -31,6 +32,18 @@ import {
 import { OverlayManager } from '../overlay_manager';
 import { GenericSdfgOverlay } from "../overlays/generic_sdfg_overlay";
 import { fill_info } from '../sdfv';
+
+function check_valid_add_position(type, foreground_elem) {
+    switch (type) {
+        case 'SDFGState':
+            return (foreground_elem instanceof NestedSDFG ||
+                    foreground_elem === null);
+        case 'Connector':
+            return foreground_elem instanceof SDFGNode;
+        default:
+            return foreground_elem instanceof State;
+    }
+}
 
 export class SDFGRenderer {
     constructor(sdfg, container, on_mouse_event = null, user_transform = null,
@@ -544,6 +557,16 @@ export class SDFGRenderer {
                 <line x1="70" x2="10" y1="10" y2="70"/>
                 <line x1="10" x2="10" y1="70" y2="130"/>
             </svg>`;
+        svgs['LibraryNode'] =
+            `<svg width="2.6rem" height="1.3rem" viewBox="0 0 400 200" stroke="white" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="10" x2="10" y1="10" y2="190"/>
+                        <line x1="10" x2="390" y1="190" y2="190"/>
+                        <line x1="390" x2="390" y1="190" y2="55"/>
+                        <line x1="390" x2="345" y1="55" y2="10"/>
+                        <line x1="345" x2="10" y1="10" y2="10"/>
+                        <line x1="345" x2="345" y1="10" y2="55"/>
+                        <line x1="345" x2="390" y1="55" y2="55"/>
+            </svg>`;
         svgs['AccessNode'] =
             `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="100" cy="100" r="90" fill="none"/>
@@ -555,6 +578,19 @@ export class SDFGRenderer {
         svgs['SDFGState'] = 
             `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <rect x="20" y="20" width="160" height="160" style="fill:#deebf7;" />
+            </svg>`;
+        svgs['Connector'] =
+            `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="white" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="100" cy="100" r="40" fill="none"/>
+            </svg>`;
+        svgs['Edge'] =
+            `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="white" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7"  refX="0" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" />
+                    </marker>
+                </defs>
+                <line x1="20" y1="20" x2="180" y2="180" marker-end="url(#arrowhead)" />
             </svg>`;
 
         let el = document.createElement('div');
@@ -1501,15 +1537,10 @@ export class SDFGRenderer {
 
         if (this.mouse_mode == 'add') {
             let el = this.mouse_follow_element;
-            if ((this.add_type == 'SDFGState' &&
-                 (foreground_elem instanceof NestedSDFG ||
-                  foreground_elem == null)) ||
-                 (this.add_type != 'SDFGState' &&
-                  foreground_elem instanceof State)) {
+            if (check_valid_add_position(this.add_type, foreground_elem))
                 el.firstElementChild.setAttribute('stroke', 'green');
-            } else {
+            else
                 el.firstElementChild.setAttribute('stroke', 'red');
-            }
 
             el.style.left =
                 (event.layerX - el.firstElementChild.clientWidth / 2) + 'px';
@@ -1687,12 +1718,7 @@ export class SDFGRenderer {
                     this.send_new_sdfg_to_vscode();
             } else {
                 if (this.mouse_mode == 'add') {
-                    if ((this.add_type == 'SDFGState' &&
-                         (foreground_elem instanceof NestedSDFG ||
-                          foreground_elem == null)) ||
-                        (this.add_type != 'SDFGState' &&
-                         foreground_elem instanceof State)) {
-
+                    if (check_valid_add_position(this.type, foreground_elem)) {
                         this.add_position = this.mousepos;
 
                         this.add_node_to_graph(
