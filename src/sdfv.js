@@ -460,7 +460,7 @@ function outline(renderer, sdfg) {
     return globals.daceUIHandlers.on_outline(renderer, sdfg);
 }
 
-function fill_info(elem) {
+export function fill_info(elem) {
     return globals.daceUIHandlers.on_fill_info(elem);
 }
 

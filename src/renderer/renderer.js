@@ -7,6 +7,7 @@ import {
     get_positioning_info,
     delete_positioning_info,
     get_uuid_graph_element,
+    find_graph_element_by_uuid,
 } from '../utils/sdfg/sdfg_utils';
 import { deepCopy } from '../utils/utils.ts';
 import { traverse_sdfg_scopes } from '../utils/sdfg/traversal';
@@ -29,14 +30,13 @@ import {
 } from '../utils/bounding_box';
 import { OverlayManager } from '../overlay_manager';
 import { GenericSdfgOverlay } from "../overlays/generic_sdfg_overlay";
-import { stringify_sdfg } from '../utils/sdfg/json_serializer';
+import { fill_info } from '../sdfv';
 
 export class SDFGRenderer {
     constructor(sdfg, container, on_mouse_event = null, user_transform = null,
                 debug_draw = false, background = null, mode_buttons = null) {
         // DIODE/SDFV-related fields
         this.sdfg = sdfg;
-        this.sdfg_stringified = stringify_sdfg(sdfg, 4);
         this.sdfg_list = {};
         this.state_parent_list = {}; // List of all state's parent elements
 
@@ -585,13 +585,14 @@ export class SDFGRenderer {
         return;
     }
 
+    remove_graph_nodes() {
+        // This function is only implemented in the context of VSCode.
+        return;
+    }
+
     set_sdfg(new_sdfg) {
-        let new_sdfg_stringified = stringify_sdfg(new_sdfg, 4);
-        if (new_sdfg_stringified == this.sdfg_stringified) {
-            return;
-        }
         this.sdfg = new_sdfg;
-        this.sdfg_stringified = new_sdfg_stringified;
+
         this.relayout();
         this.draw_async();
     
@@ -1280,11 +1281,11 @@ export class SDFGRenderer {
         if (this.shift_key_movement && !event.shiftKey)
             this.movemode_btn.onclick(event, false);
 
-        if (this.mouse_mode != "pan") {
-            if (event.key == "Escape" && !event.ctrlKey && !event.shiftKey)
+        if (this.mouse_mode !== 'pan') {
+            if (event.key === 'Escape' && !event.ctrlKey && !event.shiftKey)
                 this.panmode_btn.onclick();
             return;
-        } else if (event.key == "Escape") {
+        } else if (event.key === 'Escape') {
             if (this.selected_elements.length > 0) {
                 this.selected_elements.forEach(el => {
                     el.selected = false;
@@ -1292,6 +1293,9 @@ export class SDFGRenderer {
                 this.selected_elements = [];
                 this.draw_async();
             }
+        } else if (event.key === 'Delete' && event.type === 'keyup') {
+            if (this.selected_elements.length > 0)
+                this.remove_graph_nodes(this.selected_elements);
         }
 
         if (event.ctrlKey && !event.shiftKey)
