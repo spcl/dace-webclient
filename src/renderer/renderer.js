@@ -41,7 +41,8 @@ function check_valid_add_position(type, foreground_elem, mousepos) {
         case 'Connector':
             return foreground_elem instanceof SDFGNode;
         case 'Edge':
-            //return true;
+            return (foreground_elem instanceof SDFGNode ||
+                    foreground_elem instanceof State);
         default:
             return foreground_elem instanceof State;
     }
@@ -99,6 +100,7 @@ export class SDFGRenderer {
         this.shift_key_movement = false;
         this.add_uuid = null;
         this.add_position = null;
+        this.add_edge_start = null;
 
         // Selection related fields
         this.selected_elements = [];
@@ -613,20 +615,19 @@ export class SDFGRenderer {
         this.canvas_manager.draw_async();
     }
 
-    send_new_sdfg_to_vscode() {
-        // This function is only implemented in the context of VSCode.
-        return;
-    }
+    // --------------------------------------------------------------
+    // These functions are only implemented in the context of VSCode.
 
-    add_node_to_graph() {
-        // This function is only implemented in the context of VSCode.
-        return;
-    }
+    send_new_sdfg_to_vscode() {}
 
-    remove_graph_nodes() {
-        // This function is only implemented in the context of VSCode.
-        return;
-    }
+    add_node_to_graph() {}
+
+    remove_graph_nodes() {}
+
+    update_new_element() {}
+
+    // END VSCode specific functions.
+    // --------------------------------------------------------------
 
     set_sdfg(new_sdfg) {
         this.sdfg = new_sdfg;
@@ -639,23 +640,6 @@ export class SDFGRenderer {
             let uuid = get_uuid_graph_element(this.selected_elements[0]);
             fill_info(find_graph_element_by_uuid(this.graph, uuid).element);
         }
-    }
-
-    // Move the newly added element to the correct position
-    update_new_element(uuids) {
-        if (!this.add_position) return;
-
-        let first = uuids[0];
-        let el = find_graph_element_by_uuid(this.graph, first).element;
-        // TODO: set in construction attribute
-        this.canvas_manager.translate_element(
-            el, { x: el.x, y: el.y }, this.add_position, this.sdfg,
-            this.sdfg_list, this.state_parent_list, null, true
-        );
-
-        this.add_position = null;
-
-        this.send_new_sdfg_to_vscode();
     }
 
     // Set mouse events (e.g., click, drag, zoom)
@@ -1723,14 +1707,28 @@ export class SDFGRenderer {
             } else {
                 if (this.mouse_mode == 'add') {
                     if (check_valid_add_position(
-                        this.type, foreground_elem, this.mousepos
+                        this.add_type, foreground_elem, this.mousepos
                     )) {
-                        this.add_position = this.mousepos;
+                        if (this.add_type == 'Edge') {
+                            if (this.add_edge_start) {
+                                let start = this.add_edge_start;
+                                this.add_edge_start = undefined;
+                                this.add_node_to_graph(
+                                    this.add_type,
+                                    get_uuid_graph_element(foreground_elem),
+                                    get_uuid_graph_element(start)
+                                );
+                            } else {
+                                this.add_edge_start = foreground_elem;
+                            }
+                        } else {
+                            this.add_position = this.mousepos;
 
-                        this.add_node_to_graph(
-                            this.add_type,
-                            get_uuid_graph_element(foreground_elem)
-                        );
+                            this.add_node_to_graph(
+                                this.add_type,
+                                get_uuid_graph_element(foreground_elem)
+                            );
+                        }
                     }
                 }
 
