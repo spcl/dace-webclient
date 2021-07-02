@@ -245,6 +245,8 @@ export class OverlayManager {
                 this.construction_overlay_active = true;
                 break;
             default:
+                // Object overlay
+                this.overlays.push(type);
                 break;
         }
         this.renderer.draw_async();
