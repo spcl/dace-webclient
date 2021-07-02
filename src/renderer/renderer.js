@@ -33,16 +33,16 @@ import { OverlayManager } from '../overlay_manager';
 import { GenericSdfgOverlay } from "../overlays/generic_sdfg_overlay";
 import { fill_info } from '../sdfv';
 
-function check_valid_add_position(type, foreground_elem, mousepos) {
+function check_valid_add_position(type, foreground_elem, lib, mousepos) {
     switch (type) {
         case 'SDFGState':
             return (foreground_elem instanceof NestedSDFG ||
                     foreground_elem === null);
-        case 'Connector':
-            return foreground_elem instanceof SDFGNode;
         case 'Edge':
             return (foreground_elem instanceof SDFGNode ||
                     foreground_elem instanceof State);
+        case 'LibraryNode':
+            return (foreground_elem instanceof State && lib);
         default:
             return foreground_elem instanceof State;
     }
@@ -75,6 +75,7 @@ export class SDFGRenderer {
         this.selectmode_btn = null;
         this.addmode_btns = null;
         this.add_type = null;
+        this.add_mode_lib = null;
         this.addmode_divs = null;
         this.mode_selected_bg_color = "#CCCCCC";
         this.mouse_follow_svgs = null;
@@ -357,11 +358,22 @@ export class SDFGRenderer {
             this.selectmode_btn = mode_buttons.select;
             this.addmode_btns = mode_buttons.add_btns;
             for (let add_btn of this.addmode_btns) {
-                add_btn.onclick = () => {
-                    this.mouse_mode = 'add';
-                    this.add_type = add_btn.getAttribute('type');
-                    this.update_toggle_buttons();
-                };
+                if (add_btn.getAttribute('type') === 'LibraryNode') {
+                    add_btn.onclick = () => {
+                        this.show_select_library_node_dialog(() => {
+                            this.mouse_mode = 'add';
+                            this.add_type = 'LibraryNode';
+                            this.update_toggle_buttons()
+                        });
+                    };
+                } else {
+                    add_btn.onclick = () => {
+                        this.mouse_mode = 'add';
+                        this.add_type = add_btn.getAttribute('type');
+                        this.add_mode_lib = null;
+                        this.update_toggle_buttons();
+                    };
+                }
             }
             this.mode_selected_bg_color = '#22A4FE';
         } else {
@@ -400,6 +412,7 @@ export class SDFGRenderer {
         this.panmode_btn.onclick = () => {
             this.mouse_mode = 'pan';
             this.add_type = null;
+            this.add_mode_lib = null;
             this.update_toggle_buttons();
         };
 
@@ -412,6 +425,7 @@ export class SDFGRenderer {
             else
                 this.mouse_mode = 'move';
             this.add_type = null;
+            this.add_mode_lib = null;
             this.shift_key_movement = shift_click;
             this.update_toggle_buttons();
         };
@@ -425,6 +439,7 @@ export class SDFGRenderer {
             else
                 this.mouse_mode = 'select';
             this.add_type = null;
+            this.add_mode_lib = null;
             this.ctrl_key_selection = ctrl_click;
             this.update_toggle_buttons();
         };
@@ -625,6 +640,8 @@ export class SDFGRenderer {
     remove_graph_nodes() {}
 
     update_new_element() {}
+
+    show_select_library_node_dialog() {}
 
     // END VSCode specific functions.
     // --------------------------------------------------------------
@@ -1524,7 +1541,7 @@ export class SDFGRenderer {
         if (this.mouse_mode == 'add') {
             let el = this.mouse_follow_element;
             if (check_valid_add_position(
-                this.add_type, foreground_elem, this.mousepos
+                this.add_type, foreground_elem, this.add_mode_lib, this.mousepos
             ))
                 el.firstElementChild.setAttribute('stroke', 'green');
             else
@@ -1705,11 +1722,12 @@ export class SDFGRenderer {
                 if (this.mouse_mode === 'move')
                     this.send_new_sdfg_to_vscode();
             } else {
-                if (this.mouse_mode == 'add') {
+                if (this.mouse_mode === 'add') {
                     if (check_valid_add_position(
-                        this.add_type, foreground_elem, this.mousepos
+                        this.add_type, foreground_elem, this.add_mode_lib,
+                        this.mousepos
                     )) {
-                        if (this.add_type == 'Edge') {
+                        if (this.add_type === 'Edge') {
                             if (this.add_edge_start) {
                                 let start = this.add_edge_start;
                                 this.add_edge_start = undefined;
@@ -1721,6 +1739,13 @@ export class SDFGRenderer {
                             } else {
                                 this.add_edge_start = foreground_elem;
                             }
+                        } else if (this.add_type === 'LibraryNode') {
+                            this.add_position = this.mousepos;
+
+                            this.add_node_to_graph(
+                                this.add_type + '|' + this.add_mode_lib,
+                                get_uuid_graph_element(foreground_elem)
+                            );
                         } else {
                             this.add_position = this.mousepos;
 
