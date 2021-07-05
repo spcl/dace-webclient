@@ -34,6 +34,7 @@ export const globals = assignIfNotExists(
         daceInitSDFV: init_sdfv,
         daceParseSDFG: parse_sdfg,
         daceStringifySDFG: stringify_sdfg,
+        daceFindInGraph: find_in_graph,
         daceSDFGPropertyToString: sdfg_property_to_string,
         daceSDFGRangeElemToString: sdfg_range_elem_to_string,
         daceGetUUIDGraphElement: get_uuid_graph_element,
