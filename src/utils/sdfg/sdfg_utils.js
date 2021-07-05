@@ -15,10 +15,10 @@ export function recursively_find_graph(graph, graph_id, ns_node = undefined) {
             graph: undefined,
             node: undefined,
         };
-        graph.nodes().forEach((state_id) => {
+        for (const state_id of graph.nodes()) {
             const state = graph.node(state_id);
             if (state.data.graph !== undefined && state.data.graph !== null)
-                state.data.graph.nodes().forEach((node_id) => {
+                for (const node_id of state.data.graph.nodes()) {
                     const node = state.data.graph.node(node_id);
                     if (node instanceof NestedSDFG) {
                         const search_graph = recursively_find_graph(
@@ -28,9 +28,8 @@ export function recursively_find_graph(graph, graph_id, ns_node = undefined) {
                             return search_graph;
                         }
                     }
-                });
-            return result;
-        });
+                }
+        }
         return result;
     }
 }
@@ -66,14 +65,6 @@ export function find_exit_for_entry(nodes, entry_node) {
         return (
             element.sdfg.sdfg_list_id + '/' +
             element.id + '/' +
-            undefined_val + '/' +
-            undefined_val
-        );
-    } else if (element instanceof NestedSDFG) {
-        const sdfg_id = element.data.node.attributes.sdfg.sdfg_list_id;
-        return (
-            sdfg_id + '/' +
-            undefined_val + '/' +
             undefined_val + '/' +
             undefined_val
         );
@@ -140,9 +131,9 @@ export function find_graph_element_by_uuid(p_graph, uuid) {
     let graph = p_graph;
     if (graph_id > 0) {
         const found_graph = recursively_find_graph(graph, graph_id);
-        if (found_graph.graph === undefined) {
+        if (found_graph.graph === undefined)
             throw new Error();
-        }
+
         graph = found_graph.graph;
         result = {
             parent: graph,
