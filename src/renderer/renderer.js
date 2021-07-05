@@ -352,7 +352,8 @@ export class SDFGRenderer {
         this.toolbar.appendChild(d);
 
         if (mode_buttons) {
-            // If we get the "external" mode buttons we are in vscode and do not need to create them
+            // If we get the "external" mode buttons we are in vscode and do
+            // not need to create them.
             this.panmode_btn = mode_buttons.pan;
             this.movemode_btn = mode_buttons.move;
             this.selectmode_btn = mode_buttons.select;
@@ -368,10 +369,14 @@ export class SDFGRenderer {
                     };
                 } else {
                     add_btn.onclick = () => {
-                        this.mouse_mode = 'add';
-                        this.add_type = add_btn.getAttribute('type');
-                        this.add_mode_lib = null;
-                        this.update_toggle_buttons();
+                        if (!daemon_connected) {
+                            this.show_no_daemon_dialog();
+                        } else {
+                            this.mouse_mode = 'add';
+                            this.add_type = add_btn.getAttribute('type');
+                            this.add_mode_lib = null;
+                            this.update_toggle_buttons();
+                        }
                     };
                 }
             }
@@ -640,6 +645,8 @@ export class SDFGRenderer {
     remove_graph_nodes() {}
 
     update_new_element() {}
+
+    show_no_daemon_dialog() {}
 
     show_select_library_node_dialog() {}
 
