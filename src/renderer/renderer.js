@@ -162,8 +162,10 @@ export class SDFGRenderer {
 
         for (let add_btn of this.addmode_btns) {
             if (add_btn.getAttribute('type') == this.add_type) {
-                add_btn.style = 'user-select: none; background: ' + this.mode_selected_bg_color;
-                this.mouse_follow_element.innerHTML = this.mouse_follow_svgs[this.add_type];
+                add_btn.style = 'user-select: none; background: ' +
+                    this.mode_selected_bg_color;
+                this.mouse_follow_element.innerHTML =
+                    this.mouse_follow_svgs[this.add_type];
             } else {
                 add_btn.style = 'user-select: none;';
             }
@@ -171,18 +173,23 @@ export class SDFGRenderer {
 
         switch (this.mouse_mode) {
             case 'move':
-                this.movemode_btn.style = 'padding-bottom: 0px; user-select: none; background: ' + this.mode_selected_bg_color;
+                this.movemode_btn.style = 'padding-bottom: 0px; ' +
+                    'user-select: none; ' +
+                    'background: ' + this.mode_selected_bg_color;
                 this.interaction_info_box.style.display = 'block';
                 this.interaction_info_text.innerHTML =
                     'Middle Mouse: Pan view<br>' +
                     'Right Click: Reset position';
                 break;
             case 'select':
-                this.selectmode_btn.style = 'padding-bottom: 0px; user-select: none; background: ' + this.mode_selected_bg_color;
+                this.selectmode_btn.style = 'padding-bottom: 0px; ' +
+                    'user-select: none; ' +
+                    'background: ' + this.mode_selected_bg_color;
                 this.interaction_info_box.style.display = 'block';
                 this.canvas.style.cursor = 'crosshair';
                 if (this.ctrl_key_selection) {
-                    this.interaction_info_text.innerHTML = 'Middle Mouse: Pan view';
+                    this.interaction_info_text.innerHTML =
+                        'Middle Mouse: Pan view';
                 } else {
                     this.interaction_info_text.innerHTML =
                         'Shift: Add to selection<br>' +
@@ -190,16 +197,32 @@ export class SDFGRenderer {
                         'Middle Mouse: Pan view';
                 }
                 break;
-            case 'pan':
-                this.panmode_btn.style = 'padding-bottom: 0px; user-select: none; background: ' + this.mode_selected_bg_color;
-                break;
-            default:
+            case 'add':
                 this.interaction_info_box.style.display = 'block';
-                this.interaction_info_text.innerHTML =
-                    'Left Click: Place element<br>' +
-                    'Ctrl Left Click: Place element and stay in Add Mode<br>' +
-                    'Middle Mouse: Pan view<br>' +
-                    'Right Click: Abort';
+                if (this.add_type === 'Edge') {
+                    if (this.add_edge_start)
+                        this.interaction_info_text.innerHTML =
+                            'Left Click: Select second element (to)<br>' +
+                            'Middle Mouse: Pan view<br>' +
+                            'Right Click / Esc: Abort';
+                    else
+                        this.interaction_info_text.innerHTML =
+                            'Left Click: Select first element (from)<br>' +
+                            'Middle Mouse: Pan view<br>' +
+                            'Right Click / Esc: Abort';
+                } else {
+                    this.interaction_info_text.innerHTML =
+                        'Left Click: Place element<br>' +
+                        'Ctrl + Left Click: Place and stay in Add Mode<br>' +
+                        'Middle Mouse: Pan view<br>' +
+                        'Right Click / Esc: Abort';
+                }
+                break;
+            case 'pan':
+            default:
+                this.panmode_btn.style = 'padding-bottom: 0px; ' +
+                    'user-select: none; ' +
+                    'background: ' + this.mode_selected_bg_color;
                 break;
         }
     }
@@ -364,6 +387,7 @@ export class SDFGRenderer {
                         this.show_select_library_node_dialog(() => {
                             this.mouse_mode = 'add';
                             this.add_type = 'LibraryNode';
+                            this.add_edge_start = null;
                             this.update_toggle_buttons()
                         });
                     };
@@ -375,6 +399,7 @@ export class SDFGRenderer {
                             this.mouse_mode = 'add';
                             this.add_type = add_btn.getAttribute('type');
                             this.add_mode_lib = null;
+                            this.add_edge_start = null;
                             this.update_toggle_buttons();
                         }
                     };
@@ -418,6 +443,7 @@ export class SDFGRenderer {
             this.mouse_mode = 'pan';
             this.add_type = null;
             this.add_mode_lib = null;
+            this.add_edge_start = null;
             this.update_toggle_buttons();
         };
 
@@ -431,6 +457,7 @@ export class SDFGRenderer {
                 this.mouse_mode = 'move';
             this.add_type = null;
             this.add_mode_lib = null;
+            this.add_edge_start = null;
             this.shift_key_movement = shift_click;
             this.update_toggle_buttons();
         };
@@ -445,6 +472,7 @@ export class SDFGRenderer {
                 this.mouse_mode = 'select';
             this.add_type = null;
             this.add_mode_lib = null;
+            this.add_edge_start = null;
             this.ctrl_key_selection = ctrl_click;
             this.update_toggle_buttons();
         };
@@ -1342,6 +1370,7 @@ export class SDFGRenderer {
         } else if (event.key === 'Delete' && event.type === 'keyup') {
             if (this.selected_elements.length > 0)
                 this.remove_graph_nodes(this.selected_elements);
+            this.selected_elements = [];
         }
 
         if (event.ctrlKey && !event.shiftKey)
@@ -1642,6 +1671,13 @@ export class SDFGRenderer {
                 obj.hovered = true;
         });
 
+        // If adding an edge, mark/highlight the first/from element, if it has
+        // already been selected.
+        if (this.mouse_mode === 'add' && this.add_type === 'Edge' &&
+            this.add_edge_start) {
+            this.add_edge_start.highlighted = true;
+        }
+
         if (evtype === "mousemove") {
             // TODO: Draw only if elements have changed
             dirty = true;
@@ -1745,6 +1781,7 @@ export class SDFGRenderer {
                                 );
                             } else {
                                 this.add_edge_start = foreground_elem;
+                                this.update_toggle_buttons();
                             }
                         } else if (this.add_type === 'LibraryNode') {
                             this.add_position = this.mousepos;
@@ -1760,6 +1797,12 @@ export class SDFGRenderer {
                                 this.add_type,
                                 get_uuid_graph_element(foreground_elem)
                             );
+                        }
+
+                        if (!event.ctrlKey && !(this.add_type === 'Edge' &&
+                                                this.add_edge_start)) {
+                            // Cancel add mode.
+                            this.panmode_btn.onclick();
                         }
                     }
                 }
