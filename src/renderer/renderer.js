@@ -123,11 +123,6 @@ export class SDFGRenderer {
         this.all_memlet_trees_sdfg = memlet_tree_complete(this.sdfg);
 
         this.update_fast_memlet_lookup();
-
-        if (this.overlay_manager !== null)
-            this.overlay_manager.register_overlay(
-                GenericSdfgOverlay.OVERLAY_TYPE.CONSTRUCTION
-            );
     }
 
     destroy() {

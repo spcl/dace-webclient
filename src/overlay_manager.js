@@ -7,7 +7,6 @@ import { StaticFlopsOverlay } from './overlays/static_flops_overlay';
 import { MemoryVolumeOverlay } from './overlays/memory_volume_overlay';
 import { parse } from 'mathjs';
 import { htmlSanitize } from "./utils/sanitization";
-import { ConstructionOverlay } from "./overlays/construction_overlay";
 
 class SymbolResolver {
 
@@ -210,7 +209,6 @@ export class OverlayManager {
         this.memory_volume_overlay_active = false;
         this.static_flops_overlay_active = false;
         this.runtime_us_overlay_active = false;
-        this.construction_overlay_active = false;
         this.badness_scale_method = 'median';
 
         this.overlays = [];
@@ -238,12 +236,6 @@ export class OverlayManager {
                 );
                 this.runtime_us_overlay_active = true;
                 break;
-            case GenericSdfgOverlay.OVERLAY_TYPE.CONSTRUCTION:
-                this.overlays.push(
-                    new ConstructionOverlay(this, this.renderer)
-                );
-                this.construction_overlay_active = true;
-                break;
             default:
                 // Object overlay
                 this.overlays.push(type);
@@ -266,9 +258,6 @@ export class OverlayManager {
                 break;
             case GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US:
                 this.runtime_us_overlay_active = false;
-                break;
-            case GenericSdfgOverlay.OVERLAY_TYPE.CONSTRUCTION:
-                this.construction_overlay_active = false;
                 break;
             default:
                 break;
