@@ -4,6 +4,10 @@ import { intersectRect } from 'dagre/lib/util';
 import { Edge } from "./renderer_elements";
 import { lerpMatrix } from '../utils/lerp_matrix';
 import { updateEdgeBoundingBox } from '../utils/bounding_box';
+import {
+    get_positioning_info,
+    initialize_positioning_info,
+} from "../utils/sdfg/sdfg_utils";
 
 const animation_duration = 1000;
 const animation_function = t => 1 - Math.pow(1 - t, 3);  // cubic ease out
@@ -282,14 +286,18 @@ export class CanvasManager {
      * @param {*} entire_graph      Reference to the entire graph
      * @param {*} sdfg_list         List of SDFGs and nested SDFGs
      * @param {*} state_parent_list List of parent elements to SDFG states
+     * // TODO: update doc comment with parameters
      */
-    translate_element(el, old_mousepos, new_mousepos, entire_graph, sdfg_list,
-        state_parent_list, drag_start) {
+    translate_element(
+        el, old_mousepos, new_mousepos, entire_graph, sdfg_list,
+        state_parent_list, drag_start, update_position_info = true,
+        move_entire_edge = false, edge_dpoints = undefined
+    ) {
         this.stopAnimation();
 
         // Edges connected to the moving element
-        const out_edges = [];
-        const in_edges = [];
+        let out_edges = [];
+        let in_edges = [];
 
         // Find the parent graph in the list of available SDFGs
         let parent_graph = sdfg_list[el.sdfg.sdfg_list_id];
@@ -327,24 +335,32 @@ export class CanvasManager {
         // If edge, find closest point to drag start position
         let pt = -1;
         if (el instanceof Edge) {
-            // Find closest point to old mouse position
-            if (drag_start.edge_point === undefined) {
-                let dist = null;
-                el.points.forEach((p, i) => {
-                    // Only allow dragging if the memlet has more than two points
-                    if (i == 0 || i == el.points.length - 1)
-                        return;
-                    const ddx = p.x - drag_start.cx;
-                    const ddy = p.y - drag_start.cy;
-                    const curdist = ddx * ddx + ddy * ddy;
-                    if (dist === null || curdist < dist) {
-                        dist = curdist;
-                        pt = i;
-                    }
-                });
-                drag_start.edge_point = pt;
-            } else
-                pt = drag_start.edge_point;
+            if (move_entire_edge) {
+                pt = -2;
+            } else if (edge_dpoints && edge_dpoints.length > 0) {
+                pt = -3;
+            } else if (drag_start) {
+                // Find closest point to old mouse position
+                if (drag_start.edge_point === undefined) {
+                    let dist = null;
+                    el.points.forEach((p, i) => {
+                        // Only allow dragging if the memlet has more than two
+                        // points
+                        if (i == 0 || i == el.points.length - 1)
+                            return;
+                        let ddx = p.x - drag_start.cx;
+                        let ddy = p.y - drag_start.cy;
+                        let curdist = ddx*ddx + ddy*ddy;
+                        if (dist === null || curdist < dist) {
+                            dist = curdist;
+                            pt = i;
+                        }
+                    });
+                    drag_start.edge_point = pt;
+                } else {
+                    pt = drag_start.edge_point;
+                }
+            }
         }
 
         if (parent_element) {
@@ -375,8 +391,8 @@ export class CanvasManager {
             // outside the parent, we clamp movement in that direction
             if (el instanceof Edge) {
                 if (pt > 0) {
-                    const target_x = el.points[pt].x + dx;
-                    const target_y = el.points[pt].y + dy;
+                    let target_x = el.points[pt].x + dx;
+                    let target_y = el.points[pt].y + dy;
                     if (target_x <= min_x ||
                         new_mousepos.x <= parent_left_border) {
                         dx = min_x - el.points[pt].x;
@@ -393,8 +409,8 @@ export class CanvasManager {
                     }
                 }
             } else {
-                const target_x = el.x + dx;
-                const target_y = el.y + dy;
+                let target_x = el.x + dx;
+                let target_y = el.y + dy;
                 if (target_x <= min_x ||
                     new_mousepos.x <= parent_left_border) {
                     dx = min_x - el.x;
@@ -413,6 +429,13 @@ export class CanvasManager {
         }
 
         if (el instanceof Edge) {
+            let position;
+            if (update_position_info) {
+                position = get_positioning_info(el);
+
+                if (!position)
+                    position = initialize_positioning_info(el);
+            }
             if (pt > 0) {
                 // Move point
                 el.points[pt].x += dx;
@@ -420,6 +443,36 @@ export class CanvasManager {
 
                 // Move edge bounding box
                 updateEdgeBoundingBox(el);
+
+                if (update_position_info) {
+                    if (!position.points) {
+                        position.points = Array(el.points.length);
+                        for (let i = 0; i < el.points.length; i++) {
+                            position.points[i] = {dx: 0, dy: 0};
+                        }
+                    }
+
+                    position.points[pt].dx += dx;
+                    position.points[pt].dy += dy;
+                }
+            } else if (pt == -2) {
+                // Don't update first and last point (the connectors)
+                for (let i = 1; i < el.points.length - 1; i++) {
+                    el.points[i].x += dx;
+                    el.points[i].y += dy;
+                }
+
+                if (update_position_info) {
+                    for (let i = 1; i < el.points.length - 1; i++) {
+                        position.points[i].dx += dx;
+                        position.points[i].dy += dy;
+                    }
+                }
+            } else if (pt == -3) {
+                for (let i = 1; i < el.points.length - 1; i++) {
+                    el.points[i].x += edge_dpoints[i].dx;
+                    el.points[i].y += edge_dpoints[i].dy;
+                }
             }
             // The rest of the method doesn't apply to Edges
             return;
@@ -483,6 +536,27 @@ export class CanvasManager {
         // Move the node
         move_node_and_connectors(el);
 
+        // Store movement information in element (for relayouting)
+        if (update_position_info) {
+            let position = get_positioning_info(el);
+            if (!position)
+                position = initialize_positioning_info(el);
+
+            position.dx += dx;
+            position.dy += dy;
+
+            // Store movement information if EntryNode for other nodes of the same scope
+            if (el instanceof EntryNode && el.data.node.attributes.is_collapsed) {
+                if (!position.scope_dx) {
+                    position.scope_dx = 0;
+                    position.scope_dy = 0;
+                }
+
+                position.scope_dx += dx;
+                position.scope_dy += dy;
+            }
+        }
+        
         if (el.data.state && !el.data.state.attributes.is_collapsed) {
             // We're moving a state, move all its contained elements
             const graph = el.data.graph;
@@ -521,6 +595,22 @@ export class CanvasManager {
                 edge.points[0].x += dx;
                 edge.points[0].y += dy;
             }
+            // Also update destination point of edge
+            if (edge.dst_connector !== null) {
+                let e = parent_element?.data?.state?.edges[edge.id];
+                let dst_el = parent_graph.node(e?.dst);
+                if (dst_el) {
+                    for (let i = 0; i < dst_el.in_connectors.length; i++) {
+                        let dst_name = dst_el.in_connectors[i].data.name;
+                        if (dst_name === edge.dst_connector) {
+                            edge.points[n] = intersectRect(
+                                dst_el.in_connectors[i], edge.points[n - 1]
+                            );
+                            break;
+                        }
+                    }
+                }
+            }
             updateEdgeBoundingBox(edge);
         });
         in_edges.forEach(edge => {
@@ -529,7 +619,9 @@ export class CanvasManager {
             if (edge.dst_connector !== null) {
                 for (let i = 0; i < el.in_connectors.length; i++) {
                     if (el.in_connectors[i].data.name === edge.dst_connector) {
-                        edge.points[n] = intersectRect(el.in_connectors[i], edge.points[n - 1]);
+                        edge.points[n] = intersectRect(
+                            el.in_connectors[i], edge.points[n-1]
+                        );
                         moved = true;
                         break;
                     }
@@ -538,6 +630,22 @@ export class CanvasManager {
             if (!moved) {
                 edge.points[n].x += dx;
                 edge.points[n].y += dy;
+            }
+            // Also update source point of edge
+            if (edge.src_connector !== null) {
+                let e = parent_element?.data?.state?.edges[edge.id];
+                let src_el = parent_graph.node(e?.src);
+                if (src_el) {
+                    for (let i = 0; i < src_el.out_connectors.length; i++) {
+                        let out_name = src_el.out_connectors[i].data.name;
+                        if (out_name === edge.src_connector) {
+                            edge.points[0] = intersectRect(
+                                src_el.out_connectors[i], edge.points[1]
+                            );
+                            break;
+                        }
+                    }
+                }
             }
             updateEdgeBoundingBox(edge);
         });

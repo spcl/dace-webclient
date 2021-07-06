@@ -12,11 +12,11 @@ import {
     sdfg_property_to_string,
     sdfg_range_elem_to_string,
     sdfg_typeclass_to_string,
-    string_to_sdfg_typeclass
+    string_to_sdfg_typeclass,
 } from "./utils/sdfg/display";
 import {
     find_graph_element_by_uuid,
-    get_uuid_graph_element
+    get_uuid_graph_element,
 } from "./utils/sdfg/sdfg_utils";
 import { traverse_sdfg_scopes } from "./utils/sdfg/traversal";
 const { $ } = globalThis;
@@ -34,6 +34,7 @@ export const globals = assignIfNotExists(
         daceInitSDFV: init_sdfv,
         daceParseSDFG: parse_sdfg,
         daceStringifySDFG: stringify_sdfg,
+        daceFindInGraph: find_in_graph,
         daceSDFGPropertyToString: sdfg_property_to_string,
         daceSDFGRangeElemToString: sdfg_range_elem_to_string,
         daceGetUUIDGraphElement: get_uuid_graph_element,
@@ -91,18 +92,46 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
     });
     $('#search').on('keydown', (e) => {
         if (e.key == 'Enter' || e.which == 13) {
-            if (globals.daceRenderer)
-                setTimeout(() => {
-                    find_in_graph(globals.daceRenderer, globals.daceRenderer.graph, $('#search').val(),
-                        $('#search-case')[0].checked);
-                }, 1);
+            start_find_in_graph();
             e.preventDefault();
         }
     });
 
+    let mode_buttons = null;
+    let pan_btn = document.getElementById("pan-btn");
+    let move_btn = document.getElementById("move-btn");
+    let select_btn = document.getElementById("select-btn");
+    let add_btns = [];
+    add_btns.push(document.getElementById('elem_map'));
+    add_btns.push(document.getElementById('elem_consume'));
+    add_btns.push(document.getElementById('elem_tasklet'));
+    add_btns.push(document.getElementById('elem_nested_sdfg'));
+    add_btns.push(document.getElementById('elem_access_node'));
+    add_btns.push(document.getElementById('elem_stream'));
+    add_btns.push(document.getElementById('elem_state'));
+    if (pan_btn)
+        mode_buttons = {
+            pan: pan_btn,
+            move: move_btn,
+            select: select_btn,
+            add_btns: add_btns,
+        };
+
     if (sdfg !== null)
-        globals.daceRenderer = new SDFGRenderer(sdfg, document.getElementById('contents'),
-            mouse_event, user_transform, debug_draw);
+        globals.daceRenderer = new SDFGRenderer(
+            sdfg, document.getElementById('contents'), mouse_event,
+            user_transform, debug_draw, null, mode_buttons
+        );
+}
+
+function start_find_in_graph() {
+    if (globals.daceRenderer)
+        setTimeout(() => {
+            find_in_graph(
+                globals.daceRenderer, globals.daceRenderer.graph,
+                $('#search').val(), $('#search-case')[0].checked
+            );
+        }, 1);
 }
 
 function reload_file() {
@@ -263,7 +292,7 @@ function find_recursive(graph, query, results, case_sensitive) {
     }
 }
 
-function find_in_graph(renderer, sdfg, query, case_sensitive = false) {
+function find_in_graph(renderer, sdfg, query, case_sensitive=false) {
     sidebar_set_title('Search Results for "' + query + '"');
 
     const results = [];
@@ -432,7 +461,7 @@ function outline(renderer, sdfg) {
     return globals.daceUIHandlers.on_outline(renderer, sdfg);
 }
 
-function fill_info(elem) {
+export function fill_info(elem) {
     return globals.daceUIHandlers.on_fill_info(elem);
 }
 
