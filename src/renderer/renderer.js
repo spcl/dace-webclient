@@ -1343,6 +1343,10 @@ export class SDFGRenderer {
     }
 
     on_key_event(event) {
+        // Prevent handling of the event if the event is designed for something
+        // other than the body, like an input element.
+        if (event.target !== document.body)
+            return;
 
         if (this.ctrl_key_selection && !event.ctrlKey)
             this.selectmode_btn.onclick(event, false);
