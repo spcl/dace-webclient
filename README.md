@@ -1,6 +1,6 @@
 # SDFV - The SDFG Viewer
 
-SDFV is a standalone tool for viewing SDFGs in your webbrowser. For more
+SDFV is a standalone tool for viewing/embedding SDFGs in your web browser. For more
 information on SDFGs, see the [DaCe](https://www.github.com/spcl/dace)
 repository.
 
