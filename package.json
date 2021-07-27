@@ -1,6 +1,6 @@
 {
     "name": "@spcl/sdfv",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "A standalone viewer for SDFGs",
     "homepage": "https://github.com/spcl/dace-webclient",
     "keywords": [
