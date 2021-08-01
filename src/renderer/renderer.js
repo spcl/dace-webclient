@@ -310,7 +310,9 @@ export class SDFGRenderer {
                             let overlays_cmenu = new ContextMenu();
                             overlays_cmenu.addCheckableOption(
                                 'Memory volume analysis',
-                                that.overlay_manager.memory_volume_overlay_active,
+                                that.overlay_manager.is_overlay_active(
+                                    GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
+                                ),
                                 (x, checked) => {
                                     if (checked)
                                         that.overlay_manager.register_overlay(

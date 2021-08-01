@@ -206,9 +206,6 @@ export class OverlayManager {
     constructor(renderer) {
         this.renderer = renderer;
 
-        this.memory_volume_overlay_active = false;
-        this.static_flops_overlay_active = false;
-        this.runtime_us_overlay_active = false;
         this.badness_scale_method = 'median';
 
         this.overlays = [];
@@ -222,19 +219,16 @@ export class OverlayManager {
                 this.overlays.push(
                     new MemoryVolumeOverlay(this, this.renderer)
                 );
-                this.memory_volume_overlay_active = true;
                 break;
             case GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS:
                 this.overlays.push(
                     new StaticFlopsOverlay(this, this.renderer)
                 );
-                this.static_flops_overlay_active = true;
                 break;
             case GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US:
                 this.overlays.push(
                     new RuntimeMicroSecondsOverlay(this, this.renderer)
                 );
-                this.runtime_us_overlay_active = true;
                 break;
             default:
                 // Object overlay
@@ -249,20 +243,13 @@ export class OverlayManager {
             return overlay.type !== type;
         });
 
-        switch (type) {
-            case GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME:
-                this.memory_volume_overlay_active = false;
-                break;
-            case GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS:
-                this.static_flops_overlay_active = false;
-                break;
-            case GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US:
-                this.runtime_us_overlay_active = false;
-                break;
-            default:
-                break;
-        }
         this.renderer.draw_async();
+    }
+
+    is_overlay_active(type) {
+        return this.overlays.filter(overlay => {
+            return overlay.type === type;
+        }).length > 0;
     }
 
     get_overlay(type) {

@@ -220,10 +220,13 @@ function instrumentation_report_read_complete(report) {
         const renderer = globals.daceRenderer;
 
         if (renderer.overlay_manager) {
-            if (!renderer.overlay_manager.runtime_us_overlay_active)
+            if (!renderer.overlay_manager.is_overlay_active(
+                GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
+            )) {
                 renderer.overlay_manager.register_overlay(
                     GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
                 );
+            }
             const ol = renderer.overlay_manager.get_overlay(
                 GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
             );
