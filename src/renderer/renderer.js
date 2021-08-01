@@ -32,6 +32,7 @@ import {
 import { OverlayManager } from '../overlay_manager';
 import { GenericSdfgOverlay } from "../overlays/generic_sdfg_overlay";
 import { fill_info } from '../sdfv';
+import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
 
 function check_valid_add_position(type, foreground_elem, lib, mousepos) {
     switch (type) {
@@ -311,16 +312,16 @@ export class SDFGRenderer {
                             overlays_cmenu.addCheckableOption(
                                 'Memory volume analysis',
                                 that.overlay_manager.is_overlay_active(
-                                    GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
+                                    MemoryVolumeOverlay
                                 ),
                                 (x, checked) => {
                                     if (checked)
                                         that.overlay_manager.register_overlay(
-                                            GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
+                                            MemoryVolumeOverlay
                                         );
                                     else
                                         that.overlay_manager.deregister_overlay(
-                                            GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
+                                            MemoryVolumeOverlay
                                         );
                                     that.draw_async();
                                     if (in_vscode)

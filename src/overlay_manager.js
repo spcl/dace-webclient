@@ -215,19 +215,11 @@ export class OverlayManager {
 
     register_overlay(type) {
         switch (type) {
-            case GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME:
+            case MemoryVolumeOverlay:
+            case StaticFlopsOverlay:
+            case RuntimeMicroSecondsOverlay:
                 this.overlays.push(
-                    new MemoryVolumeOverlay(this, this.renderer)
-                );
-                break;
-            case GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS:
-                this.overlays.push(
-                    new StaticFlopsOverlay(this, this.renderer)
-                );
-                break;
-            case GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US:
-                this.overlays.push(
-                    new RuntimeMicroSecondsOverlay(this, this.renderer)
+                    new type(this, this.renderer)
                 );
                 break;
             default:
@@ -240,7 +232,7 @@ export class OverlayManager {
 
     deregister_overlay(type) {
         this.overlays = this.overlays.filter(overlay => {
-            return overlay.type !== type;
+            return !(overlay instanceof type);
         });
 
         this.renderer.draw_async();
@@ -248,14 +240,14 @@ export class OverlayManager {
 
     is_overlay_active(type) {
         return this.overlays.filter(overlay => {
-            return overlay.type === type;
+            return overlay instanceof type;
         }).length > 0;
     }
 
     get_overlay(type) {
         let overlay = undefined;
         this.overlays.forEach(ol => {
-            if (ol.type === type) {
+            if (ol instanceof type) {
                 overlay = ol;
                 return;
             }

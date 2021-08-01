@@ -19,6 +19,7 @@ import {
     get_uuid_graph_element,
 } from "./utils/sdfg/sdfg_utils";
 import { traverse_sdfg_scopes } from "./utils/sdfg/traversal";
+import { RuntimeMicroSecondsOverlay } from "./overlays/runtime_micro_seconds_overlay";
 const { $ } = globalThis;
 
 let fr;
@@ -221,14 +222,14 @@ function instrumentation_report_read_complete(report) {
 
         if (renderer.overlay_manager) {
             if (!renderer.overlay_manager.is_overlay_active(
-                GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
+                RuntimeMicroSecondsOverlay
             )) {
                 renderer.overlay_manager.register_overlay(
-                    GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
+                    RuntimeMicroSecondsOverlay
                 );
             }
             const ol = renderer.overlay_manager.get_overlay(
-                GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
+                RuntimeMicroSecondsOverlay
             );
             if (ol) {
                 ol.runtime_map = runtime_map;
