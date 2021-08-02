@@ -30,7 +30,6 @@ import {
     calculateEdgeBoundingBox,
 } from '../utils/bounding_box';
 import { OverlayManager } from '../overlay_manager';
-import { GenericSdfgOverlay } from "../overlays/generic_sdfg_overlay";
 import { fill_info } from '../sdfv';
 import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
 

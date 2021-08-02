@@ -9,8 +9,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
     constructor(overlay_manager, renderer) {
         super(
             overlay_manager,
-            renderer,
-            GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
+            renderer
         );
 
         this.criterium = 'mean';
