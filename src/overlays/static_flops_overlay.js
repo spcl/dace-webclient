@@ -9,8 +9,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
     constructor(overlay_manager, renderer) {
         super(
             overlay_manager,
-            renderer,
-            GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS
+            renderer
         );
 
         this.flops_map = {};

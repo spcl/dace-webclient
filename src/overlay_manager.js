@@ -206,9 +206,6 @@ export class OverlayManager {
     constructor(renderer) {
         this.renderer = renderer;
 
-        this.memory_volume_overlay_active = false;
-        this.static_flops_overlay_active = false;
-        this.runtime_us_overlay_active = false;
         this.badness_scale_method = 'median';
 
         this.overlays = [];
@@ -218,23 +215,12 @@ export class OverlayManager {
 
     register_overlay(type) {
         switch (type) {
-            case GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME:
+            case MemoryVolumeOverlay:
+            case StaticFlopsOverlay:
+            case RuntimeMicroSecondsOverlay:
                 this.overlays.push(
-                    new MemoryVolumeOverlay(this, this.renderer)
+                    new type(this, this.renderer)
                 );
-                this.memory_volume_overlay_active = true;
-                break;
-            case GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS:
-                this.overlays.push(
-                    new StaticFlopsOverlay(this, this.renderer)
-                );
-                this.static_flops_overlay_active = true;
-                break;
-            case GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US:
-                this.overlays.push(
-                    new RuntimeMicroSecondsOverlay(this, this.renderer)
-                );
-                this.runtime_us_overlay_active = true;
                 break;
             default:
                 // Object overlay
@@ -246,29 +232,22 @@ export class OverlayManager {
 
     deregister_overlay(type) {
         this.overlays = this.overlays.filter(overlay => {
-            return overlay.type !== type;
+            return !(overlay instanceof type);
         });
 
-        switch (type) {
-            case GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME:
-                this.memory_volume_overlay_active = false;
-                break;
-            case GenericSdfgOverlay.OVERLAY_TYPE.STATIC_FLOPS:
-                this.static_flops_overlay_active = false;
-                break;
-            case GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US:
-                this.runtime_us_overlay_active = false;
-                break;
-            default:
-                break;
-        }
         this.renderer.draw_async();
+    }
+
+    is_overlay_active(type) {
+        return this.overlays.filter(overlay => {
+            return overlay instanceof type;
+        }).length > 0;
     }
 
     get_overlay(type) {
         let overlay = undefined;
         this.overlays.forEach(ol => {
-            if (ol.type === type) {
+            if (ol instanceof type) {
                 overlay = ol;
                 return;
             }

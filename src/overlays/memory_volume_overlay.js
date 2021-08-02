@@ -9,8 +9,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
     constructor(overlay_manager, renderer) {
         super(
             overlay_manager,
-            renderer,
-            GenericSdfgOverlay.OVERLAY_TYPE.MEMORY_VOLUME
+            renderer
         );
 
         this.refresh();

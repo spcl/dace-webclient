@@ -19,6 +19,9 @@ import {
     get_uuid_graph_element,
 } from "./utils/sdfg/sdfg_utils";
 import { traverse_sdfg_scopes } from "./utils/sdfg/traversal";
+import { RuntimeMicroSecondsOverlay } from "./overlays/runtime_micro_seconds_overlay";
+import { MemoryVolumeOverlay } from "./overlays/memory_volume_overlay";
+import { StaticFlopsOverlay } from "./overlays/static_flops_overlay";
 const { $ } = globalThis;
 
 let fr;
@@ -26,6 +29,9 @@ let file = null;
 let instrumentation_file = null;
 
 
+// TODO: This is a workaround to utilize components of this module in non-ts
+// components of the vscode extension. This is subject to change when these
+// components are moved over from js to ts.
 export const globals = assignIfNotExists(
     /** @type {{}} */ (globalThis),
     {
@@ -45,6 +51,9 @@ export const globals = assignIfNotExists(
         daceSDFGRenderer: SDFGRenderer,
         daceSDFGElements: SDFGElements,
         daceGenericSDFGOverlay: GenericSdfgOverlay,
+        daceMemoryVolumeOverlay: MemoryVolumeOverlay,
+        daceRuntimeMicroSecondsOverlay: RuntimeMicroSecondsOverlay,
+        daceStaticFlopsOverlay: StaticFlopsOverlay,
         daceMouseEvent: mouse_event,
     }
 );
@@ -220,12 +229,15 @@ function instrumentation_report_read_complete(report) {
         const renderer = globals.daceRenderer;
 
         if (renderer.overlay_manager) {
-            if (!renderer.overlay_manager.runtime_us_overlay_active)
+            if (!renderer.overlay_manager.is_overlay_active(
+                RuntimeMicroSecondsOverlay
+            )) {
                 renderer.overlay_manager.register_overlay(
-                    GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
+                    RuntimeMicroSecondsOverlay
                 );
+            }
             const ol = renderer.overlay_manager.get_overlay(
-                GenericSdfgOverlay.OVERLAY_TYPE.RUNTIME_US
+                RuntimeMicroSecondsOverlay
             );
             if (ol) {
                 ol.runtime_map = runtime_map;
