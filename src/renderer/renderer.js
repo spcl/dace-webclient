@@ -706,8 +706,6 @@ export class SDFGRenderer {
                 let cancelled = this.on_mouse_event(x, comp_x, comp_y, evtype);
                 if (cancelled)
                     return;
-                x.stopPropagation();
-                x.preventDefault();
             });
         }
     }
