@@ -1390,6 +1390,8 @@ export class SDFGRenderer {
         let dirty = false; // Whether to redraw at the end
         // Whether the set of visible or selected elements changed
         let element_focus_changed = false;
+        // Whether the current multi-selection changed
+        let multi_selection_changed = false;
 
         if (evtype === "mousedown" || evtype === "touchstart") {
             this.drag_start = event;
@@ -1761,6 +1763,7 @@ export class SDFGRenderer {
                     this.box_select_rect = null;
                     dirty = true;
                     element_focus_changed = true;
+                    multi_selection_changed = true;
                 }
 
                 if (this.mouse_mode === 'move')
@@ -1821,10 +1824,19 @@ export class SDFGRenderer {
                         } else {
                             this.selected_elements.push(foreground_elem);
                         }
+
+                        // Indicate that the multi-selection changed.
+                        multi_selection_changed = true;
                     } else if (event.shiftKey) {
                         // TODO: Implement shift-clicks for path selection.
                     } else {
                         // Clicked an element, select it and nothing else.
+
+                        // If there was a multi-selection prior to this,
+                        // indicate that it changed.
+                        if (this.selected_elements.length > 1)
+                            multi_selection_changed = true;
+
                         this.selected_elements.forEach((el) => {
                             el.selected = false;
                         });
@@ -1832,6 +1844,12 @@ export class SDFGRenderer {
                     }
                 } else {
                     // Clicked nothing, clear the selection.
+
+                    // If there was a multi-selection prior to this, indicate
+                    // that it changed.
+                    if (this.selected_elements.length > 1)
+                        multi_selection_changed = true;
+
                     this.selected_elements.forEach((el) => {
                         el.selected = false;
                     });
@@ -1958,7 +1976,10 @@ export class SDFGRenderer {
             try {
                 if (vscode)
                     vscode_handle_event(
-                        'on_renderer_selection_changed', undefined
+                        'on_renderer_selection_changed',
+                        {
+                            multi_selection_changed: multi_selection_changed,
+                        }
                     );
             } catch (ex) {
                 // Do nothing
