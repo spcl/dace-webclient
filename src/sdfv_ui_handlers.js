@@ -3,6 +3,7 @@
 import { sdfg_property_to_string } from "./utils/sdfg/display";
 import { traverse_sdfg_scopes } from "./utils/sdfg/traversal";
 import { htmlSanitize } from "./utils/sanitization";
+import { globals } from "./sdfv";
 
 export const SDFVUIHandlers = {
     on_init_menu,
@@ -44,8 +45,9 @@ function on_fill_info(elem) {
             attr[0] == "position")
             continue;
         html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
-        html += sdfg_property_to_string(attr[1], renderer.view_settings()) +
-            "</p>";
+        html += sdfg_property_to_string(
+            attr[1], globals.daceRenderer.view_settings()
+        ) + "</p>";
     }
 
     // If access node, add array information too
@@ -57,8 +59,9 @@ function on_fill_info(elem) {
                 attr[0].startsWith("_meta_"))
                 continue;
             html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
-            html += sdfg_property_to_string(attr[1], renderer.view_settings()) +
-                "</p>";
+            html += sdfg_property_to_string(
+                attr[1], globals.daceRenderer.view_settings()
+            ) + "</p>";
         }
     }
 

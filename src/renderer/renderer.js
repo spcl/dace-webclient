@@ -113,6 +113,13 @@ export class SDFGRenderer {
             this.overlay_manager = null;
         }
 
+        this.in_vscode = false;
+        try {
+            vscode;
+            if (vscode)
+                this.in_vscode = true;
+        } catch (ex) { }
+
         // Draw debug aids.
         this.debug_draw = debug_draw;
 
@@ -269,13 +276,6 @@ export class SDFGRenderer {
         this.toolbar.style = 'position:absolute; top:10px; left: 10px;';
         let d;
 
-        let in_vscode = false;
-        try {
-            vscode;
-            if (vscode)
-                in_vscode = true;
-        } catch (ex) { }
-
         // Menu bar
         try {
             ContextMenu;
@@ -298,7 +298,7 @@ export class SDFGRenderer {
                 }
                 cmenu.addCheckableOption("Inclusive ranges", that.inclusive_ranges, (x, checked) => { that.inclusive_ranges = checked; });
                 cmenu.addCheckableOption("Adaptive content hiding", that.ctx.lod, (x, checked) => { that.ctx.lod = checked; });
-                if (!in_vscode)
+                if (!this.in_vscode)
                     cmenu.addOption(
                         'Overlays',
                         () => {
@@ -323,7 +323,7 @@ export class SDFGRenderer {
                                             MemoryVolumeOverlay
                                         );
                                     that.draw_async();
-                                    if (in_vscode)
+                                    if (this.in_vscode)
                                         refresh_analysis_pane();
                                 }
                             );
@@ -479,7 +479,7 @@ export class SDFGRenderer {
         document.addEventListener('keyup', (e) => this.on_key_event(e));
 
         // Exit previewing mode
-        if (in_vscode) {
+        if (this.in_vscode) {
             let exit_preview_btn = document.createElement('button');
             exit_preview_btn.id = 'exit-preview-button';
             exit_preview_btn.className = 'button hidden';
@@ -706,8 +706,10 @@ export class SDFGRenderer {
                 let cancelled = this.on_mouse_event(x, comp_x, comp_y, evtype);
                 if (cancelled)
                     return;
-                x.stopPropagation();
-                x.preventDefault();
+                if (!this.in_vscode) {
+                    x.stopPropagation();
+                    x.preventDefault();
+                }
             });
         }
     }
