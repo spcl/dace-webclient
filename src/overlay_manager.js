@@ -1,14 +1,13 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { createElement } from "./utils/utils";
-import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
 import { RuntimeMicroSecondsOverlay } from './overlays/runtime_micro_seconds_overlay';
 import { StaticFlopsOverlay } from './overlays/static_flops_overlay';
 import { MemoryVolumeOverlay } from './overlays/memory_volume_overlay';
 import { parse } from 'mathjs';
 import { htmlSanitize } from "./utils/sanitization";
 
-class SymbolResolver {
+export class SymbolResolver {
 
     constructor(renderer) {
         this.renderer = renderer;
