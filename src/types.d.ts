@@ -1,7 +1,7 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { SDFGRenderer } from "./renderer/renderer";
-import { SDFGElement } from "./renderer/renderer_elements";
+import { SDFGRenderer } from './renderer/renderer';
+import { SDFGElement } from './renderer/renderer_elements';
 
 export type SymbolMap = {
     [symbol: string]: number | undefined,

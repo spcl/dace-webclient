@@ -17,11 +17,13 @@ function reviver(name: string, val: unknown) {
 }
 
 function isDict(v: unknown): v is Record<string, unknown> {
-    return typeof v === 'object' && v !== null && !(v instanceof Array) && !(v instanceof Date);
+    return typeof v === 'object' && v !== null && !(v instanceof Array) &&
+        !(v instanceof Date);
 }
 
 function replacer(name: string, val: unknown, orig_sdfg: unknown): unknown {
-    if (val && isDict(val) && val !== orig_sdfg && 'type' in val && val.type === 'SDFG') {
+    if (val && isDict(val) && val !== orig_sdfg && 'type' in val &&
+        val.type === 'SDFG') {
         return JSON.stringify(val, (n, v) => replacer(n, v, val));
     }
     return val;

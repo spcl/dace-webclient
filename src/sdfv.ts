@@ -1,65 +1,62 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { parse_sdfg, stringify_sdfg } from "./utils/sdfg/json_serializer";
+import { parse_sdfg } from './utils/sdfg/json_serializer';
 import { mean, median } from 'mathjs';
 import { SDFGRenderer } from './renderer/renderer';
-import { GenericSdfgOverlay } from "./overlays/generic_sdfg_overlay";
-import { SDFVUIHandlers } from "./sdfv_ui_handlers";
-import { htmlSanitize } from "./utils/sanitization";
-import { Edge, SDFG, SDFGElement, SDFGElements, SDFGNode, State } from "./renderer/renderer_elements";
-import { assignIfNotExists } from "./utils/utils"
+import { htmlSanitize } from './utils/sanitization';
 import {
-    sdfg_property_to_string,
-    sdfg_range_elem_to_string,
-    sdfg_typeclass_to_string,
-    string_to_sdfg_typeclass,
-} from "./utils/sdfg/display";
+    Edge,
+    SDFG,
+    SDFGElement,
+    SDFGNode,
+    State
+} from './renderer/renderer_elements';
 import {
-    find_graph_element_by_uuid,
-    get_uuid_graph_element,
-} from "./utils/sdfg/sdfg_utils";
-import { traverse_sdfg_scopes } from "./utils/sdfg/traversal";
-import { RuntimeMicroSecondsOverlay } from "./overlays/runtime_micro_seconds_overlay";
-import { MemoryVolumeOverlay } from "./overlays/memory_volume_overlay";
-import { StaticFlopsOverlay } from "./overlays/static_flops_overlay";
-import { DagreSDFG } from "./types";
-const { $ } = globalThis;
+    RuntimeMicroSecondsOverlay
+} from './overlays/runtime_micro_seconds_overlay';
+import { DagreSDFG, Point2D } from './types';
+import { SDFVUIHandlers } from './sdfv_ui_handlers';
+import $ from 'jquery';
 
 let fr: FileReader;
 let file: File | null = null;
 let instrumentation_file: File | null = null;
 
+export class SDFV {
 
-// TODO: This is a workaround to utilize components of this module in non-ts
-// components of the vscode extension. This is subject to change when these
-// components are moved over from js to ts.
-export const globals = assignIfNotExists(
-    /** @type {{}} */ (globalThis),
-    {
-        daceRenderer: null,
-        daceUIHandlers: SDFVUIHandlers,
-        daceInitSDFV: init_sdfv,
-        daceParseSDFG: parse_sdfg,
-        daceStringifySDFG: stringify_sdfg,
-        daceFindInGraph: find_in_graph,
-        daceSDFGPropertyToString: sdfg_property_to_string,
-        daceSDFGRangeElemToString: sdfg_range_elem_to_string,
-        daceGetUUIDGraphElement: get_uuid_graph_element,
-        daceFindGraphElementByUUID: find_graph_element_by_uuid,
-        daceTraverseSDFGScopes: traverse_sdfg_scopes,
-        daceSDFGTypeclassToString: sdfg_typeclass_to_string,
-        daceStringToSDFGTypeclass: string_to_sdfg_typeclass,
-        daceSDFGRenderer: SDFGRenderer,
-        daceSDFGElements: SDFGElements,
-        daceGenericSDFGOverlay: GenericSdfgOverlay,
-        daceMemoryVolumeOverlay: MemoryVolumeOverlay,
-        daceRuntimeMicroSecondsOverlay: RuntimeMicroSecondsOverlay,
-        daceStaticFlopsOverlay: StaticFlopsOverlay,
-        daceMouseEvent: mouse_event,
+    public static LINEHEIGHT: number = 10;
+    // Points-per-pixel threshold for drawing tasklet contents.
+    public static TASKLET_LOD: number = 0.35;
+    // Points-per-pixel threshold for simple version of map nodes (label only).
+    public static SCOPE_LOD: number = 1.5;
+    // Points-per-pixel threshold for not drawing memlets/interstate edges.
+    public static EDGE_LOD: number = 8;
+    // Points-per-pixel threshold for not drawing node shapes and labels.
+    public static NODE_LOD: number = 5;
+    // Pixel threshold for not drawing state contents.
+    public static STATE_LOD: number = 50;
+
+    private static readonly INSTANCE = new SDFV();
+
+    private renderer: SDFGRenderer | null = null;
+
+    private constructor() {
+        return;
     }
-);
 
+    public static get_instance(): SDFV {
+        return this.INSTANCE;
+    }
 
+    public set_renderer(renderer: SDFGRenderer | null): void {
+        this.renderer = renderer;
+    }
+
+    public get_renderer(): SDFGRenderer | null {
+        return this.renderer;
+    }
+
+}
 
 if (document.currentScript?.hasAttribute('data-sdfg-json')) {
     const sdfg_string = document.currentScript?.getAttribute('data-sdfg-json');
@@ -96,19 +93,21 @@ function init_sdfv(
         load_instrumentation_report();
     });
     $('#outline').on('click', () => {
-        if (globals.daceRenderer)
-            setTimeout(() => outline(
-                globals.daceRenderer, globals.daceRenderer.graph
-            ), 1);
+        const renderer = SDFV.get_instance().get_renderer();
+        if (renderer)
+            setTimeout(() => outline(renderer, renderer.get_graph()), 1);
     });
     $('#search-btn').on('click', () => {
-        if (globals.daceRenderer)
+        const renderer = SDFV.get_instance().get_renderer();
+        if (renderer)
             setTimeout(() => {
-                find_in_graph(
-                    globals.daceRenderer, globals.daceRenderer.graph,
-                    $('#search').val(),
-                    $('#search-case')[0].checked
-                );
+                const graph = renderer.get_graph();
+                const query = $('#search').val();
+                if (graph && query)
+                    find_in_graph(
+                        renderer, graph, query.toString(),
+                        $('#search-case').is(':checked')
+                    );
             }, 1);
     });
     $('#search').on('keydown', (e: any) => {
@@ -139,19 +138,23 @@ function init_sdfv(
         };
 
     if (sdfg !== null)
-        globals.daceRenderer = new SDFGRenderer(
+        SDFV.get_instance().set_renderer(new SDFGRenderer(
             sdfg, document.getElementById('contents'), mouse_event,
             user_transform, debug_draw, null, mode_buttons
-        );
+        ));
 }
 
 function start_find_in_graph(): void {
-    if (globals.daceRenderer)
+    const renderer = SDFV.get_instance().get_renderer();
+    if (renderer)
         setTimeout(() => {
-            find_in_graph(
-                globals.daceRenderer, globals.daceRenderer.graph,
-                $('#search').val(), $('#search-case')[0].checked
-            );
+            const graph = renderer.get_graph();
+            const query = $('#search').val();
+            if (graph && query)
+                find_in_graph(
+                    renderer, graph, query.toString(),
+                    $('#search-case').is(':checked')
+                );
         }, 1);
 }
 
@@ -167,10 +170,10 @@ function file_read_complete(): void {
     const result_string = fr.result;
     if (result_string) {
         const sdfg = parse_sdfg(result_string.toString());
-        globals.daceRenderer?.destroy();
-        globals.daceRenderer = new SDFGRenderer(
+        SDFV.get_instance().get_renderer()?.destroy();
+        SDFV.get_instance().set_renderer(new SDFGRenderer(
             sdfg, document.getElementById('contents'), mouse_event
-        );
+        ));
         close_menu();
     }
 }
@@ -184,7 +187,16 @@ function load_instrumentation_report(): void {
 }
 
 function load_instrumentation_report_callback(): void {
-    instrumentation_report_read_complete(JSON.parse(fr.result));
+    let result_string = '';
+    if (fr.result) {
+        if (fr.result instanceof ArrayBuffer) {
+            const decoder = new TextDecoder('utf-8');
+            result_string = decoder.decode(new Uint8Array(fr.result));
+        } else {
+            result_string = fr.result;
+        }
+    }
+    instrumentation_report_read_complete(JSON.parse(result_string));
 }
 
 /**
@@ -208,7 +220,7 @@ function instrumentation_report_read_complete(report: any): void {
     const runtime_map: { [uuids: string]: number[] } = {};
     const summarized_map: { [uuids: string]: { [key: string]: number} } = {};
 
-    if (report.traceEvents && globals.daceRenderer?.sdfg) {
+    if (report.traceEvents && SDFV.get_instance().get_renderer()?.get_sdfg()) {
         for (const event of report.traceEvents) {
             if (event.ph === 'X') {
                 let uuid = event.args.sdfg_id + '/';
@@ -244,21 +256,22 @@ function instrumentation_report_read_complete(report: any): void {
             summarized_map[key] = runtime_summary;
         }
 
-        const renderer = globals.daceRenderer;
+        const renderer = SDFV.get_instance().get_renderer();
 
-        if (renderer.get_overlay_manager()) {
-            if (!renderer.get_overlay_manager().is_overlay_active(
+        const overlay_manager = renderer?.get_overlay_manager();
+        if (overlay_manager) {
+            if (!overlay_manager.is_overlay_active(
                 RuntimeMicroSecondsOverlay
             )) {
-                renderer.get_overlay_manager().register_overlay(
+                overlay_manager.register_overlay(
                     RuntimeMicroSecondsOverlay
                 );
             }
-            const ol = renderer.get_overlay_manager().get_overlay(
+            const ol = overlay_manager.get_overlay(
                 RuntimeMicroSecondsOverlay
             );
-            if (ol) {
-                ol.runtime_map = summarized_map;
+            if (ol && ol instanceof RuntimeMicroSecondsOverlay) {
+                ol.set_runtime_map(summarized_map);
                 ol.refresh();
             }
         }
@@ -282,8 +295,7 @@ function load_sdfg_from_url(url: string): void {
     request.onload = () => {
         if (request.status == 200) {
             const sdfg = parse_sdfg(request.response);
-            if (globals.daceRenderer)
-                globals.daceRenderer.destroy();
+            SDFV.get_instance().get_renderer()?.destroy();
             init_sdfv(sdfg);
         } else {
             alert("Failed to load SDFG from URL");
@@ -444,7 +456,7 @@ function find_graph_element(
                     return find_node(state, el_id);
                 break;
             case 'isedge':
-                Object.values(requested_graph._edgeLabels).forEach(
+                Object.values((requested_graph as any)._edgeLabels).forEach(
                     (ise: any) => {
                         if (ise.id === el_id) {
                             isedge = ise;
@@ -462,14 +474,14 @@ function find_graph_element(
 
 function mouse_event(
     evtype: string,
-    event: Event,
-    mousepos: any,
-    elements: any[],
+    _event: Event,
+    _mousepos: Point2D,
+    _elements: any[],
     renderer: SDFGRenderer,
     selected_elements: SDFGElement[],
     ends_drag: boolean
 ): boolean {
-    if ((evtype === 'click' && !ends_drag) || evtype === 'dblclick') {
+    if ((evtype === 'mouseup' && !ends_drag) || evtype === 'dblclick') {
         const menu = renderer.get_menu();
         if (menu)
             menu.destroy();
@@ -482,11 +494,11 @@ function mouse_event(
             element = null;
 
         if (element !== null) {
-            sidebar_set_title(element.type() + " " + element.label());
+            sidebar_set_title(element.type() + ' ' + element.label());
             fill_info(element);
         } else {
             close_menu();
-            sidebar_set_title("Multiple elements selected");
+            sidebar_set_title('Multiple elements selected');
         }
         sidebar_show();
     }
@@ -494,33 +506,33 @@ function mouse_event(
 }
 
 function init_menu(): void {
-    return globals.daceUIHandlers.on_init_menu();
+    return SDFVUIHandlers.on_init_menu();
 }
 
 function sidebar_set_title(title: string): void {
-    return globals.daceUIHandlers.on_sidebar_set_title(title);
+    return SDFVUIHandlers.on_sidebar_set_title(title);
 }
 
 function sidebar_show(): void {
-    return globals.daceUIHandlers.on_sidebar_show();
+    return SDFVUIHandlers.on_sidebar_show();
 }
 
 function sidebar_get_contents(): HTMLElement | null {
-    return globals.daceUIHandlers.sidebar_get_contents();
+    return SDFVUIHandlers.sidebar_get_contents();
 }
 
 function close_menu(): void {
-    return globals.daceUIHandlers.on_close_menu();
+    return SDFVUIHandlers.on_close_menu();
 }
 
-function outline(renderer: SDFGRenderer, sdfg: any): void {
-    return globals.daceUIHandlers.on_outline(renderer, sdfg);
+export function outline(renderer: SDFGRenderer, sdfg: any): void {
+    return SDFVUIHandlers.on_outline(renderer, sdfg);
 }
 
 export function fill_info(elem: SDFGElement): void {
-    return globals.daceUIHandlers.on_fill_info(elem);
+    return SDFVUIHandlers.on_fill_info(elem);
 }
 
-$('document').ready(() => {
+$(() => {
     init_menu();
 });

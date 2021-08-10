@@ -9,6 +9,7 @@ import {
 } from '../utils/sdfg/sdfg_utils';
 import { SDFGRenderer } from './renderer';
 import { DagreSDFG, Point2D } from '../types';
+import { intersectRect } from '../utils/utils';
 
 const animation_duration = 1000;
 
@@ -163,7 +164,7 @@ export class CanvasManager {
             (_ctx as any)._custom_transform_matrix =
                 (_ctx as any)._custom_transform_matrix.multiply(m2);
             checker();
-            return transform_func.call(_ctx, a, b, c, d, e, f);
+            return (transform_func as any).call(_ctx, a, b, c, d, e, f);
         };
 
         const setTransform_func = _ctx.setTransform;
@@ -178,7 +179,7 @@ export class CanvasManager {
             ctxref._custom_transform_matrix.e = e;
             ctxref._custom_transform_matrix.f = f;
             checker();
-            return setTransform_func.call(_ctx, a, b, c, d, e, f);
+            return (setTransform_func as any).call(_ctx, a, b, c, d, e, f);
         };
 
         (_ctx as any).custom_inverseTransformMultiply =
@@ -797,6 +798,10 @@ export class CanvasManager {
         this.anim_id = window.requestAnimationFrame(
             (now) => this.draw_now(now)
         );
+    }
+
+    public set_user_transform(user_transform: DOMMatrix): void {
+        this.user_transform = user_transform;
     }
 
 }

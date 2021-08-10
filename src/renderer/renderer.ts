@@ -8,7 +8,7 @@ import {
     get_uuid_graph_element,
     find_graph_element_by_uuid,
 } from '../utils/sdfg/sdfg_utils';
-import { deepCopy } from '../utils/utils';
+import { deepCopy, intersectRect } from '../utils/utils';
 import { traverse_sdfg_scopes } from '../utils/sdfg/traversal';
 import { ContextMenu } from '../utils/context_menu';
 import {
@@ -34,9 +34,9 @@ import {
     calculateEdgeBoundingBox,
 } from '../utils/bounding_box';
 import { OverlayManager } from '../overlay_manager';
-import { fill_info } from '../sdfv';
+import { fill_info, outline, SDFV } from '../sdfv';
 import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
-import { DagreSDFG, ModeButtons, SDFVTooltipFunc } from '../types';
+import { DagreSDFG, ModeButtons, Point2D, SDFVTooltipFunc } from '../types';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -109,8 +109,8 @@ export class SDFGRenderer {
     private overlays_menu: any = null;
 
     // Memlet-Tree related fields.
-    private all_memlet_trees_sdfg: Set<Edge>[] = [];
-    private all_memlet_trees: Set<Edge>[] = [];
+    private all_memlet_trees_sdfg: Set<any>[] = [];
+    private all_memlet_trees: Set<any>[] = [];
 
     // View options.
     private inclusive_ranges: boolean = false;
@@ -123,9 +123,9 @@ export class SDFGRenderer {
     private mouse_mode: string = 'pan';
     private box_select_rect: any = null;
     // Last position of the mouse pointer (in canvas coordinates).
-    private mousepos: any = null;
+    private mousepos: Point2D | null = null;
     // Last position of the mouse pointer (in pixel coordinates).
-    private realmousepos: any = null;
+    private realmousepos: Point2D | null = null;
     private dragging: boolean = false;
     // Null if the mouse/touch is not activated.
     private drag_start: any = null;
@@ -357,41 +357,41 @@ export class SDFGRenderer {
         // Menu bar
         try {
             ContextMenu;
-            d = document.createElement('button');
-            d.className = 'button';
-            d.innerHTML = '<i class="material-icons">menu</i>';
-            d.style.paddingBottom = '0px';
-            d.style.userSelect = 'none';
+            const menu_button = document.createElement('button');
+            menu_button.className = 'button';
+            menu_button.innerHTML = '<i class="material-icons">menu</i>';
+            menu_button.style.paddingBottom = '0px';
+            menu_button.style.userSelect = 'none';
             const that = this;
-            d.onclick = function () {
+            menu_button.onclick = function () {
                 if (that.menu && that.menu.visible()) {
                     that.menu.destroy();
                     return;
                 }
-                const rect = this.getBoundingClientRect();
+                const rect = menu_button.getBoundingClientRect();
                 const cmenu = new ContextMenu();
                 cmenu.addOption(
-                    'Save view as PNG', (x: any) => that.save_as_png()
+                    'Save view as PNG', (_x: any) => that.save_as_png()
                 );
                 if (that.has_pdf()) {
                     cmenu.addOption(
-                        'Save view as PDF', (x: any) => that.save_as_pdf()
+                        'Save view as PDF', (_x: any) => that.save_as_pdf()
                     );
                     cmenu.addOption(
-                        'Save all as PDF', (x: any) => that.save_as_pdf(true)
+                        'Save all as PDF', (_x: any) => that.save_as_pdf(true)
                     );
                 }
                 cmenu.addCheckableOption(
                     'Inclusive ranges',
                     that.inclusive_ranges,
-                    (x: any, checked: boolean) => {
+                    (_x: any, checked: boolean) => {
                         that.inclusive_ranges = checked;
                     }
                 );
                 cmenu.addCheckableOption(
                     'Adaptive content hiding',
                     that.ctx.lod,
-                    (x: any, checked: boolean) => {
+                    (_x: any, checked: boolean) => {
                         that.ctx.lod = checked;
                     }
                 );
@@ -407,13 +407,14 @@ export class SDFGRenderer {
                                 return;
                             }
                             const rect =
-                                cmenu._cmenu_elem?.getBoundingClientRect();
+                                cmenu.get_cmenu_elem()?.getBoundingClientRect();
                             const overlays_cmenu = new ContextMenu();
                             overlays_cmenu.addCheckableOption(
                                 'Memory volume analysis',
-                                that.overlay_manager?.is_overlay_active(
+                                that.overlay_manager ?
+                                that.overlay_manager.is_overlay_active(
                                     MemoryVolumeOverlay
-                                ),
+                                ) : false,
                                 (x: any, checked: boolean) => {
                                     if (checked)
                                         that.overlay_manager?.register_overlay(
@@ -447,8 +448,8 @@ export class SDFGRenderer {
                 that.menu = cmenu;
                 that.menu.show(rect.left, rect.bottom);
             };
-            d.title = 'Menu';
-            this.toolbar.appendChild(d);
+            menu_button.title = 'Menu';
+            this.toolbar.appendChild(menu_button);
         } catch (ex) { }
 
         // Zoom to fit
@@ -669,7 +670,7 @@ export class SDFGRenderer {
         // Translation/scaling management
         this.canvas_manager = new CanvasManager(this.ctx, this, this.canvas);
         if (user_transform !== null)
-            this.canvas_manager.user_transform = user_transform;
+            this.canvas_manager.set_user_transform(user_transform);
 
         // Resize event for container
         const observer = new MutationObserver((mutations) => {
@@ -837,7 +838,8 @@ export class SDFGRenderer {
         // Update info box
         if (this.selected_elements.length == 1) {
             const uuid = get_uuid_graph_element(this.selected_elements[0]);
-            fill_info(find_graph_element_by_uuid(this.graph, uuid).element);
+            if (this.graph)
+                fill_info(find_graph_element_by_uuid(this.graph, uuid).element);
         }
     }
 
@@ -846,15 +848,15 @@ export class SDFGRenderer {
         const canvas = this.canvas;
         const br = () => canvas?.getBoundingClientRect();
 
-        const comp_x = (event: any) => {
+        const comp_x = (event: any): number | undefined => {
             const left = br()?.left;
-            this.canvas_manager?.mapPixelToCoordsX(
+            return this.canvas_manager?.mapPixelToCoordsX(
                 event.clientX - (left ? left : 0)
             );
         };
-        const comp_y = (event: any) => {
+        const comp_y = (event: any): number | undefined => {
             const top = br()?.top;
-            this.canvas_manager?.mapPixelToCoordsY(
+            return this.canvas_manager?.mapPixelToCoordsY(
                 event.clientY - (top ? top : 0)
             );
         };
@@ -892,9 +894,9 @@ export class SDFGRenderer {
     public update_fast_memlet_lookup(): void {
         this.all_memlet_trees = [];
         for (const tree of this.all_memlet_trees_sdfg) {
-            const s = new Set<Edge>();
+            const s = new Set<any>();
             for (const edge of tree) {
-                s.add(edge.attributes().data.edge);
+                s.add(edge.attributes.data.edge);
             }
             this.all_memlet_trees.push(s);
         }
@@ -903,8 +905,10 @@ export class SDFGRenderer {
     // Re-layout graph and nested graphs
     public relayout(): DagreSDFG {
         this.sdfg_list = {};
-        this.graph = relayout_sdfg(this.ctx, this.sdfg, this.sdfg_list,
-            this.state_parent_list, this.omit_access_nodes);
+        this.graph = relayout_sdfg(
+            this.ctx, this.sdfg, this.sdfg_list,
+            this.state_parent_list, this.omit_access_nodes
+        );
         this.onresize();
 
         this.update_fast_memlet_lookup();
@@ -928,10 +932,10 @@ export class SDFGRenderer {
             let scope_dx = 0;
             let scope_dy = 0;
 
-            function add_scope_movement(n: SDFGNode) {
-                if (n.data().node.scope_entry) {
+            function add_scope_movement(n: any) {
+                if (n.data.node.scope_entry) {
                     const scope_entry_node = graph.node(
-                        n.data().node.scope_entry
+                        n.data.node.scope_entry
                     );
                     const sp = get_positioning_info(scope_entry_node);
                     if (sp && Number.isFinite(sp.scope_dx) &&
@@ -960,11 +964,12 @@ export class SDFGRenderer {
 
             if (dx || dy) {
                 // Move the element
-                this.canvas_manager?.translate_element(
-                    node, { x: node.x, y: node.y },
-                    { x: node.x + dx, y: node.y + dy }, this.graph,
-                    this.sdfg_list, this.state_parent_list, undefined, false
-                );
+                if (this.graph)
+                    this.canvas_manager?.translate_element(
+                        node, { x: node.x, y: node.y },
+                        { x: node.x + dx, y: node.y + dy }, this.graph,
+                        this.sdfg_list, this.state_parent_list, undefined, false
+                    );
             }
 
             // TODO: Why is this here?
@@ -998,12 +1003,13 @@ export class SDFGRenderer {
                 }
                 if (final_pos_d) {
                     // Move the element
-                    this.canvas_manager?.translate_element(
-                        edge, { x: 0, y: 0 },
-                        { x: 0, y: 0 }, this.graph, this.sdfg_list,
-                        this.state_parent_list, undefined, false, false,
-                        final_pos_d
-                    );
+                    if (this.graph)
+                        this.canvas_manager?.translate_element(
+                            edge, { x: 0, y: 0 },
+                            { x: 0, y: 0 }, this.graph, this.sdfg_list,
+                            this.state_parent_list, undefined, false, false,
+                            final_pos_d
+                        );
                 }
             });
             return true;
@@ -1095,17 +1101,24 @@ export class SDFGRenderer {
         let size;
         if (save_all) {
             // Get size of entire graph
-            const elements = this.graph?.nodes().map(x => this.graph?.node(x));
+            const elements: SDFGElement[] = [];
+            this.graph?.nodes().forEach((n_id: any) => {
+                const node = this.graph?.node(n_id);
+                if (node)
+                    elements.push(node);
+            });
             const bb = boundingBox(elements);
             size = [bb.width, bb.height];
         } else {
             // Get size of current view
-            const endx = this.canvas_manager?.mapPixelToCoordsX(
-                this.canvas?.width
-            );
-            const endy = this.canvas_manager?.mapPixelToCoordsY(
-                this.canvas?.height
-            );
+            const canvasw = this.canvas?.width;
+            const canvash = this.canvas?.height;
+            let endx = null;
+            if (canvasw)
+                endx = this.canvas_manager?.mapPixelToCoordsX(canvasw);
+            let endy = null;
+            if (canvash)
+                endy = this.canvas_manager?.mapPixelToCoordsY(canvash);
             const curw = (endx ? endx : 0) - (curx ? curx : 0);
             const curh = (endy ? endy : 0) - (cury ? cury : 0);
             size = [curw, curh];
@@ -1170,12 +1183,14 @@ export class SDFGRenderer {
         const g = this.graph;
         const curx = this.canvas_manager?.mapPixelToCoordsX(0);
         const cury = this.canvas_manager?.mapPixelToCoordsY(0);
-        const endx = this.canvas_manager?.mapPixelToCoordsX(
-            this.canvas?.width
-        );
-        const endy = this.canvas_manager?.mapPixelToCoordsY(
-            this.canvas?.height
-        );
+        const canvasw = this.canvas?.width;
+        const canvash = this.canvas?.height;
+        let endx = null;
+        if (canvasw)
+            endx = this.canvas_manager?.mapPixelToCoordsX(canvasw);
+        let endy = null;
+        if (canvash)
+            endy = this.canvas_manager?.mapPixelToCoordsY(canvash);
         const curw = (endx ? endx : 0) - (curx ? curx : 0);
         const curh = (endy ? endy : 0) - (cury ? cury : 0);
 
@@ -1183,7 +1198,8 @@ export class SDFGRenderer {
 
         this.on_pre_draw();
 
-        draw_sdfg(this, ctx, g, this.mousepos);
+        if (this.mousepos)
+            draw_sdfg(this, ctx, g, this.mousepos);
 
         if (this.box_select_rect) {
             this.ctx.beginPath();
@@ -1237,7 +1253,7 @@ export class SDFGRenderer {
             // silently ignoring it?
         }
 
-        if (this.tooltip) {
+        if (this.tooltip && this.realmousepos) {
             const br = this.canvas?.getBoundingClientRect();
             const pos = {
                 x: this.realmousepos.x - (br ? br.x : 0),
@@ -1259,7 +1275,7 @@ export class SDFGRenderer {
             this.tooltip_container.style.display = 'none';
         }
 
-        if (this.sdfg.error) {
+        if (this.sdfg.error && this.graph) {
             const error = this.sdfg.error;
 
             let type = '';
@@ -1282,8 +1298,8 @@ export class SDFGRenderer {
             } else {
                 return;
             }
-            const offending_element = find_graph_element(
-                this.graph, type, error.sdfg_id, state_id, el_id
+            const offending_element = find_graph_element_by_uuid(
+                this.graph, error.sdfg_id + '/' + state_id + '/' + el_id + '/-1'
             );
             if (offending_element) {
                 this.zoom_to_view([offending_element]);
@@ -1309,14 +1325,16 @@ export class SDFGRenderer {
 
         const curx = this.canvas_manager.mapPixelToCoordsX(0);
         const cury = this.canvas_manager.mapPixelToCoordsY(0);
-        const endx = this.canvas_manager.mapPixelToCoordsX(
-            this.canvas?.width
-        );
-        const endy = this.canvas_manager.mapPixelToCoordsY(
-            this.canvas?.height
-        );
-        const curw = endx - curx;
-        const curh = endy - cury;
+        const canvasw = this.canvas?.width;
+        const canvash = this.canvas?.height;
+        let endx = null;
+        if (canvasw)
+            endx = this.canvas_manager.mapPixelToCoordsX(canvasw);
+        let endy = null;
+        if (canvash)
+            endy = this.canvas_manager.mapPixelToCoordsY(canvash);
+        const curw = (endx ? endx : 0) - curx;
+        const curh = (endy ? endy : 0) - cury;
         const elements: any[] = [];
         this.do_for_intersected_elements(
             curx, cury, curw, curh,
@@ -1679,12 +1697,12 @@ export class SDFGRenderer {
 
         if (this.ctrl_key_selection && !event.ctrlKey) {
             if (this.selectmode_btn?.onclick)
-                this.selectmode_btn.onclick(event, false);
+                (this.selectmode_btn as any).onclick(event, false);
         }
 
         if (this.shift_key_movement && !event.shiftKey) {
             if (this.movemode_btn?.onclick)
-                this.movemode_btn?.onclick(event, false);
+                (this.movemode_btn as any).onclick(event, false);
         }
 
         if (this.mouse_mode !== 'pan') {
@@ -1709,12 +1727,12 @@ export class SDFGRenderer {
 
         if (event.ctrlKey && !event.shiftKey) {
             if (this.selectmode_btn?.onclick)
-                this.selectmode_btn?.onclick(event, true);
+                (this.selectmode_btn as any).onclick(event, true);
         }
 
         if (event.shiftKey && !event.ctrlKey) {
             if (this.movemode_btn?.onclick)
-                this.movemode_btn?.onclick(event, true);
+                (this.movemode_btn as any).onclick(event, true);
         }
 
         return true;
@@ -1722,8 +1740,11 @@ export class SDFGRenderer {
 
     public on_mouse_event(
         event: any, comp_x_func: CallableFunction,
-        comp_y_func: CallableFunction, evtype: string = "other"
+        comp_y_func: CallableFunction, evtype: string = 'other'
     ): boolean {
+        if (!this.graph)
+            return false;
+
         if (this.ctrl_key_selection || this.shift_key_movement)
             this.on_key_event(event);
 
@@ -1733,20 +1754,23 @@ export class SDFGRenderer {
         // Whether the current multi-selection changed
         let multi_selection_changed = false;
 
-        if (evtype === "mousedown" || evtype === "touchstart") {
+        if (evtype === 'mousedown' || evtype === 'touchstart') {
             this.drag_start = event;
-        } else if (evtype === "mouseup") {
+        } else if (evtype === 'mouseup') {
             this.drag_start = null;
             this.last_dragged_element = null;
-        } else if (evtype === "touchend") {
+        } else if (evtype === 'touchend') {
             if (event.touches.length == 0)
                 this.drag_start = null;
             else
                 this.drag_start = event;
-        } else if (evtype === "mousemove") {
+        } else if (evtype === 'mousemove') {
             // Calculate the change in mouse position in canvas coordinates
             const old_mousepos = this.mousepos;
-            this.mousepos = { x: comp_x_func(event), y: comp_y_func(event) };
+            this.mousepos = {
+                x: comp_x_func(event),
+                y: comp_y_func(event)
+            };
             this.realmousepos = { x: event.clientX, y: event.clientY };
 
             // Only accept the primary mouse button as dragging source
@@ -1800,15 +1824,15 @@ export class SDFGRenderer {
 
                         const move_entire_edge = elements_to_move.length > 1;
                         for (const el of elements_to_move) {
-                            this.canvas_manager?.translate_element(
-                                el,
-                                old_mousepos, this.mousepos,
-                                this.graph, this.sdfg_list,
-                                this.state_parent_list,
-                                this.drag_start,
-                                true,
-                                move_entire_edge
-                            );
+                            if (old_mousepos)
+                                this.canvas_manager?.translate_element(
+                                    el, old_mousepos, this.mousepos,
+                                    this.graph, this.sdfg_list,
+                                    this.state_parent_list,
+                                    this.drag_start,
+                                    true,
+                                    move_entire_edge
+                                );
                         }
 
                         dirty = true;
@@ -1859,7 +1883,7 @@ export class SDFGRenderer {
                 if (event.buttons & 1 || event.buttons & 4)
                     return true; // Don't stop propagation
             }
-        } else if (evtype === "touchmove") {
+        } else if (evtype === 'touchmove') {
             if (this.drag_start.touches.length != event.touches.length) {
                 // Different number of touches, ignore and reset drag_start
                 this.drag_start = event;
@@ -1882,10 +1906,14 @@ export class SDFGRenderer {
                 let x1 = touch1.clientX, x2 = touch2.clientX;
                 let y1 = touch1.clientY, y2 = touch2.clientY;
                 const oldCenter = [(x1 + x2) / 2.0, (y1 + y2) / 2.0];
-                const initialDistance = Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+                const initialDistance = Math.sqrt(
+                    (x1 - x2) ** 2 + (y1 - y2) ** 2
+                );
                 x1 = event.touches[0].clientX; x2 = event.touches[1].clientX;
                 y1 = event.touches[0].clientY; y2 = event.touches[1].clientY;
-                const currentDistance = Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+                const currentDistance = Math.sqrt(
+                    (x1 - x2) ** 2 + (y1 - y2) ** 2
+                );
                 const newCenter = [(x1 + x2) / 2.0, (y1 + y2) / 2.0];
 
                 // First, translate according to movement of center point
@@ -1905,7 +1933,7 @@ export class SDFGRenderer {
                 this.draw_async();
                 return false;
             }
-        } else if (evtype === "wheel") {
+        } else if (evtype === 'wheel') {
             // Get physical x,y coordinates (rather than canvas coordinates)
             const br = this.canvas?.getBoundingClientRect();
             const x = event.clientX - (br ? br.x : 0);
@@ -1986,7 +2014,8 @@ export class SDFGRenderer {
             this.mousepos.x, this.mousepos.y, 0, 0,
             (type: any, e: any, obj: any, intersected: any) => {
                 // Highlight all edges of the memlet tree
-                if (intersected && obj instanceof Edge && obj.parent_id != null) {
+                if (intersected && obj instanceof Edge &&
+                    obj.parent_id != null) {
                     const tree = this.get_nested_memlet_tree(obj);
                     tree.forEach(te => {
                         if (te != obj && te !== undefined) {
@@ -2045,12 +2074,12 @@ export class SDFGRenderer {
             this.add_edge_start.highlighted = true;
         }
 
-        if (evtype === "mousemove") {
+        if (evtype === 'mousemove') {
             // TODO: Draw only if elements have changed
             dirty = true;
         }
 
-        if (evtype === "dblclick") {
+        if (evtype === 'dblclick') {
             const sdfg = (foreground_elem ? foreground_elem.sdfg : null);
             let sdfg_elem = null;
             if (foreground_elem instanceof State)
@@ -2059,8 +2088,8 @@ export class SDFGRenderer {
                 sdfg_elem = foreground_elem.data.node;
 
                 // If a scope exit node, use entry instead
-                if (sdfg_elem.type.endsWith("Exit") &&
-                    foreground_elem.parent_id)
+                if (sdfg_elem.type.endsWith('Exit') &&
+                    foreground_elem.parent_id !== null)
                     sdfg_elem = sdfg.nodes[foreground_elem.parent_id].nodes[
                         sdfg_elem.scope_entry
                     ];
@@ -2234,7 +2263,7 @@ export class SDFGRenderer {
             el.selected = true;
         });
 
-        if (evtype === "contextmenu") {
+        if (evtype === 'contextmenu') {
             if (this.mouse_mode == 'move') {
                 let elements_to_reset = [foreground_elem];
                 if (this.selected_elements.includes(foreground_elem))
@@ -2347,9 +2376,8 @@ export class SDFGRenderer {
             );
         }
 
-        if (dirty) {
+        if (dirty)
             this.draw_async();
-        }
 
         if (element_focus_changed) {
             // If a listener in VSCode is present, update it about the new
@@ -2378,6 +2406,10 @@ export class SDFGRenderer {
         return this.canvas_manager;
     }
 
+    public get_context(): CanvasRenderingContext2D {
+        return this.ctx;
+    }
+
     public get_overlay_manager(): OverlayManager | null {
         return this.overlay_manager;
     }
@@ -2402,6 +2434,22 @@ export class SDFGRenderer {
         return this.sdfg;
     }
 
+    public get_graph(): DagreSDFG | null {
+        return this.graph;
+    }
+
+    public get_in_vscode(): boolean {
+        return this.in_vscode;
+    }
+
+    public get_mousepos(): Point2D | null {
+        return this.mousepos;
+    }
+
+    public get_tooltip_container(): HTMLElement {
+        return this.tooltip_container;
+    }
+
     public set_tooltip(tooltip_func: SDFVTooltipFunc): void {
         this.tooltip = tooltip_func;
     }
@@ -2414,39 +2462,39 @@ export class SDFGRenderer {
 
 
 function calculateNodeSize(
-    sdfg_state: any, node: SDFGNode, ctx: CanvasRenderingContext2D
+    sdfg_state: any, node: any, ctx: CanvasRenderingContext2D
 ): { width: number, height: number} {
-    const labelsize = ctx.measureText(node.label()).width;
-    const inconnsize = 2 * LINEHEIGHT * Object.keys(
-        node.attributes().layout.in_connectors
-    ).length - LINEHEIGHT;
-    const outconnsize = 2 * LINEHEIGHT * Object.keys(
-        node.attributes().layout.out_connectors
-    ).length - LINEHEIGHT;
+    const labelsize = ctx.measureText(node.label).width;
+    const inconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
+        node.attributes.layout.in_connectors
+    ).length - SDFV.LINEHEIGHT;
+    const outconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
+        node.attributes.layout.out_connectors
+    ).length - SDFV.LINEHEIGHT;
     const maxwidth = Math.max(labelsize, inconnsize, outconnsize);
-    let maxheight = 2 * LINEHEIGHT;
-    maxheight += 4 * LINEHEIGHT;
+    let maxheight = 2 * SDFV.LINEHEIGHT;
+    maxheight += 4 * SDFV.LINEHEIGHT;
 
     const size = { width: maxwidth, height: maxheight }
 
     // add something to the size based on the shape of the node
-    if (node.type() === 'AccessNode') {
-        size.height -= 4 * LINEHEIGHT;
+    if (node.type === 'AccessNode') {
+        size.height -= 4 * SDFV.LINEHEIGHT;
         size.width += size.height;
-    } else if (node.type().endsWith('Entry')) {
+    } else if (node.type.endsWith('Entry')) {
         size.width += 2.0 * size.height;
         size.height /= 1.75;
-    } else if (node.type().endsWith('Exit')) {
+    } else if (node.type.endsWith('Exit')) {
         size.width += 2.0 * size.height;
         size.height /= 1.75;
-    } else if (node.type() === 'Tasklet') {
+    } else if (node.type === 'Tasklet') {
         size.width += 2.0 * (size.height / 3.0);
         size.height /= 1.75;
-    } else if (node.type() === 'LibraryNode') {
+    } else if (node.type === 'LibraryNode') {
         size.width += 2.0 * (size.height / 3.0);
         size.height /= 1.75;
-    } else if (node.type() === 'Reduce') {
-        size.height -= 4 * LINEHEIGHT;
+    } else if (node.type === 'Reduce') {
+        size.height -= 4 * SDFV.LINEHEIGHT;
         size.width *= 2;
         size.height = size.width / 3.0;
     }
@@ -2462,7 +2510,7 @@ function relayout_sdfg(
     state_parent_list: any[],
     omit_access_nodes: boolean
 ): DagreSDFG {
-    const STATE_MARGIN = 4 * LINEHEIGHT;
+    const STATE_MARGIN = 4 * SDFV.LINEHEIGHT;
 
     // Layout the SDFG as a dagre graph
     const g: DagreSDFG = new dagre.graphlib.Graph();
@@ -2477,12 +2525,14 @@ function relayout_sdfg(
         let state_g = null;
         if (state.attributes.is_collapsed) {
             stateinfo.width = ctx.measureText(stateinfo.label).width;
-            stateinfo.height = LINEHEIGHT;
-        }
-        else {
-            state_g = relayout_state(ctx, state, sdfg, sdfg_list,
-                state_parent_list, omit_access_nodes);
-            stateinfo = calculateBoundingBox(state_g);
+            stateinfo.height = SDFV.LINEHEIGHT;
+        } else {
+            state_g = relayout_state(
+                ctx, state, sdfg, sdfg_list,
+                state_parent_list, omit_access_nodes
+            );
+            if (state_g)
+                stateinfo = calculateBoundingBox(state_g);
         }
         stateinfo.width += 2 * STATE_MARGIN;
         stateinfo.height += 2 * STATE_MARGIN;
@@ -2600,7 +2650,7 @@ function relayout_state(
             node.type !== "NestedSDFG")
             node.attributes.layout.out_connectors = find_exit_for_entry(
                 sdfg_state.nodes, node
-            ).attributes.out_connectors;
+            )?.attributes.out_connectors;
         else
             node.attributes.layout.out_connectors =
                 node.attributes.out_connectors;
@@ -2617,8 +2667,9 @@ function relayout_state(
                 omit_access_nodes
             );
             const sdfginfo = calculateBoundingBox(nested_g);
-            node.attributes.layout.width = sdfginfo.width + 2 * LINEHEIGHT;
-            node.attributes.layout.height = sdfginfo.height + 2 * LINEHEIGHT;
+            node.attributes.layout.width = sdfginfo.width + 2 * SDFV.LINEHEIGHT;
+            node.attributes.layout.height =
+                sdfginfo.height + 2 * SDFV.LINEHEIGHT;
         }
 
         // Dynamically create node type
@@ -2789,33 +2840,33 @@ function relayout_state(
         if (node.type === "NestedSDFG") {
 
             offset_sdfg(node.attributes.sdfg, gnode.data.graph, {
-                x: topleft.x + LINEHEIGHT,
-                y: topleft.y + LINEHEIGHT
+                x: topleft.x + SDFV.LINEHEIGHT,
+                y: topleft.y + SDFV.LINEHEIGHT
             });
         }
         // Connector management 
-        const SPACING = LINEHEIGHT;
-        const iconn_length = (LINEHEIGHT + SPACING) * Object.keys(
+        const SPACING = SDFV.LINEHEIGHT;
+        const iconn_length = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
             node.attributes.layout.in_connectors
         ).length - SPACING;
-        const oconn_length = (LINEHEIGHT + SPACING) * Object.keys(
+        const oconn_length = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
             node.attributes.layout.out_connectors
         ).length - SPACING;
-        let iconn_x = gnode.x - iconn_length / 2.0 + LINEHEIGHT / 2.0;
-        let oconn_x = gnode.x - oconn_length / 2.0 + LINEHEIGHT / 2.0;
+        let iconn_x = gnode.x - iconn_length / 2.0 + SDFV.LINEHEIGHT / 2.0;
+        let oconn_x = gnode.x - oconn_length / 2.0 + SDFV.LINEHEIGHT / 2.0;
 
         for (const c of gnode.in_connectors) {
-            c.width = LINEHEIGHT;
-            c.height = LINEHEIGHT;
+            c.width = SDFV.LINEHEIGHT;
+            c.height = SDFV.LINEHEIGHT;
             c.x = iconn_x;
-            iconn_x += LINEHEIGHT + SPACING;
+            iconn_x += SDFV.LINEHEIGHT + SPACING;
             c.y = topleft.y;
         }
         for (const c of gnode.out_connectors) {
-            c.width = LINEHEIGHT;
-            c.height = LINEHEIGHT;
+            c.width = SDFV.LINEHEIGHT;
+            c.height = SDFV.LINEHEIGHT;
             c.x = oconn_x;
-            oconn_x += LINEHEIGHT + SPACING;
+            oconn_x += SDFV.LINEHEIGHT + SPACING;
             c.y = topleft.y + gnode.height;
         }
     });

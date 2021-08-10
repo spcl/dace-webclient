@@ -16,7 +16,7 @@ export class GenericSdfgOverlay {
         protected overlay_manager: OverlayManager,
         protected renderer: SDFGRenderer
     ) {
-        this.symbol_resolver = this.overlay_manager.symbol_resolver;
+        this.symbol_resolver = this.overlay_manager.get_symbol_resolver();
         this.vscode = typeof vscode !== 'undefined' && vscode;
         this.badness_scale_center = 5;
     }
@@ -26,12 +26,12 @@ export class GenericSdfgOverlay {
     }
 
     public on_mouse_event(
-        type: string,
-        ev: MouseEvent,
-        mousepos: any,
-        elements: SDFGElement[],
-        foreground_elem: SDFGElement | undefined,
-        ends_drag: boolean
+        _type: string,
+        _ev: MouseEvent,
+        _mousepos: any,
+        _elements: SDFGElement[],
+        _foreground_elem: SDFGElement | undefined,
+        _ends_drag: boolean
     ): boolean {
         return false;
     }
