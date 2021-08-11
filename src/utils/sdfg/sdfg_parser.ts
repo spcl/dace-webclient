@@ -1,19 +1,19 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { State } from '../../renderer/renderer_elements';
+import { JsonSDFG } from '../../types';
 
 export class SDFG_Parser {
 
-    public constructor(private readonly sdfg: any) {
+    public constructor(private readonly sdfg: JsonSDFG) {
     }
 
-    public getStates(): State[] {
+    public getStates(): any[] {
         return this.sdfg.nodes.map((x: any) => new SDFG_State_Parser(x));
     }
 
     public static lookup_symbols(
-        sdfg: any, state_id: number, elem: any, symbols_to_resolve: string[],
-        depth: number = 0
+        sdfg: JsonSDFG, state_id: number, elem: any,
+        symbols_to_resolve: string[], depth: number = 0
     ): any[] {
         // Resolve used symbols by following connectors in reverse order
         const state = sdfg.nodes[state_id];

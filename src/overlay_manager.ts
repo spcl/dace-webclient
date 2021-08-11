@@ -3,7 +3,7 @@
 import { createElement } from './utils/utils';
 import { MathNode, parse } from 'mathjs';
 import { SDFGRenderer } from './renderer/renderer';
-import { SymbolMap } from './types';
+import { Point2D, SymbolMap } from './types';
 import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
 import { SDFGElement } from './renderer/renderer_elements';
 
@@ -310,7 +310,7 @@ export class OverlayManager {
     public on_mouse_event(
         type: string,
         ev: MouseEvent,
-        mousepos: any,
+        mousepos: Point2D,
         elements: SDFGElement[],
         foreground_elem: SDFGElement | undefined,
         ends_drag: boolean

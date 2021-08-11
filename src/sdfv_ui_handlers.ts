@@ -85,7 +85,7 @@ function on_fill_info(elem: SDFGElement): void {
     contents.innerHTML = html;
 }
 
-function on_outline(renderer: SDFGRenderer, sdfg: any): void {
+function on_outline(renderer: SDFGRenderer, sdfg: DagreSDFG): void {
     on_sidebar_set_title('SDFG Outline');
 
     const sidebar = sidebar_get_contents();
@@ -131,7 +131,7 @@ function on_outline(renderer: SDFGRenderer, sdfg: any): void {
         }
 
         d.innerHTML = htmlSanitize`
-            ${node_type} ${node.label()}${is_collapsed ? " (collapsed)" : ""}
+            ${node_type} ${node.label()}${is_collapsed ? ' (collapsed)' : ''}
         `;
         d.onclick = (e) => {
             // Show node or entire scope

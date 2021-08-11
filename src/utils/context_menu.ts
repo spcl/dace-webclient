@@ -81,10 +81,10 @@ export class ContextMenu {
         */
 
         const cmenu_div = document.createElement('div');
-        cmenu_div.id = "contextmenu";
-        $(cmenu_div).css('left', x + "px");
-        $(cmenu_div).css('top', y + "px");
-        cmenu_div.classList.add("context_menu");
+        cmenu_div.id = 'contextmenu';
+        $(cmenu_div).css('left', x + 'px');
+        $(cmenu_div).css('top', y + 'px');
+        cmenu_div.classList.add('context_menu');
 
 
         if (this.html_content == null) {
@@ -94,7 +94,7 @@ export class ContextMenu {
 
                 const elem = document.createElement('div');
                 elem.addEventListener('click', x.func);
-                elem.classList.add("context_menu_option");
+                elem.classList.add('context_menu_option');
 
                 if (x.checkbox) {
                     const markelem = document.createElement('span');

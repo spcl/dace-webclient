@@ -1,7 +1,7 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { SDFV } from '../sdfv';
-import { DagreSDFG, Point2D } from '../types';
+import { DagreSDFG, JsonSDFG, Point2D } from '../types';
 import { sdfg_range_elem_to_string } from '../utils/sdfg/display';
 import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
@@ -26,7 +26,7 @@ export class SDFGElement {
     public constructor(
         public data: any,
         public id: number,
-        public sdfg: any,
+        public sdfg: JsonSDFG,
         public parent_id: number | null = null
     ) {
         this.set_layout();
@@ -178,7 +178,7 @@ export class SDFGElement {
 // SDFG as an element (to support properties)
 export class SDFG extends SDFGElement {
 
-    public constructor(sdfg: any) {
+    public constructor(sdfg: JsonSDFG) {
         super(sdfg, -1, sdfg);
     }
 
@@ -200,18 +200,29 @@ export class State extends SDFGElement {
     ): void {
         const topleft = this.topleft();
         const visible_rect = renderer.get_visible_rect();
-        let clamped = {
-            x: Math.max(topleft.x, visible_rect.x),
-            y: Math.max(topleft.y, visible_rect.y),
-            x2: Math.min(
-                topleft.x + this.width, visible_rect.x + visible_rect.w
-            ),
-            y2: Math.min(
-                topleft.y + this.height, visible_rect.y + visible_rect.h
-            ),
-            w: 0,
-            h: 0,
-        };
+        let clamped;
+        if (visible_rect)
+            clamped = {
+                x: Math.max(topleft.x, visible_rect.x),
+                y: Math.max(topleft.y, visible_rect.y),
+                x2: Math.min(
+                    topleft.x + this.width, visible_rect.x + visible_rect.w
+                ),
+                y2: Math.min(
+                    topleft.y + this.height, visible_rect.y + visible_rect.h
+                ),
+                w: 0,
+                h: 0,
+            };
+        else
+            clamped = {
+                x: topleft.x,
+                y: topleft.y,
+                x2: topleft.x + this.width,
+                y2: topleft.y + this.height,
+                w: 0,
+                h: 0,
+            };
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
         if (!(ctx as any).lod)
@@ -228,7 +239,7 @@ export class State extends SDFGElement {
             renderer, '--state-foreground-color'
         );
 
-        if (visible_rect.x <= topleft.x &&
+        if (visible_rect && visible_rect.x <= topleft.x &&
             visible_rect.y <= topleft.y + SDFV.LINEHEIGHT)
             ctx.fillText(this.label(), topleft.x, topleft.y + SDFV.LINEHEIGHT);
 
@@ -254,7 +265,7 @@ export class State extends SDFGElement {
             ctx.stroke();
         }
 
-        ctx.strokeStyle = "black";
+        ctx.strokeStyle = 'black';
     }
 
     public simple_draw(
@@ -549,12 +560,12 @@ export class Edge extends SDFGElement {
 
             if (attr.dynamic) {
                 if (num_accesses == '0' || num_accesses == '-1')
-                    num_accesses = "<b>Dynamic (unbounded)</b>";
+                    num_accesses = '<b>Dynamic (unbounded)</b>';
                 else
-                    num_accesses = "<b>Dynamic</b> (up to " +
-                        num_accesses + ")";
+                    num_accesses = '<b>Dynamic</b> (up to ' +
+                        num_accesses + ')';
             } else if (num_accesses == '-1') {
-                num_accesses = "<b>Dynamic (unbounded)</b>";
+                num_accesses = '<b>Dynamic (unbounded)</b>';
             }
 
             contents += '<br /><font style="font-size: 14px">Volume: ' +
@@ -575,7 +586,7 @@ export class Edge extends SDFGElement {
     public label(): string {
         // Memlet
         if (this.data.attributes.subset !== undefined)
-            return "";
+            return '';
         return super.label();
     }
 
@@ -609,8 +620,8 @@ export class Connector extends SDFGElement {
         _mousepos: Point2D
     ): void {
         const scope_connector = (
-            this.data.name.startsWith("IN_") ||
-            this.data.name.startsWith("OUT_")
+            this.data.name.startsWith('IN_') ||
+            this.data.name.startsWith('OUT_')
         );
         const topleft = this.topleft();
         ctx.beginPath();
@@ -620,7 +631,7 @@ export class Connector extends SDFGElement {
         let fillColor;
         if (scope_connector) {
             let cname = this.data.name;
-            if (cname.startsWith("IN_"))
+            if (cname.startsWith('IN_'))
                 cname = cname.substring(3);
             else
                 cname = cname.substring(4);
@@ -692,7 +703,7 @@ export class AccessNode extends SDFGNode {
             this.data.node.attributes.data
         ];
         // Streams have dashed edges
-        if (nodedesc && nodedesc.type === "Stream") {
+        if (nodedesc && nodedesc.type === 'Stream') {
             ctx.setLineDash([5, 3]);
         } else {
             ctx.setLineDash([1, 0]);
@@ -709,7 +720,7 @@ export class AccessNode extends SDFGNode {
         ctx.setLineDash([1, 0]);
 
         // Views are colored like connectors
-        if (nodedesc && nodedesc.type === "View") {
+        if (nodedesc && nodedesc.type === 'View') {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--connector-unscoped-color'
             );
@@ -782,7 +793,7 @@ export class ScopeNode extends SDFGNode {
         ctx.strokeStyle = this.strokeStyle(renderer);
 
         // Consume scopes have dashed edges
-        if (this.data.node.type.startsWith("Consume"))
+        if (this.data.node.type.startsWith('Consume'))
             ctx.setLineDash([5, 3]);
         else
             ctx.setLineDash([1, 0]);
@@ -995,7 +1006,7 @@ export class Tasklet extends SDFGNode {
                 }
             }
             const oldfont = ctx.font;
-            ctx.font = "10px courier new";
+            ctx.font = '10px courier new';
             const textmetrics = ctx.measureText(lines[maxline]);
 
             // Fit font size to 80% height and width of tasklet
@@ -1007,7 +1018,7 @@ export class Tasklet extends SDFGNode {
             const FONTSIZE = Math.min(10 / hr, 10 / wr);
             const text_yoffset = FONTSIZE / 4;
 
-            ctx.font = FONTSIZE + "px courier new";
+            ctx.font = FONTSIZE + 'px courier new';
             // Set the start offset such that the middle row of the text is in
             // this.y
             const y = this.y + text_yoffset - (
@@ -1323,7 +1334,7 @@ export function draw_sdfg(
             return;
         }
         // Skip invisible states
-        if ((ctx as any).lod && !node.intersect(
+        if ((ctx as any).lod && visible_rect && !node.intersect(
             visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h
         ))
             return;
@@ -1337,7 +1348,7 @@ export function draw_sdfg(
             ng.nodes().forEach((v: any) => {
                 const n = ng.node(v);
 
-                if ((ctx as any).lod && !n.intersect(
+                if ((ctx as any).lod && visible_rect && !n.intersect(
                     visible_rect.x, visible_rect.y, visible_rect.w,
                     visible_rect.h
                 ))
@@ -1363,7 +1374,7 @@ export function draw_sdfg(
                 return;
             ng.edges().forEach((e: any) => {
                 const edge = ng.edge(e);
-                if ((ctx as any).lod && !edge.intersect(
+                if ((ctx as any).lod && visible_rect && !edge.intersect(
                     visible_rect.x, visible_rect.y, visible_rect.w,
                     visible_rect.h
                 ))
@@ -1377,7 +1388,7 @@ export function draw_sdfg(
 
 // Translate an SDFG by a given offset
 export function offset_sdfg(
-    sdfg: any, sdfg_graph: DagreSDFG, offset: Point2D
+    sdfg: JsonSDFG, sdfg_graph: DagreSDFG, offset: Point2D
 ): void {
     sdfg.nodes.forEach((state: any, id: any) => {
         const g = sdfg_graph.node(id);
@@ -1399,7 +1410,7 @@ export function offset_sdfg(
 
 // Translate nodes, edges, and connectors in a given SDFG state by an offset
 export function offset_state(
-    state: any, state_graph: State, offset: Point2D
+    state: JsonSDFG, state_graph: State, offset: Point2D
 ): void {
     const drawn_nodes = new Set();
 
@@ -1456,7 +1467,7 @@ export function drawAdaptiveText(
     let yoffset = SDFV.LINEHEIGHT / 2.0;
     const oldfont = ctx.font;
     if ((ctx as any).lod && ppp >= ppp_thres) { // Far text
-        ctx.font = FONTSIZE + "px sans-serif";
+        ctx.font = FONTSIZE + 'px sans-serif';
         label = far_text;
         yoffset = FONTSIZE / 2.0 - h / 6.0;
     }
@@ -1465,7 +1476,7 @@ export function drawAdaptiveText(
     let tw = textmetrics.width;
     if ((ctx as any).lod && ppp >= ppp_thres && tw > w) {
         FONTSIZE = FONTSIZE / (tw / w);
-        ctx.font = FONTSIZE + "px sans-serif";
+        ctx.font = FONTSIZE + 'px sans-serif';
         yoffset = FONTSIZE / 2.0 - h / 6.0;
         tw = w;
     }
@@ -1622,6 +1633,3 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     NestedSDFG,
     LibraryNode
 };
-
-// TODO: remove this global variable assignment once DIODE is removed/no longer relies on it
-Object.assign(globalThis, SDFGElements);

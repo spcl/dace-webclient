@@ -3,6 +3,7 @@
 import { OverlayManager, SymbolResolver } from "../overlay_manager";
 import { SDFGRenderer } from "../renderer/renderer";
 import { SDFGElement } from "../renderer/renderer_elements";
+import { Point2D } from "../types";
 
 declare const vscode: any;
 
@@ -28,7 +29,7 @@ export class GenericSdfgOverlay {
     public on_mouse_event(
         _type: string,
         _ev: MouseEvent,
-        _mousepos: any,
+        _mousepos: Point2D,
         _elements: SDFGElement[],
         _foreground_elem: SDFGElement | undefined,
         _ends_drag: boolean

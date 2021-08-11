@@ -14,7 +14,7 @@ import {
 import {
     RuntimeMicroSecondsOverlay
 } from './overlays/runtime_micro_seconds_overlay';
-import { DagreSDFG, Point2D } from './types';
+import { DagreSDFG, JsonSDFG, Point2D } from './types';
 import { SDFVUIHandlers } from './sdfv_ui_handlers';
 import $ from 'jquery';
 
@@ -95,7 +95,11 @@ function init_sdfv(
     $('#outline').on('click', () => {
         const renderer = SDFV.get_instance().get_renderer();
         if (renderer)
-            setTimeout(() => outline(renderer, renderer.get_graph()), 1);
+            setTimeout(() => {
+                const graph = renderer.get_graph();
+                if (graph)
+                    outline(renderer, graph);
+            }, 1);
     });
     $('#search-btn').on('click', () => {
         const renderer = SDFV.get_instance().get_renderer();
@@ -118,9 +122,9 @@ function init_sdfv(
     });
 
     let mode_buttons = null;
-    const pan_btn = document.getElementById("pan-btn");
-    const move_btn = document.getElementById("move-btn");
-    const select_btn = document.getElementById("select-btn");
+    const pan_btn = document.getElementById('pan-btn');
+    const move_btn = document.getElementById('move-btn');
+    const select_btn = document.getElementById('select-btn');
     const add_btns = [];
     add_btns.push(document.getElementById('elem_map'));
     add_btns.push(document.getElementById('elem_consume'));
@@ -137,11 +141,14 @@ function init_sdfv(
             add_btns: add_btns,
         };
 
-    if (sdfg !== null)
-        SDFV.get_instance().set_renderer(new SDFGRenderer(
-            sdfg, document.getElementById('contents'), mouse_event,
-            user_transform, debug_draw, null, mode_buttons
-        ));
+    if (sdfg !== null) {
+        const container = document.getElementById('contents');
+        if (container)
+            SDFV.get_instance().set_renderer(new SDFGRenderer(
+                sdfg, container, mouse_event, user_transform, debug_draw, null,
+                mode_buttons
+            ));
+    }
 }
 
 function start_find_in_graph(): void {
@@ -168,11 +175,12 @@ function reload_file(): void {
 
 function file_read_complete(): void {
     const result_string = fr.result;
-    if (result_string) {
+    const container = document.getElementById('contents');
+    if (result_string && container) {
         const sdfg = parse_sdfg(result_string.toString());
         SDFV.get_instance().get_renderer()?.destroy();
         SDFV.get_instance().set_renderer(new SDFGRenderer(
-            sdfg, document.getElementById('contents'), mouse_event
+            sdfg, container, mouse_event
         ));
         close_menu();
     }
@@ -298,16 +306,16 @@ function load_sdfg_from_url(url: string): void {
             SDFV.get_instance().get_renderer()?.destroy();
             init_sdfv(sdfg);
         } else {
-            alert("Failed to load SDFG from URL");
+            alert('Failed to load SDFG from URL');
             init_sdfv(null);
         }
     };
     request.onerror = () => {
-        alert("Failed to load SDFG from URL: " + request.status);
+        alert('Failed to load SDFG from URL: ' + request.status);
         init_sdfv(null);
     };
     request.open(
-        'GET', url + ((/\?/).test(url) ? "&" : "?") + (new Date()).getTime(),
+        'GET', url + ((/\?/).test(url) ? '&' : '?') + (new Date()).getTime(),
         true
     );
     request.send();
@@ -363,7 +371,7 @@ function find_in_graph(
             const d = document.createElement('div');
             d.className = 'context_menu_option';
             d.innerHTML = htmlSanitize`${result.type()} ${result.label()}`;
-            d.onclick = () => { renderer.zoom_to_view([result]) };
+            d.onclick = () => { renderer.zoom_to_view([result]); };
             d.onmouseenter = () => {
                 if (!result.highlighted) {
                     result.highlighted = true;
@@ -481,7 +489,7 @@ function mouse_event(
     selected_elements: SDFGElement[],
     ends_drag: boolean
 ): boolean {
-    if ((evtype === 'mouseup' && !ends_drag) || evtype === 'dblclick') {
+    if ((evtype === 'click' && !ends_drag) || evtype === 'dblclick') {
         const menu = renderer.get_menu();
         if (menu)
             menu.destroy();
@@ -525,7 +533,7 @@ function close_menu(): void {
     return SDFVUIHandlers.on_close_menu();
 }
 
-export function outline(renderer: SDFGRenderer, sdfg: any): void {
+export function outline(renderer: SDFGRenderer, sdfg: DagreSDFG): void {
     return SDFVUIHandlers.on_outline(renderer, sdfg);
 }
 

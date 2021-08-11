@@ -54,7 +54,7 @@ export function find_exit_for_entry(
             parseInt(n.scope_entry) == entry_node.id)
             return n;
     }
-    console.warn("Did not find corresponding exit");
+    console.warn('Did not find corresponding exit');
     return null;
 }
 
@@ -204,7 +204,7 @@ export function find_graph_element_by_uuid(
  */
 export function initialize_positioning_info(elem: any): any {
     let position;
-    if (elem instanceof Edge || elem.type === "MultiConnectorEdge") {
+    if (elem instanceof Edge || elem.type === 'MultiConnectorEdge') {
         let points = undefined;
         if (elem.points)
             points = Array(elem.points.length);

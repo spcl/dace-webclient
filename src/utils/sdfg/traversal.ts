@@ -1,7 +1,7 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Edge, EntryNode, ExitNode, SDFGNode } from '../../renderer/renderer_elements';
-import { DagreSDFG } from '../../types';
+import { DagreSDFG, JsonSDFG } from '../../types';
 
 /**
  * Receives a callback that accepts (node, parent graph) and returns a value.
@@ -11,7 +11,7 @@ import { DagreSDFG } from '../../types';
  * signature as `func`).
  **/
  export function traverse_sdfg_scopes(
-     sdfg: any,
+     sdfg: DagreSDFG,
      func: CallableFunction,
      post_subscope_func: CallableFunction | null = null
 ): void {
@@ -198,7 +198,7 @@ export function memlet_tree(
  * @param visited_edges is used to speed up the computation of the memlet trees
  **/
 export function memlet_tree_nested(
-    sdfg: any,
+    sdfg: JsonSDFG,
     state: any,
     edge: any,
     visited_edges: Edge[] = []
@@ -284,7 +284,7 @@ export function memlet_tree_nested(
                     }
                 });
             } else {
-                if (!(next_node.type.endsWith("Entry")) ||
+                if (!(next_node.type.endsWith('Entry')) ||
                     !edge.dst_connector ||
                     !edge.dst_connector.startsWith('IN_'))
                     return;
@@ -362,7 +362,7 @@ export function memlet_tree_nested(
  * list with all memlet trees. As edges are visited only in one direction (from
  * outer SDFGs to inner SDFGs) a memlet can be split into several arrays.
  */
-export function memlet_tree_recursive(root_sdfg: any): any[] {
+export function memlet_tree_recursive(root_sdfg: JsonSDFG): any[] {
     let trees: any[] = [];
     const visited_edges: any[] = [];
 
@@ -382,7 +382,7 @@ export function memlet_tree_recursive(root_sdfg: any): any[] {
             }
         });
 
-    })
+    });
 
     return trees;
 }
@@ -392,7 +392,7 @@ export function memlet_tree_recursive(root_sdfg: any): any[] {
  * 
  * @param {Graph} root_graph The top level graph.
  */
-export function memlet_tree_complete(sdfg: any): any[] {
+export function memlet_tree_complete(sdfg: JsonSDFG): any[] {
     const all_memlet_trees: any[] = [];
     const memlet_trees = memlet_tree_recursive(sdfg);
 

@@ -11,7 +11,7 @@ import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
 import { OverlayManager } from '../overlay_manager';
 import { SDFGRenderer } from '../renderer/renderer';
-import { DagreSDFG, SymbolMap } from '../types';
+import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../types';
 import { SDFV } from '../sdfv';
 
 // Some global functions and variables which are only accessible within VSCode:
@@ -209,16 +209,18 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
             // Show the computed FLOPS value if applicable.
             if (isNaN(flops_string) && flops !== undefined)
                 this.renderer.set_tooltip(() => {
-                    this.renderer.get_tooltip_container().innerText = (
-                        'FLOPS: ' + flops_string + ' (' + flops + ')'
-                    );
+                    const tt_cont = this.renderer.get_tooltip_container();
+                    if (tt_cont)
+                        tt_cont.innerText = (
+                            'FLOPS: ' + flops_string + ' (' + flops + ')'
+                        );
                 });
 
             else
                 this.renderer.set_tooltip(() => {
-                    this.renderer.get_tooltip_container().innerText = (
-                        'FLOPS: ' + flops_string
-                    );
+                    const tt_cont = this.renderer.get_tooltip_container();
+                    if (tt_cont)
+                        tt_cont.innerText = 'FLOPS: ' + flops_string;
                 });
         }
 
@@ -253,7 +255,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         graph: DagreSDFG,
         ctx: CanvasRenderingContext2D,
         ppp: number,
-        visible_rect: any
+        visible_rect: SimpleRect
     ): void {
         // First go over visible states, skipping invisible ones. We only draw
         // something if the state is collapsed or we're zoomed out far enough.
@@ -305,17 +307,16 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
     public draw(): void {
         const graph = this.renderer.get_graph();
         const ppp = this.renderer.get_canvas_manager()?.points_per_pixel();
-        if (graph && ppp !== undefined)
-            this.recursively_shade_sdfg(
-                graph, this.renderer.get_context(), ppp,
-                this.renderer.get_visible_rect()
-            );
+        const context = this.renderer.get_context();
+        const visible_rect = this.renderer.get_visible_rect();
+        if (graph && ppp !== undefined && context && visible_rect)
+            this.recursively_shade_sdfg(graph, context, ppp, visible_rect);
     }
 
     public on_mouse_event(
         type: string,
         _ev: Event,
-        _mousepos: any,
+        _mousepos: Point2D,
         _elements: SDFGElement[],
         foreground_elem: SDFGElement,
         ends_drag: boolean

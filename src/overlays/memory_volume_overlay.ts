@@ -10,7 +10,7 @@ import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
 import { SDFGRenderer } from '../renderer/renderer';
 import { OverlayManager } from '../overlay_manager';
-import { DagreSDFG, SymbolMap } from '../types';
+import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../types';
 import { SDFV } from '../sdfv';
 
 export class MemoryVolumeOverlay extends GenericSdfgOverlay {
@@ -167,7 +167,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
     public recursively_shade_sdfg(
         graph: DagreSDFG, ctx: CanvasRenderingContext2D, ppp: number,
-        visible_rect: any
+        visible_rect: SimpleRect
     ): void {
         graph.nodes().forEach(v => {
             const state: State = graph.node(v);
@@ -226,17 +226,16 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
     public draw(): void {
         const graph = this.renderer.get_graph();
         const ppp = this.renderer.get_canvas_manager()?.points_per_pixel();
-        if (graph && ppp !== undefined)
-            this.recursively_shade_sdfg(
-                graph, this.renderer.get_context(), ppp,
-                this.renderer.get_visible_rect()
-            );
+        const context = this.renderer.get_context();
+        const visible_rect = this.renderer.get_visible_rect();
+        if (graph && ppp !== undefined && context && visible_rect)
+            this.recursively_shade_sdfg(graph, context, ppp, visible_rect);
     }
 
     public on_mouse_event(
         type: string,
         _ev: MouseEvent,
-        _mousepos: any,
+        _mousepos: Point2D,
         _elements: SDFGElement[],
         foreground_elem: SDFGElement | undefined,
         ends_drag: boolean

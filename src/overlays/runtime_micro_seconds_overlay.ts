@@ -10,7 +10,7 @@ import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
 import { OverlayManager } from '../overlay_manager';
 import { SDFGRenderer } from '../renderer/renderer';
-import { DagreSDFG } from '../types';
+import { DagreSDFG, SimpleRect } from '../types';
 import { SDFV } from '../sdfv';
 
 
@@ -125,25 +125,29 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
             // Show the measured runtime.
             if (rt_summary['min'] === rt_summary['max'])
                 this.renderer.set_tooltip(() => {
-                    this.renderer.get_tooltip_container().innerText = (
-                        this.pretty_print_micros(rt_summary['min'])
-                    );
+                    const tt_cont = this.renderer.get_tooltip_container();
+                    if (tt_cont)
+                        tt_cont.innerText = this.pretty_print_micros(
+                            rt_summary['min']
+                        );
                 });
 
             else
                 this.renderer.set_tooltip(() => {
-                    this.renderer.get_tooltip_container().innerText = (
-                        'Min: ' +
-                        this.pretty_print_micros(rt_summary['min']) +
-                        '\nMax: ' +
-                        this.pretty_print_micros(rt_summary['max']) +
-                        '\nMean: ' +
-                        this.pretty_print_micros(rt_summary['mean']) +
-                        '\nMedian: ' +
-                        this.pretty_print_micros(rt_summary['med']) +
-                        '\nCount: ' +
-                        rt_summary['count']
-                    );
+                    const tt_cont = this.renderer.get_tooltip_container();
+                    if (tt_cont)
+                        tt_cont.innerText = (
+                            'Min: ' +
+                            this.pretty_print_micros(rt_summary['min']) +
+                            '\nMax: ' +
+                            this.pretty_print_micros(rt_summary['max']) +
+                            '\nMean: ' +
+                            this.pretty_print_micros(rt_summary['mean']) +
+                            '\nMedian: ' +
+                            this.pretty_print_micros(rt_summary['med']) +
+                            '\nCount: ' +
+                            rt_summary['count']
+                        );
                 });
         }
 
@@ -163,7 +167,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
         graph: DagreSDFG,
         ctx: CanvasRenderingContext2D,
         ppp: number,
-        visible_rect: any
+        visible_rect: SimpleRect
     ): void {
         // First go over visible states, skipping invisible ones. We only draw
         // something if the state is collapsed or we're zoomed out far enough.
@@ -215,11 +219,10 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
     public draw(): void {
         const graph = this.renderer.get_graph();
         const ppp = this.renderer.get_canvas_manager()?.points_per_pixel();
-        if (graph && ppp !== undefined)
-            this.recursively_shade_sdfg(
-                graph, this.renderer.get_context(), ppp,
-                this.renderer.get_visible_rect()
-            );
+        const context = this.renderer.get_context();
+        const visible_rect = this.renderer.get_visible_rect();
+        if (graph && ppp !== undefined && context && visible_rect)
+            this.recursively_shade_sdfg(graph, context, ppp, visible_rect);
     }
 
     public set_runtime_map(runtime_map: { [uuids: string]: any }): void {
