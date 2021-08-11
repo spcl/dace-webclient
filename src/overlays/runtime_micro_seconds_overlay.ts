@@ -1,10 +1,4 @@
-import {
-    MapExit,
-    NestedSDFG,
-    SDFGElement,
-    SDFGNode,
-    State
-} from '../renderer/renderer_elements';
+import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
 import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
@@ -12,6 +6,7 @@ import { OverlayManager } from '../overlay_manager';
 import { SDFGRenderer } from '../renderer/renderer';
 import { DagreSDFG, SimpleRect } from '../types';
 import { SDFV } from '../sdfv';
+import { get_element_uuid } from '../utils/utils';
 
 
 export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
@@ -27,49 +22,6 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
             renderer
         );
         this.badness_scale_center = 0;
-    }
-
-    // TODO: make this a general utility function.
-    public get_element_uuid(element: SDFGElement): string {
-        const undefined_val = -1;
-        if (element instanceof State) {
-            return (
-                element.sdfg.sdfg_list_id + '/' +
-                element.id + '/' +
-                undefined_val + '/' +
-                undefined_val
-            );
-        } else if (element instanceof NestedSDFG) {
-            const sdfg_id = element.data.node.attributes.sdfg.sdfg_list_id;
-            return (
-                sdfg_id + '/' +
-                undefined_val + '/' +
-                undefined_val + '/' +
-                undefined_val
-            );
-        } else if (element instanceof MapExit) {
-            // For MapExit nodes, we want to get the uuid of the corresponding
-            // entry node instead, because the runtime is held there.
-            return (
-                element.sdfg.sdfg_list_id + '/' +
-                element.parent_id + '/' +
-                element.data.node.scope_entry + '/' +
-                undefined_val
-            );
-        } else if (element instanceof SDFGNode) {
-            return (
-                element.sdfg.sdfg_list_id + '/' +
-                element.parent_id + '/' +
-                element.id + '/' +
-                undefined_val
-            );
-        }
-        return (
-            undefined_val + '/' +
-            undefined_val + '/' +
-            undefined_val + '/' +
-            undefined_val
-        );
     }
 
     public refresh(): void {
@@ -115,7 +67,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
     }
 
     public shade_node(node: SDFGNode, ctx: CanvasRenderingContext2D): void {
-        const rt_summary = this.runtime_map[this.get_element_uuid(node)];
+        const rt_summary = this.runtime_map[get_element_uuid(node)];
 
         if (rt_summary === undefined)
             return;

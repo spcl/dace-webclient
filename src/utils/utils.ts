@@ -1,11 +1,17 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
+import {
+    MapExit,
+    NestedSDFG,
+    SDFGElement,
+    SDFGNode,
+    State
+} from '../renderer/renderer_elements';
 import { Point2D } from '../types';
 
 export function equals<T>(a: T, b: T): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
 }
-
 
 export function deepCopy<T>(obj: T): T {
     if (typeof obj !== 'object' || obj === null) return obj;
@@ -104,4 +110,46 @@ export function intersectRect(
         x: x + sx,
         y: y + sy
     };
+}
+
+export function get_element_uuid(element: SDFGElement): string {
+    const undefined_val = -1;
+    if (element instanceof State) {
+        return (
+            element.sdfg.sdfg_list_id + '/' +
+            element.id + '/' +
+            undefined_val + '/' +
+            undefined_val
+        );
+    } else if (element instanceof NestedSDFG) {
+        const sdfg_id = element.data.node.attributes.sdfg.sdfg_list_id;
+        return (
+            sdfg_id + '/' +
+            undefined_val + '/' +
+            undefined_val + '/' +
+            undefined_val
+        );
+    } else if (element instanceof MapExit) {
+        // For MapExit nodes, we want to get the uuid of the corresponding
+        // entry node instead.
+        return (
+            element.sdfg.sdfg_list_id + '/' +
+            element.parent_id + '/' +
+            element.data.node.scope_entry + '/' +
+            undefined_val
+        );
+    } else if (element instanceof SDFGNode) {
+        return (
+            element.sdfg.sdfg_list_id + '/' +
+            element.parent_id + '/' +
+            element.id + '/' +
+            undefined_val
+        );
+    }
+    return (
+        undefined_val + '/' +
+        undefined_val + '/' +
+        undefined_val + '/' +
+        undefined_val
+    );
 }

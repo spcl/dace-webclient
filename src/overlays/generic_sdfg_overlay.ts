@@ -1,9 +1,9 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { OverlayManager, SymbolResolver } from "../overlay_manager";
-import { SDFGRenderer } from "../renderer/renderer";
-import { SDFGElement } from "../renderer/renderer_elements";
-import { Point2D } from "../types";
+import { OverlayManager, SymbolResolver } from '../overlay_manager';
+import { SDFGRenderer } from '../renderer/renderer';
+import { SDFGElement } from '../renderer/renderer_elements';
+import { Point2D } from '../types';
 
 declare const vscode: any;
 

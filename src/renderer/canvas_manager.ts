@@ -325,7 +325,10 @@ export class CanvasManager {
      * @param {*} entire_graph      Reference to the entire graph
      * @param {*} sdfg_list         List of SDFGs and nested SDFGs
      * @param {*} state_parent_list List of parent elements to SDFG states
-     * // TODO: update doc comment with parameters
+     * @param {*} drag_start        Drag starting event, undefined if no drag
+     * @param {*} update_position_info Whether to update positioning information
+     * @param {*} move_entire_edge  Whether to move the entire edge for edges
+     * @param {*} edge_dpoints      List of edge points for edges
      */
     public translate_element(
         el: SDFGElement,

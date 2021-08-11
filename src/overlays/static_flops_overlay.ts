@@ -1,10 +1,8 @@
 import {
     Edge,
-    MapExit,
     NestedSDFG,
     SDFGElement,
-    SDFGNode,
-    State
+    SDFGNode
 } from '../renderer/renderer_elements';
 import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 import { mean, median } from 'mathjs';
@@ -13,6 +11,7 @@ import { OverlayManager } from '../overlay_manager';
 import { SDFGRenderer } from '../renderer/renderer';
 import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../types';
 import { SDFV } from '../sdfv';
+import { get_element_uuid } from '../utils/utils';
 
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any;
@@ -37,48 +36,6 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         }
     }
 
-    public get_element_uuid(element: SDFGElement): string {
-        const undefined_val = -1;
-        if (element instanceof State) {
-            return (
-                element.sdfg.sdfg_list_id + '/' +
-                element.id + '/' +
-                undefined_val + '/' +
-                undefined_val
-            );
-        } else if (element instanceof NestedSDFG) {
-            const sdfg_id = element.data.node.attributes.sdfg.sdfg_list_id;
-            return (
-                sdfg_id + '/' +
-                undefined_val + '/' +
-                undefined_val + '/' +
-                undefined_val
-            );
-        } else if (element instanceof MapExit) {
-            // For MapExit nodes, we want to get the uuid of the corresponding
-            // entry node instead, because the FLOPS count is held there.
-            return (
-                element.sdfg.sdfg_list_id + '/' +
-                element.parent_id + '/' +
-                element.data.node.scope_entry + '/' +
-                undefined_val
-            );
-        } else if (element instanceof SDFGNode) {
-            return (
-                element.sdfg.sdfg_list_id + '/' +
-                element.parent_id + '/' +
-                element.id + '/' +
-                undefined_val
-            );
-        }
-        return (
-            undefined_val + '/' +
-            undefined_val + '/' +
-            undefined_val + '/' +
-            undefined_val
-        );
-    }
-
     public clear_cached_flops_values(): void {
         this.renderer.for_all_elements(0, 0, 0, 0, (
             _type: string, _e: Event, obj: any, _isected: boolean
@@ -95,7 +52,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
     public calculate_flops_node(
         node: SDFGNode, symbol_map: SymbolMap, flops_values: number[]
     ): number | undefined {
-        const flops_string = this.flops_map[this.get_element_uuid(node)];
+        const flops_string = this.flops_map[get_element_uuid(node)];
         let flops = undefined;
         if (flops_string !== undefined)
             flops = this.symbol_resolver.parse_symbol_expression(
@@ -326,7 +283,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
                 !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.flops === undefined) {
                     const flops_string = this.flops_map[
-                        this.get_element_uuid(foreground_elem)
+                        get_element_uuid(foreground_elem)
                     ];
                     if (flops_string) {
                         const that = this;
