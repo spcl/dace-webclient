@@ -2,7 +2,7 @@
 
 import { SDFGData } from '../../utils/sdfg/types';
 import * as PIXI from 'pixi.js';
-import { CompleteLayout, ConnectorLayoutElement, EdgeLayoutElement, LayoutElement } from './layouting/layout';
+import { CompleteLayout, EdgeLayoutElement, LayoutElement } from './layouting/layout';
 import { getAllDisplayObjects, LayoutElementDisplayState, RenderedLayoutElement, renderLayoutElement } from './layouting/render_layout_element';
 import { RenderLayouter } from './layouting/layouters/layouter';
 import { ExampleLayouter } from './layouting/layouters/example_layouter';
@@ -205,7 +205,6 @@ export class PixiRenderer {
         private readonly sdfg: SDFGData,
         private readonly container: HTMLElement,
         private readonly mouseHandler: MouseEventHandler | null = null,
-        userTransform = null,
         public readonly debugDraw = false,
         private readonly layouter: RenderLayouter = DefaultLayouters.sugiyama,
     ) {

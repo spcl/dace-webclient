@@ -22,7 +22,7 @@ export function stringToColor(s: string): [rgbHex: number, alpha: number] {
 }
 
 export function colorToString(rgbHex: number, alpha: number): string {
-    return `rgba(${PIXI.utils.hex2rgb(rgbHex).map(x => 255 * x).join(', ')}, ${alpha})`;
+    return `rgba(${[...PIXI.utils.hex2rgb(rgbHex)].map(x => 255 * x).join(', ')}, ${alpha})`;
 }
 
 /**
@@ -66,8 +66,8 @@ export function overlayColors(...colors: [rgbHex: number, alpha: number][]): [rg
          * = overlayColorChannels([baseC, 1], [((a1-a1*a2)*c1 + a2*c2)/(a1+a2-a1*a2), a1+a2-a1*a2])
          * ```
          */
-        const color1 = PIXI.utils.hex2rgb(colors[0][0]);
-        const color2 = PIXI.utils.hex2rgb(colors[1][0]);
+        const color1 = [...PIXI.utils.hex2rgb(colors[0][0])];
+        const color2 = [...PIXI.utils.hex2rgb(colors[1][0])];
         const alpha1 = colors[0][1];
         const alpha2 = colors[1][1];
 
