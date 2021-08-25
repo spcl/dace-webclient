@@ -7,10 +7,10 @@ export function calculateBoundingBox(g) {
     bb.height = 0;
 
     g.nodes().forEach((v) => {
-        const x = g.node(v).x + g.node(v).width / 2.0;
-        const y = g.node(v).y + g.node(v).height / 2.0;
-        if (x > bb.width) bb.width = x;
-        if (y > bb.height) bb.height = y;
+        const x = v.x + v.width / 2.0;
+        const y = v.y + v.height / 2.0;
+        bb.width = Math.max(x, bb.width);
+        bb.height = Math.max(y, bb.height);
     });
 
     return bb;

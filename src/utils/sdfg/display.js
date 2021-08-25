@@ -7,7 +7,7 @@ export function sdfg_range_elem_to_string(range, settings = null) {
     if (range.start == range.end && range.step == 1 && range.tile == 1)
         preview += sdfg_property_to_string(range.start, settings);
     else {
-        if (settings && settings.inclusive_ranges) {
+        if (settings && settings.inclusiveRanges) {
             preview += sdfg_property_to_string(range.start, settings) + '..' +
                 sdfg_property_to_string(range.end, settings);
         } else {

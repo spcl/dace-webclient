@@ -1,22 +1,28 @@
 import { NestedSDFG } from '../renderer/renderer_elements';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 import { mean, median } from 'mathjs';
-import { getTempColor } from '../renderer/renderer_elements';
 
 
-export class MemoryVolumeOverlay extends GenericSdfgOverlay {
+export class MemoryVolumeOverlay {
 
-    constructor(overlay_manager, renderer) {
-        super(
-            overlay_manager,
-            renderer
-        );
+    constructor(settings, graph) {
+        this.symbol_resolver = settings.symbol_resolver;
+        this.badness_scale_method = settings.badness_scale_method;
+        this.graph = graph;
+    }
 
-        this.refresh();
+    static computeOverlay(graph, symbolResolver, badnessScaleMethod = 'median') {
+        const mvo = new MemoryVolumeOverlay({
+            badness_scale_method: badnessScaleMethod,
+            symbol_resolver: symbolResolver,
+        }, graph);
+        mvo.refresh();
+        return {
+            badnessScaleCenter: mvo.badness_scale_center,
+        }
     }
 
     clear_cached_volume_values() {
-        this.renderer.for_all_elements(0, 0, 0, 0, (type, e, obj, isected) => {
+        [...this.graph.allNodes(), ...this.graph.allEdges()].forEach((obj) => {
             if (obj.data) {
                 if (obj.data.volume !== undefined)
                     obj.data.volume = undefined;
@@ -50,22 +56,18 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
     calculate_volume_graph(g, symbol_map, volume_values) {
         const that = this;
-        g.nodes().forEach(v => {
-            const state = g.node(v);
+        g.nodes().forEach(state => {
             const state_graph = state.data.graph;
             if (state_graph) {
-                state_graph.edges().forEach(e => {
-                    const edge = state_graph.edge(e);
-                    if (edge instanceof Edge)
-                        that.calculate_volume_edge(
-                            edge,
-                            symbol_map,
-                            volume_values
-                        );
+                state_graph.edges().forEach(edge => {
+                    that.calculate_volume_edge(
+                        edge,
+                        symbol_map,
+                        volume_values
+                    );
                 });
 
-                state_graph.nodes().forEach(v => {
-                    const node = state_graph.node(v);
+                state_graph.nodes().forEach(node => {
                     if (node instanceof NestedSDFG) {
                         const nested_symbols_map = {};
                         const mapping = node.data.node.attributes.symbol_mapping;
@@ -95,17 +97,15 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         });
     }
 
-    recalculate_volume_values(graph) {
-        this.badness_scale_center = 5;
-
+    recalculate_volume_values() {
         const volume_values = [0];
         this.calculate_volume_graph(
-            graph,
+            this.graph,
             this.symbol_resolver.symbol_value_map,
             volume_values
         );
 
-        switch (this.overlay_manager.badness_scale_method) {
+        switch (this.badness_scale_method) {
             case 'mean':
                 this.badness_scale_center = mean(volume_values);
                 break;
@@ -118,85 +118,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
     refresh() {
         this.clear_cached_volume_values();
-        this.recalculate_volume_values(this.renderer.graph);
-
-        this.renderer.draw_async();
-    }
-
-    shade_edge(edge, ctx) {
-        const volume = edge.data.volume;
-        if (volume !== undefined) {
-            // Only draw positive volumes.
-            if (volume <= 0)
-                return;
-
-            let badness = (1 / (this.badness_scale_center * 2)) * volume;
-            if (badness < 0)
-                badness = 0;
-            if (badness > 1)
-                badness = 1;
-            const color = getTempColor(badness);
-
-            edge.shade(this.renderer, ctx, color);
-        }
-    }
-
-    recursively_shade_sdfg(graph, ctx, ppp, visible_rect) {
-        graph.nodes().forEach(v => {
-            const state = graph.node(v);
-
-            // If we're zoomed out enough that the contents aren't visible, we
-            // skip the state.
-            if (ctx.lod && (ppp >= STATE_LOD || state.width / ppp < STATE_LOD))
-                return;
-
-            // If the node's invisible, we skip it.
-            if (ctx.lod && !state.intersect(visible_rect.x, visible_rect.y,
-                visible_rect.w, visible_rect.h))
-                return;
-
-            const state_graph = state.data.graph;
-            if (state_graph && !state.data.state.attributes.is_collapsed) {
-                state_graph.nodes().forEach(v => {
-                    const node = state_graph.node(v);
-
-                    // Skip the node if it's not visible.
-                    if (ctx.lod && !node.intersect(visible_rect.x,
-                        visible_rect.y, visible_rect.w, visible_rect.h))
-                        return;
-
-                    // If we're zoomed out enough that the node's contents
-                    // aren't visible or the node is collapsed, we skip it.
-                    if (node.data.node.attributes.is_collapsed ||
-                        (ctx.lod && ppp >= NODE_LOD))
-                        return;
-
-                    if (node instanceof NestedSDFG)
-                        this.recursively_shade_sdfg(
-                            node.data.graph, ctx, ppp, visible_rect
-                        );
-                });
-
-                state_graph.edges().forEach(e => {
-                    const edge = state_graph.edge(e);
-
-                    if (ctx.lod && !edge.intersect(visible_rect.x,
-                        visible_rect.y, visible_rect.w, visible_rect.h))
-                        return;
-
-                    this.shade_edge(edge, ctx);
-                });
-            }
-        });
-    }
-
-    draw() {
-        this.recursively_shade_sdfg(
-            this.renderer.graph,
-            this.renderer.ctx,
-            this.renderer.canvas_manager.points_per_pixel(),
-            this.renderer.visible_rect
-        );
+        this.recalculate_volume_values();
     }
 
     on_mouse_event(type, ev, mousepos, elements, foreground_elem, ends_drag) {

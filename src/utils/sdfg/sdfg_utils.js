@@ -1,8 +1,6 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { SDFGElements } from "../../renderer/renderer_elements";
-
-const { NestedSDFG } = SDFGElements;
+import { NestedSDFG } from "../../renderer/renderer_elements";
 
 export function recursively_find_graph(graph, graph_id, ns_node = undefined) {
     if (graph.node(0).sdfg.sdfg_list_id === graph_id) {

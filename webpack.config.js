@@ -1,10 +1,10 @@
 // This file uses CommonJS require instead of ES6 imports because it is not transpiled
 const path = require('path');
+const webpack = require('webpack');
 
 module.exports = {
     entry: {
         sdfv: './src/sdfv.js',
-        main: './src/main.js',
     },
     module: {
         rules: [
@@ -17,7 +17,16 @@ module.exports = {
     },
     resolve: {
         extensions: ['.ts', '.js'],
+        fallback: {
+            stream: require.resolve("stream-browserify/"),
+            util: require.resolve("util/"),
+        },
     },
+    plugins: [
+        new webpack.ProvidePlugin({
+            process: 'process/browser'
+        }),
+    ],
     devtool: 'source-map',
     devServer: {
         publicPath: '/dist/',
