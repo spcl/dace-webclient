@@ -1,7 +1,5 @@
 import { NestedSDFG } from '../renderer/renderer_elements';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 import { mean, median } from 'mathjs';
-import { getTempColor } from '../renderer/renderer_elements';
 
 
 export class MemoryVolumeOverlay {

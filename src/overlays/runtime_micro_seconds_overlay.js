@@ -1,5 +1,4 @@
 import { MapExit, NestedSDFG, SDFGNode, State } from '../renderer/renderer_elements';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
 
