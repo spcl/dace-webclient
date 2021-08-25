@@ -3,7 +3,7 @@
 import { sdfg_property_to_string } from "./utils/sdfg/display";
 import { traverse_sdfg_scopes } from "./utils/sdfg/traversal";
 import { htmlSanitize } from "./utils/sanitization";
-import { globals } from "./sdfv";
+import { AccessNode, Edge } from "./renderer/renderer_elements";
 
 export const SDFVUIHandlers = {
     on_init_menu,
@@ -37,31 +37,27 @@ function on_fill_info(elem) {
         html += "<h4>Connectors: " + sdfg_edge.src_connector + " &rarr; " +
             sdfg_edge.dst_connector + "</h4>";
     }
-    html += "<hr />";
+    html += htmlSanitize`<hr />`;
 
-    for (let attr of Object.entries(elem.attributes())) {
+    for (const attr of Object.entries(elem.attributes())) {
         if (attr[0] === "layout" || attr[0] === "sdfg" ||
             attr[0] === "_arrays" || attr[0].startsWith("_meta_") ||
             attr[0] == "position")
             continue;
-        html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
-        html += sdfg_property_to_string(
-            attr[1], globals.daceRenderer.view_settings()
-        ) + "</p>";
+        html += htmlSanitize`<p><b>${attr[0]}</b>:&nbsp;&nbsp;`;
+        html += htmlSanitize`${sdfg_property_to_string(attr[1], globalThis.daceRenderer.getSettings())}</p>`;
     }
 
     // If access node, add array information too
     if (elem instanceof AccessNode) {
-        let sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
-        html += "<br /><h4>" + sdfg_array.type + " properties:</h4>";
-        for (let attr of Object.entries(sdfg_array.attributes)) {
+        const sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
+        html += htmlSanitize`<br /><h4>${sdfg_array.type} properties:</h4>`;
+        for (const attr of Object.entries(sdfg_array.attributes)) {
             if (attr[0] === "layout" || attr[0] === "sdfg" ||
                 attr[0].startsWith("_meta_"))
                 continue;
-            html += "<b>" + attr[0] + "</b>:&nbsp;&nbsp;";
-            html += sdfg_property_to_string(
-                attr[1], globals.daceRenderer.view_settings()
-            ) + "</p>";
+            html += htmlSanitize`<p><b>${attr[0]}</b>:&nbsp;&nbsp;`;
+            html += htmlSanitize`${sdfg_property_to_string(attr[1], globalThis.daceRenderer.getSettings())}</p>`;
         }
     }
 
@@ -69,6 +65,12 @@ function on_fill_info(elem) {
 }
 
 function on_outline(renderer, sdfg) {
+    if (!sdfg) {
+        // will occur when we use ExampleLayouter or other renderers that don't create a render graph
+        alert(`This layouter does not support this feature!`);
+        return;
+    }
+
     on_sidebar_set_title('SDFG Outline');
 
     const sidebar = sidebar_get_contents();
@@ -77,8 +79,8 @@ function on_outline(renderer, sdfg) {
     // Entire SDFG
     const d = document.createElement('div');
     d.className = 'context_menu_option';
-    d.innerHTML = htmlSanitize`<i class="material-icons" style="font-size: inherit">filter_center_focus</i> SDFG ${renderer.sdfg.attributes.name}`;
-    d.onclick = () => renderer.zoom_to_view();
+    d.innerHTML = htmlSanitize`<i class="material-icons" style="font-size: inherit">filter_center_focus</i> SDFG ${renderer.getSDFG().attributes.name}`;
+    d.onclick = () => renderer.zoomToView();
     sidebar.appendChild(d);
 
     const stack = [sidebar];
@@ -118,7 +120,7 @@ function on_outline(renderer, sdfg) {
                 }
             }
 
-            renderer.zoom_to_view(nodes_to_display);
+            renderer.zoomToView(nodes_to_display.map(x => x.layoutElement));
 
             // Ensure that the innermost div is the one that handles the event
             if (!e) e = window.event;

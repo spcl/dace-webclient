@@ -6,7 +6,7 @@ export function escapeHTML(s: string): string {
         ['<', '&lt;'],
         ['>', '&gt;'],
         ['"', '&quot;'],
-        ["'", '&#039;'],
+        ['\'', '&#039;'],
     ]);
 
     return `${s}`.replace(/[&<>"']/g, m => escapeCharacters.get(m)!);

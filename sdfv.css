@@ -23,7 +23,7 @@ body {
   width: 1024px;
   height: 768px;
   border: 1px solid;
-  overflow: auto;
+  overflow: hidden;
 }
 
 @keyframes animateright{
@@ -299,7 +299,8 @@ pre.code code {
   border-color: rgba(255, 0, 0, 1);
 }
 
-.sdfg_canvas {
+
+#contents {
   --node-background-color: #ffffff;
   --node-foreground-color: #000000;
   --state-background-color: #deebf7;
@@ -309,6 +310,12 @@ pre.code code {
   --connector-unscoped-color: #f0fdff;
   --nested-sdfg-background-color: #ffffff;
   --nested-sdfg-foreground-color: #000000;
+  --minimap-outline-color: #000000;
+  --minimap-focus-color: #352300;
+  --minimap-focus-fill: #35230011;
+  --selection-rect-color: #352300;
+  --selection-rect-fill: #35230011;
+  --loading-spinner-color: #000000;
   --color-default: black;
   --color-hovered: green;
   --color-highlighted: orange;

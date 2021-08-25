@@ -3,22 +3,34 @@ import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
 
+const criterium = 'mean';
 
-export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
+export class RuntimeMicroSecondsOverlay {
 
-    constructor(overlay_manager, renderer) {
-        super(
-            overlay_manager,
-            renderer
-        );
-
-        this.criterium = 'mean';
-        this.runtime_map = {};
-
-        this.badness_scale_center = 0;
+    constructor(settings, runtime_map) {
+        this.badness_scale_method = settings.badness_scale_method;
+        this.symbol_resolver = settings.symbol_resolver;
+        this.runtime_map = runtime_map
     }
 
-    get_element_uuid(element) {
+    static computeOverlay(runtimeMap, symbolResolver, badnessScaleMethod = 'median') {
+        const rmso = new RuntimeMicroSecondsOverlay({
+            badness_scale_method: badnessScaleMethod,
+            symbol_resolver: symbolResolver,
+        }, runtimeMap);
+        rmso.refresh();
+        return {
+            runtimeMap,
+            badnessScaleCenter: rmso.badness_scale_center,
+        }
+    }
+
+    static getNodeTemperature(overlayDetails, node) {
+        const rt_summary = overlayDetails.runtimeMap[RuntimeMicroSecondsOverlay.get_element_uuid(node)];
+        return rt_summary === undefined ? undefined : 0.5 * rt_summary[criterium] / overlayDetails.badnessScaleCenter;
+    }
+
+    static get_element_uuid(element) {
         const undefined_val = -1;
         if (element instanceof State) {
             return (
@@ -61,17 +73,15 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
     }
 
     refresh() {
-        this.badness_scale_center = 5;
-
         const micros_values = [0];
 
         for (const key of Object.keys(this.runtime_map)) {
             // Make sure the overall SDFG's runtime isn't included in this.
             if (key !== '0/-1/-1/-1')
-                micros_values.push(this.runtime_map[key][this.criterium]);
+                micros_values.push(this.runtime_map[key][criterium]);
         }
 
-        switch (this.overlay_manager.badness_scale_method) {
+        switch (this.badness_scale_method) {
             case 'mean':
                 this.badness_scale_center = mean(micros_values);
                 break;
@@ -80,8 +90,6 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
                 this.badness_scale_center = median(micros_values);
                 break;
         }
-
-        this.renderer.draw_async();
     }
 
     pretty_print_micros(micros) {
@@ -102,8 +110,8 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
         return value.toString() + ' ' + unit;
     }
 
-    shade_node(node, ctx) {
-        const rt_summary = this.runtime_map[this.get_element_uuid(node)];
+    shade_node(node) {
+        const rt_summary = this.runtime_map[RuntimeMicroSecondsOverlay.get_element_uuid(node)];
 
         if (rt_summary === undefined)
             return;
@@ -131,7 +139,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
         }
 
         // Calculate the 'badness' color.
-        const micros = rt_summary[this.criterium];
+        const micros = rt_summary[criterium];
         let badness = (1 / (this.badness_scale_center * 2)) * micros;
         if (badness < 0)
             badness = 0;
@@ -140,61 +148,6 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
         const color = getTempColor(badness);
 
         node.shade(this.renderer, ctx, color);
-    }
-
-    recursively_shade_sdfg(graph, ctx, ppp, visible_rect) {
-        // First go over visible states, skipping invisible ones. We only draw
-        // something if the state is collapsed or we're zoomed out far enough.
-        // In that case, we draw the measured runtime for the entire state.
-        // If it's expanded or zoomed in close enough, we traverse inside.
-        graph.nodes().forEach(v => {
-            const state = graph.node(v);
-
-            // If the node's invisible, we skip it.
-            if (ctx.lod && !state.intersect(visible_rect.x, visible_rect.y,
-                visible_rect.w, visible_rect.h))
-                return;
-
-            if ((ctx.lod && (ppp >= STATE_LOD ||
-                state.width / ppp <= STATE_LOD)) ||
-                state.data.state.attributes.is_collapsed) {
-                this.shade_node(state, ctx);
-            } else {
-                const state_graph = state.data.graph;
-                if (state_graph) {
-                    state_graph.nodes().forEach(v => {
-                        const node = state_graph.node(v);
-
-                        // Skip the node if it's not visible.
-                        if (ctx.lod && !node.intersect(visible_rect.x,
-                            visible_rect.y, visible_rect.w, visible_rect.h))
-                            return;
-
-                        if (node.data.node.attributes.is_collapsed ||
-                            (ctx.lod && ppp >= NODE_LOD)) {
-                            this.shade_node(node, ctx);
-                        } else {
-                            if (node instanceof NestedSDFG) {
-                                this.recursively_shade_sdfg(
-                                    node.data.graph, ctx, ppp, visible_rect
-                                );
-                            } else {
-                                this.shade_node(node, ctx);
-                            }
-                        }
-                    });
-                }
-            }
-        });
-    }
-
-    draw() {
-        this.recursively_shade_sdfg(
-            this.renderer.graph,
-            this.renderer.ctx,
-            this.renderer.canvas_manager.points_per_pixel(),
-            this.renderer.visible_rect
-        );
     }
 
 }

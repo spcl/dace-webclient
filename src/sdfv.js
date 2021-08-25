@@ -2,11 +2,10 @@
 
 import { parse_sdfg, stringify_sdfg } from "./utils/sdfg/json_serializer";
 import { mean, median } from 'mathjs';
-import { SDFGRenderer } from './renderer/renderer';
 import { GenericSdfgOverlay } from "./overlays/generic_sdfg_overlay";
 import { SDFVUIHandlers } from "./sdfv_ui_handlers";
 import { htmlSanitize } from "./utils/sanitization";
-import { SDFGElements } from "./renderer/renderer_elements";
+import { SDFG, SDFGElements } from "./renderer/renderer_elements";
 import { assignIfNotExists } from "./utils/utils"
 import {
     sdfg_property_to_string,
@@ -22,9 +21,10 @@ import { traverse_sdfg_scopes } from "./utils/sdfg/traversal";
 import { RuntimeMicroSecondsOverlay } from "./overlays/runtime_micro_seconds_overlay";
 import { MemoryVolumeOverlay } from "./overlays/memory_volume_overlay";
 import { StaticFlopsOverlay } from "./overlays/static_flops_overlay";
+import { PixiRenderer, DefaultLayouters } from "./renderer/pixi/pixi_renderer";
+import _ from "lodash";
 const { $ } = globalThis;
 
-let fr;
 let file = null;
 let instrumentation_file = null;
 
@@ -35,7 +35,7 @@ let instrumentation_file = null;
 export const globals = assignIfNotExists(
     /** @type {{}} */ (globalThis),
     {
-        daceRenderer: null,
+        daceRenderer: /** @type {PixiRenderer | null} */ (null),
         daceUIHandlers: SDFVUIHandlers,
         daceInitSDFV: init_sdfv,
         daceParseSDFG: parse_sdfg,
@@ -48,7 +48,7 @@ export const globals = assignIfNotExists(
         daceTraverseSDFGScopes: traverse_sdfg_scopes,
         daceSDFGTypeclassToString: sdfg_typeclass_to_string,
         daceStringToSDFGTypeclass: string_to_sdfg_typeclass,
-        daceSDFGRenderer: SDFGRenderer,
+        dacePixiRenderer: PixiRenderer,
         daceSDFGElements: SDFGElements,
         daceGenericSDFGOverlay: GenericSdfgOverlay,
         daceMemoryVolumeOverlay: MemoryVolumeOverlay,
@@ -58,7 +58,9 @@ export const globals = assignIfNotExists(
     }
 );
 
-
+let lastSDFG = null;
+let user_transform = null;
+let debug_draw = null;
 
 if (document.currentScript.hasAttribute('data-sdfg-json')) {
     init_sdfv(parse_sdfg(document.currentScript.getAttribute('data-sdfg-json')));
@@ -71,7 +73,10 @@ if (document.currentScript.hasAttribute('data-sdfg-json')) {
 }
 
 
-function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
+function init_sdfv(sdfg, user_transform_val = null, debug_draw_val = false) {
+    user_transform = user_transform_val;
+    debug_draw = debug_draw_val;
+
     $('#sdfg-file-input').change((e) => {
         if (e.target.files.length < 1)
             return;
@@ -80,7 +85,7 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
     });
     $('#menuclose').click(() => close_menu());
     $('#reload').click(() => {
-        reload_file();
+        reload_file() || refresh();
     });
     $('#instrumentation-report-file-input').change((e) => {
         if (e.target.files.length < 1)
@@ -90,14 +95,10 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
     });
     $('#outline').click(() => {
         if (globals.daceRenderer)
-            setTimeout(() => outline(globals.daceRenderer, globals.daceRenderer.graph), 1);
+            setTimeout(() => outline(globals.daceRenderer, globals.daceRenderer.getRenderGraph()), 1);
     });
     $('#search-btn').click(() => {
-        if (globals.daceRenderer)
-            setTimeout(() => {
-                find_in_graph(globals.daceRenderer, globals.daceRenderer.graph, $('#search').val(),
-                    $('#search-case')[0].checked);
-            }, 1);
+        start_find_in_graph();
     });
     $('#search').on('keydown', (e) => {
         if (e.key == 'Enter' || e.which == 13) {
@@ -106,67 +107,62 @@ function init_sdfv(sdfg, user_transform = null, debug_draw = false) {
         }
     });
 
-    let mode_buttons = null;
-    let pan_btn = document.getElementById("pan-btn");
-    let move_btn = document.getElementById("move-btn");
-    let select_btn = document.getElementById("select-btn");
-    let add_btns = [];
-    add_btns.push(document.getElementById('elem_map'));
-    add_btns.push(document.getElementById('elem_consume'));
-    add_btns.push(document.getElementById('elem_tasklet'));
-    add_btns.push(document.getElementById('elem_nested_sdfg'));
-    add_btns.push(document.getElementById('elem_access_node'));
-    add_btns.push(document.getElementById('elem_stream'));
-    add_btns.push(document.getElementById('elem_state'));
-    if (pan_btn)
-        mode_buttons = {
-            pan: pan_btn,
-            move: move_btn,
-            select: select_btn,
-            add_btns: add_btns,
-        };
-
-    if (sdfg !== null)
-        globals.daceRenderer = new SDFGRenderer(
-            sdfg, document.getElementById('contents'), mouse_event,
-            user_transform, debug_draw, null, mode_buttons
-        );
+    if (sdfg !== null) refresh(sdfg);
 }
 
 function start_find_in_graph() {
     if (globals.daceRenderer)
         setTimeout(() => {
             find_in_graph(
-                globals.daceRenderer, globals.daceRenderer.graph,
+                globals.daceRenderer, globals.daceRenderer.getRenderGraph(),
                 $('#search').val(), $('#search-case')[0].checked
             );
-        }, 1);
+        }, 1);  
+}
+
+function refresh(sdfg = null) {
+    if (globals.daceRenderer)
+        globals.daceRenderer.destroy();
+    if (!sdfg) {
+        if (!lastSDFG) throw new Error('No SDFG supplied!');
+        else sdfg = lastSDFG;
+    }
+
+    globals.daceRenderer = new PixiRenderer(
+        _.cloneDeep(sdfg),
+        document.getElementById('contents'),
+        mouse_event,
+        user_transform,
+        debug_draw,
+        DefaultLayouters.sugiyama,
+    );
+    lastSDFG = sdfg;
 }
 
 function reload_file() {
     if (!file)
-        return;
-    fr = new FileReader();
-    fr.onload = file_read_complete;
+        return false;
+    const fr = new FileReader();
+    fr.onload = () => file_read_complete(fr);
     fr.readAsText(file);
+    return true;
 }
 
-function file_read_complete() {
+function file_read_complete(fr) {
     const sdfg = parse_sdfg(fr.result);
-    globals.daceRenderer?.destroy();
-    globals.daceRenderer = new SDFGRenderer(sdfg, document.getElementById('contents'), mouse_event);
+    refresh(sdfg);
     close_menu();
 }
 
 function load_instrumentation_report() {
     if (!instrumentation_file)
         return;
-    fr = new FileReader();
-    fr.onload = load_instrumentation_report_callback;
+    const fr = new FileReader();
+    fr.onload = () => load_instrumentation_report_callback(fr);
     fr.readAsText(instrumentation_file);
 }
 
-function load_instrumentation_report_callback() {
+function load_instrumentation_report_callback(fr) {
     instrumentation_report_read_complete(JSON.parse(fr.result));
 }
 
@@ -226,24 +222,9 @@ function instrumentation_report_read_complete(report) {
             runtime_map[key] = runtime_summary;
         }
 
-        const renderer = globals.daceRenderer;
-
-        if (renderer.overlay_manager) {
-            if (!renderer.overlay_manager.is_overlay_active(
-                RuntimeMicroSecondsOverlay
-            )) {
-                renderer.overlay_manager.register_overlay(
-                    RuntimeMicroSecondsOverlay
-                );
-            }
-            const ol = renderer.overlay_manager.get_overlay(
-                RuntimeMicroSecondsOverlay
-            );
-            if (ol) {
-                ol.runtime_map = runtime_map;
-                ol.refresh();
-            }
-        }
+        globals.daceRenderer.updateSettings({
+            runtimeMap: runtime_map,
+        });
     }
 }
 
@@ -281,8 +262,7 @@ function load_sdfg_from_url(url) {
 }
 
 function find_recursive(graph, query, results, case_sensitive) {
-    for (const nodeid of graph.nodes()) {
-        const node = graph.node(nodeid);
+    for (const node of graph.nodes()) {
         let label = node.label();
         if (!case_sensitive)
             label = label.toLowerCase();
@@ -292,8 +272,7 @@ function find_recursive(graph, query, results, case_sensitive) {
         if (node.data.graph)
             find_recursive(node.data.graph, query, results, case_sensitive);
     }
-    for (const edgeid of graph.edges()) {
-        const edge = graph.edge(edgeid);
+    for (const edge of graph.edges()) {
         let label = edge.label();
         if (label !== undefined) {
             if (!case_sensitive)
@@ -314,7 +293,7 @@ function find_in_graph(renderer, sdfg, query, case_sensitive=false) {
 
     // Zoom to bounding box of all results first
     if (results.length > 0)
-        renderer.zoom_to_view(results);
+        globals.daceRenderer.zoomToView(results.map(x => x.layoutElement));
 
     // Show clickable results in sidebar
     const sidebar = sidebar_get_contents();
@@ -323,18 +302,12 @@ function find_in_graph(renderer, sdfg, query, case_sensitive=false) {
         const d = document.createElement('div');
         d.className = 'context_menu_option';
         d.innerHTML = htmlSanitize`${result.type()} ${result.label()}`;
-        d.onclick = () => { renderer.zoom_to_view([result]) };
+        d.onclick = () => { globals.daceRenderer.zoomToView([result.layoutElement]) };
         d.onmouseenter = () => {
-            if (!result.highlighted) {
-                result.highlighted = true;
-                renderer.draw_async();
-            }
+            globals.daceRenderer.setHighlighted([result.layoutElement]);
         };
         d.onmouseleave = () => {
-            if (result.highlighted) {
-                result.highlighted = false;
-                renderer.draw_async();
-            }
+            globals.daceRenderer.setHighlighted([]);
         };
         sidebar.appendChild(d);
     }
@@ -344,8 +317,7 @@ function find_in_graph(renderer, sdfg, query, case_sensitive=false) {
 
 function recursive_find_graph(graph, sdfg_id) {
     let found = undefined;
-    graph.nodes().forEach(n_id => {
-        const n = graph.node(n_id);
+    graph.nodes().forEach(n => {
         if (n && n.sdfg.sdfg_list_id === sdfg_id) {
             found = graph;
             return found;
@@ -359,36 +331,15 @@ function recursive_find_graph(graph, sdfg_id) {
 }
 
 function find_state(graph, state_id) {
-    let state = undefined;
-    graph.nodes().forEach(s_id => {
-        if (Number(s_id) === state_id) {
-            state = graph.node(s_id);
-            return state;
-        }
-    });
-    return state;
+    return graph.node(state_id);
 }
 
 function find_node(state, node_id) {
-    let node = undefined;
-    state.data.graph.nodes().forEach(n_id => {
-        if (Number(n_id) === node_id) {
-            node = state.data.graph.node(n_id);
-            return node;
-        }
-    });
-    return node;
+    state.data.graph.node(node_id);
 }
 
 function find_edge(state, edge_id) {
-    let edge = undefined;
-    state.data.graph.edges().forEach(e_id => {
-        if (Number(e_id.name) === edge_id) {
-            edge = state.data.graph.edge(e_id);
-            return edge;
-        }
-    });
-    return edge;
+    state.data.graph.edge(edge_id);
 }
 
 function find_graph_element(graph, type, sdfg_id, state_id = -1, el_id = -1) {
@@ -424,18 +375,16 @@ function find_graph_element(graph, type, sdfg_id, state_id = -1, el_id = -1) {
     return undefined;
 }
 
-function mouse_event(evtype, event, mousepos, elements, renderer,
-    selected_elements, ends_drag) {
+function mouse_event(evtype, event, mousepos, renderer, selected_elements, ends_drag) {
     if ((evtype === 'click' && !ends_drag) || evtype === 'dblclick') {
-        if (renderer.menu)
-            renderer.menu.destroy();
         let element;
-        if (selected_elements.length === 0)
-            element = new SDFG(renderer.sdfg);
-        else if (selected_elements.length === 1)
+        if (selected_elements.length === 0) {
+            element = new SDFG(globals.daceRenderer.getSDFG());
+        } else if (selected_elements.length === 1) {
             element = selected_elements[0];
-        else
+        } else {
             element = null;
+        }
 
         if (element !== null) {
             sidebar_set_title(element.type() + " " + element.label());
@@ -469,8 +418,8 @@ function close_menu() {
     return globals.daceUIHandlers.on_close_menu();
 }
 
-function outline(renderer, sdfg) {
-    return globals.daceUIHandlers.on_outline(renderer, sdfg);
+function outline(renderer, renderGraph) {
+    return globals.daceUIHandlers.on_outline(renderer, renderGraph);
 }
 
 export function fill_info(elem) {

@@ -4,6 +4,14 @@ export function equals<T>(a: T, b: T): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
+export function arrayEquals(a: readonly unknown[], b: readonly unknown[]): boolean {
+    return a.length === b.length && a.every((e, i) => e === b[i]);
+}
+
+export function setEquals(a: ReadonlySet<unknown>, b: ReadonlySet<unknown>): boolean {
+    return a.size === b.size && [...a].every(e => b.has(e));
+}
+
 
 export function deepCopy<T>(obj: T): T {
     if (typeof obj !== 'object' || obj === null) return obj;
@@ -36,9 +44,9 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
     if (id !== '')
         element.id = id;
     if (classList !== [])
-        classList.forEach(class_name => {
-            if (!element.classList.contains(class_name))
-                element.classList.add(class_name);
+        classList.forEach(className => {
+            if (!element.classList.contains(className))
+                element.classList.add(className);
         });
     if (parent)
         parent.appendChild(element);

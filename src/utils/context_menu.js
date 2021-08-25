@@ -46,6 +46,11 @@ export class ContextMenu {
         });
     }
 
+    /**
+     * @param {string} name
+     * @param {boolean} checked
+     * @param {(MouseEvent, boolean) => void} onselect
+     */
     addCheckableOption(name, checked, onselect, onhover = null) {
         this._options.push({
             name: name,
@@ -98,9 +103,9 @@ export class ContextMenu {
                     markelem.classList = x.checked ? 'checkmark_checked' : 'checkmark';
                     elem.appendChild(markelem);
                     elem.innerHTML += htmlSanitize`${x.name}`;
-                    elem.addEventListener('click', elem => {
+                    elem.addEventListener('click', event => {
                         x.checked = !x.checked;
-                        x.func(elem, x.checked);
+                        x.func(event, x.checked);
                     });
                 } else {
                     elem.innerText = x.name;

@@ -30,6 +30,7 @@ import {
     calculateEdgeBoundingBox,
 } from '../utils/bounding_box';
 import { OverlayManager } from '../overlay_manager';
+<<<<<<< Updated upstream
 import { fill_info } from '../sdfv';
 import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
 
@@ -46,6 +47,453 @@ function check_valid_add_position(type, foreground_elem, lib, mousepos) {
         default:
             return foreground_elem instanceof State;
     }
+=======
+import { GenericSdfgOverlay } from "../overlays/generic_sdfg_overlay";
+import * as layoutLib from "../layouting/layoutLib";
+
+/**
+ * Returns a function taking a number from 0 to 1 which linearly interpolates between two matrices.
+ * Uses the matrix interpolation algorithm for CSS animations
+ * https://www.w3.org/TR/css-transforms-1/#decomposing-a-2d-matrix
+ */
+function lerpMatrix(m1, m2) {
+    function decompose(m) {
+        const scale = [Math.sqrt(m.a * m.a + m.b * m.b), Math.sqrt(m.c * m.c + m.d * m.d)];
+
+        const det = m.a * m.d - m.b * m.c;
+        if (det < 0) {
+            if (m.a < m.d)
+                scale[0] = -scale[0];
+            else
+                scale[1] = -scale[1];
+        }
+
+        const row0x = m.a / (scale[0] || 1);
+        const row0y = m.b / (scale[0] || 1);
+        const row1x = m.c / (scale[1] || 1);
+        const row1y = m.d / (scale[1] || 1);
+
+        const skew11 = row0x * row0x - row0y * row1x;
+        const skew12 = row0x * row0y - row0y * row1y;
+        const skew21 = row0x * row1x - row0y * row0x;
+        const skew22 = row0x * row1y - row0y * row0y;
+
+        const angle = Math.atan2(m.b, m.a) * 180 / Math.PI;
+
+        return {
+            translate: [m.e, m.f],
+            scale,
+            skew11,
+            skew12,
+            skew21,
+            skew22,
+            angle,
+        };
+    }
+
+    function lerpDecomposed(d1, d2, t) {
+        function lerp(a, b) {
+            return (b - a) * t + a;
+        }
+
+        let d1Angle = d1.angle || 360;
+        let d2Angle = d2.angle || 360;
+        let d1Scale = d1.scale;
+
+        if ((d1.scale[0] < 0 && d2.scale[1] < 0) || (d1.scale[1] < 0 && d2.scale[0] < 0)) {
+            d1Scale = [-d1Scale[0], -d1Scale[1]];
+            d1Angle += d1Angle < 0 ? 180 : -180;
+        }
+
+        if (Math.abs(d1Angle - d2Angle) > 180) {
+            if (d1Angle > d2Angle) {
+                d1Angle -= 360;
+            } else {
+                d2Angle -= 360;
+            }
+        }
+
+
+        return {
+            translate: [
+                lerp(d1.translate[0], d2.translate[0]),
+                lerp(d1.translate[1], d2.translate[1]),
+            ],
+            scale: [
+                lerp(d1Scale[0], d2.scale[0]),
+                lerp(d1Scale[1], d2.scale[1]),
+            ],
+            skew11: lerp(d1.skew11, d2.skew11),
+            skew12: lerp(d1.skew12, d2.skew12),
+            skew21: lerp(d1.skew21, d2.skew21),
+            skew22: lerp(d1.skew22, d2.skew22),
+            angle: lerp(d1Angle, d2Angle),
+        };
+    }
+
+    function recompose(d) {
+        const matrix = document.createElementNS("http://www.w3.org/2000/svg", 'svg').createSVGMatrix();
+        matrix.a = d.skew11;
+        matrix.b = d.skew12;
+        matrix.c = d.skew21;
+        matrix.d = d.skew22;
+        matrix.e = d.translate[0] * d.skew11 + d.translate[1] * d.skew21;
+        matrix.f = d.translate[0] * d.skew12 + d.translate[1] * d.skew22;
+        return matrix.rotate(0, 0, d.angle * Math.PI / 180).scale(d.scale[0], d.scale[1]);
+    }
+
+    const d1 = decompose(m1);
+    const d2 = decompose(m2);
+
+    return (t) => recompose(lerpDecomposed(d1, d2, t));
+}
+
+function calculateNodeSize(sdfg_state, node, ctx) {
+    let labelsize = ctx.measureText(node.label).width;
+    let inconnsize = 2 * LINEHEIGHT * Object.keys(node.attributes.layout.in_connectors).length - LINEHEIGHT;
+    let outconnsize = 2 * LINEHEIGHT * Object.keys(node.attributes.layout.out_connectors).length - LINEHEIGHT;
+    let maxwidth = Math.max(labelsize, inconnsize, outconnsize);
+    let maxheight = 2 * LINEHEIGHT;
+    maxheight += 4 * LINEHEIGHT;
+
+    let size = { width: maxwidth, height: maxheight }
+
+    // add something to the size based on the shape of the node
+    if (node.type === "AccessNode") {
+        size.height -= 4 * LINEHEIGHT;
+        size.width += size.height;
+    }
+    else if (node.type.endsWith("Entry")) {
+        size.width += 2.0 * size.height;
+        size.height /= 1.75;
+    }
+    else if (node.type.endsWith("Exit")) {
+        size.width += 2.0 * size.height;
+        size.height /= 1.75;
+    }
+    else if (node.type === "Tasklet") {
+        size.width += 2.0 * (size.height / 3.0);
+        size.height /= 1.75;
+    }
+    else if (node.type === "LibraryNode") {
+        size.width += 2.0 * (size.height / 3.0);
+        size.height /= 1.75;
+    }
+    else if (node.type === "Reduce") {
+        size.height -= 4 * LINEHEIGHT;
+        size.width *= 2;
+        size.height = size.width / 3.0;
+    }
+    else {
+    }
+
+    return size;
+}
+
+function get_sdfg_graph(ctx, sdfg, sdfg_list, state_parent_list, omit_access_nodes) {
+    let STATE_MARGIN = 4 * LINEHEIGHT;
+
+    let g = new layoutLib.RenderGraph();
+
+    // layout each state to get its size
+    sdfg.nodes.forEach((state) => {
+        let stateinfo = {};
+
+        stateinfo.label = state.id;
+        let state_g = null;
+        stateinfo.width = ctx.measureText(stateinfo.label).width;
+        stateinfo.height = LINEHEIGHT;
+        if (!state.attributes.is_collapsed) {
+            state_g = get_state_graph(ctx, state, sdfg, sdfg_list,
+                state_parent_list, omit_access_nodes);
+        }
+        stateinfo.width += 2 * STATE_MARGIN;
+        stateinfo.height += 2 * STATE_MARGIN;
+        const state_obj = new State({
+            state: state,
+            layout: stateinfo,
+            graph: state_g
+        }, state.id, sdfg);
+        state_obj.childGraph = state_g;
+        g.addNode(state_obj, parseInt(state.id));
+    });
+
+    sdfg.edges.forEach((edge, id) => {
+        const edge_obj = new Edge(edge.attributes.data, id, sdfg);
+        edge_obj.src = parseInt(edge.src);
+        edge_obj.dst = parseInt(edge.dst);
+        edge_obj.srcConnector = null;
+        edge_obj.dstConnector = null;
+        g.addEdge(edge_obj, id);
+    });
+
+    return g;
+}
+
+// Layout SDFG elements (states, nodes, scopes, nested SDFGs)
+function relayout_sdfg(ctx, sdfg, sdfg_list, state_parent_list, omit_access_nodes) {
+    const g = get_sdfg_graph(ctx, sdfg,  sdfg_list, state_parent_list, omit_access_nodes);
+
+    const layouter = new layoutLib.SugiyamaLayouter({shuffles: 0, shuffleGlobal: false, optimizeAngles: false, bundle: false});
+    layouter.layout(g);
+
+    function postlayout_sdfg(g, sdfg) {
+        sdfg.nodes.forEach((sdfg_state) => {
+            const stateNode = g.node(sdfg_state.id);
+            if (stateNode.childGraph === null) {
+                // ignore collapsed states
+                return;
+            }
+            sdfg_state.nodes.forEach(function (node, id) {
+                let gnode = stateNode.childGraph.node(id);
+                if (!gnode || (omit_access_nodes && gnode instanceof AccessNode)) {
+                    // ignore nodes that should not be drawn
+                    return;
+                }
+
+                // recursively process nested sdfgs
+                if (node.type === "NestedSDFG" && !node.attributes.is_collapsed) {
+                    postlayout_sdfg(gnode.childGraph, node.attributes.sdfg);
+                }
+            });
+
+            sdfg_state.edges.forEach(function (edge, id) {
+                edge = check_and_redirect_edge(edge, stateNode.childGraph.drawn_nodes, sdfg_state);
+                if (!edge) return;
+                let gedge = stateNode.childGraph.edge(id);
+                if (!gedge || (omit_access_nodes && gedge.data.attributes.shortcut === false)
+                    || (!omit_access_nodes && gedge.data.attributes.shortcut)) {
+                    // if access nodes omitted, don't draw non-shortcut edges and vice versa
+                    return;
+                }
+
+                gedge.updateBoundingBox();
+            });
+        });
+
+        // Annotate the sdfg with its layout info
+        sdfg.nodes.forEach(function (state) {
+            let gnode = g.node(state.id);
+            state.attributes.layout = {};
+            state.attributes.layout.x = gnode.x;
+            state.attributes.layout.y = gnode.y;
+            state.attributes.layout.width = gnode.width;
+            state.attributes.layout.height = gnode.height;
+        });
+
+        g.edges().forEach(function (edge) {
+            let gedge = edge;
+            let bb = calculateEdgeBoundingBox(gedge);
+            // Convert from top-left to center
+            bb.x += bb.width / 2.0;
+            bb.y += bb.height / 2.0;
+
+            gedge.x = bb.x;
+            gedge.y = bb.y;
+            gedge.width = bb.width;
+            gedge.height = bb.height;
+            edge.attributes.layout = {};
+            edge.attributes.layout.width = bb.width;
+            edge.attributes.layout.height = bb.height;
+            edge.attributes.layout.x = bb.x;
+            edge.attributes.layout.y = bb.y;
+            edge.attributes.layout.points = gedge.points;
+        });
+
+        let bb = calculateBoundingBox(g);
+        g.width = bb.width;
+        g.height = bb.height;
+
+        // Add SDFG to global store
+        sdfg_list[sdfg.sdfg_list_id] = g;
+    }
+
+    postlayout_sdfg(g, sdfg);
+
+    return g;
+}
+
+function get_state_graph(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omit_access_nodes) {
+    // layout the state as a render graph
+    let g = new layoutLib.RenderGraph();
+
+    // Add nodes to the graph. The first argument is the node id. The
+    // second is metadata about the node (label, width, height),
+    // which will be updated by dagre.layout (will add x,y).
+
+    // Process nodes hierarchically
+    let toplevel_nodes = sdfg_state.scope_dict[-1];
+    if (toplevel_nodes === undefined)
+        toplevel_nodes = Object.keys(sdfg_state.nodes);
+    g.drawn_nodes = new Set();
+    let hidden_nodes = new Map();
+
+    function layout_node(node) {
+        if (omit_access_nodes && node.type == "AccessNode") {
+            // add access node to hidden nodes; source and destinations will be set later
+            hidden_nodes.set(node.id.toString(), {node: node, src: null, dsts: []});
+            return;
+        }
+
+        let nested_g = null;
+        node.attributes.layout = {};
+
+        // Set connectors prior to computing node size
+        node.attributes.layout.in_connectors = node.attributes.in_connectors;
+        if ('is_collapsed' in node.attributes && node.attributes.is_collapsed && node.type !== "NestedSDFG")
+            node.attributes.layout.out_connectors = find_exit_for_entry(sdfg_state.nodes, node).attributes.out_connectors;
+        else
+            node.attributes.layout.out_connectors = node.attributes.out_connectors;
+
+        let nodesize = calculateNodeSize(sdfg_state, node, ctx);
+        node.attributes.layout.width = nodesize.width;
+        node.attributes.layout.height = nodesize.height;
+        node.attributes.layout.label = node.label;
+
+        // Recursively add nested SDFGs
+        if (node.type === "NestedSDFG" && !node.attributes.is_collapsed) {
+            nested_g = get_sdfg_graph(ctx, node.attributes.sdfg, sdfg_list, state_parent_list, omit_access_nodes);
+        }
+
+        // Dynamically create node type
+        let obj = new SDFGElements[node.type]({ node: node, graph: nested_g }, node.id, sdfg, sdfg_state.id);
+
+        // If it's a nested SDFG, we need to record the node as all of its
+        // state's parent node
+        if (node.type === 'NestedSDFG')
+            state_parent_list[node.attributes.sdfg.sdfg_list_id] = obj;
+
+        // Add input connectors
+        let i = 0;
+        let conns;
+        if (Array.isArray(node.attributes.layout.in_connectors))
+            conns = node.attributes.layout.in_connectors;
+        else
+            conns = Object.keys(node.attributes.layout.in_connectors);
+        for (let cname of conns) {
+            let conn = new Connector({ name: cname }, i, sdfg, node.id);
+            obj.inConnectors.push(conn);
+            i += 1;
+        }
+
+        // Add output connectors -- if collapsed, uses exit node connectors
+        i = 0;
+        if (Array.isArray(node.attributes.layout.out_connectors))
+            conns = node.attributes.layout.out_connectors;
+        else
+            conns = Object.keys(node.attributes.layout.out_connectors);
+        for (let cname of conns) {
+            let conn = new Connector({ name: cname }, i, sdfg, node.id);
+            obj.outConnectors.push(conn);
+            i += 1;
+        }
+
+        g.addNode(obj, node.id);
+        g.drawn_nodes.add(node.id.toString());
+
+        // Recursively draw nodes
+        if (node.id in sdfg_state.scope_dict) {
+            if (node.attributes.is_collapsed)
+                return;
+            sdfg_state.scope_dict[node.id].forEach(function (nodeid) {
+                let node = sdfg_state.nodes[nodeid];
+                layout_node(node);
+            });
+        }
+    }
+
+
+    toplevel_nodes.forEach(function (nodeid) {
+        let node = sdfg_state.nodes[nodeid];
+        layout_node(node);
+    });
+
+    // add info to calculate shortcut edges
+    function add_edge_info_if_hidden(edge) {
+        let hidden_src = hidden_nodes.get(edge.src);
+        let hidden_dst = hidden_nodes.get(edge.dst);
+
+        if (hidden_src && hidden_dst) {
+            // if we have edges from an AccessNode to an AccessNode then just connect destinations
+            hidden_src.dsts = hidden_dst.dsts;
+            edge.attributes.data.attributes.shortcut = false;
+        } else if (hidden_src) {
+            // if edge starts at hidden node, then add it as destination
+            hidden_src.dsts.push(edge);
+            edge.attributes.data.attributes.shortcut = false;
+            return true;
+        } else if (hidden_dst) {
+            // if edge ends at hidden node, then add it as source
+            hidden_dst.src = edge;
+            edge.attributes.data.attributes.shortcut = false;
+            return true;
+        }
+
+        // if it is a shortcut edge, but we don't omit access nodes, then ignore this edge
+        if (!omit_access_nodes && edge.attributes.data.attributes.shortcut) return true;
+
+        return false;
+    }
+
+    sdfg_state.edges.forEach((edge, id) => {
+        if (add_edge_info_if_hidden(edge)) return;
+        edge = check_and_redirect_edge(edge, g.drawn_nodes, sdfg_state);
+        if (!edge) return;
+        let e = new Edge(edge.attributes.data, id, sdfg, sdfg_state.id);
+        edge.attributes.data.edge = e;
+        e.srcConnector = edge.src_connector || null;
+        e.dstConnector = edge.dst_connector || null;
+        e.src = parseInt(edge.src);
+        e.dst = parseInt(edge.dst);
+        g.addEdge(e, id);
+    });
+
+    hidden_nodes.forEach( hidden_node => {
+        if (hidden_node.src) {
+            hidden_node.dsts.forEach( e => {
+                // create shortcut edge with new destination
+                let tmp_edge = e.attributes.data.edge;
+                e.attributes.data.edge = null;
+                let shortcut_e = deepCopy(e);
+                e.attributes.data.edge = tmp_edge;
+                shortcut_e.src = hidden_node.src.src;
+                shortcut_e.src_connector = hidden_node.src.src_connector;
+                shortcut_e.dst_connector = e.dst_connector;
+                // attribute that only shortcut edges have; if it is explicitly false, then edge is ignored in omit access node mode
+                shortcut_e.attributes.data.attributes.shortcut = true;
+
+                // draw the redirected edge
+                let redirected_e = check_and_redirect_edge(shortcut_e, g.drawn_nodes, sdfg_state);
+                if (!redirected_e) return;
+
+                // abort if shortcut edge already exists
+                let edges = g.outEdges(redirected_e.src);
+                for (let oe of edges) {
+                    if (oe.w == e.dst && sdfg_state.edges[oe.name].dst_connector == e.dst_connector) {
+                        return;
+                    }
+                }
+
+                // add shortcut edge (redirection is not done in this list)
+                sdfg_state.edges.push(shortcut_e);
+
+                // add redirected shortcut edge to graph
+                let edge_id = sdfg_state.edges.length - 1;
+                let shortcut_edge = new Edge(deepCopy(redirected_e.attributes.data), edge_id, sdfg, sdfg_state.id);
+                shortcut_edge.srcConnector = redirected_e.src_connector || null;
+                shortcut_edge.dstConnector = redirected_e.dst_connector || null;
+                shortcut_edge.data.attributes.shortcut = true;
+
+                shortcut_edge.src = redirected_e.src;
+                shortcut_edge.dst = redirected_e.dst;
+
+                g.addEdge(shortcut_edge, edge_id);
+            });
+        }
+    });
+
+    return g;
+>>>>>>> Stashed changes
 }
 
 export class SDFGRenderer {
@@ -189,6 +637,7 @@ export class SDFGRenderer {
                     'background: ' + this.mode_selected_bg_color;
                 this.interaction_info_box.style.display = 'block';
                 this.canvas.style.cursor = 'crosshair';
+<<<<<<< Updated upstream
                 if (this.ctrl_key_selection) {
                     this.interaction_info_text.innerHTML =
                         'Middle Mouse: Pan view';
@@ -219,6 +668,12 @@ export class SDFGRenderer {
                         'Middle Mouse: Pan view<br>' +
                         'Right Click / Esc: Abort';
                 }
+=======
+                this.interaction_info_text.innerHTML =
+                    'Shift: Add to selection<br>' +
+                    'Ctrl/Cmd: Remove from selection<br>' +
+                    'Middle Mouse: Pan view';
+>>>>>>> Stashed changes
                 break;
             case 'pan':
             default:
@@ -747,8 +1202,8 @@ export class SDFGRenderer {
         this.translate_moved_elements();
 
         // Make sure all visible overlays get recalculated if there are any.
-        if (this.overlay_manager !== null)
-            this.overlay_manager.refresh();
+		if (this.overlay_manager !== null)
+			this.overlay_manager.refresh();
 
         // If we're in a VSCode context, we also want to refresh the outline.
         try {
@@ -839,7 +1294,7 @@ export class SDFGRenderer {
     // (or entire graph if null) is in view
     zoom_to_view(elements = null, animate = true) {
         if (!elements || elements.length == 0)
-            elements = this.graph.nodes().map(x => this.graph.node(x));
+            elements = this.graph.nodes();
 
         let bb = boundingBox(elements);
         this.canvas_manager.set_view(bb, animate);
@@ -920,7 +1375,7 @@ export class SDFGRenderer {
         let size;
         if (save_all) {
             // Get size of entire graph
-            let elements = this.graph.nodes().map(x => this.graph.node(x));
+            let elements = this.graph.nodes();
             let bb = boundingBox(elements);
             size = [bb.width, bb.height];
         } else {
@@ -954,10 +1409,10 @@ export class SDFGRenderer {
 
     // Draw a debug grid on the canvas to indicate coordinates.
     debug_draw_grid(curx, cury, endx, endy, grid_width = 100) {
-        const lim_x_min = Math.floor(curx / grid_width) * grid_width;
-        const lim_x_max = Math.ceil(endx / grid_width) * grid_width;
-        const lim_y_min = Math.floor(cury / grid_width) * grid_width;
-        const lim_y_max = Math.ceil(endy / grid_width) * grid_width;
+        var lim_x_min = Math.floor(curx / grid_width) * grid_width;
+        var lim_x_max = Math.ceil(endx / grid_width) * grid_width;
+        var lim_y_min = Math.floor(cury / grid_width) * grid_width;
+        var lim_y_max = Math.ceil(endy / grid_width) * grid_width;
         for (var i = lim_x_min; i <= lim_x_max; i += grid_width) {
             this.ctx.moveTo(i, lim_y_min);
             this.ctx.lineTo(i, lim_y_max);
@@ -980,13 +1435,13 @@ export class SDFGRenderer {
 
     // Render SDFG
     draw(dt) {
-        const ctx = this.ctx;
-        const g = this.graph;
-        const curx = this.canvas_manager.mapPixelToCoordsX(0);
-        const cury = this.canvas_manager.mapPixelToCoordsY(0);
-        const endx = this.canvas_manager.mapPixelToCoordsX(this.canvas.width);
-        const endy = this.canvas_manager.mapPixelToCoordsY(this.canvas.height);
-        const curw = endx - curx, curh = endy - cury;
+        let ctx = this.ctx;
+        let g = this.graph;
+        let curx = this.canvas_manager.mapPixelToCoordsX(0);
+        let cury = this.canvas_manager.mapPixelToCoordsY(0);
+        let endx = this.canvas_manager.mapPixelToCoordsX(this.canvas.width);
+        let endy = this.canvas_manager.mapPixelToCoordsY(this.canvas.height);
+        let curw = endx - curx, curh = endy - cury;
 
         this.visible_rect = { x: curx, y: cury, w: curw, h: curh };
 
@@ -996,7 +1451,7 @@ export class SDFGRenderer {
 
         if (this.box_select_rect) {
             this.ctx.beginPath();
-            const old_line_width = this.ctx.lineWidth;
+            let old_line_width = this.ctx.lineWidth;
             this.ctx.lineWidth = this.canvas_manager.points_per_pixel();
             this.ctx.strokeStyle = 'grey';
             this.ctx.rect(this.box_select_rect.x_start, this.box_select_rect.y_start,
@@ -1027,13 +1482,11 @@ export class SDFGRenderer {
 
         try {
             this.ctx.end();
-        } catch (ex) {
-            // TODO make sure no error is thrown instead of catching and silently ignoring it?
-        }
+        } catch (ex) { }
 
         if (this.tooltip) {
-            const br = this.canvas.getBoundingClientRect();
-            const pos = {
+            let br = this.canvas.getBoundingClientRect();
+            let pos = {
                 x: this.realmousepos.x - br.x,
                 y: this.realmousepos.y - br.y
             };
@@ -1054,7 +1507,7 @@ export class SDFGRenderer {
         }
 
         if (this.sdfg.error) {
-            const error = this.sdfg.error;
+            let error = this.sdfg.error;
 
             let type = '';
             let state_id = -1;
@@ -1076,7 +1529,7 @@ export class SDFGRenderer {
             } else {
                 return;
             }
-            const offending_element = find_graph_element(
+            let offending_element = find_graph_element(
                 this.graph, type, error.sdfg_id, state_id, el_id
             );
             if (offending_element) {
@@ -1092,15 +1545,15 @@ export class SDFGRenderer {
     }
 
     visible_elements() {
-        const curx = this.canvas_manager.mapPixelToCoordsX(0);
-        const cury = this.canvas_manager.mapPixelToCoordsY(0);
-        const endx = this.canvas_manager.mapPixelToCoordsX(this.canvas.width);
-        const endy = this.canvas_manager.mapPixelToCoordsY(this.canvas.height);
-        const curw = endx - curx;
-        const curh = endy - cury;
-        const elements = [];
+        let curx = this.canvas_manager.mapPixelToCoordsX(0);
+        let cury = this.canvas_manager.mapPixelToCoordsY(0);
+        let endx = this.canvas_manager.mapPixelToCoordsX(this.canvas.width);
+        let endy = this.canvas_manager.mapPixelToCoordsY(this.canvas.height);
+        let curw = endx - curx;
+        let curh = endy - cury;
+        let elements = [];
         this.do_for_intersected_elements(curx, cury, curw, curh, (type, e, obj) => {
-            const state_id = e.state ? Number(e.state) : -1;
+            let state_id = e.state ? Number(e.state) : -1;
             let el_type = 'other';
             if (type === 'nodes')
                 el_type = 'node';
@@ -1129,7 +1582,7 @@ export class SDFGRenderer {
     // {'states': [{sdfg: sdfg_name, state: 1}, ...], nodes: [sdfg: sdfg_name, state: 1, node: 5],
     //              edges: [], isedges: [], connectors: []}
     elements_in_rect(x, y, w, h) {
-        const elements = {
+        let elements = {
             states: [], nodes: [], connectors: [],
             edges: [], isedges: []
         };
@@ -1143,62 +1596,59 @@ export class SDFGRenderer {
     do_for_intersected_elements(x, y, w, h, func) {
         // Traverse nested SDFGs recursively
         function traverse_recursive(g, sdfg_name, sdfg_id) {
-            g.nodes().forEach(state_id => {
-                const state = g.node(state_id);
+            g.nodes().forEach(state => {
                 if (!state) return;
 
                 if (state.intersect(x, y, w, h)) {
                     // States
-                    func('states', { sdfg: sdfg_name, sdfg_id: sdfg_id, id: state_id }, state);
+                    func('states', { sdfg: sdfg_name, sdfg_id: sdfg_id, id: state.id }, state);
 
                     if (state.data.state.attributes.is_collapsed)
                         return;
 
-                    const ng = state.data.graph;
+                    let ng = state.data.graph;
                     if (!ng)
                         return;
-                    ng.nodes().forEach(node_id => {
-                        const node = ng.node(node_id);
+                    ng.nodes().forEach(node => {
                         if (node.intersect(x, y, w, h)) {
                             // Selected nodes
-                            func('nodes', { sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, id: node_id }, node);
+                            func('nodes', { sdfg: sdfg_name, sdfg_id: sdfg_id, state: state.id, id: node.id }, node);
 
                             // If nested SDFG, traverse recursively
-                            if (node.data.node.type === "NestedSDFG")
+                            if (node.data.node.type === "NestedSDFG" && !node.data.node.attributes.is_collapsed) {
                                 traverse_recursive(node.data.graph,
                                     node.data.node.attributes.sdfg.attributes.name,
                                     node.data.node.attributes.sdfg.sdfg_list_id);
+                            }
                         }
                         // Connectors
-                        node.in_connectors.forEach((c, i) => {
+                        node.inConnectors.forEach((c, i) => {
                             if (c.intersect(x, y, w, h))
                                 func('connectors', {
-                                    sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, node: node_id,
+                                    sdfg: sdfg_name, sdfg_id: sdfg_id, state: state.id, node: node.id,
                                     connector: i, conntype: "in"
                                 }, c);
                         });
-                        node.out_connectors.forEach((c, i) => {
+                        node.outConnectors.forEach((c, i) => {
                             if (c.intersect(x, y, w, h))
                                 func('connectors', {
-                                    sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, node: node_id,
+                                    sdfg: sdfg_name, sdfg_id: sdfg_id, state: state.id, node: node.id,
                                     connector: i, conntype: "out"
                                 }, c);
                         });
                     });
 
                     // Selected edges
-                    ng.edges().forEach(edge_id => {
-                        const edge = ng.edge(edge_id);
+                    ng.edges().forEach(edge => {
                         if (edge.intersect(x, y, w, h)) {
-                            func('edges', { sdfg: sdfg_name, sdfg_id: sdfg_id, state: state_id, id: edge.id }, edge);
+                            func('edges', { sdfg: sdfg_name, sdfg_id: sdfg_id, state: state.id, id: edge.id }, edge);
                         }
                     });
                 }
             });
 
             // Selected inter-state edges
-            g.edges().forEach(isedge_id => {
-                const isedge = g.edge(isedge_id);
+            g.edges().forEach(isedge => {
                 if (isedge.intersect(x, y, w, h)) {
                     func('isedges', { sdfg: sdfg_name, sdfg_id: sdfg_id, id: isedge.id }, isedge);
                 }
@@ -1222,7 +1672,7 @@ export class SDFGRenderer {
                     func('nodes', { sdfg: sdfg, state: state_id, id: node_id }, node);
 
                     // If nested SDFG, traverse recursively
-                    if (node.type === "NestedSDFG")
+                    if (node.type === "NestedSDFG" && !node.data.node.attributes.is_collapsed)
                         traverse_recursive(node.attributes.sdfg);
                 });
 
@@ -1245,53 +1695,49 @@ export class SDFGRenderer {
     for_all_elements(x, y, w, h, func) {
         // Traverse nested SDFGs recursively
         function traverse_recursive(g, sdfg_name) {
-            g.nodes().forEach(state_id => {
-                const state = g.node(state_id);
+            g.nodes().forEach(state => {
                 if (!state) return;
 
                 // States
-                func('states', { sdfg: sdfg_name, id: state_id, graph: g }, state, state.intersect(x, y, w, h));
+                func('states', { sdfg: sdfg_name, id: state.id, graph: g }, state, state.intersect(x, y, w, h));
 
                 if (state.data.state.attributes.is_collapsed)
                     return;
 
-                const ng = state.data.graph;
+                let ng = state.data.graph;
                 if (!ng)
                     return;
-                ng.nodes().forEach(node_id => {
-                    const node = ng.node(node_id);
+                ng.nodes().forEach(node => {
                     // Selected nodes
-                    func('nodes', { sdfg: sdfg_name, state: state_id, id: node_id, graph: ng }, node, node.intersect(x, y, w, h));
+                    func('nodes', { sdfg: sdfg_name, state: state.id, id: node.id, graph: ng }, node, node.intersect(x, y, w, h));
 
                     // If nested SDFG, traverse recursively
-                    if (node.data.node.type === "NestedSDFG")
+                    if (node.data.node.type === "NestedSDFG" && !node.data.node.attributes.is_collapsed)
                         traverse_recursive(node.data.graph, node.data.node.attributes.sdfg.attributes.name);
 
                     // Connectors
-                    node.in_connectors.forEach((c, i) => {
+                    node.inConnectors.forEach((c, i) => {
                         func('connectors', {
-                            sdfg: sdfg_name, state: state_id, node: node_id,
+                            sdfg: sdfg_name, state: state.id, node: node.id,
                             connector: i, conntype: "in", graph: ng
                         }, c, c.intersect(x, y, w, h));
                     });
-                    node.out_connectors.forEach((c, i) => {
+                    node.outConnectors.forEach((c, i) => {
                         func('connectors', {
-                            sdfg: sdfg_name, state: state_id, node: node_id,
+                            sdfg: sdfg_name, state: state.id, node: node.id,
                             connector: i, conntype: "out", graph: ng
                         }, c, c.intersect(x, y, w, h));
                     });
                 });
 
                 // Selected edges
-                ng.edges().forEach(edge_id => {
-                    const edge = ng.edge(edge_id);
-                    func('edges', { sdfg: sdfg_name, state: state_id, id: edge.id, graph: ng }, edge, edge.intersect(x, y, w, h));
+                ng.edges().forEach(edge => {
+                    func('edges', { sdfg: sdfg_name, state: state.id, id: edge.id, graph: ng }, edge, edge.intersect(x, y, w, h));
                 });
             });
 
             // Selected inter-state edges
-            g.edges().forEach(isedge_id => {
-                const isedge = g.edge(isedge_id);
+            g.edges().forEach(isedge => {
                 func('isedges', { sdfg: sdfg_name, id: isedge.id, graph: g }, isedge, isedge.intersect(x, y, w, h));
             });
         }
@@ -1407,7 +1853,7 @@ export class SDFGRenderer {
                 this.drag_start = event;
         } else if (evtype === "mousemove") {
             // Calculate the change in mouse position in canvas coordinates
-            const old_mousepos = this.mousepos;
+            let old_mousepos = this.mousepos;
             this.mousepos = { x: comp_x_func(event), y: comp_y_func(event) };
             this.realmousepos = { x: event.clientX, y: event.clientY };
 
@@ -1532,16 +1978,16 @@ export class SDFGRenderer {
             } else if (event.touches.length == 2) {
                 // Find relative distance between two touches before and after.
                 // Then, center and zoom to their midpoint.
-                const touch1 = this.drag_start.touches[0];
-                const touch2 = this.drag_start.touches[1];
+                let touch1 = this.drag_start.touches[0];
+                let touch2 = this.drag_start.touches[1];
                 let x1 = touch1.clientX, x2 = touch2.clientX;
                 let y1 = touch1.clientY, y2 = touch2.clientY;
-                const oldCenter = [(x1 + x2) / 2.0, (y1 + y2) / 2.0];
-                const initialDistance = Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+                let oldCenter = [(x1 + x2) / 2.0, (y1 + y2) / 2.0];
+                let initialDistance = Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
                 x1 = event.touches[0].clientX; x2 = event.touches[1].clientX;
                 y1 = event.touches[0].clientY; y2 = event.touches[1].clientY;
-                const currentDistance = Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
-                const newCenter = [(x1 + x2) / 2.0, (y1 + y2) / 2.0];
+                let currentDistance = Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+                let newCenter = [(x1 + x2) / 2.0, (y1 + y2) / 2.0];
 
                 // First, translate according to movement of center point
                 this.canvas_manager.translate(newCenter[0] - oldCenter[0],
@@ -1559,9 +2005,9 @@ export class SDFGRenderer {
             }
         } else if (evtype === "wheel") {
             // Get physical x,y coordinates (rather than canvas coordinates)
-            const br = this.canvas.getBoundingClientRect();
-            const x = event.clientX - br.x;
-            const y = event.clientY - br.y;
+            let br = this.canvas.getBoundingClientRect();
+            let x = event.clientX - br.x;
+            let y = event.clientY - br.y;
             this.canvas_manager.scale(event.deltaY > 0 ? 0.9 : 1.1, x, y);
             dirty = true;
             element_focus_changed = true;
@@ -1575,9 +2021,9 @@ export class SDFGRenderer {
         const elements_under_cursor = this.find_elements_under_cursor(
             this.mousepos.x, this.mousepos.y
         );
-        const elements = elements_under_cursor.elements;
-        const total_elements = elements_under_cursor.total_elements;
-        const foreground_elem = elements_under_cursor.foreground_elem;
+        let elements = elements_under_cursor.elements;
+        let total_elements = elements_under_cursor.total_elements;
+        let foreground_elem = elements_under_cursor.foreground_elem;
 
         if (this.mouse_mode == 'add') {
             let el = this.mouse_follow_element;
@@ -1631,7 +2077,7 @@ export class SDFGRenderer {
         this.for_all_elements(this.mousepos.x, this.mousepos.y, 0, 0, (type, e, obj, intersected) => {
             // Highlight all edges of the memlet tree
             if (intersected && obj instanceof Edge && obj.parent_id != null) {
-                const tree = this.get_nested_memlet_tree(obj);
+                let tree = this.get_nested_memlet_tree(obj);
                 tree.forEach(te => {
                     if (te != obj && te !== undefined) {
                         te.highlighted = true;
@@ -1656,7 +2102,7 @@ export class SDFGRenderer {
 
             // Highlight all access nodes with the same name as the hovered connector in the nested sdfg
             if (intersected && obj instanceof Connector) {
-                const nested_graph = e.graph.node(obj.parent_id).data.graph;
+                let nested_graph = e.graph.node(obj.parent_id).data.graph;
                 if (nested_graph) {
                     traverse_sdfg_scopes(nested_graph, (node) => {
                         // If node is a state, then visit sub-scope
@@ -1689,11 +2135,11 @@ export class SDFGRenderer {
         }
 
         if (evtype === "dblclick") {
-            const sdfg = (foreground_elem ? foreground_elem.sdfg : null);
+            let sdfg = (foreground_elem ? foreground_elem.sdfg : null);
             let sdfg_elem = null;
             if (foreground_elem instanceof State)
                 sdfg_elem = foreground_elem.data.state;
-            else if (foreground_elem instanceof SDFGNode) {
+            else if (foreground_elem instanceof Node) {
                 sdfg_elem = foreground_elem.data.node;
 
                 // If a scope exit node, use entry instead
@@ -1865,6 +2311,7 @@ export class SDFGRenderer {
             el.selected = true;
         });
 
+<<<<<<< Updated upstream
         if (evtype === "contextmenu") {
             if (this.mouse_mode == 'move') {
                 let elements_to_reset = [foreground_elem];
@@ -1951,22 +2398,24 @@ export class SDFGRenderer {
             }
         }
 
+=======
+>>>>>>> Stashed changes
         let mouse_x = comp_x_func(event);
         let mouse_y = comp_y_func(event);
         if (this.external_mouse_handler)
             dirty |= this.external_mouse_handler(evtype, event, { x: mouse_x, y: mouse_y }, elements,
                 this, this.selected_elements, ends_drag);
 
-        if (this.overlay_manager !== null) {
-            dirty |= this.overlay_manager.on_mouse_event(
-                evtype,
-                event,
-                { x: mouse_x, y: mouse_y },
-                elements,
-                foreground_elem,
-                ends_drag
-            );
-        }
+		if (this.overlay_manager !== null) {
+			dirty |= this.overlay_manager.on_mouse_event(
+				evtype,
+				event,
+				{ x: mouse_x, y: mouse_y },
+				elements,
+				foreground_elem,
+				ends_drag
+			);
+		}
 
         if (dirty) {
             this.draw_async();
@@ -1992,128 +2441,28 @@ export class SDFGRenderer {
     }
 }
 
-
-function calculateNodeSize(sdfg_state, node, ctx) {
-    const labelsize = ctx.measureText(node.label).width;
-    const inconnsize = 2 * LINEHEIGHT * Object.keys(node.attributes.layout.in_connectors).length - LINEHEIGHT;
-    const outconnsize = 2 * LINEHEIGHT * Object.keys(node.attributes.layout.out_connectors).length - LINEHEIGHT;
-    const maxwidth = Math.max(labelsize, inconnsize, outconnsize);
-    let maxheight = 2 * LINEHEIGHT;
-    maxheight += 4 * LINEHEIGHT;
-
-    const size = { width: maxwidth, height: maxheight }
-
-    // add something to the size based on the shape of the node
-    if (node.type === "AccessNode") {
-        size.height -= 4 * LINEHEIGHT;
-        size.width += size.height;
-    }
-    else if (node.type.endsWith("Entry")) {
-        size.width += 2.0 * size.height;
-        size.height /= 1.75;
-    }
-    else if (node.type.endsWith("Exit")) {
-        size.width += 2.0 * size.height;
-        size.height /= 1.75;
-    }
-    else if (node.type === "Tasklet") {
-        size.width += 2.0 * (size.height / 3.0);
-        size.height /= 1.75;
-    }
-    else if (node.type === "LibraryNode") {
-        size.width += 2.0 * (size.height / 3.0);
-        size.height /= 1.75;
-    }
-    else if (node.type === "Reduce") {
-        size.height -= 4 * LINEHEIGHT;
-        size.width *= 2;
-        size.height = size.width / 3.0;
-    }
-    else {
-    }
-
-    return size;
-}
-
-// Layout SDFG elements (states, nodes, scopes, nested SDFGs)
-function relayout_sdfg(ctx, sdfg, sdfg_list, state_parent_list, omit_access_nodes) {
-    const STATE_MARGIN = 4 * LINEHEIGHT;
-
-    // Layout the SDFG as a dagre graph
-    const g = new dagre.graphlib.Graph();
-    g.setGraph({});
-    g.setDefaultEdgeLabel((u, v) => { return {}; });
-
-    // layout each state to get its size
-    sdfg.nodes.forEach((state) => {
-        let stateinfo = {};
-
-        stateinfo.label = state.id;
-        let state_g = null;
-        if (state.attributes.is_collapsed) {
-            stateinfo.width = ctx.measureText(stateinfo.label).width;
-            stateinfo.height = LINEHEIGHT;
-        }
-        else {
-            state_g = relayout_state(ctx, state, sdfg, sdfg_list,
-                state_parent_list, omit_access_nodes);
-            stateinfo = calculateBoundingBox(state_g);
-        }
-        stateinfo.width += 2 * STATE_MARGIN;
-        stateinfo.height += 2 * STATE_MARGIN;
-        g.setNode(state.id, new State({
-            state: state,
-            layout: stateinfo,
-            graph: state_g
-        }, state.id, sdfg));
-    });
-
-    sdfg.edges.forEach((edge, id) => {
-        g.setEdge(edge.src, edge.dst, new Edge(edge.attributes.data, id, sdfg));
-    });
-
-    dagre.layout(g);
-
-    // Annotate the sdfg with its layout info
-    sdfg.nodes.forEach((state) => {
-        const gnode = g.node(state.id);
-        state.attributes.layout = {};
-        state.attributes.layout.x = gnode.x;
-        state.attributes.layout.y = gnode.y;
-        state.attributes.layout.width = gnode.width;
-        state.attributes.layout.height = gnode.height;
-    });
-
-    sdfg.edges.forEach((edge) => {
-        const gedge = g.edge(edge.src, edge.dst);
-        const bb = calculateEdgeBoundingBox(gedge);
-        // Convert from top-left to center
-        bb.x += bb.width / 2.0;
-        bb.y += bb.height / 2.0;
-
-        gedge.x = bb.x;
-        gedge.y = bb.y;
-        gedge.width = bb.width;
-        gedge.height = bb.height;
-        edge.attributes.layout = {};
-        edge.attributes.layout.width = bb.width;
-        edge.attributes.layout.height = bb.height;
-        edge.attributes.layout.x = bb.x;
-        edge.attributes.layout.y = bb.y;
-        edge.attributes.layout.points = gedge.points;
-    });
-
-    // Offset node and edge locations to be in state margins
-    sdfg.nodes.forEach((s, sid) => {
-        if (s.attributes.is_collapsed)
-            return;
-
-        const state = g.node(sid);
-        const topleft = state.topleft();
-        offset_state(s, state, {
-            x: topleft.x + STATE_MARGIN,
-            y: topleft.y + STATE_MARGIN
+/**
+ * Create a DOM element with an optional given ID and class list.
+ *
+ * If a parent is provided, the element is automatically added as a child.
+ *
+ * @param {*} type      Element tag (div, span, etc.)
+ * @param {*} id        Optional element id
+ * @param {*} classList Optional array of class names
+ * @param {*} parent    Optional parent element
+ *
+ * @returns             The created DOM element
+ */
+function createElement(type, id='', classList=[], parent=undefined) {
+    let element = document.createElement(type);
+    if (id !== '')
+        element.id = id;
+    if (classList !== [])
+        classList.forEach(class_name => {
+            if (!element.classList.contains(class_name))
+                element.classList.add(class_name);
         });
+<<<<<<< Updated upstream
     });
 
     const bb = calculateBoundingBox(g);
@@ -2425,5 +2774,11 @@ function relayout_state(ctx, sdfg_state, sdfg, sdfg_list, state_parent_list, omi
     });
 
     return g;
+=======
+    if (parent)
+        parent.appendChild(element);
+    return element;
+>>>>>>> Stashed changes
 }
 
+window.SDFGRenderer = SDFGRenderer;

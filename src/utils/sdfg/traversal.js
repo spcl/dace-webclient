@@ -1,5 +1,32 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
+export function traverse_sdfg(sdfg, func) {
+    sdfg.nodes.forEach((state, state_id) => {
+        // States
+        func('states', { sdfg: sdfg, id: state_id }, state);
+
+        state.nodes.forEach((node, node_id) => {
+            // Nodes
+            func('nodes', { sdfg: sdfg, state: state_id, id: node_id }, node);
+
+            // If nested SDFG, traverse recursively
+            if (node.type === "NestedSDFG" && !node.attributes.is_collapsed)
+                traverse_sdfg(node.attributes.sdfg, func);
+        });
+
+        // Edges
+        state.edges.forEach((edge, edge_id) => {
+            func('edges', { sdfg: sdfg, state: state_id, id: edge_id }, edge);
+        });
+    });
+
+    // Selected inter-state edges
+    sdfg.edges.forEach((isedge, isedge_id) => {
+        func('isedges', { sdfg: sdfg, id: isedge_id }, isedge);
+    });
+}
+
+
 /**
  * Receives a callback that accepts (node, parent graph) and returns a value.
  * This function is invoked recursively per scope (including scope nodes), unless the return
@@ -44,7 +71,7 @@
             processed_nodes.add(node.id.toString());
         }
     }
-    scopes_recursive(sdfg, sdfg.nodes());
+    scopes_recursive(sdfg, new Array(sdfg.numNodes()).fill(0).map((_, i) => i));
 }
 
 
