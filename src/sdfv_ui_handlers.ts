@@ -10,7 +10,7 @@ import {
     SDFGNode
 } from './renderer/renderer_elements';
 import { SDFGRenderer } from './renderer/renderer';
-import { DagreSDFG } from './types';
+import { DagreSDFG } from './index';
 import { SDFV } from './sdfv';
 
 export const SDFVUIHandlers = {

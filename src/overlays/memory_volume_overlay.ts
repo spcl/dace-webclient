@@ -10,7 +10,7 @@ import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
 import { SDFGRenderer } from '../renderer/renderer';
 import { OverlayManager } from '../overlay_manager';
-import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../types';
+import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
 import { SDFV } from '../sdfv';
 
 export class MemoryVolumeOverlay extends GenericSdfgOverlay {

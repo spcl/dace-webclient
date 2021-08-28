@@ -1,6 +1,6 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { JsonSDFG } from '../../types';
+import { JsonSDFG } from '../../index';
 
 export class SDFG_Parser {
 

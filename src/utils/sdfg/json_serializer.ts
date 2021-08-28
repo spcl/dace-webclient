@@ -1,6 +1,6 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { JsonSDFG } from '../../types';
+import { JsonSDFG } from '../../index';
 
 // Recursively parse SDFG, including nested SDFG nodes
 export function parse_sdfg(sdfg_json: string): JsonSDFG {

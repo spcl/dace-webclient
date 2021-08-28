@@ -8,7 +8,7 @@ import {
     initialize_positioning_info,
 } from '../utils/sdfg/sdfg_utils';
 import { SDFGRenderer } from './renderer';
-import { DagreSDFG, Point2D } from '../types';
+import { DagreSDFG, Point2D } from '../index';
 import { intersectRect } from '../utils/utils';
 
 const animation_duration = 1000;

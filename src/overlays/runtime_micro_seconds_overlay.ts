@@ -4,7 +4,7 @@ import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
 import { OverlayManager } from '../overlay_manager';
 import { SDFGRenderer } from '../renderer/renderer';
-import { DagreSDFG, SimpleRect } from '../types';
+import { DagreSDFG, SimpleRect } from '../index';
 import { SDFV } from '../sdfv';
 import { get_element_uuid } from '../utils/utils';
 

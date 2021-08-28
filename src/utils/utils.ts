@@ -7,7 +7,7 @@ import {
     SDFGNode,
     State
 } from '../renderer/renderer_elements';
-import { Point2D } from '../types';
+import { Point2D } from '../index';
 
 export function equals<T>(a: T, b: T): boolean {
     return JSON.stringify(a) === JSON.stringify(b);

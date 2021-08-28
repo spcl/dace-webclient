@@ -3,7 +3,7 @@
 import { createElement } from './utils/utils';
 import { MathNode, parse } from 'mathjs';
 import { SDFGRenderer } from './renderer/renderer';
-import { Point2D, SymbolMap } from './types';
+import { Point2D, SymbolMap } from './index';
 import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
 import { SDFGElement } from './renderer/renderer_elements';
 

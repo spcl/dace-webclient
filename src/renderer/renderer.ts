@@ -36,7 +36,14 @@ import {
 import { OverlayManager } from '../overlay_manager';
 import { fill_info, outline, SDFV } from '../sdfv';
 import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
-import { DagreSDFG, JsonSDFG, ModeButtons, Point2D, SDFVTooltipFunc, SimpleRect } from '../types';
+import {
+    DagreSDFG,
+    JsonSDFG,
+    ModeButtons,
+    Point2D,
+    SDFVTooltipFunc,
+    SimpleRect
+} from '../index';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -135,7 +142,7 @@ export class SDFGRenderer {
     private ctrl_key_selection: boolean = false;
     private shift_key_movement: boolean = false;
     private add_uuid: string | null = null;
-    private add_position: any = null;
+    private add_position: Point2D | null = null;
     private add_edge_start: any = null;
 
     // Information window fields.

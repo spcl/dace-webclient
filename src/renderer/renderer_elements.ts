@@ -1,7 +1,7 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { SDFV } from '../sdfv';
-import { DagreSDFG, JsonSDFG, Point2D } from '../types';
+import { DagreSDFG, JsonSDFG, Point2D } from '../index';
 import { sdfg_range_elem_to_string } from '../utils/sdfg/display';
 import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';

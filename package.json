@@ -1,8 +1,10 @@
 {
     "name": "@spcl/sdfv",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "description": "A standalone viewer for SDFGs",
     "homepage": "https://github.com/spcl/dace-webclient",
+    "main": "out/index.js",
+    "types": "out/index.d.js",
     "keywords": [
         "sdfg",
         "dace",
@@ -19,7 +21,7 @@
     "license": "BSD-3-Clause",
     "scripts": {
         "start": "npm run serve",
-        "clean": "rimraf dist",
+        "clean": "rimraf dist && rimraf out",
         "type-check": "tsc --noEmit",
         "build-dev": "npm run clean && webpack --mode=development",
         "watch": "npm run clean && webpack --watch --mode=development",

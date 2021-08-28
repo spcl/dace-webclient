@@ -1,7 +1,7 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Edge, EntryNode, ExitNode, SDFGNode } from '../../renderer/renderer_elements';
-import { DagreSDFG, JsonSDFG } from '../../types';
+import { DagreSDFG, JsonSDFG } from '../../index';
 
 /**
  * Receives a callback that accepts (node, parent graph) and returns a value.

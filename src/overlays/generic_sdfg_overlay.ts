@@ -3,7 +3,7 @@
 import { OverlayManager, SymbolResolver } from '../overlay_manager';
 import { SDFGRenderer } from '../renderer/renderer';
 import { SDFGElement } from '../renderer/renderer_elements';
-import { Point2D } from '../types';
+import { Point2D } from '../index';
 
 declare const vscode: any;
 

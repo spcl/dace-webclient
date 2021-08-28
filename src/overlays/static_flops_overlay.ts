@@ -9,7 +9,7 @@ import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
 import { OverlayManager } from '../overlay_manager';
 import { SDFGRenderer } from '../renderer/renderer';
-import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../types';
+import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
 import { SDFV } from '../sdfv';
 import { get_element_uuid } from '../utils/utils';
 

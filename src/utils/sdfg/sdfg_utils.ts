@@ -7,7 +7,7 @@ import {
     SDFGNode,
     State
 } from '../../renderer/renderer_elements';
-import { DagreSDFG } from '../../types';
+import { DagreSDFG } from '../../index';
 
 const { NestedSDFG } = SDFGElements;
 

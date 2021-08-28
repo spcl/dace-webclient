@@ -14,7 +14,7 @@ import {
 import {
     RuntimeMicroSecondsOverlay
 } from './overlays/runtime_micro_seconds_overlay';
-import { DagreSDFG, JsonSDFG, Point2D } from './types';
+import { DagreSDFG, Point2D } from './index';
 import { SDFVUIHandlers } from './sdfv_ui_handlers';
 import $ from 'jquery';
 
