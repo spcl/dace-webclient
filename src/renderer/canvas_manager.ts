@@ -8,8 +8,7 @@ import {
     initialize_positioning_info,
 } from '../utils/sdfg/sdfg_utils';
 import { SDFGRenderer } from './renderer';
-import { DagreSDFG, Point2D } from '../index';
-import { intersectRect } from '../utils/utils';
+import { DagreSDFG, intersectRect, Point2D } from '../index';
 
 const animation_duration = 1000;
 
@@ -372,10 +371,10 @@ export class CanvasManager {
 
         if (parent_graph && !(el instanceof Edge)) {
             // Find all the edges connected to the moving node
-            parent_graph.outEdges(el.id).forEach((edge_id: any) => {
+            parent_graph.outEdges(el.id).forEach((edge_id: number) => {
                 out_edges.push(parent_graph.edge(edge_id));
             });
-            parent_graph.inEdges(el.id).forEach((edge_id: any) => {
+            parent_graph.inEdges(el.id).forEach((edge_id: number) => {
                 in_edges.push(parent_graph.edge(edge_id));
             });
         }
@@ -552,18 +551,18 @@ export class CanvasManager {
 
         // Allow recursive translation of nested SDFGs
         function translate_recursive(ng: DagreSDFG) {
-            ng.nodes().forEach((state_id: any) => {
+            ng.nodes().forEach((state_id: string) => {
                 const state = ng.node(state_id);
                 state.x += dx;
                 state.y += dy;
                 const g = state.data.graph;
                 if (g) {
-                    g.nodes().forEach((node_id: any) => {
+                    g.nodes().forEach((node_id: string) => {
                         const node = g.node(node_id);
                         move_node_and_connectors(node);
                     });
 
-                    g.edges().forEach((edge_id: any) => {
+                    g.edges().forEach((edge_id: number) => {
                         const edge = g.edge(edge_id);
                         edge.x += dx;
                         edge.y += dy;
@@ -616,13 +615,13 @@ export class CanvasManager {
         if (el.data.state && !el.data.state.attributes.is_collapsed) {
             // We're moving a state, move all its contained elements
             const graph = el.data.graph;
-            graph.nodes().forEach((node_id: any) => {
+            graph.nodes().forEach((node_id: string) => {
                 const node = graph.node(node_id);
                 move_node_and_connectors(node);
             });
 
             // Drag all the edges along
-            graph.edges().forEach((edge_id: any) => {
+            graph.edges().forEach((edge_id: number) => {
                 const edge = graph.edge(edge_id);
                 edge.x += dx;
                 edge.y += dy;
@@ -635,7 +634,7 @@ export class CanvasManager {
         }
 
         // Move the connected edges along with the element
-        out_edges.forEach((edge: any) => {
+        out_edges.forEach((edge: Edge) => {
             const points = edge.points;
             const n = points.length - 1;
             let moved = false;
@@ -672,7 +671,7 @@ export class CanvasManager {
             }
             updateEdgeBoundingBox(edge);
         });
-        in_edges.forEach((edge: any) => {
+        in_edges.forEach((edge: Edge) => {
             const points = edge.points;
             const n = points.length - 1;
             let moved = false;

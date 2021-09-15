@@ -1,14 +1,14 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { JsonSDFG } from '../../index';
+import { JsonSDFG, JsonSDFGNode, JsonSDFGState } from '../../index';
 
 export class SDFG_Parser {
 
     public constructor(private readonly sdfg: JsonSDFG) {
     }
 
-    public getStates(): any[] {
-        return this.sdfg.nodes.map((x: any) => new SDFG_State_Parser(x));
+    public getStates(): SDFG_State_Parser[] {
+        return this.sdfg.nodes.map((x: JsonSDFGState) => new SDFG_State_Parser(x));
     }
 
     public static lookup_symbols(
@@ -115,7 +115,7 @@ export class SDFG_Parser {
 
 export class SDFG_State_Parser {
 
-    public constructor(private readonly sdfg_state: any) {
+    public constructor(private readonly sdfg_state: JsonSDFGState) {
     }
 
     public getNodes(): any {
@@ -125,7 +125,7 @@ export class SDFG_State_Parser {
 
 export class SDFG_Node_Parser {
 
-    public constructor(private readonly node: any) {
+    public constructor(private readonly node: JsonSDFGNode) {
     }
 
     public isNodeType(node_type: string): boolean {

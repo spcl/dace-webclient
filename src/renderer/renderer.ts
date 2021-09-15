@@ -39,6 +39,9 @@ import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
 import {
     DagreSDFG,
     JsonSDFG,
+    JsonSDFGEdge,
+    JsonSDFGNode,
+    JsonSDFGState,
     ModeButtons,
     Point2D,
     SDFVTooltipFunc,
@@ -51,7 +54,7 @@ declare const blobStream: any;
 declare const canvas2pdf: any;
 
 // Some global functions and variables which are only accessible within VSCode:
-declare const vscode: any;
+declare const vscode: any | null;
 declare const daemon_connected: boolean;
 declare const refresh_analysis_pane: CallableFunction;
 declare const vscode_handle_event: CallableFunction;
@@ -993,13 +996,8 @@ export class SDFGRenderer {
                     );
             }
 
-            // TODO: Why is this here?
-            graph.inEdges(node.id).forEach((_: any) => {
-                return;
-            });
-
             // Move edges (outgoing only)
-            graph.inEdges(node.id)?.forEach((e_id: any) => {
+            graph.inEdges(node.id)?.forEach((e_id: number) => {
                 const edge = graph.edge(e_id);
                 const edge_pos = get_positioning_info(edge);
 
@@ -1125,7 +1123,7 @@ export class SDFGRenderer {
         if (save_all) {
             // Get size of entire graph
             const elements: SDFGElement[] = [];
-            this.graph?.nodes().forEach((n_id: any) => {
+            this.graph?.nodes().forEach((n_id: string) => {
                 const node = this.graph?.node(n_id);
                 if (node)
                     elements.push(node);
@@ -1418,7 +1416,7 @@ export class SDFGRenderer {
             edges: [], isedges: []
         };
         this.do_for_intersected_elements(
-            x, y, w, h, (type: any, e: any, obj: any) => {
+            x, y, w, h, (type: string, e: any, obj: any) => {
                 e.obj = obj;
                 elements[type].push(e);
             }
@@ -1433,8 +1431,8 @@ export class SDFGRenderer {
         function traverse_recursive(
             g: DagreSDFG | null, sdfg_name: string, sdfg_id: number
         ): void {
-            g?.nodes().forEach((state_id: any) => {
-                const state: any = g.node(state_id);
+            g?.nodes().forEach((state_id: string) => {
+                const state: dagre.Node<SDFGElement> = g.node(state_id);
                 if (!state)
                     return;
 
@@ -1454,7 +1452,7 @@ export class SDFGRenderer {
                     const ng = state.data.graph;
                     if (!ng)
                         return;
-                    ng.nodes().forEach((node_id: any) => {
+                    ng.nodes().forEach((node_id: string) => {
                         const node = ng.node(node_id);
                         if (node.intersect(x, y, w, h)) {
                             // Selected nodes
@@ -1476,7 +1474,7 @@ export class SDFGRenderer {
                                 );
                         }
                         // Connectors
-                        node.in_connectors.forEach((c: any, i: any) => {
+                        node.in_connectors.forEach((c: Connector, i: number) => {
                             if (c.intersect(x, y, w, h))
                                 func(
                                     'connectors',
@@ -1488,7 +1486,7 @@ export class SDFGRenderer {
                                     c
                                 );
                         });
-                        node.out_connectors.forEach((c: any, i: any) => {
+                        node.out_connectors.forEach((c: Connector, i: number) => {
                             if (c.intersect(x, y, w, h))
                                 func(
                                     'connectors',
@@ -1503,7 +1501,7 @@ export class SDFGRenderer {
                     });
 
                     // Selected edges
-                    ng.edges().forEach((edge_id: any) => {
+                    ng.edges().forEach((edge_id: number) => {
                         const edge = ng.edge(edge_id);
                         if (edge.intersect(x, y, w, h)) {
                             func(
@@ -1543,12 +1541,12 @@ export class SDFGRenderer {
 
     public for_all_sdfg_elements(func: CallableFunction): void {
         // Traverse nested SDFGs recursively
-        function traverse_recursive(sdfg: any) {
-            sdfg.nodes.forEach((state: any, state_id: any) => {
+        function traverse_recursive(sdfg: JsonSDFG) {
+            sdfg.nodes.forEach((state: JsonSDFGState, state_id: number) => {
                 // States
                 func('states', { sdfg: sdfg, id: state_id }, state);
 
-                state.nodes.forEach((node: any, node_id: any) => {
+                state.nodes.forEach((node: JsonSDFGNode, node_id: number) => {
                     // Nodes
                     func(
                         'nodes',
@@ -1564,7 +1562,7 @@ export class SDFGRenderer {
                 });
 
                 // Edges
-                state.edges.forEach((edge: any, edge_id: any) => {
+                state.edges.forEach((edge: JsonSDFGEdge, edge_id: number) => {
                     func(
                         'edges',
                         {
@@ -1576,7 +1574,7 @@ export class SDFGRenderer {
             });
 
             // Selected inter-state edges
-            sdfg.edges.forEach((isedge: any, isedge_id: any) => {
+            sdfg.edges.forEach((isedge: JsonSDFGEdge, isedge_id: number) => {
                 func('isedges', { sdfg: sdfg, id: isedge_id }, isedge);
             });
         }
@@ -1591,7 +1589,7 @@ export class SDFGRenderer {
         // Traverse nested SDFGs recursively
         function traverse_recursive(g: DagreSDFG | null, sdfg_name: string) {
             g?.nodes().forEach(state_id => {
-                const state: any = g.node(state_id);
+                const state: State = g.node(state_id);
                 if (!state)
                     return;
 
@@ -1611,7 +1609,7 @@ export class SDFGRenderer {
                 const ng = state.data.graph;
                 if (!ng)
                     return;
-                ng.nodes().forEach((node_id: any) => {
+                ng.nodes().forEach((node_id: string) => {
                     const node = ng.node(node_id);
                     // Selected nodes
                     func(
@@ -1632,13 +1630,13 @@ export class SDFGRenderer {
                         );
 
                     // Connectors
-                    node.in_connectors.forEach((c: any, i: any) => {
+                    node.in_connectors.forEach((c: Connector, i: number) => {
                         func('connectors', {
                             sdfg: sdfg_name, state: state_id, node: node_id,
                             connector: i, conntype: 'in', graph: ng
                         }, c, c.intersect(x, y, w, h));
                     });
-                    node.out_connectors.forEach((c: any, i: any) => {
+                    node.out_connectors.forEach((c: Connector, i: number) => {
                         func('connectors', {
                             sdfg: sdfg_name, state: state_id, node: node_id,
                             connector: i, conntype: 'out', graph: ng
@@ -1647,7 +1645,7 @@ export class SDFGRenderer {
                 });
 
                 // Selected edges
-                ng.edges().forEach((edge_id: any) => {
+                ng.edges().forEach((edge_id: number) => {
                     const edge = ng.edge(edge_id);
                     func(
                         'edges',
@@ -2470,7 +2468,7 @@ export class SDFGRenderer {
         return this.menu;
     }
 
-    public get_sdfg(): any {
+    public get_sdfg(): JsonSDFG {
         return this.sdfg;
     }
 
@@ -2646,8 +2644,8 @@ function relayout_sdfg(
 }
 
 function relayout_state(
-    ctx: CanvasRenderingContext2D, sdfg_state: any,
-    sdfg: any, sdfg_list: any[], state_parent_list: any[],
+    ctx: CanvasRenderingContext2D, sdfg_state: JsonSDFGState,
+    sdfg: JsonSDFG, sdfg_list: JsonSDFG[], state_parent_list: any[],
     omit_access_nodes: boolean
 ): DagreSDFG | null {
     // layout the state as a dagre graph
@@ -2672,7 +2670,7 @@ function relayout_state(
     let toplevel_nodes = sdfg_state.scope_dict[-1];
     if (toplevel_nodes === undefined)
         toplevel_nodes = Object.keys(sdfg_state.nodes);
-    const drawn_nodes = new Set();
+    const drawn_nodes: Set<string> = new Set();
     const hidden_nodes = new Map();
 
     function layout_node(node: any) {
@@ -2838,7 +2836,7 @@ function relayout_state(
                 if (edges) {
                     for (const oe of edges) {
                         if (oe.w == e.dst && oe.name &&
-                            sdfg_state.edges[oe.name].dst_connector ==
+                            sdfg_state.edges[parseInt(oe.name)].dst_connector ==
                                 e.dst_connector
                         ) {
                             return;
@@ -2872,8 +2870,8 @@ function relayout_state(
     dagre.layout(g);
 
     // Layout connectors and nested SDFGs
-    sdfg_state.nodes.forEach((node: any, id: any) => {
-        const gnode: any = g.node(id);
+    sdfg_state.nodes.forEach((node: JsonSDFGNode, id: number) => {
+        const gnode: any = g.node(id.toString());
         if (!gnode || (omit_access_nodes && gnode instanceof AccessNode)) {
             // ignore nodes that should not be drawn
             return;
@@ -2915,10 +2913,11 @@ function relayout_state(
         }
     });
 
-    sdfg_state.edges.forEach((edge: any, id: any) => {
-        edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
-        if (!edge) return;
-        const gedge = g.edge(edge.src, edge.dst, id);
+    sdfg_state.edges.forEach((edge: JsonSDFGEdge, id: number) => {
+        const nedge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
+        if (!nedge) return;
+        edge = nedge;
+        const gedge = g.edge(edge.src, edge.dst, id.toString());
         if (!gedge || (omit_access_nodes &&
                 gedge.data.attributes.shortcut === false
             || !omit_access_nodes && gedge.data.attributes.shortcut)) {
@@ -2930,7 +2929,7 @@ function relayout_state(
         // Reposition first and last points according to connectors
         let src_conn = null, dst_conn = null;
         if (edge.src_connector) {
-            const src_node: any = g.node(edge.src);
+            const src_node: SDFGNode = g.node(edge.src);
             let cindex = -1;
             for (let i = 0; i < src_node.out_connectors.length; i++) {
                 if (
@@ -2947,7 +2946,7 @@ function relayout_state(
             }
         }
         if (edge.dst_connector) {
-            const dst_node: any = g.node(edge.dst);
+            const dst_node: SDFGNode = g.node(edge.dst);
             let cindex = -1;
             for (let i = 0; i < dst_node.in_connectors.length; i++) {
                 if (dst_node.in_connectors[i].data.name == edge.dst_connector) {

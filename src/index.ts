@@ -46,6 +46,39 @@ export type JsonSDFG = {
     error: InvalidSDFGError | undefined,
 };
 
+export type JsonSDFGEdge = {
+    attributes: any,
+    dst: string,
+    dst_connector: string | null,
+    src: string,
+    src_connector: string | null,
+    type: string,
+    height: number,
+    width: number,
+    x?: number,
+    y?: number,
+};
+
+export type JsonSDFGNode = {
+    attributes: any,
+    id: number,
+    label: string,
+    scope_entry: string | null,
+    scope_exit: string | null,
+    type: string,
+};
+
+export type JsonSDFGState = {
+    attributes: any,
+    collapsed: boolean,
+    edges: JsonSDFGEdge[],
+    id: number,
+    label: string,
+    nodes: JsonSDFGNode[],
+    scope_dict: any,
+    type: string,
+};
+
 export type ModeButtons = {
     pan: HTMLElement | null,
     move: HTMLElement | null,

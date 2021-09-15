@@ -142,7 +142,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
             } else {
                 const state_graph = state.data.graph;
                 if (state_graph) {
-                    state_graph.nodes().forEach((v: any) => {
+                    state_graph.nodes().forEach((v: string) => {
                         const node = state_graph.node(v);
 
                         // Skip the node if it's not visible.

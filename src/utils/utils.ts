@@ -7,7 +7,7 @@ import {
     SDFGNode,
     State
 } from '../renderer/renderer_elements';
-import { Point2D } from '../index';
+import { Point2D } from '..';
 
 export function equals<T>(a: T, b: T): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
@@ -65,7 +65,6 @@ export function assignIfNotExists<T, E>(
     }
     return o;
 }
-
 
 // This function was taken from the now deprecated dagrejs library, see:
 // https://github.com/dagrejs/dagre/blob/c8bb4a1b891fc50071e6fac7bd84658d31eb9d8a/lib/util.js#L96

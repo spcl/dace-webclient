@@ -78,7 +78,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
             that.calculate_flops_node(state, symbol_map, flops_values);
             const state_graph = state.data.graph;
             if (state_graph) {
-                state_graph.nodes().forEach((v: any) => {
+                state_graph.nodes().forEach((v: string) => {
                     const node = state_graph.node(v);
                     if (node instanceof NestedSDFG) {
                         const nested_symbols_map: SymbolMap = {};

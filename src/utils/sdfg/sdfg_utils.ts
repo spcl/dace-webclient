@@ -7,7 +7,7 @@ import {
     SDFGNode,
     State
 } from '../../renderer/renderer_elements';
-import { DagreSDFG } from '../../index';
+import { DagreSDFG, JsonSDFGEdge, JsonSDFGNode, JsonSDFGState } from '../../index';
 
 const { NestedSDFG } = SDFGElements;
 
@@ -47,10 +47,10 @@ export function recursively_find_graph(
 
 
 export function find_exit_for_entry(
-    nodes: any[], entry_node: any
-): any {
+    nodes: JsonSDFGNode[], entry_node: JsonSDFGNode
+): JsonSDFGNode | null {
     for (const n of nodes) {
-        if (n.type.endsWith('Exit') &&
+        if (n.type.endsWith('Exit') && n.scope_entry &&
             parseInt(n.scope_entry) == entry_node.id)
             return n;
     }
@@ -109,8 +109,8 @@ export function find_exit_for_entry(
 
 
 export function check_and_redirect_edge(
-    edge: any, drawn_nodes: any, sdfg_state: any
-): any {
+    edge: JsonSDFGEdge, drawn_nodes: Set<string>, sdfg_state: JsonSDFGState
+): JsonSDFGEdge | null {
     // If destination is not drawn, no need to draw the edge
     if (!drawn_nodes.has(edge.dst))
         return null;
@@ -119,8 +119,8 @@ export function check_and_redirect_edge(
         return edge;
 
     // If immediate scope parent node is in the graph, redirect
-    const scope_src = sdfg_state.nodes[edge.src].scope_entry;
-    if (!drawn_nodes.has(scope_src))
+    const scope_src = sdfg_state.nodes[parseInt(edge.src)].scope_entry;
+    if (!scope_src || !drawn_nodes.has(scope_src))
         return null;
 
     // Clone edge for redirection, change source to parent

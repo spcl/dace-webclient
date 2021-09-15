@@ -72,7 +72,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         volume_values: number[]
     ): void {
         const that = this;
-        g.nodes().forEach((v: any) => {
+        g.nodes().forEach((v: string) => {
             const state = g.node(v);
             const state_graph = state.data.graph;
             if (state_graph) {
@@ -188,7 +188,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
             const state_graph = state.data.graph;
             if (state_graph && !state.data.state.attributes.is_collapsed) {
-                state_graph.nodes().forEach((v: any) => {
+                state_graph.nodes().forEach((v: string) => {
                     const node: SDFGNode = state_graph.node(v);
 
                     // Skip the node if it's not visible.

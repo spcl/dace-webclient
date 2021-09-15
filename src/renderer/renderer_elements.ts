@@ -1,7 +1,14 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { SDFV } from '../sdfv';
-import { DagreSDFG, JsonSDFG, Point2D } from '../index';
+import {
+    DagreSDFG,
+    JsonSDFG,
+    JsonSDFGEdge,
+    JsonSDFGNode,
+    JsonSDFGState,
+    Point2D,
+} from '../index';
 import { sdfg_range_elem_to_string } from '../utils/sdfg/display';
 import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
@@ -415,7 +422,9 @@ export class SDFGNode extends SDFGElement {
 
 export class Edge extends SDFGElement {
 
-    private points: any[] = [];
+    public points: any[] = [];
+    public src_connector: any;
+    public dst_connector: any;
 
     public get_points(): any[] {
         return this.points;
@@ -1324,7 +1333,7 @@ export function draw_sdfg(
     const visible_rect = renderer.get_visible_rect();
 
     // Render each visible state's contents
-    g.nodes().forEach((v: any) => {
+    g.nodes().forEach((v: string) => {
         const node = g.node(v);
 
         if ((ctx as any).lod &&
@@ -1390,14 +1399,14 @@ export function draw_sdfg(
 export function offset_sdfg(
     sdfg: JsonSDFG, sdfg_graph: DagreSDFG, offset: Point2D
 ): void {
-    sdfg.nodes.forEach((state: any, id: any) => {
-        const g = sdfg_graph.node(id);
+    sdfg.nodes.forEach((state: JsonSDFGState, id: number) => {
+        const g = sdfg_graph.node(id.toString());
         g.x += offset.x;
         g.y += offset.y;
         if (!state.attributes.is_collapsed)
             offset_state(state, g, offset);
     });
-    sdfg.edges.forEach((e: any, eid: any) => {
+    sdfg.edges.forEach((e: JsonSDFGEdge, _eid: number) => {
         const edge = sdfg_graph.edge(e.src, e.dst);
         edge.x += offset.x;
         edge.y += offset.y;
@@ -1410,11 +1419,11 @@ export function offset_sdfg(
 
 // Translate nodes, edges, and connectors in a given SDFG state by an offset
 export function offset_state(
-    state: JsonSDFG, state_graph: State, offset: Point2D
+    state: JsonSDFGState, state_graph: State, offset: Point2D
 ): void {
-    const drawn_nodes = new Set();
+    const drawn_nodes: Set<string> = new Set();
 
-    state.nodes.forEach((n: any, nid: any) => {
+    state.nodes.forEach((_n: JsonSDFGNode, nid: number) => {
         const node = state_graph.data.graph.node(nid);
         if (!node) return;
         drawn_nodes.add(nid.toString());
@@ -1435,9 +1444,10 @@ export function offset_state(
                 node.data.node.attributes.sdfg, node.data.graph, offset
             );
     });
-    state.edges.forEach((e: any, eid: any) => {
-        e = check_and_redirect_edge(e, drawn_nodes, state);
-        if (!e) return;
+    state.edges.forEach((e: JsonSDFGEdge, eid: number) => {
+        const ne = check_and_redirect_edge(e, drawn_nodes, state);
+        if (!ne) return;
+        e = ne;
         const edge = state_graph.data.graph.edge(e.src, e.dst, eid);
         if (!edge) return;
         edge.x += offset.x;
