@@ -3,8 +3,7 @@ const path = require('path');
 
 module.exports = {
     entry: {
-        sdfv: './src/sdfv.js',
-        main: './src/main.js',
+        sdfv: './src/sdfv.ts',
     },
     module: {
         rules: [

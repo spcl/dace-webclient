@@ -103,3 +103,5 @@ typings/
 .tern-port
 
 *.code-workspace
+
+out/
