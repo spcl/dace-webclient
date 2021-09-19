@@ -132,7 +132,6 @@ function refresh(sdfg = null) {
         _.cloneDeep(sdfg),
         document.getElementById('contents'),
         mouse_event,
-        user_transform,
         debug_draw,
         DefaultLayouters.sugiyama,
     );

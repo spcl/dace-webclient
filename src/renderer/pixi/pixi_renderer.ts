@@ -710,7 +710,9 @@ export class PixiRenderer {
     }
 
     private getContainerBounds() {
-        return this.renderCache.containerBounds ??= this.pixiContainer!.getLocalBounds();
+        return !this.pixiContainer ? new PIXI.Rectangle(0, 0, 1, 1)
+            : this.renderCache.containerBounds ??= this.pixiContainer.getLocalBounds();
+
     }
 
     private getViewSize(): StageCoordinates {
