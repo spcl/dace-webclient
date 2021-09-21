@@ -34,7 +34,7 @@ import {
     calculateEdgeBoundingBox,
 } from '../utils/bounding_box';
 import { OverlayManager } from '../overlay_manager';
-import { fill_info, outline, SDFV } from '../sdfv';
+import { SDFV } from '../sdfv';
 import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
 import {
     DagreSDFG,
@@ -55,9 +55,6 @@ declare const canvas2pdf: any;
 
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any | null;
-declare const daemon_connected: boolean;
-declare const refresh_analysis_pane: CallableFunction;
-declare const vscode_handle_event: CallableFunction;
 
 function check_valid_add_position(
     type: string | null, foreground_elem: SDFGElement | undefined | null,
@@ -83,85 +80,80 @@ function check_valid_add_position(
 
 export class SDFGRenderer {
 
-    private sdfg_list: any = {};
-    private graph: DagreSDFG | null = null;
+    protected sdfg_list: any = {};
+    protected graph: DagreSDFG | null = null;
     // List of all state's parent elements.
-    private state_parent_list: any = {};
-    private in_vscode: boolean = false;
+    protected state_parent_list: any = {};
+    protected in_vscode: boolean = false;
+    protected dace_daemon_connected: boolean = false;
 
     // Rendering related fields.
-    private ctx: CanvasRenderingContext2D | null = null;
-    private canvas: HTMLCanvasElement | null = null;
-    private canvas_manager: CanvasManager | null = null;
-    private last_visible_elements: SDFGElement[] | null = null;
-    private last_hovered_elements: SDFGElement[] | null = null;
-    private last_clicked_elements: SDFGElement[] | null = null;
-    private last_dragged_element: SDFGElement | null = null;
-    private tooltip: SDFVTooltipFunc | null = null;
-    private tooltip_container: HTMLElement | null = null;
-    private overlay_manager: OverlayManager | null = null;
-    private bgcolor: string | null = null;
-    private visible_rect: SimpleRect | null = null;
+    protected ctx: CanvasRenderingContext2D | null = null;
+    protected canvas: HTMLCanvasElement | null = null;
+    protected canvas_manager: CanvasManager | null = null;
+    protected last_dragged_element: SDFGElement | null = null;
+    protected tooltip: SDFVTooltipFunc | null = null;
+    protected tooltip_container: HTMLElement | null = null;
+    protected overlay_manager: OverlayManager;
+    protected bgcolor: string | null = null;
+    protected visible_rect: SimpleRect | null = null;
 
     // Toolbar related fields.
-    private menu: ContextMenu | null = null;
-    private toolbar: HTMLElement | null = null;
-    private panmode_btn: HTMLElement | null = null;
-    private movemode_btn: HTMLElement | null = null;
-    private selectmode_btn: HTMLElement | null = null;
-    private addmode_btns: HTMLElement[] = [];
-    private add_type: string | null = null;
-    private add_mode_lib: string | null = null;
-    private addmode_divs: HTMLElement[] | null = null;
-    private mode_selected_bg_color: string = '#CCCCCC';
-    private mouse_follow_svgs: any = null;
-    private mouse_follow_element: any = null;
-    private overlays_menu: any = null;
+    protected menu: ContextMenu | null = null;
+    protected toolbar: HTMLElement | null = null;
+    protected panmode_btn: HTMLElement | null = null;
+    protected movemode_btn: HTMLElement | null = null;
+    protected selectmode_btn: HTMLElement | null = null;
+    protected addmode_btns: HTMLElement[] = [];
+    protected add_type: string | null = null;
+    protected add_mode_lib: string | null = null;
+    protected mode_selected_bg_color: string = '#CCCCCC';
+    protected mouse_follow_svgs: any = null;
+    protected mouse_follow_element: any = null;
+    protected overlays_menu: any = null;
 
     // Memlet-Tree related fields.
-    private all_memlet_trees_sdfg: Set<any>[] = [];
-    private all_memlet_trees: Set<any>[] = [];
+    protected all_memlet_trees_sdfg: Set<any>[] = [];
+    protected all_memlet_trees: Set<any>[] = [];
 
     // View options.
-    private inclusive_ranges: boolean = false;
-    private omit_access_nodes: boolean = false;
-    // Indicate whether the current view is from an SDFGs history.
-    private viewing_history_state: boolean = false;
+    protected inclusive_ranges: boolean = false;
+    protected omit_access_nodes: boolean = false;
 
     // Mouse-related fields.
     // Mouse mode - pan, move, select.
-    private mouse_mode: string = 'pan';
-    private box_select_rect: any = null;
+    protected mouse_mode: string = 'pan';
+    protected box_select_rect: any = null;
     // Last position of the mouse pointer (in canvas coordinates).
-    private mousepos: Point2D | null = null;
+    protected mousepos: Point2D | null = null;
     // Last position of the mouse pointer (in pixel coordinates).
-    private realmousepos: Point2D | null = null;
-    private dragging: boolean = false;
+    protected realmousepos: Point2D | null = null;
+    protected dragging: boolean = false;
     // Null if the mouse/touch is not activated.
-    private drag_start: any = null;
-    // Null if two touch points are not activated.
-    private drag_second_start: any = null;
-    private external_mouse_handler: ((...args: any[]) => boolean) | null = null;
-    private ctrl_key_selection: boolean = false;
-    private shift_key_movement: boolean = false;
-    private add_uuid: string | null = null;
-    private add_position: Point2D | null = null;
-    private add_edge_start: any = null;
+    protected drag_start: any = null;
+    protected external_mouse_handler: ((...args: any[]) => boolean) | null = null;
+    protected ctrl_key_selection: boolean = false;
+    protected shift_key_movement: boolean = false;
+    protected add_position: Point2D | null = null;
+    protected add_edge_start: any = null;
 
     // Information window fields.
-    private error_popover_container: HTMLElement | null = null;
-    private error_popover_text: HTMLElement | null = null;
-    private interaction_info_box: HTMLElement | null = null;
-    private interaction_info_text: HTMLElement | null = null;
-    private dbg_info_box: HTMLElement | null = null;
-    private dbg_mouse_coords: HTMLElement | null = null;
+    protected error_popover_container: HTMLElement | null = null;
+    protected error_popover_text: HTMLElement | null = null;
+    protected interaction_info_box: HTMLElement | null = null;
+    protected interaction_info_text: HTMLElement | null = null;
+    protected dbg_info_box: HTMLElement | null = null;
+    protected dbg_mouse_coords: HTMLElement | null = null;
 
     // Selection related fields.
-    private selected_elements: SDFGElement[] = [];
+    protected selected_elements: SDFGElement[] = [];
+
+    protected ext_event_handlers: ((type: string, data: any | null) => any)[] =
+        [];
 
     public constructor(
-        private sdfg: JsonSDFG,
-        private container: HTMLElement,
+        protected sdfg: JsonSDFG,
+        protected container: HTMLElement,
         on_mouse_event: ((...args: any[]) => boolean) | null = null,
         user_transform: DOMMatrix | null = null,
         public debug_draw = false,
@@ -170,12 +162,7 @@ export class SDFGRenderer {
     ) {
         this.external_mouse_handler = on_mouse_event;
 
-        // Overlay fields
-        try {
-            this.overlay_manager = new OverlayManager(this);
-        } catch (ex) {
-            this.overlay_manager = null;
-        }
+        this.overlay_manager = new OverlayManager(this);
 
         this.in_vscode = false;
         try {
@@ -440,8 +427,9 @@ export class SDFGRenderer {
                                             MemoryVolumeOverlay
                                         );
                                     that.draw_async();
-                                    if (that.in_vscode)
-                                        refresh_analysis_pane();
+                                    that.emit_event(
+                                        'active_overlays_changed', null
+                                    );
                                 }
                             );
                             that.overlays_menu = overlays_cmenu;
@@ -516,7 +504,7 @@ export class SDFGRenderer {
                     };
                 } else {
                     add_btn.onclick = () => {
-                        if (!daemon_connected) {
+                        if (!this.dace_daemon_connected) {
                             this.show_no_daemon_dialog();
                         } else {
                             this.mouse_mode = 'add';
@@ -631,7 +619,7 @@ export class SDFGRenderer {
             exit_preview_btn.style.userSelect = 'none';
             exit_preview_btn.onclick = () => {
                 exit_preview_btn.className = 'button hidden';
-                this.viewing_history_state = false;
+                this.emit_event('exit_preview', null);
                 if (vscode) {
                     vscode.postMessage({
                         type: 'sdfv.get_current_sdfg',
@@ -820,12 +808,13 @@ export class SDFGRenderer {
         this.canvas_manager?.draw_async();
     }
 
+    public emit_event(type: string, data: any | null): void {
+        for (const handler of this.ext_event_handlers)
+            handler(type, data);
+    }
+
     // --------------------------------------------------------------
     // These functions are only implemented in the context of VSCode.
-
-    public send_new_sdfg_to_vscode(): void {
-        return;
-    }
 
     public add_node_to_graph(_type: string, _parent: any, _edge_a: any): void {
         return;
@@ -860,7 +849,9 @@ export class SDFGRenderer {
         if (this.selected_elements.length == 1) {
             const uuid = get_uuid_graph_element(this.selected_elements[0]);
             if (this.graph)
-                fill_info(find_graph_element_by_uuid(this.graph, uuid).element);
+                SDFV.get_instance().fill_info(
+                    find_graph_element_by_uuid(this.graph, uuid).element
+                );
         }
     }
 
@@ -943,7 +934,7 @@ export class SDFGRenderer {
 
         // If we're in a VSCode context, we also want to refresh the outline.
         if (this.in_vscode)
-            outline(this, this.graph);
+            SDFV.get_instance().outline(this, this.graph);
 
         return this.graph;
     }
@@ -1053,7 +1044,10 @@ export class SDFGRenderer {
                 obj.attributes.is_collapsed = true;
         });
 
-        this.send_new_sdfg_to_vscode();
+        this.emit_event('collapse_state_changed', {
+            collapsed: true,
+            all: true,
+        });
 
         this.relayout();
         this.draw_async();
@@ -1065,7 +1059,10 @@ export class SDFGRenderer {
                 obj.attributes.is_collapsed = false;
         });
 
-        this.send_new_sdfg_to_vscode();
+        this.emit_event('collapse_state_changed', {
+            collapsed: false,
+            all: true,
+        });
 
         this.relayout();
         this.draw_async();
@@ -1076,7 +1073,9 @@ export class SDFGRenderer {
             delete_positioning_info(obj);
         });
 
-        this.send_new_sdfg_to_vscode();
+        this.emit_event('position_changed', {
+            type: 'reset',
+        });
 
         this.relayout();
         this.draw_async();
@@ -1354,7 +1353,12 @@ export class SDFGRenderer {
         }
     }
 
-    public visible_elements(): SDFGElement[] {
+    public visible_elements(): {
+        type: string,
+        state_id: number,
+        sdfg_id: number,
+        id: number,
+    }[] {
         if (!this.canvas_manager)
             return [];
 
@@ -2034,7 +2038,6 @@ export class SDFGRenderer {
         }
 
         this.tooltip = null;
-        this.last_hovered_elements = elements;
 
         // De-highlight all elements.
         this.for_all_elements(
@@ -2136,7 +2139,7 @@ export class SDFGRenderer {
                 sdfg_elem.attributes.is_collapsed =
                     !sdfg_elem.attributes.is_collapsed;
 
-                this.send_new_sdfg_to_vscode();
+                this.emit_event('collapse_state_changed', null);
 
                 // Re-layout SDFG
                 this.relayout();
@@ -2199,7 +2202,9 @@ export class SDFGRenderer {
                 }
 
                 if (this.mouse_mode === 'move')
-                    this.send_new_sdfg_to_vscode();
+                    this.emit_event('position_changed', {
+                        type: 'manual_move'
+                    });
             } else {
                 if (this.mouse_mode === 'add') {
                     if (check_valid_add_position(
@@ -2383,7 +2388,9 @@ export class SDFGRenderer {
                 this.draw_async();
 
                 if (element_moved)
-                    this.send_new_sdfg_to_vscode();
+                    this.emit_event('position_changed', {
+                        type: 'manual_move'
+                    });
 
             } else if (this.mouse_mode == 'add') {
                 // Cancel add mode
@@ -2417,17 +2424,13 @@ export class SDFGRenderer {
         if (dirty)
             this.draw_async();
 
-        if (element_focus_changed) {
-            // If a listener in VSCode is present, update it about the new
-            // viewport and tell it to re-sort the shown transformations.
-            if (this.in_vscode)
-                vscode_handle_event(
-                    'on_renderer_selection_changed',
+        if (element_focus_changed)
+            this.emit_event(
+                    'renderer_selection_changed',
                     {
                         multi_selection_changed: multi_selection_changed,
                     }
-                );
-        }
+            );
 
         return false;
     }
@@ -2448,7 +2451,7 @@ export class SDFGRenderer {
         return this.ctx;
     }
 
-    public get_overlay_manager(): OverlayManager | null {
+    public get_overlay_manager(): OverlayManager {
         return this.overlay_manager;
     }
 
@@ -2488,6 +2491,10 @@ export class SDFGRenderer {
         return this.tooltip_container;
     }
 
+    public get_selected_elements(): SDFGElement[] {
+        return this.selected_elements;
+    }
+
     public set_tooltip(tooltip_func: SDFVTooltipFunc): void {
         this.tooltip = tooltip_func;
     }
@@ -2496,8 +2503,10 @@ export class SDFGRenderer {
         this.bgcolor = bgcolor;
     }
 
-    public set_viewing_history_state(viewing_history_state: boolean): void {
-        this.viewing_history_state = viewing_history_state;
+    public register_ext_event_handler(
+        handler: (type: string, data: any) => any
+    ): void {
+        this.ext_event_handlers.push(handler);
     }
 
 }

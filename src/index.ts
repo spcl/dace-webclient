@@ -22,7 +22,7 @@ export * from './sdfv_ui_handlers';
 export * from './sdfv';
 
 export type SymbolMap = {
-    [symbol: string]: number | undefined,
+    [symbol: string]: number | string | undefined,
 };
 
 export type DagreSDFG = dagre.graphlib.Graph<SDFGElement>;

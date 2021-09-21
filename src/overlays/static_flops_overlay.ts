@@ -7,7 +7,6 @@ import {
 import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
-import { OverlayManager } from '../overlay_manager';
 import { SDFGRenderer } from '../renderer/renderer';
 import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
 import { SDFV } from '../sdfv';
@@ -20,14 +19,8 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
 
     private flops_map: { [uuids: string]: any } = {};
 
-    public constructor(
-        overlay_manager: OverlayManager,
-        renderer: SDFGRenderer
-    ) {
-        super(
-            overlay_manager,
-            renderer
-        );
+    public constructor(renderer: SDFGRenderer) {
+        super(renderer);
 
         if (this.renderer.get_in_vscode()) {
             vscode.postMessage({

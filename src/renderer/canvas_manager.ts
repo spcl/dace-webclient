@@ -802,6 +802,10 @@ export class CanvasManager {
         );
     }
 
+    public get_user_transform(): DOMMatrix {
+        return this.user_transform;
+    }
+
     public set_user_transform(user_transform: DOMMatrix): void {
         this.user_transform = user_transform;
     }

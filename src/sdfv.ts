@@ -48,12 +48,97 @@ export class SDFV {
         return this.INSTANCE;
     }
 
+    private _init_menu: () => void = SDFVUIHandlers.on_init_menu;
+    private _sidebar_set_title: (title: string) => void =
+        SDFVUIHandlers.on_sidebar_set_title;
+    private _sidebar_show: () => void = SDFVUIHandlers.on_sidebar_show;
+    private _sidebar_get_contents: () => (HTMLElement | null) =
+        SDFVUIHandlers.sidebar_get_contents;
+    private _close_menu: () => void = SDFVUIHandlers.on_close_menu;
+    private _outline: (renderer: SDFGRenderer, sdfg: DagreSDFG) => void =
+        SDFVUIHandlers.on_outline;
+    private _fill_info: (elem: SDFGElement) => void =
+        SDFVUIHandlers.on_fill_info;
+    private _start_find_in_graph: () => void = start_find_in_graph;
+
     public set_renderer(renderer: SDFGRenderer | null): void {
         this.renderer = renderer;
     }
 
     public get_renderer(): SDFGRenderer | null {
         return this.renderer;
+    }
+
+    public register_init_menu_handler(handler: () => void): void {
+        this._init_menu = handler;
+    }
+
+    public register_sidebar_set_title_handler(
+        handler: (title: string) => void
+    ): void {
+        this._sidebar_set_title = handler;
+    }
+
+    public register_sidebar_show_handler(handler: () => void): void {
+        this._sidebar_show = handler;
+    }
+
+    public register_sidebar_get_contents_handler(
+        handler: () => (HTMLElement | null)
+    ): void {
+        this._sidebar_get_contents = handler;
+    }
+
+    public register_close_menu_handler(handler: () => void): void {
+        this._close_menu = handler;
+    }
+
+    public register_outline_handler(
+        handler: (renderer: SDFGRenderer, sdfg: DagreSDFG) => void
+    ): void {
+        this._outline = handler;
+    }
+
+    public register_fill_info_handler(
+        handler: (elem: SDFGElement) => void
+    ): void {
+        this._fill_info = handler;
+    }
+
+    public register_start_find_in_graph_handler(handler: () => void): void {
+        this._start_find_in_graph = handler;
+    }
+
+    public init_menu(): void {
+        this._init_menu();
+    }
+
+    public sidebar_set_title(title: string): void {
+        this._sidebar_set_title(title);
+    }
+
+    public sidebar_show(): void {
+        this._sidebar_show();
+    }
+
+    public sidebar_get_contents(): HTMLElement | null {
+        return this._sidebar_get_contents();
+    }
+
+    public close_menu(): void {
+        this._close_menu();
+    }
+
+    public outline(renderer: SDFGRenderer, sdfg: DagreSDFG): void {
+        this._outline(renderer, sdfg);
+    }
+
+    public fill_info(elem: SDFGElement): void {
+        this._fill_info(elem);
+    }
+
+    public start_find_in_graph(): void {
+        this._start_find_in_graph();
     }
 
 }
@@ -82,7 +167,7 @@ function init_sdfv(
         file = e.target.files[0];
         reload_file();
     });
-    $('#menuclose').on('click', () => close_menu());
+    $('#menuclose').on('click', () => SDFV.get_instance().close_menu());
     $('#reload').on('click', () => {
         reload_file();
     });
@@ -98,7 +183,7 @@ function init_sdfv(
             setTimeout(() => {
                 const graph = renderer.get_graph();
                 if (graph)
-                    outline(renderer, graph);
+                    SDFV.get_instance().outline(renderer, graph);
             }, 1);
     });
     $('#search-btn').on('click', () => {
@@ -116,7 +201,7 @@ function init_sdfv(
     });
     $('#search').on('keydown', (e: any) => {
         if (e.key == 'Enter' || e.which == 13) {
-            start_find_in_graph();
+            SDFV.get_instance().start_find_in_graph();
             e.preventDefault();
         }
     });
@@ -178,11 +263,10 @@ function file_read_complete(): void {
     const container = document.getElementById('contents');
     if (result_string && container) {
         const sdfg = parse_sdfg(result_string.toString());
-        SDFV.get_instance().get_renderer()?.destroy();
-        SDFV.get_instance().set_renderer(new SDFGRenderer(
-            sdfg, container, mouse_event
-        ));
-        close_menu();
+        const sdfv = SDFV.get_instance();
+        sdfv.get_renderer()?.destroy();
+        sdfv.set_renderer(new SDFGRenderer(sdfg, container, mouse_event));
+        sdfv.close_menu();
     }
 }
 
@@ -224,7 +308,7 @@ function get_minmax(arr: number[]): [number, number] {
     return [min, max];
 }
 
-function instrumentation_report_read_complete(report: any): void {
+export function instrumentation_report_read_complete(report: any): void {
     const runtime_map: { [uuids: string]: number[] } = {};
     const summarized_map: { [uuids: string]: { [key: string]: number} } = {};
 
@@ -348,11 +432,11 @@ function find_recursive(
     }
 }
 
-function find_in_graph(
+export function find_in_graph(
     renderer: SDFGRenderer, sdfg: DagreSDFG, query: string,
     case_sensitive: boolean = false
 ): void {
-    sidebar_set_title('Search Results for "' + query + '"');
+    SDFV.get_instance().sidebar_set_title('Search Results for "' + query + '"');
 
     const results: any[] = [];
     if (!case_sensitive)
@@ -364,7 +448,7 @@ function find_in_graph(
         renderer.zoom_to_view(results);
 
     // Show clickable results in sidebar
-    const sidebar = sidebar_get_contents();
+    const sidebar = SDFV.get_instance().sidebar_get_contents();
     if (sidebar) {
         sidebar.innerHTML = '';
         for (const result of results) {
@@ -388,7 +472,7 @@ function find_in_graph(
         }
     }
 
-    sidebar_show();
+    SDFV.get_instance().sidebar_show();
 }
 
 function recursive_find_graph(
@@ -480,7 +564,7 @@ function find_graph_element(
     return undefined;
 }
 
-function mouse_event(
+export function mouse_event(
     evtype: string,
     _event: Event,
     _mousepos: Point2D,
@@ -502,45 +586,19 @@ function mouse_event(
             element = null;
 
         if (element !== null) {
-            sidebar_set_title(element.type() + ' ' + element.label());
-            fill_info(element);
+            SDFV.get_instance().sidebar_set_title(
+                element.type() + ' ' + element.label()
+            );
+            SDFV.get_instance().fill_info(element);
         } else {
-            close_menu();
-            sidebar_set_title('Multiple elements selected');
+            SDFV.get_instance().close_menu();
+            SDFV.get_instance().sidebar_set_title('Multiple elements selected');
         }
-        sidebar_show();
+        SDFV.get_instance().sidebar_show();
     }
     return false;
 }
 
-function init_menu(): void {
-    return SDFVUIHandlers.on_init_menu();
-}
-
-function sidebar_set_title(title: string): void {
-    return SDFVUIHandlers.on_sidebar_set_title(title);
-}
-
-function sidebar_show(): void {
-    return SDFVUIHandlers.on_sidebar_show();
-}
-
-function sidebar_get_contents(): HTMLElement | null {
-    return SDFVUIHandlers.sidebar_get_contents();
-}
-
-function close_menu(): void {
-    return SDFVUIHandlers.on_close_menu();
-}
-
-export function outline(renderer: SDFGRenderer, sdfg: DagreSDFG): void {
-    return SDFVUIHandlers.on_outline(renderer, sdfg);
-}
-
-export function fill_info(elem: SDFGElement): void {
-    return SDFVUIHandlers.on_fill_info(elem);
-}
-
 $(() => {
-    init_menu();
+    SDFV.get_instance().init_menu();
 });

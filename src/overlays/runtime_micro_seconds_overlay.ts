@@ -14,13 +14,8 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
     private criterium: string = 'mean';
     private runtime_map: { [uuids: string]: any } = {}
 
-    public constructor(
-        overlay_manager: OverlayManager, renderer: SDFGRenderer
-    ) {
-        super(
-            overlay_manager,
-            renderer
-        );
+    public constructor(renderer: SDFGRenderer) {
+        super(renderer);
         this.badness_scale_center = 0;
     }
 
@@ -179,6 +174,14 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
 
     public set_runtime_map(runtime_map: { [uuids: string]: any }): void {
         this.runtime_map = runtime_map;
+    }
+
+    public set_criterium(criterium: string): void {
+        this.criterium = criterium;
+    }
+
+    public get_criterium(): string {
+        return this.criterium;
     }
 
 }
