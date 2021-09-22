@@ -495,17 +495,23 @@ export class SDFGRenderer {
             for (const add_btn of this.addmode_btns) {
                 if (add_btn.getAttribute('type') === 'LibraryNode') {
                     add_btn.onclick = () => {
-                        this.show_select_library_node_dialog(() => {
+                        const libnode_callback = () => {
                             this.mouse_mode = 'add';
                             this.add_type = 'LibraryNode';
                             this.add_edge_start = null;
                             this.update_toggle_buttons();
-                        });
+                        };
+                        this.emit_event(
+                            'libnode_select',
+                            {
+                                callback: libnode_callback,
+                            }
+                        );
                     };
                 } else {
                     add_btn.onclick = () => {
                         if (!this.dace_daemon_connected) {
-                            this.show_no_daemon_dialog();
+                            this.emit_event('warn_no_daemon', null);
                         } else {
                             this.mouse_mode = 'add';
                             this.add_type = add_btn.getAttribute('type');
@@ -623,11 +629,11 @@ export class SDFGRenderer {
                 if (vscode) {
                     vscode.postMessage({
                         type: 'sdfv.get_current_sdfg',
-                        prevent_refreshes: true,
+                        preventRefreshes: true,
                     });
                     vscode.postMessage({
                         type: 'transformation_history.refresh',
-                        reset_active: true,
+                        resetActive: true,
                     });
                 }
             };
@@ -812,32 +818,6 @@ export class SDFGRenderer {
         for (const handler of this.ext_event_handlers)
             handler(type, data);
     }
-
-    // --------------------------------------------------------------
-    // These functions are only implemented in the context of VSCode.
-
-    public add_node_to_graph(_type: string, _parent: any, _edge_a: any): void {
-        return;
-    }
-
-    public remove_graph_nodes(_nodes: SDFGElement[]): void {
-        return;
-    }
-
-    public update_new_element(_uuids: string[]): void {
-        return;
-    }
-
-    public show_no_daemon_dialog(): void {
-        return;
-    }
-
-    public show_select_library_node_dialog(_callback: CallableFunction): void {
-        return;
-    }
-
-    // END VSCode specific functions.
-    // --------------------------------------------------------------
 
     public set_sdfg(new_sdfg: JsonSDFG): void {
         this.sdfg = new_sdfg;
@@ -1226,8 +1206,7 @@ export class SDFGRenderer {
 
         this.on_pre_draw();
 
-        if (this.mousepos)
-            draw_sdfg(this, ctx, g, this.mousepos);
+        draw_sdfg(this, ctx, g, this.mousepos);
 
         if (this.box_select_rect) {
             this.ctx.beginPath();
@@ -1760,7 +1739,12 @@ export class SDFGRenderer {
             }
         } else if (event.key === 'Delete' && event.type === 'keyup') {
             if (this.selected_elements.length > 0)
-                this.remove_graph_nodes(this.selected_elements);
+                this.emit_event(
+                    'remove_graph_nodes',
+                    {
+                        nodes: this.selected_elements,
+                    }
+                );
             this.selected_elements = [];
         }
 
@@ -2215,10 +2199,15 @@ export class SDFGRenderer {
                             if (this.add_edge_start) {
                                 const start = this.add_edge_start;
                                 this.add_edge_start = undefined;
-                                this.add_node_to_graph(
-                                    this.add_type,
-                                    get_uuid_graph_element(foreground_elem),
-                                    get_uuid_graph_element(start)
+                                this.emit_event(
+                                    'add_graph_node',
+                                    {
+                                        type: this.add_type,
+                                        parent: get_uuid_graph_element(
+                                            foreground_elem
+                                        ),
+                                        edgeA: get_uuid_graph_element(start),
+                                    }
                                 );
                             } else {
                                 this.add_edge_start = foreground_elem;
@@ -2226,19 +2215,28 @@ export class SDFGRenderer {
                             }
                         } else if (this.add_type === 'LibraryNode') {
                             this.add_position = this.mousepos;
-
-                            this.add_node_to_graph(
-                                this.add_type + '|' + this.add_mode_lib,
-                                get_uuid_graph_element(foreground_elem),
-                                null
+                            this.emit_event(
+                                'add_graph_node',
+                                {
+                                    type:
+                                        this.add_type + '|' + this.add_mode_lib,
+                                    parent: get_uuid_graph_element(
+                                        foreground_elem
+                                    ),
+                                    edgeA: null,
+                                }
                             );
                         } else {
                             this.add_position = this.mousepos;
-
-                            this.add_node_to_graph(
-                                this.add_type ? this.add_type : '',
-                                get_uuid_graph_element(foreground_elem),
-                                null
+                            this.emit_event(
+                                'add_graph_node',
+                                {
+                                    type: this.add_type ? this.add_type : '',
+                                    parent: get_uuid_graph_element(
+                                        foreground_elem
+                                    ),
+                                    edgeA: null,
+                                }
                             );
                         }
 

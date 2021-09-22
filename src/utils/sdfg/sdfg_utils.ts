@@ -5,9 +5,14 @@ import {
     SDFGElement,
     SDFGNode,
     NestedSDFG,
-    State
+    State,
 } from '../../renderer/renderer_elements';
-import { DagreSDFG, JsonSDFGEdge, JsonSDFGNode, JsonSDFGState } from '../../index';
+import {
+    DagreSDFG,
+    JsonSDFGEdge,
+    JsonSDFGNode,
+    JsonSDFGState,
+} from '../../index';
 
 export function recursively_find_graph(
     graph: DagreSDFG,

@@ -308,11 +308,17 @@ function get_minmax(arr: number[]): [number, number] {
     return [min, max];
 }
 
-export function instrumentation_report_read_complete(report: any): void {
+export function instrumentation_report_read_complete(
+    report: any,
+    renderer: SDFGRenderer | null = null
+): void {
     const runtime_map: { [uuids: string]: number[] } = {};
     const summarized_map: { [uuids: string]: { [key: string]: number} } = {};
 
-    if (report.traceEvents && SDFV.get_instance().get_renderer()?.get_sdfg()) {
+    if (!renderer)
+        renderer = SDFV.get_instance().get_renderer();
+    
+    if (report.traceEvents && renderer) {
         for (const event of report.traceEvents) {
             if (event.ph === 'X') {
                 let uuid = event.args.sdfg_id + '/';
@@ -348,9 +354,7 @@ export function instrumentation_report_read_complete(report: any): void {
             summarized_map[key] = runtime_summary;
         }
 
-        const renderer = SDFV.get_instance().get_renderer();
-
-        const overlay_manager = renderer?.get_overlay_manager();
+        const overlay_manager = renderer.get_overlay_manager();
         if (overlay_manager) {
             if (!overlay_manager.is_overlay_active(
                 RuntimeMicroSecondsOverlay
