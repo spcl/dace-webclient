@@ -47,14 +47,14 @@ export class SDFGElement {
 
     public draw(
         _renderer: SDFGRenderer, _ctx: CanvasRenderingContext2D,
-        _mousepos: Point2D
+        _mousepos: Point2D | null
     ): void {
         return;
     }
 
     public simple_draw(
         _renderer: SDFGRenderer, _ctx: CanvasRenderingContext2D,
-        _mousepos: Point2D
+        _mousepos: Point2D | null
     ): void {
         return;
     }
@@ -626,7 +626,7 @@ export class Connector extends SDFGElement {
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        _mousepos: Point2D
+        _mousepos: Point2D | null
     ): void {
         const scope_connector = (
             this.data.name.startsWith('IN_') ||
@@ -1312,7 +1312,7 @@ export class LibraryNode extends SDFGNode {
 // Draw an entire SDFG
 export function draw_sdfg(
     renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-    sdfg_dagre: DagreSDFG, mousepos: Point2D
+    sdfg_dagre: DagreSDFG, mousepos: Point2D | null
 ): void {
     const canvas_manager = renderer.get_canvas_manager();
     if (!canvas_manager)

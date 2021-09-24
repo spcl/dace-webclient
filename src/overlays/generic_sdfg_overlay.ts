@@ -12,11 +12,12 @@ export class GenericSdfgOverlay {
     protected symbol_resolver: SymbolResolver;
     protected vscode: any;
     protected badness_scale_center: number;
+    protected overlay_manager: OverlayManager;
 
     public constructor(
-        protected overlay_manager: OverlayManager,
         protected renderer: SDFGRenderer
     ) {
+        this.overlay_manager = renderer.get_overlay_manager();
         this.symbol_resolver = this.overlay_manager.get_symbol_resolver();
         this.vscode = typeof vscode !== 'undefined' && vscode;
         this.badness_scale_center = 5;

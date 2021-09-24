@@ -249,7 +249,7 @@ export class OverlayManager {
     }
 
     public register_overlay(type: typeof GenericSdfgOverlay): void {
-        this.overlays.push(new type(this, this.renderer));
+        this.overlays.push(new type(this.renderer));
         this.renderer.draw_async();
     }
 
@@ -331,6 +331,10 @@ export class OverlayManager {
 
     public get_symbol_resolver(): SymbolResolver {
         return this.symbol_resolver;
+    }
+
+    public get_overlays(): GenericSdfgOverlay[] {
+        return this.overlays;
     }
 
 }

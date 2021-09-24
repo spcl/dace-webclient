@@ -3,13 +3,16 @@
 import {
     Edge,
     SDFGElement,
-    SDFGElements,
     SDFGNode,
-    State
+    NestedSDFG,
+    State,
 } from '../../renderer/renderer_elements';
-import { DagreSDFG, JsonSDFGEdge, JsonSDFGNode, JsonSDFGState } from '../../index';
-
-const { NestedSDFG } = SDFGElements;
+import {
+    DagreSDFG,
+    JsonSDFGEdge,
+    JsonSDFGNode,
+    JsonSDFGState,
+} from '../../index';
 
 export function recursively_find_graph(
     graph: DagreSDFG,
@@ -72,7 +75,7 @@ export function find_exit_for_entry(
  *
  * @returns             String containing the UUID
  */
- export function get_uuid_graph_element(element: SDFGElement): string {
+ export function get_uuid_graph_element(element: SDFGElement | null): string {
     const undefined_val = -1;
     if (element instanceof State) {
         return (
@@ -131,7 +134,7 @@ export function check_and_redirect_edge(
 }
 
 export function find_graph_element_by_uuid(
-    p_graph: DagreSDFG, uuid: string
+    p_graph: DagreSDFG | undefined | null, uuid: string
 ): { parent: DagreSDFG | undefined, element: any } {
     const uuid_split = uuid.split('/');
     
@@ -147,6 +150,9 @@ export function find_graph_element_by_uuid(
         parent: undefined,
         element: undefined,
     };
+
+    if (!p_graph)
+        return result;
     
     let graph = p_graph;
     if (graph_id > 0) {
