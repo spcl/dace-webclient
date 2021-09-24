@@ -152,6 +152,7 @@ export class SDFGRenderer {
         [];
 
     public constructor(
+        protected sdfv_instance: SDFV,
         protected sdfg: JsonSDFG,
         protected container: HTMLElement,
         on_mouse_event: ((...args: any[]) => boolean) | null = null,
@@ -829,7 +830,7 @@ export class SDFGRenderer {
         if (this.selected_elements.length == 1) {
             const uuid = get_uuid_graph_element(this.selected_elements[0]);
             if (this.graph)
-                SDFV.get_instance().fill_info(
+                this.sdfv_instance.fill_info(
                     find_graph_element_by_uuid(this.graph, uuid).element
                 );
         }
@@ -914,7 +915,7 @@ export class SDFGRenderer {
 
         // If we're in a VSCode context, we also want to refresh the outline.
         if (this.in_vscode)
-            SDFV.get_instance().outline(this, this.graph);
+            this.sdfv_instance.outline(this, this.graph);
 
         return this.graph;
     }
@@ -2402,7 +2403,7 @@ export class SDFGRenderer {
         if (this.external_mouse_handler) {
             const ext_mh_dirty = this.external_mouse_handler(
                 evtype, event, { x: mouse_x, y: mouse_y }, elements,
-                this, this.selected_elements, ends_drag
+                this, this.selected_elements, ends_drag, this.sdfv_instance
             );
             dirty = dirty || ext_mh_dirty;
         }

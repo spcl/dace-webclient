@@ -9,13 +9,13 @@ import {
     SDFG,
     SDFGElement,
     SDFGNode,
-    State
+    State,
+    AccessNode,
 } from './renderer/renderer_elements';
 import {
     RuntimeMicroSecondsOverlay
 } from './overlays/runtime_micro_seconds_overlay';
-import { DagreSDFG, Point2D } from './index';
-import { SDFVUIHandlers } from './sdfv_ui_handlers';
+import { DagreSDFG, Point2D, sdfg_property_to_string, traverse_sdfg_scopes } from './index';
 import $ from 'jquery';
 
 let fr: FileReader;
@@ -36,30 +36,11 @@ export class SDFV {
     // Pixel threshold for not drawing state contents.
     public static STATE_LOD: number = 50;
 
-    private static readonly INSTANCE = new SDFV();
-
     private renderer: SDFGRenderer | null = null;
 
-    private constructor() {
+    public constructor() {
         return;
     }
-
-    public static get_instance(): SDFV {
-        return this.INSTANCE;
-    }
-
-    private _init_menu: () => void = SDFVUIHandlers.on_init_menu;
-    private _sidebar_set_title: (title: string) => void =
-        SDFVUIHandlers.on_sidebar_set_title;
-    private _sidebar_show: () => void = SDFVUIHandlers.on_sidebar_show;
-    private _sidebar_get_contents: () => (HTMLElement | null) =
-        SDFVUIHandlers.sidebar_get_contents;
-    private _close_menu: () => void = SDFVUIHandlers.on_close_menu;
-    private _outline: (renderer: SDFGRenderer, sdfg: DagreSDFG) => void =
-        SDFVUIHandlers.on_outline;
-    private _fill_info: (elem: SDFGElement) => void =
-        SDFVUIHandlers.on_fill_info;
-    private _start_find_in_graph: () => void = start_find_in_graph;
 
     public set_renderer(renderer: SDFGRenderer | null): void {
         this.renderer = renderer;
@@ -69,139 +50,251 @@ export class SDFV {
         return this.renderer;
     }
 
-    public register_init_menu_handler(handler: () => void): void {
-        this._init_menu = handler;
-    }
-
-    public register_sidebar_set_title_handler(
-        handler: (title: string) => void
-    ): void {
-        this._sidebar_set_title = handler;
-    }
-
-    public register_sidebar_show_handler(handler: () => void): void {
-        this._sidebar_show = handler;
-    }
-
-    public register_sidebar_get_contents_handler(
-        handler: () => (HTMLElement | null)
-    ): void {
-        this._sidebar_get_contents = handler;
-    }
-
-    public register_close_menu_handler(handler: () => void): void {
-        this._close_menu = handler;
-    }
-
-    public register_outline_handler(
-        handler: (renderer: SDFGRenderer, sdfg: DagreSDFG) => void
-    ): void {
-        this._outline = handler;
-    }
-
-    public register_fill_info_handler(
-        handler: (elem: SDFGElement) => void
-    ): void {
-        this._fill_info = handler;
-    }
-
-    public register_start_find_in_graph_handler(handler: () => void): void {
-        this._start_find_in_graph = handler;
-    }
-
     public init_menu(): void {
-        this._init_menu();
+        const right = document.getElementById('sidebar');
+        const bar = document.getElementById('dragbar');
+
+        const drag = (e: MouseEvent) => {
+            if ((document as any).selection)
+                (document as any).selection.empty();
+            else
+                window.getSelection()?.removeAllRanges();
+
+            if (right)
+                right.style.width = Math.max(
+                    ((e.view ? e.view.innerWidth - e.pageX : 0)), 20
+                ) + 'px';
+        };
+
+        bar?.addEventListener('mousedown', () => {
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', () => {
+                document.removeEventListener('mousemove', drag);
+            });
+        });
     }
 
     public sidebar_set_title(title: string): void {
-        this._sidebar_set_title(title);
+        // Modify sidebar header
+        const sidebar_header = document.getElementById('sidebar-header');
+        if (sidebar_header)
+            sidebar_header.innerText = title;
     }
 
     public sidebar_show(): void {
-        this._sidebar_show();
+        // Open sidebar if closed
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar)
+            sidebar.style.display = 'flex';
     }
 
     public sidebar_get_contents(): HTMLElement | null {
-        return this._sidebar_get_contents();
+        return document.getElementById('sidebar-contents');
     }
 
     public close_menu(): void {
-        this._close_menu();
+        const sidebar_contents = this.sidebar_get_contents();
+        if (sidebar_contents)
+            sidebar_contents.innerHTML = '';
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar)
+            sidebar.style.display = 'none';
     }
 
     public outline(renderer: SDFGRenderer, sdfg: DagreSDFG): void {
-        this._outline(renderer, sdfg);
+        this.sidebar_set_title('SDFG Outline');
+
+        const sidebar = this.sidebar_get_contents();
+        if (!sidebar)
+            return;
+
+        sidebar.innerHTML = '';
+
+        // Entire SDFG
+        const d = document.createElement('div');
+        d.className = 'context_menu_option';
+        d.innerHTML = htmlSanitize`
+            <i class="material-icons" style="font-size: inherit">
+                filter_center_focus
+            </i> SDFG ${renderer.get_sdfg().attributes.name}
+        `;
+        d.onclick = () => renderer.zoom_to_view();
+        sidebar.appendChild(d);
+
+        const stack: any[] = [sidebar];
+
+        // Add elements to tree view in sidebar
+        traverse_sdfg_scopes(sdfg, (node: SDFGNode, parent: DagreSDFG) => {
+            // Skip exit nodes when scopes are known
+            if (node.type().endsWith('Exit') &&
+                node.data.node.scope_entry >= 0) {
+                stack.push(null);
+                return true;
+            }
+
+            // Create element
+            const d = document.createElement('div');
+            d.className = 'context_menu_option';
+            let is_collapsed = node.attributes().is_collapsed;
+            is_collapsed = (is_collapsed === undefined) ? false : is_collapsed;
+            let node_type = node.type();
+
+            // If a scope has children, remove the name "Entry" from the type
+            if (node.type().endsWith('Entry') && node.parent_id && node.id) {
+                const state = node.sdfg.nodes[node.parent_id];
+                if (state.scope_dict[node.id] !== undefined) {
+                    node_type = node_type.slice(0, -5);
+                }
+            }
+
+            d.innerHTML = htmlSanitize`
+                ${node_type} ${node.label()}${is_collapsed ? ' (collapsed)' : ''}
+            `;
+            d.onclick = (e) => {
+                // Show node or entire scope
+                const nodes_to_display = [node];
+                if (node.type().endsWith('Entry') && node.parent_id &&
+                    node.id) {
+                    const state = node.sdfg.nodes[node.parent_id];
+                    if (state.scope_dict[node.id] !== undefined) {
+                        for (const subnode_id of state.scope_dict[node.id])
+                            nodes_to_display.push(parent.node(subnode_id));
+                    }
+                }
+
+                renderer.zoom_to_view(nodes_to_display);
+
+                // Ensure that the innermost div is the one handling the event
+                if (!e) {
+                    if (window.event) {
+                        window.event.cancelBubble = true;
+                        window.event.stopPropagation();
+                    }
+                } else {
+                    e.cancelBubble = true;
+                    if (e.stopPropagation)
+                        e.stopPropagation();
+                }
+            };
+            stack.push(d);
+
+            // If is collapsed, don't traverse further
+            if (is_collapsed)
+                return false;
+
+        }, (_node: SDFGNode, _parent: DagreSDFG) => {
+            // After scope ends, pop ourselves as the current element 
+            // and add to parent
+            const elem = stack.pop();
+            if (elem)
+                stack[stack.length - 1].appendChild(elem);
+        });
+
+        this.sidebar_show();
     }
 
     public fill_info(elem: SDFGElement): void {
-        this._fill_info(elem);
+        const contents = this.sidebar_get_contents();
+        if (!contents)
+            return;
+
+        let html = '';
+        if (elem instanceof Edge && elem.data.type === 'Memlet' &&
+            elem.parent_id && elem.id) {
+            const sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
+            html += '<h4>Connectors: ' + sdfg_edge.src_connector + ' &rarr; ' +
+                sdfg_edge.dst_connector + '</h4>';
+        }
+        html += '<hr />';
+
+        for (const attr of Object.entries(elem.attributes())) {
+            if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
+                attr[0] === '_arrays' || attr[0].startsWith('_meta_') ||
+                attr[0] == 'position')
+                continue;
+            html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
+            html += sdfg_property_to_string(
+                attr[1], this.renderer?.view_settings()
+            ) + '</p>';
+        }
+
+        // If access node, add array information too
+        if (elem instanceof AccessNode) {
+            const sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
+            html += '<br /><h4>' + sdfg_array.type + ' properties:</h4>';
+            for (const attr of Object.entries(sdfg_array.attributes)) {
+                if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
+                    attr[0].startsWith('_meta_'))
+                    continue;
+                html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
+                html += sdfg_property_to_string(
+                    attr[1], this.renderer?.view_settings()
+                ) + '</p>';
+            }
+        }
+
+        contents.innerHTML = html;
     }
 
     public start_find_in_graph(): void {
-        this._start_find_in_graph();
+        start_find_in_graph(this);
     }
 
 }
-
-if (document.currentScript?.hasAttribute('data-sdfg-json')) {
-    const sdfg_string = document.currentScript?.getAttribute('data-sdfg-json');
-    if (sdfg_string)
-        init_sdfv(parse_sdfg(sdfg_string));
-} else {
-    const url = getParameterByName('url');
-    if (url)
-        load_sdfg_from_url(url);
-    else
-        init_sdfv(null);
-}
-
 
 function init_sdfv(
     sdfg: any,
     user_transform: DOMMatrix | null = null,
-    debug_draw: boolean = false
-): void {
+    debug_draw: boolean = false,
+    existing_sdfv: SDFV | null = null
+): SDFV {
+    let sdfv: SDFV;
+    if (existing_sdfv)
+        sdfv = existing_sdfv;
+    else
+        sdfv = new SDFV();
+
     $('#sdfg-file-input').on('change', (e: any) => {
         if (e.target.files.length < 1)
             return;
         file = e.target.files[0];
-        reload_file();
+        reload_file(sdfv);
     });
-    $('#menuclose').on('click', () => SDFV.get_instance().close_menu());
+    $('#menuclose').on('click', () => sdfv.close_menu());
     $('#reload').on('click', () => {
-        reload_file();
+        reload_file(sdfv);
     });
     $('#instrumentation-report-file-input').on('change', (e: any) => {
         if (e.target.files.length < 1)
             return;
         instrumentation_file = e.target.files[0];
-        load_instrumentation_report();
+        load_instrumentation_report(sdfv);
     });
     $('#outline').on('click', () => {
-        const renderer = SDFV.get_instance().get_renderer();
+        const renderer = sdfv.get_renderer();
         if (renderer)
             setTimeout(() => {
                 const graph = renderer.get_graph();
                 if (graph)
-                    SDFV.get_instance().outline(renderer, graph);
+                    sdfv.outline(renderer, graph);
             }, 1);
     });
     $('#search-btn').on('click', () => {
-        const renderer = SDFV.get_instance().get_renderer();
+        const renderer = sdfv.get_renderer();
         if (renderer)
             setTimeout(() => {
                 const graph = renderer.get_graph();
                 const query = $('#search').val();
                 if (graph && query)
                     find_in_graph(
-                        renderer, graph, query.toString(),
+                        sdfv, renderer, graph, query.toString(),
                         $('#search-case').is(':checked')
                     );
             }, 1);
     });
     $('#search').on('keydown', (e: any) => {
         if (e.key == 'Enter' || e.which == 13) {
-            SDFV.get_instance().start_find_in_graph();
+            sdfv.start_find_in_graph();
             e.preventDefault();
         }
     });
@@ -229,56 +322,61 @@ function init_sdfv(
     if (sdfg !== null) {
         const container = document.getElementById('contents');
         if (container)
-            SDFV.get_instance().set_renderer(new SDFGRenderer(
-                sdfg, container, mouse_event, user_transform, debug_draw, null,
-                mode_buttons
+            sdfv.set_renderer(new SDFGRenderer(
+                sdfv, sdfg, container, mouse_event, user_transform, debug_draw,
+                null, mode_buttons
             ));
     }
+
+    return sdfv;
 }
 
-function start_find_in_graph(): void {
-    const renderer = SDFV.get_instance().get_renderer();
+function start_find_in_graph(sdfv: SDFV): void {
+    const renderer = sdfv.get_renderer();
     if (renderer)
         setTimeout(() => {
             const graph = renderer.get_graph();
             const query = $('#search').val();
             if (graph && query)
                 find_in_graph(
-                    renderer, graph, query.toString(),
+                    sdfv, renderer, graph, query.toString(),
                     $('#search-case').is(':checked')
                 );
         }, 1);
 }
 
-function reload_file(): void {
+function reload_file(sdfv: SDFV): void {
     if (!file)
         return;
     fr = new FileReader();
-    fr.onload = file_read_complete;
+    fr.onload = () => {
+        file_read_complete(sdfv);
+    };
     fr.readAsText(file);
 }
 
-function file_read_complete(): void {
+function file_read_complete(sdfv: SDFV): void {
     const result_string = fr.result;
     const container = document.getElementById('contents');
     if (result_string && container) {
         const sdfg = parse_sdfg(result_string.toString());
-        const sdfv = SDFV.get_instance();
         sdfv.get_renderer()?.destroy();
-        sdfv.set_renderer(new SDFGRenderer(sdfg, container, mouse_event));
+        sdfv.set_renderer(new SDFGRenderer(sdfv, sdfg, container, mouse_event));
         sdfv.close_menu();
     }
 }
 
-function load_instrumentation_report(): void {
+function load_instrumentation_report(sdfv: SDFV): void {
     if (!instrumentation_file)
         return;
     fr = new FileReader();
-    fr.onload = load_instrumentation_report_callback;
+    fr.onload = () => {
+        load_instrumentation_report_callback(sdfv);
+    };
     fr.readAsText(instrumentation_file);
 }
 
-function load_instrumentation_report_callback(): void {
+function load_instrumentation_report_callback(sdfv: SDFV): void {
     let result_string = '';
     if (fr.result) {
         if (fr.result instanceof ArrayBuffer) {
@@ -288,7 +386,7 @@ function load_instrumentation_report_callback(): void {
             result_string = fr.result;
         }
     }
-    instrumentation_report_read_complete(JSON.parse(result_string));
+    instrumentation_report_read_complete(sdfv, JSON.parse(result_string));
 }
 
 /**
@@ -309,14 +407,13 @@ function get_minmax(arr: number[]): [number, number] {
 }
 
 export function instrumentation_report_read_complete(
-    report: any,
-    renderer: SDFGRenderer | null = null
+    sdfv: SDFV, report: any, renderer: SDFGRenderer | null = null
 ): void {
     const runtime_map: { [uuids: string]: number[] } = {};
     const summarized_map: { [uuids: string]: { [key: string]: number} } = {};
 
     if (!renderer)
-        renderer = SDFV.get_instance().get_renderer();
+        renderer = sdfv.get_renderer();
     
     if (report.traceEvents && renderer) {
         for (const event of report.traceEvents) {
@@ -385,13 +482,13 @@ function getParameterByName(name: string): string | null {
     return decodeURIComponent(results[2].replace(/\+/g, ' '));
 }
 
-function load_sdfg_from_url(url: string): void {
+function load_sdfg_from_url(sdfv: SDFV, url: string): void {
     const request = new XMLHttpRequest();
     request.responseType = 'text'; // Will be parsed as JSON by parse_sdfg
     request.onload = () => {
         if (request.status == 200) {
             const sdfg = parse_sdfg(request.response);
-            SDFV.get_instance().get_renderer()?.destroy();
+            sdfv.get_renderer()?.destroy();
             init_sdfv(sdfg);
         } else {
             alert('Failed to load SDFG from URL');
@@ -437,10 +534,10 @@ function find_recursive(
 }
 
 export function find_in_graph(
-    renderer: SDFGRenderer, sdfg: DagreSDFG, query: string,
+    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreSDFG, query: string,
     case_sensitive: boolean = false
 ): void {
-    SDFV.get_instance().sidebar_set_title('Search Results for "' + query + '"');
+    sdfv.sidebar_set_title('Search Results for "' + query + '"');
 
     const results: any[] = [];
     if (!case_sensitive)
@@ -452,7 +549,7 @@ export function find_in_graph(
         renderer.zoom_to_view(results);
 
     // Show clickable results in sidebar
-    const sidebar = SDFV.get_instance().sidebar_get_contents();
+    const sidebar = sdfv.sidebar_get_contents();
     if (sidebar) {
         sidebar.innerHTML = '';
         for (const result of results) {
@@ -476,7 +573,7 @@ export function find_in_graph(
         }
     }
 
-    SDFV.get_instance().sidebar_show();
+    sdfv.sidebar_show();
 }
 
 function recursive_find_graph(
@@ -575,7 +672,8 @@ export function mouse_event(
     _elements: any[],
     renderer: SDFGRenderer,
     selected_elements: SDFGElement[],
-    ends_drag: boolean
+    ends_drag: boolean,
+    sdfv: SDFV
 ): boolean {
     if ((evtype === 'click' && !ends_drag) || evtype === 'dblclick') {
         const menu = renderer.get_menu();
@@ -590,19 +688,34 @@ export function mouse_event(
             element = null;
 
         if (element !== null) {
-            SDFV.get_instance().sidebar_set_title(
+            sdfv.sidebar_set_title(
                 element.type() + ' ' + element.label()
             );
-            SDFV.get_instance().fill_info(element);
+            sdfv.fill_info(element);
         } else {
-            SDFV.get_instance().close_menu();
-            SDFV.get_instance().sidebar_set_title('Multiple elements selected');
+            sdfv.close_menu();
+            sdfv.sidebar_set_title('Multiple elements selected');
         }
-        SDFV.get_instance().sidebar_show();
+        sdfv.sidebar_show();
     }
     return false;
 }
 
 $(() => {
-    SDFV.get_instance().init_menu();
+    let sdfv = new SDFV();
+
+    if (document.currentScript?.hasAttribute('data-sdfg-json')) {
+        const sdfg_string =
+            document.currentScript?.getAttribute('data-sdfg-json');
+        if (sdfg_string)
+            sdfv = init_sdfv(parse_sdfg(sdfg_string), null, false, sdfv);
+    } else {
+        const url = getParameterByName('url');
+        if (url)
+            load_sdfg_from_url(sdfv, url);
+        else
+            sdfv = init_sdfv(null, null, false, sdfv);
+    }
+
+    sdfv.init_menu();
 });

@@ -18,7 +18,6 @@ export * from './utils/lerp_matrix';
 export * from './utils/sanitization';
 export * from './utils/utils';
 export * from './overlay_manager';
-export * from './sdfv_ui_handlers';
 export * from './sdfv';
 
 export type SymbolMap = {
