@@ -821,7 +821,7 @@ export class ScopeNode extends SDFGNode {
             renderer, '--node-foreground-color'
         );
 
-        const far_label = this.far_label();
+        const far_label = this.far_label(renderer);
         drawAdaptiveText(
             ctx, renderer, far_label,
             this.close_label(renderer), this.x, this.y,
@@ -855,30 +855,9 @@ export class ScopeNode extends SDFGNode {
         ctx.globalAlpha = orig_alpha;
     }
 
-    public far_label(): string {
-        let result = this.attributes().label;
-        if (this.scopeend() && this.parent_id !== null) {
-            // Get label from scope entry
-            const entry = this.sdfg.nodes[this.parent_id].nodes[
-                this.data.node.scope_entry
-            ];
-            if (entry !== undefined)
-                result = entry.attributes.label;
-            else {
-                result = this.data.node.label;
-                const ind = result.indexOf('[');
-                if (ind > 0)
-                    result = result.substring(0, ind);
-            }
-        }
-        return result;
-    }
+    public far_label(renderer: SDFGRenderer): string {
+        let result = '[';
 
-    public close_label(renderer: SDFGRenderer): string {
-        if (!renderer.get_inclusive_ranges())
-            return this.label();
-
-        let result = this.far_label();
         let attrs = this.attributes();
         if (this.scopeend() && this.parent_id !== null) {
             const entry = this.sdfg.nodes[this.parent_id].nodes[
@@ -889,8 +868,46 @@ export class ScopeNode extends SDFGNode {
             else
                 return this.label();
         }
-        result += ' [';
 
+        if (this instanceof ConsumeEntry || this instanceof ConsumeExit) {
+            result += attrs.pe_index + '=' + '0..' +
+                (attrs.num_pes - 1).toString();
+        } else {
+            for (let i = 0; i < attrs.params.length; ++i)
+                result += sdfg_range_elem_to_string(
+                    attrs.range.ranges[i], renderer.view_settings()
+                ) + ', ';
+            // Remove trailing comma
+            result = result.substring(0, result.length - 2);
+        }
+        result += ']';
+
+        return result;
+    }
+
+    public close_label(renderer: SDFGRenderer): string {
+        if (!renderer.get_inclusive_ranges())
+            return this.label();
+
+        let attrs = this.attributes();
+
+        let result = attrs.label;
+        if (this.scopeend() && this.parent_id !== null) {
+            const entry = this.sdfg.nodes[this.parent_id].nodes[
+                this.data.node.scope_entry
+            ];
+            if (entry !== undefined) {
+                attrs = entry.attributes;
+                result = attrs.label;
+            } else {
+                result = this.data.node.label;
+                const ind = result.indexOf('[');
+                if (ind > 0)
+                    result = result.substring(0, ind);
+            }
+        }
+
+        result += ' [';
         if (this instanceof ConsumeEntry || this instanceof ConsumeExit) {
             result += attrs.pe_index + '=' + '0..' +
                 (attrs.num_pes - 1).toString();
@@ -904,7 +921,12 @@ export class ScopeNode extends SDFGNode {
             // Remove trailing comma
             result = result.substring(0, result.length - 2);
         }
-        return result + ']';
+        result += ']';
+
+        if (attrs.schedule)
+            result += ' (' + attrs.schedule + ')';
+
+        return result;
     }
 
     public scopeend(): boolean {
