@@ -785,6 +785,9 @@ export class AccessNode extends SDFGNode {
 
 export class ScopeNode extends SDFGNode {
 
+    private cached_far_label: string | null = null;
+    private cached_close_label: string | null = null;
+
     private schedule_label_dict: { [key: string]: string } = {
         'Default': 'Default',
         'Sequential': 'Seq',
@@ -850,7 +853,8 @@ export class ScopeNode extends SDFGNode {
             ctx, renderer, '', this.schedule_label(), this.x, this.y,
             this.width, this.height,
             SDFV.SCOPE_LOD, SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
-            SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true, TextPosition.BOTTOM_RIGHT, {
+            SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true,
+            TextVAlign.BOTTOM, TextHAlign.RIGHT, {
                 bottom: 2.0,
                 right: this.height,
             }
@@ -901,7 +905,14 @@ export class ScopeNode extends SDFGNode {
         return label;
     }
 
-    public far_label(renderer: SDFGRenderer): string {
+    public far_label(
+        renderer: SDFGRenderer, recompute: boolean = false
+    ): string {
+        if (!recompute && this.cached_far_label)
+            return this.cached_far_label;
+
+        console.log('recomputing far');
+
         let result = '[';
 
         let attrs = this.attributes();
@@ -929,10 +940,19 @@ export class ScopeNode extends SDFGNode {
         }
         result += ']';
 
+        this.cached_far_label = result;
+
         return result;
     }
 
-    public close_label(renderer: SDFGRenderer): string {
+    public close_label(
+        renderer: SDFGRenderer, recompute: boolean = false
+    ): string {
+        if (!recompute && this.cached_close_label)
+            return this.cached_close_label;
+
+        console.log('recomputing close');
+
         let attrs = this.attributes();
 
         let result = '';
@@ -961,11 +981,18 @@ export class ScopeNode extends SDFGNode {
         }
         result += ']';
 
+        this.cached_close_label = result;
+
         return result;
     }
 
     public scopeend(): boolean {
         return false;
+    }
+
+    public clear_cached_labels(): void {
+        this.cached_close_label = null;
+        this.cached_far_label = null;
     }
 
 }
@@ -1519,16 +1546,16 @@ export function offset_state(
 
 ///////////////////////////////////////////////////////
 
-enum TextPosition {
-    CENTER_CENTER = 'center_center',
-    TOP_CENTER = 'top_center',
-    BOTTOM_CENTER = 'bottom_center',
-    CENTER_LEFT = 'center_left',
-    TOP_LEFT = 'top_left',
-    BOTTOM_LEFT = 'bottom_left',
-    CENTER_RIGHT = 'center_right',
-    TOP_RIGHT = 'top_right',
-    BOTTOM_RIGHT = 'bottom_right',
+enum TextVAlign {
+    TOP,
+    MIDDLE,
+    BOTTOM,
+}
+
+enum TextHAlign {
+    LEFT,
+    CENTER,
+    RIGHT,
 }
 
 type AdaptiveTextPadding = {
@@ -1546,7 +1573,8 @@ export function drawAdaptiveText(
     close_font_multiplier: number = 1.0,
     far_font_multiplier: number = SDFV.DEFAULT_FAR_FONT_MULTIPLIER,
     bold: boolean = false,
-    position: TextPosition = TextPosition.CENTER_CENTER,
+    valign: TextVAlign = TextVAlign.MIDDLE,
+    halign: TextHAlign = TextHAlign.CENTER,
     padding: AdaptiveTextPadding = {}
 ): void {
     // Save font.
@@ -1569,8 +1597,8 @@ export function drawAdaptiveText(
     const label_metrics = ctx.measureText(label);
     const label_width = Math.abs(label_metrics.actualBoundingBoxLeft) +
         Math.abs(label_metrics.actualBoundingBoxRight);
-    const label_height = Math.abs(label_metrics.fontBoundingBoxDescent) +
-        Math.abs(label_metrics.fontBoundingBoxAscent);
+    const label_height = Math.abs(label_metrics.actualBoundingBoxDescent) +
+        Math.abs(label_metrics.actualBoundingBoxAscent);
 
     const padding_left = padding.left !== undefined ? padding.left : 1.0;
     const padding_top = padding.top !== undefined ? padding.top : 0.0;
@@ -1579,38 +1607,26 @@ export function drawAdaptiveText(
         
     let text_center_x;
     let text_center_y;
-    switch (position) {
-        case TextPosition.TOP_LEFT:
-        case TextPosition.TOP_CENTER:
-        case TextPosition.TOP_RIGHT:
+    switch (valign) {
+        case TextVAlign.TOP:
             text_center_y = y - (h / 2.0) + (label_height + padding_top);
             break;
-        case TextPosition.BOTTOM_LEFT:
-        case TextPosition.BOTTOM_CENTER:
-        case TextPosition.BOTTOM_RIGHT:
+        case TextVAlign.BOTTOM:
             text_center_y = y + (h / 2.0) - padding_bottom;
             break;
-        case TextPosition.CENTER_LEFT:
-        case TextPosition.CENTER_CENTER:
-        case TextPosition.CENTER_RIGHT:
+        case TextVAlign.MIDDLE:
         default:
             text_center_y = y + (label_height / 2.0);
             break;
     }
-    switch (position) {
-        case TextPosition.TOP_LEFT:
-        case TextPosition.CENTER_LEFT:
-        case TextPosition.BOTTOM_LEFT:
+    switch (halign) {
+        case TextHAlign.LEFT:
             text_center_x = (x - (w / 2.0)) + padding_left;
             break;
-        case TextPosition.TOP_RIGHT:
-        case TextPosition.CENTER_RIGHT:
-        case TextPosition.BOTTOM_RIGHT:
+        case TextHAlign.RIGHT:
             text_center_x = (x + (w / 2.0)) - (label_width + padding_right);
             break;
-        case TextPosition.TOP_CENTER:
-        case TextPosition.CENTER_CENTER:
-        case TextPosition.BOTTOM_CENTER:
+        case TextHAlign.CENTER:
         default:
             text_center_x = x - (label_width / 2.0);
             break;
