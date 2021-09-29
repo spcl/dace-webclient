@@ -796,7 +796,7 @@ export class ScopeNode extends SDFGNode {
         'Unrolled': 'Unroll',
         'SVE_Map': 'SVE',
         'GPU_Default': 'GPU',
-        'GPU_Device': 'GPU-D',
+        'GPU_Device': 'GPU',
         'GPU_ThreadBlock': 'Block',
         'GPU_ThreadBlock_Dynamic': 'Block-Dyn',
         'GPU_Persistent': 'GPU-P',
@@ -911,8 +911,6 @@ export class ScopeNode extends SDFGNode {
         if (!recompute && this.cached_far_label)
             return this.cached_far_label;
 
-        console.log('recomputing far');
-
         let result = '[';
 
         let attrs = this.attributes();
@@ -950,8 +948,6 @@ export class ScopeNode extends SDFGNode {
     ): string {
         if (!recompute && this.cached_close_label)
             return this.cached_close_label;
-
-        console.log('recomputing close');
 
         let attrs = this.attributes();
 
