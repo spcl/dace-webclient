@@ -2,7 +2,6 @@ import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
 import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
-import { OverlayManager } from '../overlay_manager';
 import { SDFGRenderer } from '../renderer/renderer';
 import { DagreSDFG, SimpleRect } from '../index';
 import { SDFV } from '../sdfv';

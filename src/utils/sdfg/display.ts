@@ -32,6 +32,17 @@ export function sdfg_range_elem_to_string(
     return preview;
 }
 
+export function sdfg_consume_elem_to_string(
+    num_pes: number,
+    settings: any = null
+): string {
+    let result = '0';
+    if (settings && settings.inclusive_ranges)
+        result += '..' + (num_pes - 1).toString();
+    else
+        result += ':' + num_pes.toString();
+    return result;
+}
 
 // Includes various properties and returns their string representation
 export function sdfg_property_to_string(
