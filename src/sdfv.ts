@@ -15,7 +15,12 @@ import {
 import {
     RuntimeMicroSecondsOverlay
 } from './overlays/runtime_micro_seconds_overlay';
-import { DagreSDFG, Point2D, sdfg_property_to_string, traverse_sdfg_scopes } from './index';
+import {
+    DagreSDFG,
+    Point2D,
+    sdfg_property_to_string,
+    traverse_sdfg_scopes,
+} from './index';
 import $ from 'jquery';
 
 let fr: FileReader;
@@ -35,6 +40,10 @@ export class SDFV {
     public static NODE_LOD: number = 5;
     // Pixel threshold for not drawing state contents.
     public static STATE_LOD: number = 50;
+
+    public static DEFAULT_CANVAS_FONTSIZE: number = 10;
+    public static DEFAULT_MAX_FONTSIZE: number = 50;
+    public static DEFAULT_FAR_FONT_MULTIPLIER: number = 16;
 
     private renderer: SDFGRenderer | null = null;
 

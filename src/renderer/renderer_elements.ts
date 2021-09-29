@@ -9,7 +9,10 @@ import {
     JsonSDFGState,
     Point2D,
 } from '../index';
-import { sdfg_range_elem_to_string } from '../utils/sdfg/display';
+import {
+    sdfg_range_elem_to_string,
+    sdfg_consume_elem_to_string,
+} from '../utils/sdfg/display';
 import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
 import { SDFGRenderer } from './renderer';
@@ -782,6 +785,21 @@ export class AccessNode extends SDFGNode {
 
 export class ScopeNode extends SDFGNode {
 
+    private schedule_label_dict: { [key: string]: string } = {
+        'Default': 'Default',
+        'Sequential': 'Seq',
+        'MPI': 'MPI',
+        'CPU_Multicore': 'OMP',
+        'Unrolled': 'Unroll',
+        'SVE_Map': 'SVE',
+        'GPU_Default': 'GPU',
+        'GPU_Device': 'GPU-D',
+        'GPU_ThreadBlock': 'Block',
+        'GPU_ThreadBlock_Dynamic': 'Block-Dyn',
+        'GPU_Persistent': 'GPU-P',
+        'FPGA_Device': 'FPGA',
+    };
+
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos: Point2D
@@ -821,12 +839,21 @@ export class ScopeNode extends SDFGNode {
             renderer, '--node-foreground-color'
         );
 
-        const far_label = this.far_label(renderer);
         drawAdaptiveText(
-            ctx, renderer, far_label,
+            ctx, renderer, this.far_label(renderer),
             this.close_label(renderer), this.x, this.y,
             this.width, this.height,
             SDFV.SCOPE_LOD
+        );
+
+        drawAdaptiveText(
+            ctx, renderer, '', this.schedule_label(), this.x, this.y,
+            this.width, this.height,
+            SDFV.SCOPE_LOD, SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
+            SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true, TextPosition.BOTTOM_RIGHT, {
+                bottom: 2.0,
+                right: this.height,
+            }
         );
     }
 
@@ -855,6 +882,25 @@ export class ScopeNode extends SDFGNode {
         ctx.globalAlpha = orig_alpha;
     }
 
+    public schedule_label(): string {
+        let attrs = this.attributes();
+        if (this.scopeend() && this.parent_id !== null) {
+            const entry = this.sdfg.nodes[this.parent_id].nodes[
+                this.data.node.scope_entry
+            ];
+            if (entry !== undefined)
+                attrs = entry.attributes;
+        }
+
+        let label = attrs.schedule;
+        try {
+            label = this.schedule_label_dict[attrs.schedule];
+        } catch (_err) {
+        }
+
+        return label;
+    }
+
     public far_label(renderer: SDFGRenderer): string {
         let result = '[';
 
@@ -870,8 +916,9 @@ export class ScopeNode extends SDFGNode {
         }
 
         if (this instanceof ConsumeEntry || this instanceof ConsumeExit) {
-            result += attrs.pe_index + '=' + '0..' +
-                (attrs.num_pes - 1).toString();
+            result += sdfg_consume_elem_to_string(
+                attrs.num_pes, renderer.view_settings()
+            );
         } else {
             for (let i = 0; i < attrs.params.length; ++i)
                 result += sdfg_range_elem_to_string(
@@ -886,31 +933,22 @@ export class ScopeNode extends SDFGNode {
     }
 
     public close_label(renderer: SDFGRenderer): string {
-        if (!renderer.get_inclusive_ranges())
-            return this.label();
-
         let attrs = this.attributes();
 
-        let result = attrs.label;
+        let result = '';
         if (this.scopeend() && this.parent_id !== null) {
             const entry = this.sdfg.nodes[this.parent_id].nodes[
                 this.data.node.scope_entry
             ];
-            if (entry !== undefined) {
+            if (entry !== undefined)
                 attrs = entry.attributes;
-                result = attrs.label;
-            } else {
-                result = this.data.node.label;
-                const ind = result.indexOf('[');
-                if (ind > 0)
-                    result = result.substring(0, ind);
-            }
         }
 
-        result += ' [';
+        result += '[';
         if (this instanceof ConsumeEntry || this instanceof ConsumeExit) {
-            result += attrs.pe_index + '=' + '0..' +
-                (attrs.num_pes - 1).toString();
+            result += attrs.pe_index + '=' + sdfg_consume_elem_to_string(
+                attrs.num_pes, renderer.view_settings()
+            );
         } else {
             for (let i = 0; i < attrs.params.length; ++i) {
                 result += attrs.params[i] + '=';
@@ -922,9 +960,6 @@ export class ScopeNode extends SDFGNode {
             result = result.substring(0, result.length - 2);
         }
         result += ']';
-
-        if (attrs.schedule)
-            result += ' (' + attrs.schedule + ')';
 
         return result;
     }
@@ -1484,39 +1519,115 @@ export function offset_state(
 
 ///////////////////////////////////////////////////////
 
+enum TextPosition {
+    CENTER_CENTER = 'center_center',
+    TOP_CENTER = 'top_center',
+    BOTTOM_CENTER = 'bottom_center',
+    CENTER_LEFT = 'center_left',
+    TOP_LEFT = 'top_left',
+    BOTTOM_LEFT = 'bottom_left',
+    CENTER_RIGHT = 'center_right',
+    TOP_RIGHT = 'top_right',
+    BOTTOM_RIGHT = 'bottom_right',
+}
+
+type AdaptiveTextPadding = {
+    left?: number,
+    top?: number,
+    right?: number,
+    bottom?: number,
+}
+
 export function drawAdaptiveText(
     ctx: CanvasRenderingContext2D, renderer: SDFGRenderer, far_text: string,
     close_text: string, x: number, y: number, w: number, h: number,
-    ppp_thres: number, max_font_size: number = 50, font_multiplier: number = 16
+    ppp_thres: number,
+    max_font_size: number = SDFV.DEFAULT_MAX_FONTSIZE,
+    close_font_multiplier: number = 1.0,
+    far_font_multiplier: number = SDFV.DEFAULT_FAR_FONT_MULTIPLIER,
+    bold: boolean = false,
+    position: TextPosition = TextPosition.CENTER_CENTER,
+    padding: AdaptiveTextPadding = {}
 ): void {
-    const canvas_manager = renderer.get_canvas_manager();
-    if (!canvas_manager)
+    // Save font.
+    const oldfont = ctx.font;
+
+    const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+    if (ppp === undefined)
         return;
 
-    const ppp = canvas_manager.points_per_pixel();
-    let label = close_text;
-    let FONTSIZE = Math.min(ppp * font_multiplier, max_font_size);
-    let yoffset = SDFV.LINEHEIGHT / 2.0;
-    const oldfont = ctx.font;
-    if ((ctx as any).lod && ppp >= ppp_thres) { // Far text
-        ctx.font = FONTSIZE + 'px sans-serif';
-        label = far_text;
-        yoffset = FONTSIZE / 2.0 - h / 6.0;
+    const is_far: boolean = (ctx as any).lod && ppp >= ppp_thres;
+    const label = is_far ? far_text : close_text;
+
+    let font_size = Math.min(
+        SDFV.DEFAULT_CANVAS_FONTSIZE * close_font_multiplier, max_font_size
+    );
+    if (is_far)
+        font_size = Math.min(ppp * far_font_multiplier, max_font_size);
+    ctx.font = font_size + 'px sans-serif';
+
+    const label_metrics = ctx.measureText(label);
+    const label_width = Math.abs(label_metrics.actualBoundingBoxLeft) +
+        Math.abs(label_metrics.actualBoundingBoxRight);
+    const label_height = Math.abs(label_metrics.fontBoundingBoxDescent) +
+        Math.abs(label_metrics.fontBoundingBoxAscent);
+
+    const padding_left = padding.left !== undefined ? padding.left : 1.0;
+    const padding_top = padding.top !== undefined ? padding.top : 0.0;
+    const padding_right = padding.right !== undefined ? padding.right : 1.0;
+    const padding_bottom = padding.bottom !== undefined ? padding.bottom : 4.0;
+        
+    let text_center_x;
+    let text_center_y;
+    switch (position) {
+        case TextPosition.TOP_LEFT:
+        case TextPosition.TOP_CENTER:
+        case TextPosition.TOP_RIGHT:
+            text_center_y = y - (h / 2.0) + (label_height + padding_top);
+            break;
+        case TextPosition.BOTTOM_LEFT:
+        case TextPosition.BOTTOM_CENTER:
+        case TextPosition.BOTTOM_RIGHT:
+            text_center_y = y + (h / 2.0) - padding_bottom;
+            break;
+        case TextPosition.CENTER_LEFT:
+        case TextPosition.CENTER_CENTER:
+        case TextPosition.CENTER_RIGHT:
+        default:
+            text_center_y = y + (label_height / 2.0);
+            break;
+    }
+    switch (position) {
+        case TextPosition.TOP_LEFT:
+        case TextPosition.CENTER_LEFT:
+        case TextPosition.BOTTOM_LEFT:
+            text_center_x = (x - (w / 2.0)) + padding_left;
+            break;
+        case TextPosition.TOP_RIGHT:
+        case TextPosition.CENTER_RIGHT:
+        case TextPosition.BOTTOM_RIGHT:
+            text_center_x = (x + (w / 2.0)) - (label_width + padding_right);
+            break;
+        case TextPosition.TOP_CENTER:
+        case TextPosition.CENTER_CENTER:
+        case TextPosition.BOTTOM_CENTER:
+        default:
+            text_center_x = x - (label_width / 2.0);
+            break;
     }
 
-    const textmetrics = ctx.measureText(label);
-    let tw = textmetrics.width;
-    if ((ctx as any).lod && ppp >= ppp_thres && tw > w) {
-        FONTSIZE = FONTSIZE / (tw / w);
-        ctx.font = FONTSIZE + 'px sans-serif';
-        yoffset = FONTSIZE / 2.0 - h / 6.0;
-        tw = w;
+    if (is_far && label_width > w) {
+        font_size = font_size / (label_width / w);
+        ctx.font = font_size + 'px sans-serif';
     }
 
-    ctx.fillText(label, x - tw / 2.0, y + yoffset);
+    if (bold)
+        ctx.font = 'bold ' + ctx.font;
 
-    if ((ctx as any).lod && ppp >= ppp_thres)
-        ctx.font = oldfont;
+    ctx.fillText(label, text_center_x, text_center_y);
+
+    // Restore previous font.
+    ctx.font = oldfont;
 }
 
 export function drawHexagon(
