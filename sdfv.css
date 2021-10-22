@@ -146,6 +146,10 @@ pre.code code {
   background: #0000aabb;
 }
 
+.sdfvtooltip--error {
+  background: #aa0000bb;
+}
+
 .invalid_popup {
   background: rgba(0, 0, 0, 0.8);
   color: white;
@@ -302,6 +306,8 @@ pre.code code {
 .sdfg_canvas {
   --node-background-color: #ffffff;
   --node-foreground-color: #000000;
+  --node-missing-foreground-color: white;
+  --node-missing-background-color: red;
   --state-background-color: #deebf7;
   --state-foreground-color: #000000;
   --interstate-edge-color: #86add9;

@@ -736,9 +736,13 @@ export class AccessNode extends SDFGNode {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--connector-unscoped-color'
             );
-        } else {
+        } else if (nodedesc) {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--node-background-color'
+            );
+        } else {
+            ctx.fillStyle = this.getCssProperty(
+                renderer, '--node-missing-background-color'
             );
         }
 
@@ -749,9 +753,17 @@ export class AccessNode extends SDFGNode {
             ctx.closePath();
         }
         ctx.fill();
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--node-foreground-color'
-        );
+        if (nodedesc) {
+            ctx.fillStyle = this.getCssProperty(
+                renderer, '--node-foreground-color'
+            );
+        } else {
+            ctx.fillStyle = this.getCssProperty(
+                renderer, '--node-missing-foreground-color'
+            );
+            if (this.strokeStyle(renderer) !== this.getCssProperty(renderer, '--color-default'))
+                renderer.set_tooltip((c) => this.tooltip(c));
+        }
         const textmetrics = ctx.measureText(this.label());
         ctx.fillText(
             this.label(), this.x - textmetrics.width / 2.0,
@@ -779,6 +791,15 @@ export class AccessNode extends SDFGNode {
         // Restore the previous style properties.
         ctx.fillStyle = orig_fill_style;
         ctx.globalAlpha = orig_alpha;
+    }
+
+    public tooltip(container: HTMLElement): void {
+        super.tooltip(container);
+        const nodedesc = this.sdfg.attributes._arrays[this.data.node.attributes.data];
+        if (nodedesc)
+            return;
+        container.classList.add('sdfvtooltip--error');
+        container.innerText = 'Undefined array';
     }
 
 }
