@@ -711,9 +711,8 @@ export class AccessNode extends SDFGNode {
         ctx.closePath();
         ctx.strokeStyle = this.strokeStyle(renderer);
 
-        const nodedesc = this.sdfg.attributes._arrays[
-            this.data.node.attributes.data
-        ];
+        const name = this.data.node.attributes.data;
+        const nodedesc = this.sdfg.attributes._arrays[name];
         // Streams have dashed edges
         if (nodedesc && nodedesc.type === 'Stream') {
             ctx.setLineDash([5, 3]);
@@ -735,6 +734,10 @@ export class AccessNode extends SDFGNode {
         if (nodedesc && nodedesc.type === 'View') {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--connector-unscoped-color'
+            );
+        } else if (nodedesc && this.sdfg.attributes.constants_prop[name] !== undefined) {
+            ctx.fillStyle = this.getCssProperty(
+                renderer, '--connector-scoped-color'
             );
         } else if (nodedesc) {
             ctx.fillStyle = this.getCssProperty(
@@ -876,9 +879,9 @@ export class ScopeNode extends SDFGNode {
             SDFV.SCOPE_LOD, SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
             SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true,
             TextVAlign.BOTTOM, TextHAlign.RIGHT, {
-                bottom: 2.0,
-                right: this.height,
-            }
+            bottom: 2.0,
+            right: this.height,
+        }
         );
     }
 
@@ -1621,7 +1624,7 @@ export function drawAdaptiveText(
     const padding_top = padding.top !== undefined ? padding.top : 0.0;
     const padding_right = padding.right !== undefined ? padding.right : 1.0;
     const padding_bottom = padding.bottom !== undefined ? padding.bottom : 4.0;
-        
+
     let text_center_x;
     let text_center_y;
     switch (valign) {
