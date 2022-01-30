@@ -711,9 +711,8 @@ export class AccessNode extends SDFGNode {
         ctx.closePath();
         ctx.strokeStyle = this.strokeStyle(renderer);
 
-        const nodedesc = this.sdfg.attributes._arrays[
-            this.data.node.attributes.data
-        ];
+        const name = this.data.node.attributes.data;
+        const nodedesc = this.sdfg.attributes._arrays[name];
         // Streams have dashed edges
         if (nodedesc && nodedesc.type === 'Stream') {
             ctx.setLineDash([5, 3]);
@@ -735,6 +734,10 @@ export class AccessNode extends SDFGNode {
         if (nodedesc && nodedesc.type === 'View') {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--connector-unscoped-color'
+            );
+        } else if (nodedesc && this.sdfg.attributes.constants_prop[name] !== undefined) {
+            ctx.fillStyle = this.getCssProperty(
+                renderer, '--connector-scoped-color'
             );
         } else if (nodedesc) {
             ctx.fillStyle = this.getCssProperty(
@@ -876,9 +879,9 @@ export class ScopeNode extends SDFGNode {
             SDFV.SCOPE_LOD, SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
             SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true,
             TextVAlign.BOTTOM, TextHAlign.RIGHT, {
-                bottom: 2.0,
-                right: this.height,
-            }
+            bottom: 2.0,
+            right: this.height,
+        }
         );
     }
 
@@ -1612,16 +1615,26 @@ export function drawAdaptiveText(
     ctx.font = font_size + 'px sans-serif';
 
     const label_metrics = ctx.measureText(label);
-    const label_width = Math.abs(label_metrics.actualBoundingBoxLeft) +
+
+    let label_width = Math.abs(label_metrics.actualBoundingBoxLeft) +
         Math.abs(label_metrics.actualBoundingBoxRight);
-    const label_height = Math.abs(label_metrics.actualBoundingBoxDescent) +
+    let label_height = Math.abs(label_metrics.actualBoundingBoxDescent) +
         Math.abs(label_metrics.actualBoundingBoxAscent);
 
     const padding_left = padding.left !== undefined ? padding.left : 1.0;
     const padding_top = padding.top !== undefined ? padding.top : 0.0;
     const padding_right = padding.right !== undefined ? padding.right : 1.0;
     const padding_bottom = padding.bottom !== undefined ? padding.bottom : 4.0;
-        
+
+    // Ensure text is not resized beyond the bounds of the box
+    if (is_far && label_width > w) {
+        const old_font_size = font_size;
+        font_size = font_size / (label_width / w);
+        label_width /= (label_width / w);
+        label_height /= (old_font_size / font_size);
+        ctx.font = font_size + 'px sans-serif';
+    }
+
     let text_center_x;
     let text_center_y;
     switch (valign) {
@@ -1647,11 +1660,6 @@ export function drawAdaptiveText(
         default:
             text_center_x = x - (label_width / 2.0);
             break;
-    }
-
-    if (is_far && label_width > w) {
-        font_size = font_size / (label_width / w);
-        ctx.font = font_size + 'px sans-serif';
     }
 
     if (bold)
