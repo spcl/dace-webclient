@@ -64,10 +64,10 @@ function check_valid_add_position(
         switch (type) {
             case 'SDFGState':
                 return (foreground_elem instanceof NestedSDFG ||
-                        foreground_elem === null);
+                    foreground_elem === null);
             case 'Edge':
                 return (foreground_elem instanceof SDFGNode ||
-                        foreground_elem instanceof State);
+                    foreground_elem instanceof State);
             case 'LibraryNode':
                 return (foreground_elem instanceof State && lib);
             case 'State':
@@ -339,8 +339,8 @@ export class SDFGRenderer {
         this.interaction_info_box = document.createElement('div');
         this.interaction_info_box.style.position = 'absolute';
         this.interaction_info_box.style.bottom = '.5rem',
-        this.interaction_info_box.style.left = '.5rem',
-        this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            this.interaction_info_box.style.left = '.5rem',
+            this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
         this.interaction_info_box.style.borderRadius = '5px';
         this.interaction_info_box.style.padding = '.3rem';
         this.interaction_info_box.style.display = 'none';
@@ -415,9 +415,9 @@ export class SDFGRenderer {
                             overlays_cmenu.addCheckableOption(
                                 'Memory volume analysis',
                                 that.overlay_manager ?
-                                that.overlay_manager.is_overlay_active(
-                                    MemoryVolumeOverlay
-                                ) : false,
+                                    that.overlay_manager.is_overlay_active(
+                                        MemoryVolumeOverlay
+                                    ) : false,
                                 (x: any, checked: boolean) => {
                                     if (checked)
                                         that.overlay_manager?.register_overlay(
@@ -615,6 +615,13 @@ export class SDFGRenderer {
         // React to ctrl and shift key presses
         document.addEventListener('keydown', (e) => this.on_key_event(e));
         document.addEventListener('keyup', (e) => this.on_key_event(e));
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                this.clear_key_events();
+            } else {
+                // Tab is visible, do nothing
+            }
+        });
 
         // Exit previewing mode
         if (this.in_vscode) {
@@ -775,7 +782,7 @@ export class SDFGRenderer {
             `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="100" cy="100" r="90" fill="none" stroke-dasharray="60,25"/>
             </svg>`;
-        svgs['SDFGState'] = 
+        svgs['SDFGState'] =
             `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <rect x="20" y="20" width="160" height="160" style="fill:#deebf7;" />
             </svg>`;
@@ -799,9 +806,9 @@ export class SDFGRenderer {
         el.style.left = '0px';
         el.style.userSelect = 'none';
         el.style.pointerEvents = 'none';
-        
+
         this.container.appendChild(el);
-        
+
         this.mouse_follow_element = el;
         this.mouse_follow_svgs = svgs;
 
@@ -825,7 +832,7 @@ export class SDFGRenderer {
 
         this.relayout();
         this.draw_async();
-    
+
         // Update info box
         if (this.selected_elements.length == 1) {
             const uuid = get_uuid_graph_element(this.selected_elements[0]);
@@ -1316,7 +1323,7 @@ export class SDFGRenderer {
                 this.graph, error.sdfg_id + '/' + state_id + '/' + el_id + '/-1'
             );
             if (offending_element) {
-                this.zoom_to_view([offending_element]);
+                this.zoom_to_view([offending_element.element]);
 
                 if (this.error_popover_container) {
                     this.error_popover_container.style.display = 'block';
@@ -1708,6 +1715,11 @@ export class SDFGRenderer {
         };
     }
 
+    public clear_key_events(): void {
+        this.mouse_mode = 'pan';
+        this.update_toggle_buttons();
+    }
+
     public on_key_event(event: KeyboardEvent): boolean {
         // Prevent handling of the event if the event is designed for something
         // other than the body, like an input element.
@@ -1747,6 +1759,7 @@ export class SDFGRenderer {
                     }
                 );
             this.selected_elements = [];
+            this.draw_async();
         }
 
         if (event.ctrlKey && !event.shiftKey) {
@@ -1809,8 +1822,8 @@ export class SDFGRenderer {
                         this.drag_start.cy = comp_y_func(this.drag_start);
                         let elements_to_move = [this.last_dragged_element];
                         if (this.selected_elements.includes(
-                                this.last_dragged_element
-                            ) && this.selected_elements.length > 1) {
+                            this.last_dragged_element
+                        ) && this.selected_elements.length > 1) {
                             elements_to_move = this.selected_elements.filter(
                                 el => {
                                     // Do not move connectors (individually)
@@ -2009,7 +2022,7 @@ export class SDFGRenderer {
                     if ((foreground_elem.data.state &&
                         foreground_elem.data.state.attributes.is_collapsed) ||
                         (foreground_elem.data.node &&
-                        foreground_elem.data.node.attributes.is_collapsed)) {
+                            foreground_elem.data.node.attributes.is_collapsed)) {
                         // This is a collapsed node or state, show with the
                         // cursor shape that this can be expanded.
                         this.canvas.style.cursor = 'alias';
@@ -2242,7 +2255,7 @@ export class SDFGRenderer {
                         }
 
                         if (!event.ctrlKey && !(this.add_type === 'Edge' &&
-                                                this.add_edge_start)) {
+                            this.add_edge_start)) {
                             // Cancel add mode.
                             if (this.panmode_btn?.onclick)
                                 this.panmode_btn.onclick(event);
@@ -2279,7 +2292,7 @@ export class SDFGRenderer {
                             el.selected = false;
                         });
                         this.selected_elements = [foreground_elem];
-                        
+
                     }
                 } else {
                     // Clicked nothing, clear the selection.
@@ -2425,10 +2438,10 @@ export class SDFGRenderer {
 
         if (element_focus_changed)
             this.emit_event(
-                    'renderer_selection_changed',
-                    {
-                        multi_selection_changed: multi_selection_changed,
-                    }
+                'renderer_selection_changed',
+                {
+                    multi_selection_changed: multi_selection_changed,
+                }
             );
 
         return false;
@@ -2513,7 +2526,7 @@ export class SDFGRenderer {
 
 function calculateNodeSize(
     _sdfg_state: any, node: any, ctx: CanvasRenderingContext2D
-): { width: number, height: number} {
+): { width: number, height: number } {
     const labelsize = ctx.measureText(node.label).width;
     const inconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
         node.attributes.layout.in_connectors
@@ -2845,7 +2858,7 @@ function relayout_state(
                     for (const oe of edges) {
                         if (oe.w == e.dst && oe.name &&
                             sdfg_state.edges[parseInt(oe.name)].dst_connector ==
-                                e.dst_connector
+                            e.dst_connector
                         ) {
                             return;
                         }
@@ -2927,7 +2940,7 @@ function relayout_state(
         edge = nedge;
         const gedge = g.edge(edge.src, edge.dst, id.toString());
         if (!gedge || (omit_access_nodes &&
-                gedge.data.attributes.shortcut === false
+            gedge.data.attributes.shortcut === false
             || !omit_access_nodes && gedge.data.attributes.shortcut)) {
             // if access nodes omitted, don't draw non-shortcut edges and
             // vice versa
