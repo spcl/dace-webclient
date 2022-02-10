@@ -7,7 +7,7 @@ import {
     get_positioning_info,
     initialize_positioning_info,
 } from '../utils/sdfg/sdfg_utils';
-import { SDFGRenderer } from './renderer';
+import { SDFGRenderer } from './sdfg_renderer';
 import { DagreSDFG, intersectRect, Point2D } from '../index';
 
 const animation_duration = 1000;
@@ -555,24 +555,24 @@ export class CanvasManager {
                 const state = ng.node(state_id);
                 state.x += dx;
                 state.y += dy;
-                const g = state.data.graph;
-                if (g) {
-                    g.nodes().forEach((node_id: string) => {
-                        const node = g.node(node_id);
-                        move_node_and_connectors(node);
-                    });
+                //const g = state.data.graph;
+                //if (g) {
+                //    g.nodes().forEach((node_id: string) => {
+                //        const node = g.node(node_id);
+                //        move_node_and_connectors(node);
+                //    });
 
-                    g.edges().forEach((edge_id: number) => {
-                        const edge = g.edge(edge_id);
-                        edge.x += dx;
-                        edge.y += dy;
-                        edge.points.forEach((point: Point2D) => {
-                            point.x += dx;
-                            point.y += dy;
-                        });
-                        updateEdgeBoundingBox(edge);
-                    });
-                }
+                //    g.edges().forEach((edge_id: number) => {
+                //        const edge = g.edge(edge_id);
+                //        edge.x += dx;
+                //        edge.y += dy;
+                //        edge.points.forEach((point: Point2D) => {
+                //            point.x += dx;
+                //            point.y += dy;
+                //        });
+                //        updateEdgeBoundingBox(edge);
+                //    });
+                //}
             });
             ng.edges().forEach(edge_id => {
                 const edge = ng.edge(edge_id);

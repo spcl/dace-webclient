@@ -40,41 +40,41 @@ import {
         for (const nodeid of nodes) {
             const node = graph.node(nodeid);
 
-            if (node === undefined || processed_nodes.has(node.id?.toString()))
-                continue;
+            //if (node === undefined || processed_nodes.has(node.id?.toString()))
+            //    continue;
 
             // Invoke function
-            const result = func(node, graph);
+            //const result = func(node, graph);
 
             // Skip in case of e.g., collapsed nodes
-            if (result !== false) {
-                // Traverse scopes recursively (if scope_dict provided)
-                if (node.type().endsWith('Entry') && node.parent_id !== null &&
-                    node.id !== null) {
-                    const state = node.sdfg.nodes[node.parent_id];
-                    if (state.scope_dict[node.id] !== undefined)
-                        scopes_recursive(
-                            graph, state.scope_dict[node.id], processed_nodes
-                        );
-                }
+            //if (result !== false) {
+            //    // Traverse scopes recursively (if scope_dict provided)
+            //    if (node.type().endsWith('Entry') && node.parent_id !== null &&
+            //        node.id !== null) {
+            //        const state = node.sdfg.nodes[node.parent_id];
+            //        if (state.scope_dict[node.id] !== undefined)
+            //            scopes_recursive(
+            //                graph, state.scope_dict[node.id], processed_nodes
+            //            );
+            //    }
 
-                // Traverse states or nested SDFGs
-                if (node.data.graph) {
-                    const state = node.data.state;
-                    if (state !== undefined &&
-                        state.scope_dict[-1] !== undefined)
-                        scopes_recursive(node.data.graph, state.scope_dict[-1]);
-                    else // No scope_dict, traverse all nodes as a flat hierarchy
-                        scopes_recursive(
-                            node.data.graph, node.data.graph.nodes()
-                        );
-                }
-            }
+            //    // Traverse states or nested SDFGs
+            //    if (node.data.graph) {
+            //        const state = node.data.state;
+            //        if (state !== undefined &&
+            //            state.scope_dict[-1] !== undefined)
+            //            scopes_recursive(node.data.graph, state.scope_dict[-1]);
+            //        else // No scope_dict, traverse all nodes as a flat hierarchy
+            //            scopes_recursive(
+            //                node.data.graph, node.data.graph.nodes()
+            //            );
+            //    }
+            //}
 
-            if (post_subscope_func)
-                post_subscope_func(node, graph);
+            //if (post_subscope_func)
+            //    post_subscope_func(node, graph);
 
-            processed_nodes.add(node.id?.toString());
+            //processed_nodes.add(node.id?.toString());
         }
     }
     scopes_recursive(sdfg, sdfg.nodes());
@@ -92,7 +92,7 @@ export function memlet_tree(
     edge: Edge,
     root_only: boolean = false
 ): any[] {
-    const result = [];
+    //const result = [];
     const graph_edges: any = {};
     graph.edges().forEach((e: DagreEdge) => {
         if (e.name)
@@ -100,112 +100,113 @@ export function memlet_tree(
     });
 
 
-    function src(e: any): SDFGNode {
-        const ge = graph_edges[e.id];
-        return graph.node(ge.v);
-    }
-    function dst(e: any): SDFGNode {
-        const ge = graph_edges[e.id];
-        return graph.node(ge.w);
-    }
+    //function src(e: any): SDFGNode {
+    //    const ge = graph_edges[e.id];
+    //    return graph.node(ge.v);
+    //}
+    //function dst(e: any): SDFGNode {
+    //    const ge = graph_edges[e.id];
+    //    return graph.node(ge.w);
+    //}
 
-    // Determine direction
-    let propagate_forward = false, propagate_backward = false;
-    if ((edge.src_connector && src(edge) instanceof EntryNode) ||
-        (edge.dst_connector && dst(edge) instanceof EntryNode &&
-            edge.dst_connector.startsWith('IN_')))
-        propagate_forward = true;
-    if ((edge.src_connector && src(edge) instanceof ExitNode) ||
-        (edge.dst_connector && dst(edge) instanceof ExitNode))
-        propagate_backward = true;
+    //// Determine direction
+    //let propagate_forward = false, propagate_backward = false;
+    //if ((edge.src_connector && src(edge) instanceof EntryNode) ||
+    //    (edge.dst_connector && dst(edge) instanceof EntryNode &&
+    //        edge.dst_connector.startsWith('IN_')))
+    //    propagate_forward = true;
+    //if ((edge.src_connector && src(edge) instanceof ExitNode) ||
+    //    (edge.dst_connector && dst(edge) instanceof ExitNode))
+    //    propagate_backward = true;
 
-    result.push(edge);
+    //result.push(edge);
 
-    // If either both are false (no scopes involved) or both are true
-    // (invalid SDFG), we return only the current edge as a degenerate tree
-    if (propagate_forward == propagate_backward)
-        return result;
+    //// If either both are false (no scopes involved) or both are true
+    //// (invalid SDFG), we return only the current edge as a degenerate tree
+    //if (propagate_forward == propagate_backward)
+    //    return result;
 
-    // Ascend (find tree root) while prepending
-    let curedge: any = edge;
-    if (propagate_forward) {
-        let source = src(curedge);
-        while (source instanceof EntryNode && curedge && curedge.src_connector) {
-            if (source.attributes().is_collapsed)
-                break;
+    //// Ascend (find tree root) while prepending
+    //let curedge: any = edge;
+    //if (propagate_forward) {
+    //    let source = src(curedge);
+    //    while (source instanceof EntryNode && curedge && curedge.src_connector) {
+    //        if (source.attributes().is_collapsed)
+    //            break;
 
-            const cname = curedge.src_connector.substring(4);  // Remove OUT_
-            curedge = null;
-            graph.inEdges(source.id.toString())?.forEach(e => {
-                const ge = graph.edge(e);
-                if (ge.dst_connector == 'IN_' + cname)
-                    curedge = ge;
-            });
-            if (curedge) {
-                result.unshift(curedge);
-                source = src(curedge);
-            }
-        }
-    } else if (propagate_backward) {
-        let dest = dst(curedge);
-        while (dest instanceof ExitNode && curedge && curedge.dst_connector) {
-            const cname = curedge.dst_connector.substring(3);  // Remove IN_
-            curedge = null;
-            graph.outEdges(dest.id.toString())?.forEach(e => {
-                const ge = graph.edge(e);
-                if (ge.src_connector == 'OUT_' + cname)
-                    curedge = ge;
-            });
-            if (curedge) {
-                result.unshift(curedge);
-                dest = dst(curedge);
-            }
-        }
-    }
+    //        const cname = curedge.src_connector.substring(4);  // Remove OUT_
+    //        curedge = null;
+    //        graph.inEdges(source.id.toString())?.forEach(e => {
+    //            const ge = graph.edge(e);
+    //            if (ge.dst_connector == 'IN_' + cname)
+    //                curedge = ge;
+    //        });
+    //        if (curedge) {
+    //            result.unshift(curedge);
+    //            source = src(curedge);
+    //        }
+    //    }
+    //} else if (propagate_backward) {
+    //    let dest = dst(curedge);
+    //    while (dest instanceof ExitNode && curedge && curedge.dst_connector) {
+    //        const cname = curedge.dst_connector.substring(3);  // Remove IN_
+    //        curedge = null;
+    //        graph.outEdges(dest.id.toString())?.forEach(e => {
+    //            const ge = graph.edge(e);
+    //            if (ge.src_connector == 'OUT_' + cname)
+    //                curedge = ge;
+    //        });
+    //        if (curedge) {
+    //            result.unshift(curedge);
+    //            dest = dst(curedge);
+    //        }
+    //    }
+    //}
 
-    if (root_only)
-        return [result[0]];
+    //if (root_only)
+    //    return [result[0]];
 
-    // Descend recursively
-    function add_children(edge: any) {
-        const children: any[] = [];
-        if (propagate_forward) {
-            const next_node = dst(edge);
-            if (!(next_node instanceof EntryNode) ||
-                !edge.dst_connector || !edge.dst_connector.startsWith('IN_'))
-                return;
-            if (next_node.attributes().is_collapsed)
-                return;
-            const conn = edge.dst_connector.substring(3);
-            graph.outEdges(next_node.id.toString())?.forEach(e => {
-                const ge = graph.edge(e);
-                if (ge.src_connector == 'OUT_' + conn) {
-                    children.push(ge);
-                    result.push(ge);
-                }
-            });
-        } else if (propagate_backward) {
-            const next_node = src(edge);
-            if (!(next_node instanceof ExitNode) || !edge.src_connector)
-                return;
-            const conn = edge.src_connector.substring(4);
-            graph.inEdges(next_node.id.toString())?.forEach(e => {
-                const ge = graph.edge(e);
-                if (ge.dst_connector == 'IN_' + conn) {
-                    children.push(ge);
-                    result.push(ge);
-                }
-            });
-        }
+    //// Descend recursively
+    //function add_children(edge: any) {
+    //    const children: any[] = [];
+    //    if (propagate_forward) {
+    //        const next_node = dst(edge);
+    //        if (!(next_node instanceof EntryNode) ||
+    //            !edge.dst_connector || !edge.dst_connector.startsWith('IN_'))
+    //            return;
+    //        if (next_node.attributes().is_collapsed)
+    //            return;
+    //        const conn = edge.dst_connector.substring(3);
+    //        graph.outEdges(next_node.id.toString())?.forEach(e => {
+    //            const ge = graph.edge(e);
+    //            if (ge.src_connector == 'OUT_' + conn) {
+    //                children.push(ge);
+    //                result.push(ge);
+    //            }
+    //        });
+    //    } else if (propagate_backward) {
+    //        const next_node = src(edge);
+    //        if (!(next_node instanceof ExitNode) || !edge.src_connector)
+    //            return;
+    //        const conn = edge.src_connector.substring(4);
+    //        graph.inEdges(next_node.id.toString())?.forEach(e => {
+    //            const ge = graph.edge(e);
+    //            if (ge.dst_connector == 'IN_' + conn) {
+    //                children.push(ge);
+    //                result.push(ge);
+    //            }
+    //        });
+    //    }
 
-        for (const child of children)
-            add_children(child);
-    }
+    //    for (const child of children)
+    //        add_children(child);
+    //}
 
-    // Start from current edge
-    add_children(edge);
+    //// Start from current edge
+    //add_children(edge);
 
-    return result;
+    //return result;
+    return [];
 }
 
 /**

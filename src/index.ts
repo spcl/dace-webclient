@@ -1,38 +1,38 @@
-import { SDFGElement } from './renderer/renderer_elements';
+import { GraphElement } from './renderer/graph/graph_element';
 
+export * from './main';
 export * from './overlays/generic_sdfg_overlay';
 export * from './overlays/memory_volume_overlay';
 export * from './overlays/runtime_micro_seconds_overlay';
 export * from './overlays/static_flops_overlay';
+export * from './overlay_manager';
 export * from './renderer/canvas_manager';
 export * from './renderer/renderer_elements';
-export * from './renderer/renderer';
+export * from './renderer/sdfg_renderer';
+export * from './utils/bounding_box';
+export * from './utils/context_menu';
+export * from './utils/lerp_matrix';
+export * from './utils/sanitization';
 export * from './utils/sdfg/display';
 export * from './utils/sdfg/json_serializer';
 export * from './utils/sdfg/sdfg_parser';
 export * from './utils/sdfg/sdfg_utils';
 export * from './utils/sdfg/traversal';
-export * from './utils/bounding_box';
-export * from './utils/context_menu';
-export * from './utils/lerp_matrix';
-export * from './utils/sanitization';
 export * from './utils/utils';
-export * from './overlay_manager';
-export * from './sdfv';
 
 export type SymbolMap = {
     [symbol: string]: number | string | undefined,
 };
 
-export type DagreSDFG = dagre.graphlib.Graph<SDFGElement>;
+export type DagreSDFG = dagre.graphlib.Graph<GraphElement>;
 
 export type InvalidSDFGError = {
-    message: string | undefined,
-    sdfg_id: number | undefined,
-    state_id: number | undefined,
-    node_id: number | undefined,
-    edge_id: number | undefined,
-    isedge_id: number | undefined,
+    message?: string,
+    sdfg_id?: number,
+    state_id?: number,
+    node_id?: number,
+    edge_id?: number,
+    isedge_id?: number,
 };
 
 export type JsonSDFG = {
@@ -42,7 +42,8 @@ export type JsonSDFG = {
     attributes: any,
     edges: any[],
     nodes: any[],
-    error: InvalidSDFGError | undefined,
+    error?: InvalidSDFGError,
+    dace_version?: string,
 };
 
 export type JsonSDFGEdge = {

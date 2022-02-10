@@ -19,33 +19,34 @@ export function recursively_find_graph(
     graph_id: number,
     ns_node: SDFGNode | undefined = undefined
 ): { graph: DagreSDFG | undefined, node: SDFGNode | undefined } {
-    if (graph.node('0').sdfg.sdfg_list_id === graph_id) {
-        return {
-            graph: graph,
-            node: ns_node,
-        };
-    } else {
-        const result = {
-            graph: undefined,
-            node: undefined,
-        };
-        for (const state_id of graph.nodes()) {
-            const state = graph.node(state_id);
-            if (state.data.graph !== undefined && state.data.graph !== null)
-                for (const node_id of state.data.graph.nodes()) {
-                    const node = state.data.graph.node(node_id);
-                    if (node instanceof NestedSDFG) {
-                        const search_graph = recursively_find_graph(
-                            node.data.graph, graph_id, node
-                        );
-                        if (search_graph.graph !== undefined) {
-                            return search_graph;
-                        }
-                    }
-                }
-        }
-        return result;
-    }
+    //if (graph.node('0').sdfg.sdfg_list_id === graph_id) {
+    //    return {
+    //        graph: graph,
+    //        node: ns_node,
+    //    };
+    //} else {
+    //    const result = {
+    //        graph: undefined,
+    //        node: undefined,
+    //    };
+    //    for (const state_id of graph.nodes()) {
+    //        const state = graph.node(state_id);
+    //        if (state.data.graph !== undefined && state.data.graph !== null)
+    //            for (const node_id of state.data.graph.nodes()) {
+    //                const node = state.data.graph.node(node_id);
+    //                if (node instanceof NestedSDFG) {
+    //                    const search_graph = recursively_find_graph(
+    //                        node.data.graph, graph_id, node
+    //                    );
+    //                    if (search_graph.graph !== undefined) {
+    //                        return search_graph;
+    //                    }
+    //                }
+    //            }
+    //    }
+    //    return result;
+    //}
+    return { graph: undefined, node: undefined };
 }
 
 
@@ -176,28 +177,28 @@ export function find_graph_element_by_uuid(
         };
     }
     
-    if (node_id !== -1 && state !== undefined && state.data.graph !== null) {
-        // Look for a node in a state.
-        result = {
-            parent: state.data.graph,
-            element: state.data.graph.node(node_id),
-        };
-    } else if (
-        edge_id !== -1 && state !== undefined &&
-        state.data.graph !== null
-    ) {
-        // Look for an edge in a state.
-        result = {
-            parent: state.data.graph,
-            element: state.data.graph.edge(edge_id),
-        };
-    } else if (edge_id !== -1 && state === undefined) {
-        // Look for an inter-state edge.
-        result = {
-            parent: graph,
-            element: graph.edge(edge_id),
-        };
-    }
+    //if (node_id !== -1 && state !== undefined && state.data.graph !== null) {
+    //    // Look for a node in a state.
+    //    result = {
+    //        parent: state.data.graph,
+    //        element: state.data.graph.node(node_id),
+    //    };
+    //} else if (
+    //    edge_id !== -1 && state !== undefined &&
+    //    state.data.graph !== null
+    //) {
+    //    // Look for an edge in a state.
+    //    result = {
+    //        parent: state.data.graph,
+    //        element: state.data.graph.edge(edge_id),
+    //    };
+    //} else if (edge_id !== -1 && state === undefined) {
+    //    // Look for an inter-state edge.
+    //    result = {
+    //        parent: graph,
+    //        element: graph.edge(edge_id),
+    //    };
+    //}
     
     return result;
 }

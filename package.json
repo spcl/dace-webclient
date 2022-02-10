@@ -1,6 +1,6 @@
 {
     "name": "@spcl/sdfv",
-    "version": "1.0.10",
+    "version": "1.0.11",
     "description": "A standalone viewer for SDFGs",
     "homepage": "https://github.com/spcl/dace-webclient",
     "main": "out/index.js",
@@ -29,29 +29,31 @@
         "build-prod": "npm run clean && webpack --mode=production"
     },
     "devDependencies": {
-        "@babel/cli": "^7.13.10",
-        "@babel/core": "^7.13.10",
-        "@babel/plugin-transform-runtime": "^7.13.10",
-        "@babel/preset-env": "^7.13.10",
-        "@babel/preset-typescript": "^7.13.0",
+        "@babel/cli": "^7.16.0",
+        "@babel/core": "^7.16.0",
+        "@babel/plugin-transform-runtime": "^7.16.4",
+        "@babel/preset-env": "^7.16.4",
+        "@babel/preset-typescript": "^7.16.0",
         "@types/dagre": "^0.7.44",
-        "@types/jquery": "^3.5.5",
+        "@types/jquery": "^3.5.9",
         "@typescript-eslint/eslint-plugin": "^4.18.0",
         "@typescript-eslint/parser": "^4.18.0",
-        "babel-loader": "^8.2.2",
-        "babel-plugin-transform-class-properties": "^6.24.1",
+        "babel-loader": "^8.2.3",
         "eslint": "^7.22.0",
         "rimraf": "^3.0.2",
-        "typescript": "^4.2.3",
-        "webpack": "^5.26.3",
-        "webpack-cli": "^4.5.0",
-        "webpack-dev-server": "^3.11.2"
+        "ts-loader": "^9.2.6",
+        "typescript": "^4.5.2",
+        "webpack": "^5.64.2",
+        "webpack-cli": "^4.9.1",
+        "webpack-dev-server": "^4.7.0"
     },
     "dependencies": {
-        "@babel/runtime": "^7.13.10",
-        "@types/mathjs": "^6.0.11",
+        "@babel/runtime": "^7.16.3",
+        "@types/mathjs": "^9.4.2",
         "dagre": "^0.8.5",
         "jquery": "^3.6.0",
-        "mathjs": "^9.3.0"
+        "mathjs": "^10.0.2",
+        "pixi-viewport": "^4.34.4",
+        "pixi.js": "^6.2.2"
     }
 }

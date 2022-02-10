@@ -1,6 +1,6 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { SDFV } from '../sdfv';
+import { SDFV } from '../main';
 import {
     DagreSDFG,
     JsonSDFG,
@@ -15,9 +15,10 @@ import {
 } from '../utils/sdfg/display';
 import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
-import { SDFGRenderer } from './renderer';
+import { SDFGRenderer } from './sdfg_renderer';
+import { Graphics } from 'pixi.js';
 
-export class SDFGElement {
+export class SDFGElement extends Graphics {
 
     public in_connectors: Connector[] = [];
     public out_connectors: Connector[] = [];
@@ -27,11 +28,6 @@ export class SDFGElement {
     public highlighted: boolean = false;
     public hovered: boolean = false;
 
-    public x: number = 0;
-    public y: number = 0;
-    public width: number = 0;
-    public height: number = 0;
-
     // Parent ID is the state ID, if relevant
     public constructor(
         public data: any,
@@ -39,6 +35,7 @@ export class SDFGElement {
         public sdfg: JsonSDFG,
         public parent_id: number | null = null
     ) {
+        super();
         this.set_layout();
     }
 
@@ -1440,62 +1437,62 @@ export function draw_sdfg(
     g.nodes().forEach((v: string) => {
         const node = g.node(v);
 
-        if ((ctx as any).lod &&
-            (ppp >= SDFV.STATE_LOD || node.width / ppp < SDFV.STATE_LOD)) {
-            node.simple_draw(renderer, ctx, mousepos);
-            node.debug_draw(renderer, ctx);
-            return;
-        }
-        // Skip invisible states
-        if ((ctx as any).lod && visible_rect && !node.intersect(
-            visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h
-        ))
-            return;
+        //if ((ctx as any).lod &&
+        //    (ppp >= SDFV.STATE_LOD || node.width / ppp < SDFV.STATE_LOD)) {
+        //    node.simple_draw(renderer, ctx, mousepos);
+        //    node.debug_draw(renderer, ctx);
+        //    return;
+        //}
+        //// Skip invisible states
+        //if ((ctx as any).lod && visible_rect && !node.intersect(
+        //    visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h
+        //))
+        //    return;
 
-        node.draw(renderer, ctx, mousepos);
-        node.debug_draw(renderer, ctx);
+        //node.draw(renderer, ctx, mousepos);
+        //node.debug_draw(renderer, ctx);
 
-        const ng = node.data.graph;
+        //const ng = node.data.graph;
 
-        if (!node.data.state.attributes.is_collapsed && ng) {
-            ng.nodes().forEach((v: any) => {
-                const n = ng.node(v);
+        //if (!node.data.state.attributes.is_collapsed && ng) {
+        //    ng.nodes().forEach((v: any) => {
+        //        const n = ng.node(v);
 
-                if ((ctx as any).lod && visible_rect && !n.intersect(
-                    visible_rect.x, visible_rect.y, visible_rect.w,
-                    visible_rect.h
-                ))
-                    return;
-                if ((ctx as any).lod && ppp >= SDFV.NODE_LOD) {
-                    n.simple_draw(renderer, ctx, mousepos);
-                    n.debug_draw(renderer, ctx);
-                    return;
-                }
+        //        if ((ctx as any).lod && visible_rect && !n.intersect(
+        //            visible_rect.x, visible_rect.y, visible_rect.w,
+        //            visible_rect.h
+        //        ))
+        //            return;
+        //        if ((ctx as any).lod && ppp >= SDFV.NODE_LOD) {
+        //            n.simple_draw(renderer, ctx, mousepos);
+        //            n.debug_draw(renderer, ctx);
+        //            return;
+        //        }
 
-                n.draw(renderer, ctx, mousepos);
-                n.debug_draw(renderer, ctx);
-                n.in_connectors.forEach((c: Connector) => {
-                    c.draw(renderer, ctx, mousepos);
-                    c.debug_draw(renderer, ctx);
-                });
-                n.out_connectors.forEach((c: Connector) => {
-                    c.draw(renderer, ctx, mousepos);
-                    c.debug_draw(renderer, ctx);
-                });
-            });
-            if ((ctx as any).lod && ppp >= SDFV.EDGE_LOD)
-                return;
-            ng.edges().forEach((e: any) => {
-                const edge = ng.edge(e);
-                if ((ctx as any).lod && visible_rect && !edge.intersect(
-                    visible_rect.x, visible_rect.y, visible_rect.w,
-                    visible_rect.h
-                ))
-                    return;
-                edge.draw(renderer, ctx, mousepos);
-                edge.debug_draw(renderer, ctx);
-            });
-        }
+        //        n.draw(renderer, ctx, mousepos);
+        //        n.debug_draw(renderer, ctx);
+        //        n.in_connectors.forEach((c: Connector) => {
+        //            c.draw(renderer, ctx, mousepos);
+        //            c.debug_draw(renderer, ctx);
+        //        });
+        //        n.out_connectors.forEach((c: Connector) => {
+        //            c.draw(renderer, ctx, mousepos);
+        //            c.debug_draw(renderer, ctx);
+        //        });
+        //    });
+        //    if ((ctx as any).lod && ppp >= SDFV.EDGE_LOD)
+        //        return;
+        //    ng.edges().forEach((e: any) => {
+        //        const edge = ng.edge(e);
+        //        if ((ctx as any).lod && visible_rect && !edge.intersect(
+        //            visible_rect.x, visible_rect.y, visible_rect.w,
+        //            visible_rect.h
+        //        ))
+        //            return;
+        //        edge.draw(renderer, ctx, mousepos);
+        //        edge.debug_draw(renderer, ctx);
+        //    });
+        //}
     });
 }
 
@@ -1507,8 +1504,8 @@ export function offset_sdfg(
         const g = sdfg_graph.node(id.toString());
         g.x += offset.x;
         g.y += offset.y;
-        if (!state.attributes.is_collapsed)
-            offset_state(state, g, offset);
+        //if (!state.attributes.is_collapsed)
+        //    offset_state(state, g, offset);
     });
     sdfg.edges.forEach((e: JsonSDFGEdge, _eid: number) => {
         const edge = sdfg_graph.edge(e.src, e.dst);

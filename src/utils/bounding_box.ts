@@ -3,6 +3,7 @@
 import { GraphEdge } from 'dagre';
 import { Edge, SDFGElement } from '../renderer/renderer_elements';
 import { DagreSDFG } from '../index';
+import { GraphElement } from '../renderer/graph/graph_element';
 
 export function calculateBoundingBox(g: DagreSDFG): DOMRect {
     // iterate over all objects, calculate the size of the bounding box
@@ -24,7 +25,7 @@ export function calculateBoundingBox(g: DagreSDFG): DOMRect {
     return bb;
 }
 
-export function boundingBox(elements: SDFGElement[]): DOMRect {
+export function boundingBox(elements: GraphElement[]): DOMRect {
     const bb: {
         x1: number | null,
         x2: number | null,
@@ -37,7 +38,9 @@ export function boundingBox(elements: SDFGElement[]): DOMRect {
         y2: null,
     };
 
-    elements.forEach((v: SDFGElement) => {
+    elements.forEach((v: GraphElement) => {
+        // TODO:
+        /*
         const topleft = v.topleft();
         if (bb.x1 === null || topleft.x < bb.x1)
             bb.x1 = topleft.x;
@@ -51,6 +54,7 @@ export function boundingBox(elements: SDFGElement[]): DOMRect {
             bb.x2 = x2;
         if (bb.y2 === null || y2 > bb.y2)
             bb.y2 = y2;
+            */
     });
 
     const ret_bb = new DOMRect(

@@ -1,7 +1,7 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { OverlayManager, SymbolResolver } from '../overlay_manager';
-import { SDFGRenderer } from '../renderer/renderer';
+import { SDFGRenderer } from '../renderer/sdfg_renderer';
 import { SDFGElement } from '../renderer/renderer_elements';
 import { Point2D } from '../index';
 

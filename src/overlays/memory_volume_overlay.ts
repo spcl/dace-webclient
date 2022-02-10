@@ -8,9 +8,9 @@ import {
 import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
-import { SDFGRenderer } from '../renderer/renderer';
+import { SDFGRenderer } from '../renderer/sdfg_renderer';
 import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
-import { SDFV } from '../sdfv';
+import { SDFV } from '../main';
 
 export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
@@ -66,47 +66,47 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
     ): void {
         const that = this;
         g.nodes().forEach((v: string) => {
-            const state = g.node(v);
-            const state_graph = state.data.graph;
-            if (state_graph) {
-                state_graph.edges().forEach((e: number) => {
-                    const edge = state_graph.edge(e);
-                    if (edge instanceof Edge)
-                        that.calculate_volume_edge(
-                            edge,
-                            symbol_map,
-                            volume_values
-                        );
-                });
+            //const state = g.node(v);
+            //const state_graph = state.data.graph;
+            //if (state_graph) {
+            //    state_graph.edges().forEach((e: number) => {
+            //        const edge = state_graph.edge(e);
+            //        if (edge instanceof Edge)
+            //            that.calculate_volume_edge(
+            //                edge,
+            //                symbol_map,
+            //                volume_values
+            //            );
+            //    });
 
-                state_graph.nodes().forEach((v: number) => {
-                    const node = state_graph.node(v);
-                    if (node instanceof NestedSDFG) {
-                        const nested_symbols_map: SymbolMap = {};
-                        const mapping = node.data.node.attributes.symbol_mapping;
-                        // Translate the symbol mappings for the nested SDFG
-                        // based on the mapping described on the node.
-                        Object.keys(mapping).forEach((symbol) => {
-                            nested_symbols_map[symbol] =
-                                that.symbol_resolver.parse_symbol_expression(
-                                    mapping[symbol],
-                                    symbol_map
-                                );
-                        });
-                        // Merge in the parent mappings.
-                        Object.keys(symbol_map).forEach((symbol) => {
-                            if (!(symbol in nested_symbols_map))
-                                nested_symbols_map[symbol] = symbol_map[symbol];
-                        });
+            //    state_graph.nodes().forEach((v: number) => {
+            //        const node = state_graph.node(v);
+            //        if (node instanceof NestedSDFG) {
+            //            const nested_symbols_map: SymbolMap = {};
+            //            const mapping = node.data.node.attributes.symbol_mapping;
+            //            // Translate the symbol mappings for the nested SDFG
+            //            // based on the mapping described on the node.
+            //            Object.keys(mapping).forEach((symbol) => {
+            //                nested_symbols_map[symbol] =
+            //                    that.symbol_resolver.parse_symbol_expression(
+            //                        mapping[symbol],
+            //                        symbol_map
+            //                    );
+            //            });
+            //            // Merge in the parent mappings.
+            //            Object.keys(symbol_map).forEach((symbol) => {
+            //                if (!(symbol in nested_symbols_map))
+            //                    nested_symbols_map[symbol] = symbol_map[symbol];
+            //            });
 
-                        that.calculate_volume_graph(
-                            node.data.graph,
-                            nested_symbols_map,
-                            volume_values
-                        );
-                    }
-                });
-            }
+            //            that.calculate_volume_graph(
+            //                node.data.graph,
+            //                nested_symbols_map,
+            //                volume_values
+            //            );
+            //        }
+            //    });
+            //}
         });
     }
 
@@ -163,56 +163,56 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         visible_rect: SimpleRect
     ): void {
         graph.nodes().forEach(v => {
-            const state: State = graph.node(v);
+            //const state: State = graph.node(v);
 
-            // If we're zoomed out enough that the contents aren't visible, we
-            // skip the state.
-            if ((ctx as any).lod && (
-                ppp >= SDFV.STATE_LOD || state.width / ppp < SDFV.STATE_LOD
-            ))
-                return;
+            //// If we're zoomed out enough that the contents aren't visible, we
+            //// skip the state.
+            //if ((ctx as any).lod && (
+            //    ppp >= SDFV.STATE_LOD || state.width / ppp < SDFV.STATE_LOD
+            //))
+            //    return;
 
-            // If the node's invisible, we skip it.
-            if ((ctx as any).lod && !state.intersect(
-                visible_rect.x, visible_rect.y,
-                visible_rect.w, visible_rect.h
-            ))
-                return;
+            //// If the node's invisible, we skip it.
+            //if ((ctx as any).lod && !state.intersect(
+            //    visible_rect.x, visible_rect.y,
+            //    visible_rect.w, visible_rect.h
+            //))
+            //    return;
 
-            const state_graph = state.data.graph;
-            if (state_graph && !state.data.state.attributes.is_collapsed) {
-                state_graph.nodes().forEach((v: string) => {
-                    const node: SDFGNode = state_graph.node(v);
+            //const state_graph = state.data.graph;
+            //if (state_graph && !state.data.state.attributes.is_collapsed) {
+            //    state_graph.nodes().forEach((v: string) => {
+            //        const node: SDFGNode = state_graph.node(v);
 
-                    // Skip the node if it's not visible.
-                    if ((ctx as any).lod && !node.intersect(
-                        visible_rect.x, visible_rect.y,
-                        visible_rect.w, visible_rect.h
-                    ))
-                        return;
+            //        // Skip the node if it's not visible.
+            //        if ((ctx as any).lod && !node.intersect(
+            //            visible_rect.x, visible_rect.y,
+            //            visible_rect.w, visible_rect.h
+            //        ))
+            //            return;
 
-                    // If we're zoomed out enough that the node's contents
-                    // aren't visible or the node is collapsed, we skip it.
-                    if (node.data.node.attributes.is_collapsed ||
-                        ((ctx as any).lod && ppp >= SDFV.NODE_LOD))
-                        return;
+            //        // If we're zoomed out enough that the node's contents
+            //        // aren't visible or the node is collapsed, we skip it.
+            //        if (node.data.node.attributes.is_collapsed ||
+            //            ((ctx as any).lod && ppp >= SDFV.NODE_LOD))
+            //            return;
 
-                    if (node instanceof NestedSDFG)
-                        this.recursively_shade_sdfg(
-                            node.data.graph, ctx, ppp, visible_rect
-                        );
-                });
+            //        if (node instanceof NestedSDFG)
+            //            this.recursively_shade_sdfg(
+            //                node.data.graph, ctx, ppp, visible_rect
+            //            );
+            //    });
 
-                state_graph.edges().forEach((e: any) => {
-                    const edge: Edge = state_graph.edge(e);
+            //    state_graph.edges().forEach((e: any) => {
+            //        const edge: Edge = state_graph.edge(e);
 
-                    if ((ctx as any).lod && !edge.intersect(visible_rect.x,
-                        visible_rect.y, visible_rect.w, visible_rect.h))
-                        return;
+            //        if ((ctx as any).lod && !edge.intersect(visible_rect.x,
+            //            visible_rect.y, visible_rect.w, visible_rect.h))
+            //            return;
 
-                    this.shade_edge(edge, ctx);
-                });
-            }
+            //        this.shade_edge(edge, ctx);
+            //    });
+            //}
         });
     }
 

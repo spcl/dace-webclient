@@ -2,9 +2,9 @@ import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
 import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
-import { SDFGRenderer } from '../renderer/renderer';
+import { SDFGRenderer } from '../renderer/sdfg_renderer';
 import { DagreSDFG, SimpleRect } from '../index';
-import { SDFV } from '../sdfv';
+import { SDFV } from '../main';
 import { get_element_uuid } from '../utils/utils';
 
 
@@ -120,45 +120,45 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
         // In that case, we draw the measured runtime for the entire state.
         // If it's expanded or zoomed in close enough, we traverse inside.
         graph.nodes().forEach(v => {
-            const state = graph.node(v);
+            //const state = graph.node(v);
 
-            // If the node's invisible, we skip it.
-            if ((ctx as any).lod && !state.intersect(
-                visible_rect.x, visible_rect.y,
-                visible_rect.w, visible_rect.h
-            ))
-                return;
+            //// If the node's invisible, we skip it.
+            //if ((ctx as any).lod && !state.intersect(
+            //    visible_rect.x, visible_rect.y,
+            //    visible_rect.w, visible_rect.h
+            //))
+            //    return;
 
-            if (((ctx as any).lod && (ppp >= SDFV.STATE_LOD ||
-                state.width / ppp <= SDFV.STATE_LOD)) ||
-                state.data.state.attributes.is_collapsed) {
-                this.shade_node(state, ctx);
-            } else {
-                const state_graph = state.data.graph;
-                if (state_graph) {
-                    state_graph.nodes().forEach((v: string) => {
-                        const node = state_graph.node(v);
+            //if (((ctx as any).lod && (ppp >= SDFV.STATE_LOD ||
+            //    state.width / ppp <= SDFV.STATE_LOD)) ||
+            //    state.data.state.attributes.is_collapsed) {
+            //    this.shade_node(state, ctx);
+            //} else {
+            //    const state_graph = state.data.graph;
+            //    if (state_graph) {
+            //        state_graph.nodes().forEach((v: string) => {
+            //            const node = state_graph.node(v);
 
-                        // Skip the node if it's not visible.
-                        if ((ctx as any).lod && !node.intersect(visible_rect.x,
-                            visible_rect.y, visible_rect.w, visible_rect.h))
-                            return;
+            //            // Skip the node if it's not visible.
+            //            if ((ctx as any).lod && !node.intersect(visible_rect.x,
+            //                visible_rect.y, visible_rect.w, visible_rect.h))
+            //                return;
 
-                        if (node.data.node.attributes.is_collapsed ||
-                            ((ctx as any).lod && ppp >= SDFV.NODE_LOD)) {
-                            this.shade_node(node, ctx);
-                        } else {
-                            if (node instanceof NestedSDFG) {
-                                this.recursively_shade_sdfg(
-                                    node.data.graph, ctx, ppp, visible_rect
-                                );
-                            } else {
-                                this.shade_node(node, ctx);
-                            }
-                        }
-                    });
-                }
-            }
+            //            if (node.data.node.attributes.is_collapsed ||
+            //                ((ctx as any).lod && ppp >= SDFV.NODE_LOD)) {
+            //                this.shade_node(node, ctx);
+            //            } else {
+            //                if (node instanceof NestedSDFG) {
+            //                    this.recursively_shade_sdfg(
+            //                        node.data.graph, ctx, ppp, visible_rect
+            //                    );
+            //                } else {
+            //                    this.shade_node(node, ctx);
+            //                }
+            //            }
+            //        });
+            //    }
+            //}
         });
     }
 

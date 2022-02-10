@@ -3,13 +3,20 @@ const path = require('path');
 
 module.exports = {
     entry: {
-        sdfv: './src/sdfv.ts',
+        main: './src/main.ts',
     },
     module: {
         rules: [
             {
                 test: /\.m?[jt]sx?$/,
-                use: 'babel-loader',
+                use: [
+                    {
+                        loader: 'babel-loader',
+                    },
+                    {
+                        loader: 'ts-loader',
+                    },
+                ],
                 exclude: /node_modules/,
             },
         ],
@@ -19,7 +26,12 @@ module.exports = {
     },
     devtool: 'source-map',
     devServer: {
-        publicPath: '/dist/',
+        static: {
+            directory: __dirname,
+        },
+        devMiddleware: {
+            writeToDisk: true,
+        },
     },
     output: {
         filename: '[name].js',
