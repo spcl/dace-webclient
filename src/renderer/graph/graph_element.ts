@@ -1,15 +1,47 @@
-import { Graphics } from 'pixi.js';
+import { Graphics, Text } from 'pixi.js';
 import { JsonSDFGNode } from '../..';
 import { Box2D, Vector2D } from '../../utils/geometry/primitives';
 import { Graph } from './graph';
 
 export class Connector extends Graphics {
 
+    public readonly labelGfx: Text = new Text('');
+
     public constructor(
         public readonly name: string,
         public readonly val: any = null,
     ) {
         super();
+
+        this.labelGfx.text = name;
+        this.labelGfx.style.fontFamily = 'Montserrat';
+        this.labelGfx.style.fontSize = 12;
+        this.labelGfx.visible = false;
+        this.labelGfx.anchor.set(0.5);
+        this.labelGfx.position.set(0);
+
+        this.addChild(this.labelGfx);
+    }
+
+    public draw(size?: { w: number, h: number }): void {
+        this.clear();
+
+        this.labelGfx.visible = true;
+        console.log(size);
+
+        this.lineStyle({
+            width: 1,
+            color: 0x000000,
+        });
+        if (size) {
+            this.labelGfx.position.set(0);
+            this.drawEllipse(0, 0, size.w / 2, size.h / 2);
+        } else {
+            this.labelGfx.position.set(0);
+            this.drawEllipse(
+                0, 0, this.labelGfx.width / 2, this.labelGfx.height / 2
+            );
+        }
     }
 
 }
@@ -91,17 +123,19 @@ export class GraphNode extends GraphElement {
     }
 
     public getSizingString(depth: number = 0): string {
-        console.log(this.layoutNode);
-        
+        const x = this.layoutNode ? this.layoutNode.x : this.x;
+        const y = this.layoutNode ? this.layoutNode.y : this.y;
+        const w = this.layoutNode ? this.layoutNode.width : this.width;
+        const h = this.layoutNode ? this.layoutNode.height : this.height;
         const depthStr = '--'.repeat(depth);
         let str = depthStr + ' ' + this.type() + '(' + this.name + '): { x:' +
-            this.x.toString() +
+            x.toString() +
             ', y: ' +
-            this.y.toString() +
+            y.toString() +
             ', width: ' +
-            this.width.toString() +
+            w.toString() +
             ', height: ' +
-            this.height.toString() +
+            h.toString() +
             ' }\n';
             if (this.childGraph)
                 this.childGraph.nodes().forEach(node => {

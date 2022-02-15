@@ -1,6 +1,7 @@
 import { Text } from 'pixi.js';
 import { JsonSDFGNode } from '../..';
-import { GraphNode } from './graph_element';
+import { Graph } from './graph';
+import { GraphNode, ScopedNode } from './graph_element';
 
 export class Tasklet extends GraphNode {
 
@@ -30,10 +31,16 @@ export class Tasklet extends GraphNode {
     public draw(): void {
         super.draw();
 
-        this.drawSelf();
+        let border = true;
+        if (this.parent instanceof Graph &&
+            this.parent.parent instanceof ScopedNode) {
+            border = this.parent.nodes().length > 1;
+        }
+
+        this.drawSelf(border);
     }
 
-    private drawSelf(): void {
+    private drawSelf(border: boolean = true): void {
         // Draw the correct label.
         if (this.codeString !== undefined)
             this.labelGfx.text = this.codeString;
@@ -50,24 +57,28 @@ export class Tasklet extends GraphNode {
             const lPos = this.parent.toLocal(pos);
             this.position.set(lPos.x, lPos.y);
 
-            this.lineStyle({
-                width: 1,
-                color: 0x000000,
-            });
-            this.drawRect(
-                0, 0, this.layoutNode.width, this.layoutNode.height
-            );
+            if (border) {
+                this.lineStyle({
+                    width: 1,
+                    color: 0x000000,
+                });
+                this.drawRect(
+                    0, 0, this.layoutNode.width, this.layoutNode.height
+                );
+            }
         } else {
             const targetWidth =
                 this.labelGfx.width + 2 * this.textPadding;
             const targetHeight =
                 this.labelGfx.height + 2 * this.textPadding;
             
-            this.lineStyle({
-                width: 1,
-                color: 0x000000,
-            });
-            this.drawRect(0, 0, targetWidth, targetHeight);
+            if (border) {
+                this.lineStyle({
+                    width: 1,
+                    color: 0x000000,
+                });
+                this.drawRect(0, 0, targetWidth, targetHeight);
+            }
         }
     }
 

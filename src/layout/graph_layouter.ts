@@ -25,7 +25,9 @@ export class GraphLayouter {
     private readonly layouter;
 
     private constructor() {
-        this.layouter = new renderLib.layouter.SugiyamaLayouter();
+        this.layouter = new renderLib.layouter.SugiyamaLayouter({
+            spaceBetweenComponents: 10,
+        });
     }
 
     public static getInstance(): GraphLayouter {

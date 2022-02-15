@@ -53,6 +53,7 @@ export class State extends GraphNode {
                 width: 1,
                 color: 0x000000,
             });
+
             this.beginFill(0x4287f5, 0.3);
             this.drawRect(
                 0, 0, this.stateGraph.width, this.stateGraph.height
@@ -132,7 +133,6 @@ export class State extends GraphNode {
                 instance.stateGraph
             );
 
-            //Renderer.layoutGraph(instance.stateGraph);
             instance.drawSelf();
 
             return instance;
