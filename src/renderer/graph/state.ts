@@ -11,25 +11,54 @@ export class State extends GraphNode {
     public readonly stateGraph: Graph = new Graph();
     public readonly scopeDict: Map<string, number[]> = new Map();
 
-    private labelGfx?: Text;
+    private readonly labelGfx: Text = new Text('');
 
     public constructor(id: number) {
         super(id);
         this.addChild(this.stateGraph);
+        this.stateGraph.position.set(0);
+    }
+
+    public type(): string {
+        return State.TYPE;
     }
 
     public draw(): void {
         super.draw();
 
-        this.lineStyle({
-            width: 1,
-            color: 0x000000,
-        });
-        this.beginFill(0x4287f5, 0.3);
-        this.drawRect(0, 0, this.width, this.height);
-        this.endFill();
+        this.drawSelf();
 
         this.stateGraph.draw();
+    }
+
+    private drawSelf(): void {
+        if (this.layoutNode) {
+            const pos = {
+                x: this.layoutNode.x,
+                y: this.layoutNode.y,
+            };
+            const lPos = this.parent.toLocal(pos);
+            this.position.set(lPos.x, lPos.y);
+
+            this.lineStyle({
+                width: 1,
+                color: 0x000000,
+            });
+            this.beginFill(0x4287f5, 0.3);
+            this.drawRect(
+                0, 0, this.layoutNode.width, this.layoutNode.height
+            );
+        } else {
+            this.lineStyle({
+                width: 1,
+                color: 0x000000,
+            });
+            this.beginFill(0x4287f5, 0.3);
+            this.drawRect(
+                0, 0, this.stateGraph.width, this.stateGraph.height
+            );
+            this.endFill();
+        }
     }
 
     private static scopeFromJSON(
@@ -58,6 +87,8 @@ export class State extends GraphNode {
                                     );
                                     if (candidate.exitId !== undefined)
                                         scopeExitNodeIds.push(candidate.exitId);
+
+                                    candidate.draw(false);
                                 }
                             }
                         }
@@ -101,10 +132,17 @@ export class State extends GraphNode {
                 instance.stateGraph
             );
 
+            //Renderer.layoutGraph(instance.stateGraph);
+            instance.drawSelf();
+
             return instance;
         }
 
         return undefined;
+    }
+
+    public get childGraph(): Graph {
+        return this.stateGraph;
     }
 
 }

@@ -17,32 +17,58 @@ export class Tasklet extends GraphNode {
         // TODO: Font settings should be configurable.
         this.labelGfx.style.fontFamily = 'Montserrat';
         this.labelGfx.style.fontSize = 18;
+
         this.labelGfx.visible = false;
         this.labelGfx.position.set(this.textPadding);
         this.addChild(this.labelGfx);
     }
 
+    public type(): string {
+        return Tasklet.TYPE;
+    }
+
     public draw(): void {
         super.draw();
-        console.log('drawing tasklet');
-        console.log(this);
 
-        const textPadding = 10;
+        this.drawSelf();
+    }
 
+    private drawSelf(): void {
+        // Draw the correct label.
         if (this.codeString !== undefined)
             this.labelGfx.text = this.codeString;
         else
             this.labelGfx.text = '';
+
         this.labelGfx.visible = true;
 
-        const targetWidth = this.labelGfx.width + 2 * textPadding;
-        const targetHeight = this.labelGfx.height + 2 * textPadding;
+        if (this.layoutNode) {
+            const pos = {
+                x: this.layoutNode.x,
+                y: this.layoutNode.y,
+            };
+            const lPos = this.parent.toLocal(pos);
+            this.position.set(lPos.x, lPos.y);
 
-        this.lineStyle({
-            width: 1,
-            color: 0x000000,
-        });
-        this.drawRect(0, 0, targetWidth, targetHeight);
+            this.lineStyle({
+                width: 1,
+                color: 0x000000,
+            });
+            this.drawRect(
+                0, 0, this.layoutNode.width, this.layoutNode.height
+            );
+        } else {
+            const targetWidth =
+                this.labelGfx.width + 2 * this.textPadding;
+            const targetHeight =
+                this.labelGfx.height + 2 * this.textPadding;
+            
+            this.lineStyle({
+                width: 1,
+                color: 0x000000,
+            });
+            this.drawRect(0, 0, targetWidth, targetHeight);
+        }
     }
 
     public get codeString(): string | undefined {
@@ -54,6 +80,8 @@ export class Tasklet extends GraphNode {
             const instance = new this(value.id);
 
             instance.loadAttributes(value);
+
+            instance.drawSelf();
 
             return instance;
         }

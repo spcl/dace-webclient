@@ -22,8 +22,8 @@ export class SDFG extends Graph {
     public toJSON(): JsonSDFG {
         return {
             attributes: this.attributes,
-            nodes: this.nodes,
-            edges: this.edges,
+            nodes: this._nodes,
+            edges: this._edges,
             dace_version: this.daceVersion ? this.daceVersion : '',
             sdfg_list_id: this.sdfgListId,
             start_state: this.startStateId,
@@ -49,6 +49,26 @@ export class SDFG extends Graph {
         });
 
         return instance;
+    }
+
+    public getSizingString(): string {
+        console.log(this.layoutGraph);
+        
+        let str = 'SDFG: { x: ' +
+            this.position.x.toString() +
+            ', y: ' +
+            this.position.y.toString() +
+            ', width: ' +
+            this.width.toString() +
+            ', height: ' +
+            this.height.toString() +
+            ' }\n';
+
+        this._nodes.forEach(node => {
+            str += node.getSizingString(1);
+        });
+
+        return str;
     }
 
 }

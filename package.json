@@ -49,9 +49,12 @@
     },
     "dependencies": {
         "@babel/runtime": "^7.16.3",
+        "@types/lodash": "^4.14.178",
         "@types/mathjs": "^9.4.2",
         "dagre": "^0.8.5",
+        "fast-sort": "^3.1.1",
         "jquery": "^3.6.0",
+        "lodash": "^4.17.21",
         "mathjs": "^10.0.2",
         "pixi-viewport": "^4.34.4",
         "pixi.js": "^6.2.2"

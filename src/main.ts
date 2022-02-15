@@ -4,14 +4,12 @@ import $ from 'jquery';
 import { mean, median } from 'mathjs';
 import {
     DagreSDFG,
-    Point2D, traverse_sdfg_scopes
+    Point2D
 } from './index';
 import { GraphElement } from './renderer/graph/graph_element';
 import { Renderer } from './renderer/renderer';
 import {
-    AccessNode, Edge,
-    SDFG,
-    SDFGElement,
+    Edge, SDFGElement,
     SDFGNode,
     State
 } from './renderer/renderer_elements';

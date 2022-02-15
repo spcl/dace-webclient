@@ -1,5 +1,5 @@
 import { JsonSDFGNode } from '../..';
-import { ScopedNode } from './graph_element';
+import { Connector, ScopedNode } from './graph_element';
 
 export class MapNode extends ScopedNode {
 
@@ -10,21 +10,40 @@ export class MapNode extends ScopedNode {
         super(id);
     }
 
+    public type(): string {
+        return MapNode.TYPE;
+    }
+
     protected drawExpanded(): void {
-        console.log('drawing expanded');
-        console.log(this);
-        
-        this.lineStyle({
-            width: 1,
-            color: 0xFF0000,
-        });
-        this.drawRect(0, 0, this.width, this.height);
-        return;
+        if (this.layoutNode) {
+            const pos = {
+                x: this.layoutNode.x,
+                y: this.layoutNode.y,
+            };
+            const lPos = this.parent.toLocal(pos);
+            this.position.set(lPos.x, lPos.y);
+
+            this.scopedGraph.position.set(0);
+            
+            this.lineStyle({
+                width: 1,
+                color: 0xFF0000,
+            });
+            this.drawRect(
+                0, 0, this.layoutNode.width, this.layoutNode.height
+            );
+        } else {
+            this.scopedGraph.position.set(10);
+            
+            this.lineStyle({
+                width: 1,
+                color: 0xFF0000,
+            });
+            this.drawRect(0, 0, this.scopedGraph.width + 2 * 10, this.scopedGraph.height + 2 * 10);
+        }
     }
 
     protected drawCollapsed(): void {
-        console.log('drawing collapsed');
-        
         return;
     }
 
@@ -33,6 +52,7 @@ export class MapNode extends ScopedNode {
             const instance = new this(value.id);
 
             instance.loadAttributes(value);
+            instance.loadInConnectors();
 
             return instance;
         }

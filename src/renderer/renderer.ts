@@ -1,12 +1,26 @@
-import dagre from 'dagre';
 import { Viewport } from 'pixi-viewport';
 import { Application } from 'pixi.js';
-import { DagreSDFG, JsonSDFG, SDFGViewer } from '..';
-import { Graph } from './graph/graph';
-import { ScopedNode } from './graph/graph_element';
-import { NestedSDFGNode } from './graph/nested_sdfg_node';
+import { JsonSDFG, SDFGViewer } from '..';
+import { GraphLayouter } from '../layout/graph_layouter';
 import { SDFG } from './graph/sdfg';
-import { State } from './graph/state';
+
+declare const renderLib: {
+    layouter: {
+        DagreLayouter: any,
+        MagneticSpringLayouter: any,
+        SugiyamaLayouter: any,
+    },
+    renderer: {
+        PixiRenderer: any,
+        SvgRenderer: any,
+    },
+    renderGraph: {
+        GenericContainerNode: any,
+        GenericNode: any,
+        GenericEdge: any,
+        RenderGraph: any,
+    },
+};
 
 export class Renderer {
 
@@ -36,8 +50,6 @@ export class Renderer {
             friction: 0.3,
         });
 
-        this.relayout();
-
         // TODO: Worry about resizing the container.
     }
 
@@ -47,35 +59,35 @@ export class Renderer {
         this.viewport.removeChildren();
         this.viewport.addChild(this.graph);
 
-        // XXX: Why do we need to draw this twice for it to render correctly?..
-        this.relayout();
-        this.graph.draw();
-        //this.relayout();
-        //this.graph.draw();
-
-        console.log(this.graph);
+        GraphLayouter.getInstance().layoutGraph(this.graph).then(() => {
+            this.graph.draw();
+        });
     }
 
     public get sdfg(): JsonSDFG {
         return this.graph.toJSON();
     }
     
-    private layoutGraph(graph: Graph): void {
+    /*
+    public static layoutGraph(graph: Graph): void {
         const g: DagreSDFG = new dagre.graphlib.Graph();
 
-        g.setGraph({});
+        g.setGraph({
+        });
         g.setDefaultEdgeLabel(() => {
             return {};
         });
 
+        console.log('layoutGraph', graph);
+        
         graph.nodes.forEach(node => {
             // Recurse down for each subgraph.
-            if (node instanceof State)
-                this.layoutGraph(node.stateGraph);
-            else if (node instanceof ScopedNode)
-                this.layoutGraph(node.scopedGraph);
-            else if (node instanceof NestedSDFGNode)
-                this.layoutGraph(node.nestedGraph);
+            //if (node instanceof State)
+            //    Renderer.layoutGraph(node.stateGraph);
+            //else if (node instanceof ScopedNode)
+            //    Renderer.layoutGraph(node.scopedGraph);
+            //else if (node instanceof NestedSDFGNode)
+            //    Renderer.layoutGraph(node.nestedGraph);
 
             g.setNode(node.id.toString(), node);
         });
@@ -86,9 +98,6 @@ export class Renderer {
 
         dagre.layout(g);
     }
-
-    public relayout(): void {
-        this.layoutGraph(this.graph);
-    }
+    */
 
 }
