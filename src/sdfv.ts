@@ -301,6 +301,20 @@ function init_sdfv(
                     );
             }, 1);
     });
+    $('#advsearch-btn').on('click', () => {
+        const renderer = sdfv.get_renderer();
+        if (renderer)
+            setTimeout(() => {
+                const graph = renderer.get_graph();
+                const code = $('#advsearch').val();
+                if (graph && code) {
+                    const predicate = eval(code.toString());
+                    find_in_graph_predicate(
+                        sdfv, renderer, graph, predicate
+                    );
+                }
+            }, 1);
+    });
     $('#search').on('keydown', (e: any) => {
         if (e.key == 'Enter' || e.which == 13) {
             sdfv.start_find_in_graph();
@@ -419,11 +433,11 @@ export function instrumentation_report_read_complete(
     sdfv: SDFV, report: any, renderer: SDFGRenderer | null = null
 ): void {
     const runtime_map: { [uuids: string]: number[] } = {};
-    const summarized_map: { [uuids: string]: { [key: string]: number} } = {};
+    const summarized_map: { [uuids: string]: { [key: string]: number } } = {};
 
     if (!renderer)
         renderer = sdfv.get_renderer();
-    
+
     if (report.traceEvents && renderer) {
         for (const event of report.traceEvents) {
             if (event.ph === 'X') {
@@ -516,42 +530,32 @@ function load_sdfg_from_url(sdfv: SDFV, url: string): void {
 }
 
 function find_recursive(
-    graph: DagreSDFG, query: string, results: any[],
-    case_sensitive: boolean
+    graph: DagreSDFG, predicate: CallableFunction, results: any[]
 ): void {
     for (const nodeid of graph.nodes()) {
         const node = graph.node(nodeid);
-        let label = node.label();
-        if (!case_sensitive)
-            label = label.toLowerCase();
-        if (label.indexOf(query) !== -1)
+        if (predicate(graph, node))
             results.push(node);
         // Enter states or nested SDFGs recursively
-        if (node.data.graph)
-            find_recursive(node.data.graph, query, results, case_sensitive);
+        if (node.data.graph) {
+            find_recursive(node.data.graph, predicate, results);
+
+        }
     }
     for (const edgeid of graph.edges()) {
         const edge = graph.edge(edgeid);
-        let label = edge.label();
-        if (label !== undefined) {
-            if (!case_sensitive)
-                label = label.toLowerCase();
-            if (label.indexOf(query) !== -1)
-                results.push(edge);
-        }
+        if (predicate(graph, edge))
+            results.push(edge);
     }
 }
 
-export function find_in_graph(
-    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreSDFG, query: string,
-    case_sensitive: boolean = false
+export function find_in_graph_predicate(
+    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreSDFG, predicate: CallableFunction
 ): void {
-    sdfv.sidebar_set_title('Search Results for "' + query + '"');
+    sdfv.sidebar_set_title('Search Results');
 
     const results: any[] = [];
-    if (!case_sensitive)
-        query = query.toLowerCase();
-    find_recursive(sdfg, query, results, case_sensitive);
+    find_recursive(sdfg, predicate, results);
 
     // Zoom to bounding box of all results first
     if (results.length > 0)
@@ -583,6 +587,21 @@ export function find_in_graph(
     }
 
     sdfv.sidebar_show();
+}
+
+export function find_in_graph(
+    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreSDFG, query: string,
+    case_sensitive: boolean = false
+): void {
+    if (!case_sensitive)
+        query = query.toLowerCase();
+    find_in_graph_predicate(sdfv, renderer, sdfg, (graph: DagreSDFG, element: SDFGElement) => {
+        let label = element.label();
+        if (!case_sensitive)
+            label = label.toLowerCase();
+        return label.indexOf(query) !== -1;
+    });
+    sdfv.sidebar_set_title('Search Results for "' + query + '"');
 }
 
 function recursive_find_graph(
