@@ -31,7 +31,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
 
     public clear_cached_flops_values(): void {
         this.renderer.for_all_elements(0, 0, 0, 0, (
-            _type: string, _e: Event, obj: any, _isected: boolean
+            _type: string, _e: Event, obj: any
         ) => {
             if (obj.data) {
                 if (obj.data.flops !== undefined)

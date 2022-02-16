@@ -1388,6 +1388,25 @@ export class SDFGRenderer {
         return elements;
     }
 
+    public do_for_visible_elements(func: CallableFunction): void {
+        if (!this.canvas_manager)
+            return;
+
+        const curx = this.canvas_manager.mapPixelToCoordsX(0);
+        const cury = this.canvas_manager.mapPixelToCoordsY(0);
+        const canvasw = this.canvas?.width;
+        const canvash = this.canvas?.height;
+        let endx = null;
+        if (canvasw)
+            endx = this.canvas_manager.mapPixelToCoordsX(canvasw);
+        let endy = null;
+        if (canvash)
+            endy = this.canvas_manager.mapPixelToCoordsY(canvash);
+        const curw = (endx ? endx : 0) - curx;
+        const curh = (endy ? endy : 0) - cury;
+        this.do_for_intersected_elements(curx, cury, curw, curh, func);
+    }
+
     // Returns a dictionary of SDFG elements in a given rectangle. Used for
     // selection, rendering, localized transformations, etc.
     // The output is a dictionary of lists of dictionaries. The top-level keys
@@ -1590,8 +1609,7 @@ export class SDFGRenderer {
                     {
                         sdfg: sdfg_name, id: state_id, graph: g
                     },
-                    state,
-                    state.intersect(x, y, w, h)
+                    state
                 );
 
                 if (state.data.state.attributes.is_collapsed)
@@ -1609,8 +1627,7 @@ export class SDFGRenderer {
                             sdfg: sdfg_name, state: state_id, id: node_id,
                             graph: ng
                         },
-                        node,
-                        node.intersect(x, y, w, h)
+                        node
                     );
 
                     // If nested SDFG, traverse recursively
@@ -1625,13 +1642,15 @@ export class SDFGRenderer {
                         func('connectors', {
                             sdfg: sdfg_name, state: state_id, node: node_id,
                             connector: i, conntype: 'in', graph: ng
-                        }, c, c.intersect(x, y, w, h));
+                        }, c
+                        );
                     });
                     node.out_connectors.forEach((c: Connector, i: number) => {
                         func('connectors', {
                             sdfg: sdfg_name, state: state_id, node: node_id,
                             connector: i, conntype: 'out', graph: ng
-                        }, c, c.intersect(x, y, w, h));
+                        }, c
+                        );
                     });
                 });
 
@@ -1644,8 +1663,7 @@ export class SDFGRenderer {
                             sdfg: sdfg_name, state: state_id, id: edge.id,
                             graph: ng
                         },
-                        edge,
-                        edge.intersect(x, y, w, h)
+                        edge
                     );
                 });
             });
@@ -1658,7 +1676,7 @@ export class SDFGRenderer {
                     {
                         sdfg: sdfg_name, id: isedge.id, graph: g
                     },
-                    isedge, isedge.intersect(x, y, w, h)
+                    isedge
                 );
             });
         }
@@ -2038,17 +2056,17 @@ export class SDFGRenderer {
         this.tooltip = null;
 
         // De-highlight all elements.
-        this.for_all_elements(
-            this.mousepos.x, this.mousepos.y, 0, 0,
-            (type: any, e: any, obj: any, intersected: any) => {
+        this.do_for_visible_elements(
+            (type: any, e: any, obj: any) => {
                 obj.hovered = false;
                 obj.highlighted = false;
             }
         );
         // Mark hovered and highlighted elements.
-        this.for_all_elements(
-            this.mousepos.x, this.mousepos.y, 0, 0,
-            (type: any, e: any, obj: any, intersected: any) => {
+        this.do_for_visible_elements(
+            (type: any, e: any, obj: any) => {
+                const intersected = obj.intersect(this.mousepos!.x, this.mousepos!.y, 0, 0);
+
                 // Highlight all edges of the memlet tree
                 if (intersected && obj instanceof Edge &&
                     obj.parent_id != null) {
@@ -2080,7 +2098,7 @@ export class SDFGRenderer {
 
                 // Highlight all access nodes with the same name as the hovered
                 // connector in the nested sdfg
-                if (intersected && obj instanceof Connector) {
+                if (intersected && obj instanceof Connector && e.graph) {
                     const nested_graph = e.graph.node(obj.parent_id).data.graph;
                     if (nested_graph) {
                         traverse_sdfg_scopes(nested_graph, (node: any) => {
