@@ -1486,7 +1486,7 @@ export function draw_sdfg(
         const node = g.node(v);
 
         if ((ctx as any).lod &&
-            (ppp >= SDFV.STATE_LOD || node.width / ppp < SDFV.STATE_LOD)) {
+            (Math.max(node.width, node.height) / ppp < SDFV.STATE_LOD)) {
             node.simple_draw(renderer, ctx, mousepos);
             node.debug_draw(renderer, ctx);
             return;
@@ -1511,7 +1511,7 @@ export function draw_sdfg(
                     visible_rect.h
                 ))
                     return;
-                if ((ctx as any).lod && ppp >= SDFV.NODE_LOD) {
+                if ((ctx as any).lod && node.height / ppp < SDFV.NODE_LOD) {
                     n.simple_draw(renderer, ctx, mousepos);
                     n.debug_draw(renderer, ctx);
                     return;

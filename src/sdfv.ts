@@ -37,7 +37,7 @@ export class SDFV {
     // Points-per-pixel threshold for not drawing memlets/interstate edges.
     public static EDGE_LOD: number = 8;
     // Points-per-pixel threshold for not drawing node shapes and labels.
-    public static NODE_LOD: number = 5;
+    public static NODE_LOD: number = 100;
     // Pixel threshold for not drawing state contents.
     public static STATE_LOD: number = 50;
 
