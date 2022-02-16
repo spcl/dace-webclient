@@ -359,15 +359,60 @@ export class SDFGNode extends SDFGElement {
         bgstyle: string = '--node-background-color'
     ): void {
         const topleft = this.topleft();
+        const visible_rect = renderer.get_visible_rect();
+        let clamped;
+        if (visible_rect)
+            clamped = {
+                x: Math.max(topleft.x, visible_rect.x),
+                y: Math.max(topleft.y, visible_rect.y),
+                x2: Math.min(
+                    topleft.x + this.width, visible_rect.x + visible_rect.w
+                ),
+                y2: Math.min(
+                    topleft.y + this.height, visible_rect.y + visible_rect.h
+                ),
+                w: 0,
+                h: 0,
+            };
+        else
+            clamped = {
+                x: topleft.x,
+                y: topleft.y,
+                x2: topleft.x + this.width,
+                y2: topleft.y + this.height,
+                w: 0,
+                h: 0,
+            };
+        clamped.w = clamped.x2 - clamped.x;
+        clamped.h = clamped.y2 - clamped.y;
+        if (!(ctx as any).lod)
+            clamped = {
+                x: topleft.x, y: topleft.y, x2: 0, y2: 0,
+                w: this.width, h: this.height
+            };
+
         ctx.fillStyle = this.getCssProperty(renderer, bgstyle);
-        ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.strokeStyle = this.strokeStyle(renderer);
-        ctx.strokeRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.fillStyle = this.getCssProperty(renderer, fgstyle);
-        const textw = ctx.measureText(this.label()).width;
-        ctx.fillText(
-            this.label(), this.x - textw / 2, this.y + SDFV.LINEHEIGHT / 4
-        );
+        ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        if (clamped.x === topleft.x &&
+            clamped.y === topleft.y &&
+            clamped.x2 === topleft.x + this.width &&
+            clamped.y2 === topleft.y + this.height) {
+            ctx.strokeStyle = this.strokeStyle(renderer);
+            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        }
+        if (this.label()) {
+            ctx.fillStyle = this.getCssProperty(renderer, fgstyle);
+            const textw = ctx.measureText(this.label()).width;
+            if (!visible_rect)
+                ctx.fillText(
+                    this.label(), this.x - textw / 2, this.y + SDFV.LINEHEIGHT / 4
+                );
+            else if (visible_rect && visible_rect.x <= topleft.x &&
+                visible_rect.y <= topleft.y + SDFV.LINEHEIGHT)
+                ctx.fillText(
+                    this.label(), this.x - textw / 2, this.y + SDFV.LINEHEIGHT / 4
+                );
+        }
     }
 
     public simple_draw(
