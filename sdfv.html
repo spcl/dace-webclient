@@ -41,6 +41,24 @@
             <input type="button" id="search-btn" value="Search">
             <input type="checkbox" id="search-case"> Case Sensitive
         </form>
+        <form>
+            <textarea id="advsearch" style="font-family: monospace">
+(graph, element) => {
+  // Create a predicate that returns true for a match
+  // For example, finding transient arrays below  
+  if (element && element.data.node) {
+    let arrname = element.data.node.attributes.data;
+    if (arrname) {
+      let arr = element.sdfg.attributes._arrays[arrname];
+      if (arr && arr.attributes.transient)
+        return true;
+    }
+  }
+  return false;
+};
+            </textarea>
+            <input type="button" id="advsearch-btn" value="Advanced Search">
+        </form>
     </div>
     <div id="contents"></div>
 </body>
