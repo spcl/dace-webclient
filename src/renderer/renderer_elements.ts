@@ -175,14 +175,8 @@ export class SDFGElement {
     public getCssProperty(
         renderer: SDFGRenderer, propertyName: string
     ): string {
-        const canvas = renderer.get_canvas();
-        if (canvas)
-            return window.getComputedStyle(canvas).getPropertyValue(
-                propertyName
-            ).trim();
-        return '';
+        return renderer.getCssProperty(propertyName);
     }
-
 }
 
 // SDFG as an element (to support properties)
@@ -1774,12 +1768,12 @@ export function drawArrow(
     ctx: CanvasRenderingContext2D, p1: Point2D, p2: Point2D, size: number,
     offset: number = 0, padding: number = 0
 ): void {
-    ctx.save();
     // Rotate the context to point along the path
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
+    const rot = Math.atan2(dy, dx);
     ctx.translate(p2.x, p2.y);
-    ctx.rotate(Math.atan2(dy, dx));
+    ctx.rotate(rot);
 
     // arrowhead
     ctx.beginPath();
@@ -1788,7 +1782,11 @@ export function drawArrow(
     ctx.lineTo(((-2 * size) - padding) - offset, (size + padding));
     ctx.closePath();
     ctx.fill();
-    ctx.restore();
+
+    // Restore context
+    ctx.rotate(-rot);
+    ctx.translate(-p2.x, -p2.y);
+
 }
 
 export function drawTrapezoid(

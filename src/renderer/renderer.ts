@@ -97,6 +97,8 @@ export class SDFGRenderer {
     protected overlay_manager: OverlayManager;
     protected bgcolor: string | null = null;
     protected visible_rect: SimpleRect | null = null;
+    protected cssProps: { [key: string]: string } = {};
+
 
     // Toolbar related fields.
     protected menu: ContextMenu | null = null;
@@ -194,6 +196,22 @@ export class SDFGRenderer {
         } catch (ex) {
             // Do nothing
         }
+    }
+
+    public clearCssPropertyCache(): void {
+        this.cssProps = {};
+    }
+
+    public getCssProperty(property_name: string): string {
+        if (this.cssProps[property_name])
+            return this.cssProps[property_name];
+
+        if (this.canvas) {
+            const prop_val: string = window.getComputedStyle(this.canvas).getPropertyValue(property_name).trim();
+            this.cssProps[property_name] = prop_val;
+            return prop_val;
+        }
+        return '';
     }
 
     public view_settings(): any {
@@ -819,6 +837,7 @@ export class SDFGRenderer {
     }
 
     public draw_async(): void {
+        this.clearCssPropertyCache();
         this.canvas_manager?.draw_async();
     }
 
