@@ -22,7 +22,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
     public clear_cached_volume_values(): void {
         this.renderer.for_all_elements(0, 0, 0, 0, (
-            type: string, e: MouseEvent, obj: any, isected: boolean
+            type: string, e: MouseEvent, obj: any,
         ) => {
             if (obj.data) {
                 if (obj.data.volume !== undefined)
