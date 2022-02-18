@@ -11,6 +11,7 @@ import {
     SDFGNode,
     State,
     AccessNode,
+    NestedSDFG,
 } from './renderer/renderer_elements';
 import {
     RuntimeMicroSecondsOverlay
@@ -232,6 +233,21 @@ export class SDFV {
             const sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
             html += '<br /><h4>' + sdfg_array.type + ' properties:</h4>';
             for (const attr of Object.entries(sdfg_array.attributes)) {
+                if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
+                    attr[0].startsWith('_meta_'))
+                    continue;
+                html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
+                html += sdfg_property_to_string(
+                    attr[1], this.renderer?.view_settings()
+                ) + '</p>';
+            }
+        }
+
+        // If nested SDFG, add SDFG information too
+        if (elem instanceof NestedSDFG) {
+            const sdfg_sdfg = elem.attributes().sdfg;
+            html += '<br /><h4>SDFG properties:</h4>';
+            for (const attr of Object.entries(sdfg_sdfg.attributes)) {
                 if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
                     attr[0].startsWith('_meta_'))
                     continue;
