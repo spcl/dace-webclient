@@ -102,6 +102,4 @@ typings/
 # TernJS port file
 .tern-port
 
-*.code-workspace
-
 out/

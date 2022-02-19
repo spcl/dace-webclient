@@ -1,0 +1,44 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "npm",
+            "script": "watch",
+            "problemMatcher": "$tsc-watch",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "never",
+                "revealProblems": "onProblem",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "group": "build",
+            "label": "npm: watch",
+            "detail": "tsc -watch -p ./"
+        },
+        {
+            "type": "npm",
+            "script": "serve",
+            "problemMatcher": "$ts-webpack-watch",
+            "isBackground": true,
+            "label": "npm: serve",
+            "detail": "npm run serve",
+            "presentation": {
+                "echo": true,
+                "reveal": "never",
+                "revealProblems": "onProblem",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
