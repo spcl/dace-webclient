@@ -716,10 +716,9 @@ export function mouse_event(
     _elements: any[],
     renderer: SDFGRenderer,
     selected_elements: SDFGElement[],
-    ends_drag: boolean,
     sdfv: SDFV
 ): boolean {
-    if ((evtype === 'click' && !ends_drag) || evtype === 'dblclick') {
+    if (evtype === 'click' || evtype === 'dblclick') {
         const menu = renderer.get_menu();
         if (menu)
             menu.destroy();

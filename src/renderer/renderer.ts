@@ -47,6 +47,7 @@ import {
     SDFVTooltipFunc,
     SimpleRect
 } from '../index';
+import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -444,6 +445,27 @@ export class SDFGRenderer {
                                     else
                                         that.overlay_manager?.deregister_overlay(
                                             MemoryVolumeOverlay
+                                        );
+                                    that.draw_async();
+                                    that.emit_event(
+                                        'active_overlays_changed', null
+                                    );
+                                }
+                            );
+                            overlays_cmenu.addCheckableOption(
+                                'Logical Groups',
+                                that.overlay_manager ?
+                                    that.overlay_manager.is_overlay_active(
+                                        LogicalGroupOverlay
+                                    ) : false,
+                                (x: any, checked: boolean) => {
+                                    if (checked)
+                                        that.overlay_manager?.register_overlay(
+                                            LogicalGroupOverlay
+                                        );
+                                    else
+                                        that.overlay_manager?.deregister_overlay(
+                                            LogicalGroupOverlay
                                         );
                                     that.draw_async();
                                     that.emit_event(
@@ -2453,7 +2475,7 @@ export class SDFGRenderer {
         if (this.external_mouse_handler) {
             const ext_mh_dirty = this.external_mouse_handler(
                 evtype, event, { x: mouse_x, y: mouse_y }, elements,
-                this, this.selected_elements, ends_drag, this.sdfv_instance
+                this, this.selected_elements, this.sdfv_instance
             );
             dirty = dirty || ext_mh_dirty;
         }
