@@ -665,10 +665,11 @@ export class Edge extends SDFGElement {
 }
 
 export class Connector extends SDFGElement {
+    public custom_label: string | null = null;
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        _mousepos: Point2D | null
+        _mousepos: Point2D | null, edge: Edge | null = null
     ): void {
         const scope_connector = (
             this.data.name.startsWith('IN_') ||
@@ -693,16 +694,23 @@ export class Connector extends SDFGElement {
             fillColor = this.getCssProperty(
                 renderer, '--connector-scoped-color'
             );
+            this.custom_label = null;
+        } else if (!edge) {
+            ctx.stroke();
+            fillColor = this.getCssProperty(renderer, '--node-missing-background-color');
+            this.custom_label = "No edge connected";
         } else {
             ctx.stroke();
             fillColor = this.getCssProperty(
                 renderer, '--connector-unscoped-color'
             );
+            this.custom_label = null;
         }
 
         // PDFs do not support transparent fill colors
         if ((ctx as any).pdf)
             fillColor = fillColor.substr(0, 7);
+
         ctx.fillStyle = fillColor;
 
         // PDFs do not support stroke and fill on the same object
@@ -712,9 +720,8 @@ export class Connector extends SDFGElement {
             ctx.closePath();
         }
         ctx.fill();
-        if (this.strokeStyle(renderer) !== this.getCssProperty(
-            renderer, '--color-default'
-        ))
+
+        if (this.strokeStyle(renderer) !== this.getCssProperty(renderer, '--color-default'))
             renderer.set_tooltip((c) => this.tooltip(c));
     }
 
@@ -727,12 +734,18 @@ export class Connector extends SDFGElement {
     }
 
     public label(): string {
+        if (this.custom_label)
+            return this.custom_label;
         return this.data.name;
     }
 
     public tooltip(container: HTMLElement): void {
         super.tooltip(container);
-        container.classList.add('sdfvtooltip--connector');
+        if (this.custom_label)
+            container.classList.add('sdfvtooltip--error');
+        else
+            container.classList.add('sdfvtooltip--connector');
+
         container.innerText = this.label();
     }
 
@@ -1514,11 +1527,25 @@ export function draw_sdfg(
                 n.draw(renderer, ctx, mousepos);
                 n.debug_draw(renderer, ctx);
                 n.in_connectors.forEach((c: Connector) => {
-                    c.draw(renderer, ctx, mousepos);
+                    let edge: Edge | null = null;
+                    ng.inEdges(v).forEach((e: JsonSDFGEdge) => {
+                        const eobj: Edge = ng.edge(e);
+                        if (eobj.dst_connector == c.data.name)
+                            edge = eobj;
+                    });
+
+                    c.draw(renderer, ctx, mousepos, edge);
                     c.debug_draw(renderer, ctx);
                 });
                 n.out_connectors.forEach((c: Connector) => {
-                    c.draw(renderer, ctx, mousepos);
+                    let edge: Edge | null = null;
+                    ng.outEdges(v).forEach((e: JsonSDFGEdge) => {
+                        const eobj: Edge = ng.edge(e);
+                        if (eobj.src_connector == c.data.name)
+                            edge = eobj;
+                    });
+
+                    c.draw(renderer, ctx, mousepos, edge);
                     c.debug_draw(renderer, ctx);
                 });
             });
