@@ -19,6 +19,7 @@ import {
 import {
     DagreSDFG,
     Point2D,
+    sdfg_logical_groups_to_string,
     sdfg_property_to_string,
     traverse_sdfg_scopes,
 } from './index';
@@ -218,14 +219,28 @@ export class SDFV {
         html += '<hr />';
 
         for (const attr of Object.entries(elem.attributes())) {
-            if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
-                attr[0] === '_arrays' || attr[0].startsWith('_meta_') ||
-                attr[0] == 'position')
+            if (attr[0].startsWith('_meta_'))
                 continue;
-            html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
-            html += sdfg_property_to_string(
-                attr[1], this.renderer?.view_settings()
-            ) + '</p>';
+
+            switch (attr[0]) {
+                case 'layout':
+                case 'sdfg':
+                case '_arrays':
+                case 'position':
+                    continue;
+                case 'logical_groups':
+                    html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
+                    html += sdfg_logical_groups_to_string(
+                        attr[1] as any, this.renderer?.view_settings()
+                    ) + '<br />';
+                    break;
+                default:
+                    html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
+                    html += sdfg_property_to_string(
+                        attr[1], this.renderer?.view_settings()
+                    ) + '<br />';
+                    break;
+            }
         }
 
         // If access node, add array information too
@@ -239,7 +254,7 @@ export class SDFV {
                 html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
                 html += sdfg_property_to_string(
                     attr[1], this.renderer?.view_settings()
-                ) + '</p>';
+                ) + '<br />';
             }
         }
 
@@ -248,13 +263,26 @@ export class SDFV {
             const sdfg_sdfg = elem.attributes().sdfg;
             html += '<br /><h4>SDFG properties:</h4>';
             for (const attr of Object.entries(sdfg_sdfg.attributes)) {
-                if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
-                    attr[0].startsWith('_meta_'))
+                if (attr[0].startsWith('_meta_'))
                     continue;
-                html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
-                html += sdfg_property_to_string(
-                    attr[1], this.renderer?.view_settings()
-                ) + '</p>';
+
+                switch (attr[0]) {
+                    case 'layout':
+                    case 'sdfg':
+                        continue;
+                    case 'logical_groups':
+                        html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
+                        html += sdfg_logical_groups_to_string(
+                            attr[1] as any, this.renderer?.view_settings()
+                        ) + '<br />';
+                        break;
+                    default:
+                        html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
+                        html += sdfg_property_to_string(
+                            attr[1], this.renderer?.view_settings()
+                        ) + '<br />';
+                        break;
+                }
             }
         }
 

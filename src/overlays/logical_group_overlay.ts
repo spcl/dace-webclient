@@ -9,17 +9,12 @@ import {
 import { SDFV } from '../sdfv';
 import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 
-class LogicalGroup {
-
-    public constructor(
-        public readonly name: string,
-        public readonly color: string,
-        public readonly nodes: [number, number][] = [],
-        public readonly states: number[] = [],
-    ) {
-    }
-
-}
+export type LogicalGroup = {
+    name: string,
+    color: string,
+    nodes: [number, number][],
+    states: number[],
+};
 
 export class LogicalGroupOverlay extends GenericSdfgOverlay {
 
