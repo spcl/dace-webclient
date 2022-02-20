@@ -168,6 +168,9 @@ export class SDFGRenderer {
 
         this.overlay_manager = new OverlayManager(this);
 
+        // Register overlays that are turned on by default.
+        this.overlay_manager.register_overlay(LogicalGroupOverlay);
+
         this.in_vscode = false;
         try {
             vscode;
