@@ -4,6 +4,7 @@ export * from './overlays/generic_sdfg_overlay';
 export * from './overlays/memory_volume_overlay';
 export * from './overlays/runtime_micro_seconds_overlay';
 export * from './overlays/static_flops_overlay';
+export * from './overlays/logical_group_overlay';
 export * from './renderer/canvas_manager';
 export * from './renderer/renderer_elements';
 export * from './renderer/renderer';

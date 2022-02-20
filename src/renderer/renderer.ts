@@ -47,6 +47,7 @@ import {
     SDFVTooltipFunc,
     SimpleRect
 } from '../index';
+import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -166,6 +167,9 @@ export class SDFGRenderer {
         this.external_mouse_handler = on_mouse_event;
 
         this.overlay_manager = new OverlayManager(this);
+
+        // Register overlays that are turned on by default.
+        this.overlay_manager.register_overlay(LogicalGroupOverlay);
 
         this.in_vscode = false;
         try {
@@ -416,7 +420,29 @@ export class SDFGRenderer {
                         (that.ctx as any).lod = checked;
                     }
                 );
-                if (!that.in_vscode)
+                if (that.in_vscode) {
+                    cmenu.addCheckableOption(
+                        'Show Logical Groups',
+                        that.overlay_manager ?
+                            that.overlay_manager.is_overlay_active(
+                                LogicalGroupOverlay
+                            ) : false,
+                        (x: any, checked: boolean) => {
+                            if (checked)
+                                that.overlay_manager?.register_overlay(
+                                    LogicalGroupOverlay
+                                );
+                            else
+                                that.overlay_manager?.deregister_overlay(
+                                    LogicalGroupOverlay
+                                );
+                            that.draw_async();
+                            that.emit_event(
+                                'active_overlays_changed', null
+                            );
+                        }
+                    );
+                } else {
                     cmenu.addOption(
                         'Overlays',
                         () => {
@@ -451,10 +477,32 @@ export class SDFGRenderer {
                                     );
                                 }
                             );
+                            overlays_cmenu.addCheckableOption(
+                                'Logical Groups',
+                                that.overlay_manager ?
+                                    that.overlay_manager.is_overlay_active(
+                                        LogicalGroupOverlay
+                                    ) : false,
+                                (x: any, checked: boolean) => {
+                                    if (checked)
+                                        that.overlay_manager?.register_overlay(
+                                            LogicalGroupOverlay
+                                        );
+                                    else
+                                        that.overlay_manager?.deregister_overlay(
+                                            LogicalGroupOverlay
+                                        );
+                                    that.draw_async();
+                                    that.emit_event(
+                                        'active_overlays_changed', null
+                                    );
+                                }
+                            );
                             that.overlays_menu = overlays_cmenu;
                             that.overlays_menu.show(rect?.left, rect?.top);
                         }
                     );
+                }
                 cmenu.addCheckableOption(
                     'Hide Access Nodes',
                     that.omit_access_nodes,
@@ -2453,7 +2501,7 @@ export class SDFGRenderer {
         if (this.external_mouse_handler) {
             const ext_mh_dirty = this.external_mouse_handler(
                 evtype, event, { x: mouse_x, y: mouse_y }, elements,
-                this, this.selected_elements, ends_drag, this.sdfv_instance
+                this, this.selected_elements, this.sdfv_instance
             );
             dirty = dirty || ext_mh_dirty;
         }

@@ -1,6 +1,7 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { simplify } from 'mathjs';
+import { LogicalGroup } from '../../overlays/logical_group_overlay';
 
 export function sdfg_range_elem_to_string(
     range: any,
@@ -70,6 +71,10 @@ export function sdfg_property_to_string(
             preview += sdfg_range_elem_to_string(range, settings) + ', ';
         }
         return preview.slice(0, -2) + ']';
+    } else if (prop.type === 'LogicalGroup' && prop.color !== undefined &&
+        prop.name !== undefined) {
+        return '<span style="color: ' + prop.color + ';">' + prop.name + ' (' +
+            prop.color + ' )</span>';
     } else if (prop.language !== undefined) {
         // Code
         if (prop.string_data !== '' && prop.string_data !== undefined &&

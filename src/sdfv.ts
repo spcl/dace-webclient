@@ -218,14 +218,22 @@ export class SDFV {
         html += '<hr />';
 
         for (const attr of Object.entries(elem.attributes())) {
-            if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
-                attr[0] === '_arrays' || attr[0].startsWith('_meta_') ||
-                attr[0] == 'position')
+            if (attr[0].startsWith('_meta_'))
                 continue;
-            html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
-            html += sdfg_property_to_string(
-                attr[1], this.renderer?.view_settings()
-            ) + '</p>';
+
+            switch (attr[0]) {
+                case 'layout':
+                case 'sdfg':
+                case '_arrays':
+                case 'position':
+                    continue;
+                default:
+                    html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
+                    html += sdfg_property_to_string(
+                        attr[1], this.renderer?.view_settings()
+                    ) + '<br />';
+                    break;
+            }
         }
 
         // If access node, add array information too
@@ -239,7 +247,7 @@ export class SDFV {
                 html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
                 html += sdfg_property_to_string(
                     attr[1], this.renderer?.view_settings()
-                ) + '</p>';
+                ) + '<br />';
             }
         }
 
@@ -248,13 +256,20 @@ export class SDFV {
             const sdfg_sdfg = elem.attributes().sdfg;
             html += '<br /><h4>SDFG properties:</h4>';
             for (const attr of Object.entries(sdfg_sdfg.attributes)) {
-                if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
-                    attr[0].startsWith('_meta_'))
+                if (attr[0].startsWith('_meta_'))
                     continue;
-                html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
-                html += sdfg_property_to_string(
-                    attr[1], this.renderer?.view_settings()
-                ) + '</p>';
+
+                switch (attr[0]) {
+                    case 'layout':
+                    case 'sdfg':
+                        continue;
+                    default:
+                        html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
+                        html += sdfg_property_to_string(
+                            attr[1], this.renderer?.view_settings()
+                        ) + '<br />';
+                        break;
+                }
             }
         }
 
@@ -716,10 +731,9 @@ export function mouse_event(
     _elements: any[],
     renderer: SDFGRenderer,
     selected_elements: SDFGElement[],
-    ends_drag: boolean,
     sdfv: SDFV
 ): boolean {
-    if ((evtype === 'click' && !ends_drag) || evtype === 'dblclick') {
+    if (evtype === 'click' || evtype === 'dblclick') {
         const menu = renderer.get_menu();
         if (menu)
             menu.destroy();
