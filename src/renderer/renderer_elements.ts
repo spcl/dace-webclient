@@ -735,7 +735,7 @@ export class Connector extends SDFGElement {
 
     public label(): string {
         if (this.custom_label)
-            return this.custom_label;
+            return this.data.name + ': ' + this.custom_label;
         return this.data.name;
     }
 
