@@ -1166,7 +1166,8 @@ export class SDFGRenderer {
     }
 
     public save_as_png(): void {
-        this.save('sdfg.png', this.canvas?.toDataURL('image/png'));
+        const name = this.sdfg.attributes.name;
+        this.save(name + '.png', this.canvas?.toDataURL('image/png'));
     }
 
     public has_pdf(): boolean {
@@ -1226,7 +1227,8 @@ export class SDFGRenderer {
         this.draw_async();
 
         ctx.stream.on('finish', () => {
-            this.save('sdfg.pdf', ctx.stream.toBlobURL('application/pdf'));
+            const name = this.sdfg.attributes.name;
+            this.save(name + '.pdf', ctx.stream.toBlobURL('application/pdf'));
             this.ctx = oldctx;
             this.draw_async();
         });
