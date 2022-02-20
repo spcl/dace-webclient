@@ -39,7 +39,8 @@ export function sdfg_logical_groups_to_string(
 ): string {
     let ret = '';
     lgroups.forEach((group, i) => {
-        ret += group.name + ' (' + group.color + ')';
+        ret += group.name + ' <span style="color: ' + group.color + ';">(' +
+            group.color + ')</span>';
         if (i < lgroups.length - 1)
             ret += ', ';
     });
