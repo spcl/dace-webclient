@@ -45,7 +45,8 @@ import {
     ModeButtons,
     Point2D,
     SDFVTooltipFunc,
-    SimpleRect
+    SimpleRect,
+    stringify_sdfg,
 } from '../index';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
 
@@ -395,6 +396,11 @@ export class SDFGRenderer {
                 }
                 const rect = menu_button.getBoundingClientRect();
                 const cmenu = new ContextMenu();
+                if (!that.in_vscode) {
+                    cmenu.addOption(
+                        'Save SDFG as...', (_x: any) => that.save_sdfg()
+                    );
+                }
                 cmenu.addOption(
                     'Save view as PNG', (_x: any) => that.save_as_png()
                 );
@@ -1151,6 +1157,12 @@ export class SDFGRenderer {
             link.dispatchEvent(event);
             document.body.removeChild(link);
         });
+    }
+
+    public save_sdfg(): void {
+        const name = this.sdfg.attributes.name;
+        const contents = 'data:text/json;charset=utf-8,' + encodeURIComponent(stringify_sdfg(this.sdfg));
+        this.save(name + '.sdfg', contents);
     }
 
     public save_as_png(): void {
