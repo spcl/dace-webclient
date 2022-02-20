@@ -19,7 +19,6 @@ import {
 import {
     DagreSDFG,
     Point2D,
-    sdfg_logical_groups_to_string,
     sdfg_property_to_string,
     traverse_sdfg_scopes,
 } from './index';
@@ -228,12 +227,6 @@ export class SDFV {
                 case '_arrays':
                 case 'position':
                     continue;
-                case 'logical_groups':
-                    html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
-                    html += sdfg_logical_groups_to_string(
-                        attr[1] as any, this.renderer?.view_settings()
-                    ) + '<br />';
-                    break;
                 default:
                     html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
                     html += sdfg_property_to_string(
@@ -270,12 +263,6 @@ export class SDFV {
                     case 'layout':
                     case 'sdfg':
                         continue;
-                    case 'logical_groups':
-                        html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
-                        html += sdfg_logical_groups_to_string(
-                            attr[1] as any, this.renderer?.view_settings()
-                        ) + '<br />';
-                        break;
                     default:
                         html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
                         html += sdfg_property_to_string(

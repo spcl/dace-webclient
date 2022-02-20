@@ -33,20 +33,6 @@ export function sdfg_range_elem_to_string(
     return preview;
 }
 
-export function sdfg_logical_groups_to_string(
-    lgroups: LogicalGroup[],
-    settings: any = null
-): string {
-    let ret = '';
-    lgroups.forEach((group, i) => {
-        ret += group.name + ' <span style="color: ' + group.color + ';">(' +
-            group.color + ')</span>';
-        if (i < lgroups.length - 1)
-            ret += ', ';
-    });
-    return ret;
-}
-
 export function sdfg_consume_elem_to_string(
     num_pes: number,
     settings: any = null
@@ -85,6 +71,10 @@ export function sdfg_property_to_string(
             preview += sdfg_range_elem_to_string(range, settings) + ', ';
         }
         return preview.slice(0, -2) + ']';
+    } else if (prop.type === 'LogicalGroup' && prop.color !== undefined &&
+        prop.name !== undefined) {
+        return '<span style="color: ' + prop.color + ';">' + prop.name + ' (' +
+            prop.color + ' )</span>';
     } else if (prop.language !== undefined) {
         // Code
         if (prop.string_data !== '' && prop.string_data !== undefined &&
