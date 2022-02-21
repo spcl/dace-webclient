@@ -108,6 +108,7 @@ export class SDFGRenderer {
     protected panmode_btn: HTMLElement | null = null;
     protected movemode_btn: HTMLElement | null = null;
     protected selectmode_btn: HTMLElement | null = null;
+    protected filter_btn: HTMLElement | null = null;
     protected addmode_btns: HTMLElement[] = [];
     protected add_type: string | null = null;
     protected add_mode_lib: string | null = null;
@@ -694,6 +695,17 @@ export class SDFGRenderer {
                 // Tab is visible, do nothing
             }
         });
+
+        // Filter graph to selection
+        d = document.createElement('button');
+        d.className = 'button hidden';
+        d.innerHTML = '<i class="material-icons">content_cut</i>';
+        d.style.paddingBottom = '0px';
+        d.style.userSelect = 'none';
+        d.onclick = () => this.cutout_selection();
+        d.title = 'Filter selection (cutout)';
+        this.filter_btn = d;
+        this.toolbar.appendChild(d);
 
         // Exit previewing mode
         if (this.in_vscode) {
@@ -1846,7 +1858,7 @@ export class SDFGRenderer {
                 this.selected_elements.forEach(el => {
                     el.selected = false;
                 });
-                this.selected_elements = [];
+                this.deselect();
                 this.draw_async();
             }
         } else if (event.key === 'Delete' && event.type === 'keyup') {
@@ -1857,7 +1869,7 @@ export class SDFGRenderer {
                         nodes: this.selected_elements,
                     }
                 );
-            this.selected_elements = [];
+            this.deselect();
             this.draw_async();
         }
 
@@ -1889,6 +1901,7 @@ export class SDFGRenderer {
         let element_focus_changed = false;
         // Whether the current multi-selection changed
         let multi_selection_changed = false;
+        let selection_changed = false;
 
         if (evtype === 'mousedown' || evtype === 'touchstart') {
             this.drag_start = event;
@@ -2391,7 +2404,7 @@ export class SDFGRenderer {
                             el.selected = false;
                         });
                         this.selected_elements = [foreground_elem];
-
+                        selection_changed = true;
                     }
                 } else {
                     // Clicked nothing, clear the selection.
@@ -2405,6 +2418,7 @@ export class SDFGRenderer {
                         el.selected = false;
                     });
                     this.selected_elements = [];
+                    selection_changed = true;
                 }
                 dirty = true;
                 element_focus_changed = true;
@@ -2543,6 +2557,9 @@ export class SDFGRenderer {
                 }
             );
 
+        if (selection_changed || multi_selection_changed)
+            this.on_selection_changed();
+
         return false;
     }
 
@@ -2620,6 +2637,26 @@ export class SDFGRenderer {
         this.ext_event_handlers.push(handler);
     }
 
+    public on_selection_changed(): void {
+        if (this.selected_elements.length > 0 && this.filter_btn)
+            this.filter_btn.className = 'button';
+        else if (this.filter_btn)
+            this.filter_btn.className = 'button hidden';
+    }
+
+    public deselect(): void {
+        this.selected_elements.forEach((el) => {
+            el.selected = false;
+        });
+        this.selected_elements = [];
+        this.on_selection_changed();
+    }
+
+    public cutout_selection(): void {
+        // Clear selection and redraw
+        this.deselect();
+        this.draw_async();
+    }
 }
 
 
