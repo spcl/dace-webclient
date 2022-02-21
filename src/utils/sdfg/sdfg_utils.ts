@@ -295,3 +295,28 @@ export function delete_positioning_info(elem: any): void {
     if (elem?.attributes)
         delete elem.attributes.position;
 }
+
+
+export function find_root_sdfg(sdfgs: Iterable<number>, sdfg_tree: {[key: number]: number}): number | null {
+    const make_sdfg_path = (sdfg: number, array: Array<number>) => {
+        array.push(sdfg);
+        if (sdfg in sdfg_tree) {
+            make_sdfg_path(sdfg_tree[sdfg], array);
+        }
+    };
+    let common_sdfgs: Array<number> | null = null;
+    for (const sid of sdfgs) {
+        const path: Array<number> = [];
+        make_sdfg_path(sid, path);
+
+        if (common_sdfgs === null)
+            common_sdfgs = path;
+        else
+            common_sdfgs = [...common_sdfgs].filter((x: number) => path.includes(x));
+    }
+    // Return the first one (greatest common denominator)
+    if (common_sdfgs && common_sdfgs.length > 0)
+        return common_sdfgs[0];
+    // No root SDFG found
+    return null;
+}

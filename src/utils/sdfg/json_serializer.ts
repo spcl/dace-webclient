@@ -1,6 +1,6 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { JsonSDFG } from '../../index';
+import { Edge, JsonSDFG } from '../../index';
 
 // Recursively parse SDFG, including nested SDFG nodes
 export function parse_sdfg(sdfg_json: string): JsonSDFG {
@@ -23,10 +23,9 @@ function isDict(v: unknown): v is Record<string, unknown> {
         !(v instanceof Date);
 }
 
-function replacer(_name: string, val: unknown, orig_sdfg: unknown): unknown {
-    if (val && isDict(val) && val !== orig_sdfg && 'type' in val &&
-        val.type === 'SDFG') {
-        return JSON.stringify(val, (n, v) => replacer(n, v, val));
+function replacer(name: string, val: unknown, orig_sdfg: unknown): unknown {
+    if (name === 'edge' && val instanceof Edge) {  // Skip circular dependencies
+        return undefined;
     }
     return val;
 }
