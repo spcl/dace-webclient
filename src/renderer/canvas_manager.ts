@@ -7,7 +7,7 @@ import {
     get_positioning_info,
     initialize_positioning_info,
 } from '../utils/sdfg/sdfg_utils';
-import { SDFGRenderer } from './renderer';
+import { SDFGRenderer, SDFGListType } from './renderer';
 import { DagreSDFG, intersectRect, Point2D } from '../index';
 
 const animation_duration = 1000;
@@ -334,7 +334,7 @@ export class CanvasManager {
         old_mousepos: Point2D,
         new_mousepos: Point2D,
         entire_graph: DagreSDFG,
-        sdfg_list: any[],
+        sdfg_list: SDFGListType,
         state_parent_list: any[],
         drag_start: any,
         update_position_info: boolean = true,

@@ -58,6 +58,10 @@ declare const canvas2pdf: any;
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any | null;
 
+type SDFGElementType = 'states' | 'nodes' | 'edges' | 'isedges';
+// If type is explicitly set, dagre typecheck fails with integer node ids
+export type SDFGListType = any[];//{ [key: number]: DagreSDFG };
+
 function check_valid_add_position(
     type: string | null, foreground_elem: SDFGElement | undefined | null,
     lib: any, mousepos: any
