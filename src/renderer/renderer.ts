@@ -25,7 +25,7 @@ import {
     AccessNode,
     EntryNode,
 } from './renderer_elements';
-import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
+import { check_and_redirect_edge, find_root_sdfg } from '../utils/sdfg/sdfg_utils';
 import { memlet_tree_complete } from '../utils/sdfg/traversal';
 import { CanvasManager } from './canvas_manager';
 import {
@@ -88,6 +88,7 @@ export class SDFGRenderer {
 
     protected sdfg_list: any = {};
     protected graph: DagreSDFG | null = null;
+    protected sdfg_tree: { [key: number]: number } = {};  // Parent-pointing SDFG tree
     // List of all state's parent elements.
     protected state_parent_list: any = {};
     protected in_vscode: boolean = false;
@@ -186,7 +187,7 @@ export class SDFGRenderer {
 
         this.init_elements(user_transform, background, mode_buttons);
 
-        this.relayout();
+        this.set_sdfg(sdfg, false);
 
         this.all_memlet_trees_sdfg = memlet_tree_complete(this.sdfg);
 
@@ -916,11 +917,13 @@ export class SDFGRenderer {
             handler(type, data);
     }
 
-    public set_sdfg(new_sdfg: JsonSDFG): void {
+    public set_sdfg(new_sdfg: JsonSDFG, layout: boolean = true): void {
         this.sdfg = new_sdfg;
 
-        this.relayout();
-        this.draw_async();
+        if (layout) {
+            this.relayout();
+            this.draw_async();
+        }
 
         // Update info box
         if (this.selected_elements.length == 1) {
@@ -930,6 +933,13 @@ export class SDFGRenderer {
                     find_graph_element_by_uuid(this.graph, uuid).element
                 );
         }
+
+        // Update SDFG metadata
+        this.sdfg_tree = {};
+        this.for_all_sdfg_elements((otype: SDFGElementType, odict: any, obj: any) => {
+            if (obj.type === 'NestedSDFG')
+                this.sdfg_tree[obj.attributes.sdfg.sdfg_list_id] = odict.sdfg.sdfg_list_id;
+        });
     }
 
     // Set mouse events (e.g., click, drag, zoom)
@@ -1116,7 +1126,7 @@ export class SDFGRenderer {
     }
 
     public collapse_all(): void {
-        this.for_all_sdfg_elements((otype: any, odict: any, obj: any) => {
+        this.for_all_sdfg_elements((otype: SDFGElementType, odict: any, obj: any) => {
             if ('is_collapsed' in obj.attributes && !obj.type.endsWith('Exit'))
                 obj.attributes.is_collapsed = true;
         });
@@ -1131,7 +1141,7 @@ export class SDFGRenderer {
     }
 
     public expand_all(): void {
-        this.for_all_sdfg_elements((otype: any, odict: any, obj: any) => {
+        this.for_all_sdfg_elements((otype: SDFGElementType, odict: any, obj: any) => {
             if ('is_collapsed' in obj.attributes && !obj.type.endsWith('Exit'))
                 obj.attributes.is_collapsed = false;
         });
@@ -1146,7 +1156,7 @@ export class SDFGRenderer {
     }
 
     public reset_positions(): void {
-        this.for_all_sdfg_elements((otype: any, odict: any, obj: any) => {
+        this.for_all_sdfg_elements((otype: SDFGElementType, odict: any, obj: any) => {
             delete_positioning_info(obj);
         });
 
@@ -1961,7 +1971,7 @@ export class SDFGRenderer {
                                     // moved together with its parent state
                                     const state_parent =
                                         this.sdfg_list[list_id].node(
-                                            el.parent_id
+                                            el.parent_id!.toString()
                                         );
                                     if (state_parent &&
                                         this.selected_elements.includes(
@@ -2657,9 +2667,121 @@ export class SDFGRenderer {
     }
 
     public cutout_selection(): void {
+        /*
+        Rule set for creating a cutout subgraph:
+          * Edges are selected according to the subgraph nodes - all edges between subgraph nodes are preserved.
+          * In any element that contains other elements (state, nested SDFG, scopes), the full contents are used.
+          * If more than one element is selected from different contexts (two nodes from two states), the parents
+            will be preserved.
+        */
+        // Collect nodes and states
+        const sdfgs: Set<number> = new Set<number>();
+        const sdfg_list: { [key: string]: JsonSDFG } = {};
+        const states: { [key: string]: Array<number> } = {};
+        const nodes: { [key: string]: Array<number> } = {};
+        for (const elem of this.selected_elements) {
+            // Ignore edges and connectors
+            if (elem instanceof Edge || elem instanceof Connector)
+                continue;
+            const sdfg_id = elem.sdfg.sdfg_list_id;
+            sdfg_list[sdfg_id] = elem.sdfg;
+            sdfgs.add(sdfg_id);
+            let state_id: number = -1;
+            if (elem.parent_id !== null) {
+                const state_uid: string = JSON.stringify([sdfg_id, elem.parent_id]);
+                if (state_uid in nodes)
+                    nodes[state_uid].push(elem.id);
+                else
+                    nodes[state_uid] = [elem.id];
+                state_id = elem.parent_id;
+            } else {
+                // Add all nodes from state
+                const state_uid: string = JSON.stringify([sdfg_id, elem.id]);
+                nodes[state_uid] = [...elem.data.state.nodes.keys()];
+                state_id = elem.id;
+            }
+            // Register state
+            if (sdfg_id in states)
+                states[sdfg_id].push(state_id);
+            else
+                states[sdfg_id] = [state_id];
+        }
+
         // Clear selection and redraw
         this.deselect();
-        this.draw_async();
+
+        if (Object.keys(nodes).length === 0) {  // Nothing to cut out
+            this.draw_async();
+            return;
+        }
+
+        // Find root SDFG and root state (if possible)
+        const root_sdfg_id = find_root_sdfg(sdfgs, this.sdfg_tree);
+        if (root_sdfg_id !== null) {
+            const root_sdfg = sdfg_list[root_sdfg_id];
+
+            // For every participating state, filter out irrelevant nodes and memlets
+            for (const nkey of Object.keys(nodes)) {
+                const [sdfg_id, state_id] = JSON.parse(nkey);
+                const sdfg = sdfg_list[sdfg_id];
+                const state: JsonSDFGState = sdfg.nodes[state_id];
+                nodes[nkey].sort((a, b) => (a - b));
+                const mapping: { [key: string]: string } = { '-1': '-1' };
+                state.nodes.forEach((n: JsonSDFGNode) => mapping[n.id] = '-1');
+                state.nodes = state.nodes.filter((_v, ind: number) => nodes[nkey].includes(ind));
+                state.edges = state.edges.filter((e: JsonSDFGEdge) => (nodes[nkey].includes(parseInt(e.src)) &&
+                    nodes[nkey].includes(parseInt(e.dst))));
+
+                // Remap node and edge indices
+                state.nodes.forEach((n: JsonSDFGNode, index: number) => {
+                    mapping[n.id] = index.toString();
+                    n.id = index;
+                });
+                state.edges.forEach((e: JsonSDFGEdge) => {
+                    e.src = mapping[e.src];
+                    e.dst = mapping[e.dst];
+                });
+                // Remap scope dictionaries
+                state.nodes.forEach((n: JsonSDFGNode) => {
+                    if (n.scope_entry !== null)
+                        n.scope_entry = mapping[n.scope_entry];
+                    if (n.scope_exit !== null)
+                        n.scope_exit = mapping[n.scope_exit];
+                });
+                const new_scope_dict: any = {};
+                for (const sdkey of Object.keys(state.scope_dict)) {
+                    const old_scope = state.scope_dict[sdkey];
+                    const new_scope = old_scope.filter((v: any) => mapping[v] !== '-1').map((v: any) => mapping[v]);
+                    if ((sdkey === '-1') || (sdkey in mapping && mapping[sdkey] !== '-1'))
+                        new_scope_dict[mapping[sdkey]] = new_scope;
+                }
+                state.scope_dict = new_scope_dict;
+            }
+
+            // For every participating SDFG, filter out irrelevant states and interstate edges
+            for (const sdfg_id of Object.keys(states)) {
+                const sdfg = sdfg_list[sdfg_id];
+                states[sdfg_id].sort((a, b) => (a - b));
+                sdfg.nodes = sdfg.nodes.filter((_v, ind: number) => states[sdfg_id].includes(ind));
+                sdfg.edges = sdfg.edges.filter((e: JsonSDFGEdge) => (states[sdfg_id].includes(parseInt(e.src)) &&
+                    states[sdfg_id].includes(parseInt(e.dst))));
+
+                // Remap node and edge indices
+                const mapping: { [key: string]: string } = {};
+                sdfg.nodes.forEach((n: JsonSDFGState, index: number) => {
+                    mapping[n.id] = index.toString();
+                    n.id = index;
+                });
+                sdfg.edges.forEach((e: JsonSDFGEdge) => {
+                    e.src = mapping[e.src];
+                    e.dst = mapping[e.dst];
+                });
+            }
+
+            // Set root SDFG as the new SDFG
+            this.set_sdfg(root_sdfg);
+        }
+
     }
 }
 
@@ -2709,7 +2831,7 @@ function calculateNodeSize(
 function relayout_sdfg(
     ctx: any,
     sdfg: any,
-    sdfg_list: any[],
+    sdfg_list: SDFGListType,
     state_parent_list: any[],
     omit_access_nodes: boolean
 ): DagreSDFG {
