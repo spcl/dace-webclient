@@ -9,6 +9,7 @@ import {
 } from '../../renderer/renderer_elements';
 import {
     DagreSDFG,
+    JsonSDFG,
     JsonSDFGEdge,
     JsonSDFGNode,
     JsonSDFGState,
@@ -75,7 +76,7 @@ export function find_exit_for_entry(
  *
  * @returns             String containing the UUID
  */
- export function get_uuid_graph_element(element: SDFGElement | null): string {
+export function get_uuid_graph_element(element: SDFGElement | null): string {
     const undefined_val = -1;
     if (element instanceof State) {
         return (
@@ -137,12 +138,12 @@ export function find_graph_element_by_uuid(
     p_graph: DagreSDFG | undefined | null, uuid: string
 ): { parent: DagreSDFG | undefined, element: any } {
     const uuid_split = uuid.split('/');
-    
+
     const graph_id = Number(uuid_split[0]);
     const state_id = Number(uuid_split[1]);
     const node_id = Number(uuid_split[2]);
     const edge_id: any = Number(uuid_split[3]);
-    
+
     let result: {
         parent: DagreSDFG | undefined,
         element: any,
@@ -153,7 +154,7 @@ export function find_graph_element_by_uuid(
 
     if (!p_graph)
         return result;
-    
+
     let graph = p_graph;
     if (graph_id > 0) {
         const found_graph = recursively_find_graph(graph, graph_id);
@@ -166,7 +167,7 @@ export function find_graph_element_by_uuid(
             element: found_graph.node,
         };
     }
-    
+
     let state = undefined;
     if (state_id !== -1 && graph !== undefined) {
         state = graph.node(state_id.toString());
@@ -175,7 +176,7 @@ export function find_graph_element_by_uuid(
             element: state,
         };
     }
-    
+
     if (node_id !== -1 && state !== undefined && state.data.graph !== null) {
         // Look for a node in a state.
         result = {
@@ -198,7 +199,7 @@ export function find_graph_element_by_uuid(
             element: graph.edge(edge_id),
         };
     }
-    
+
     return result;
 }
 
@@ -297,7 +298,7 @@ export function delete_positioning_info(elem: any): void {
 }
 
 
-export function find_root_sdfg(sdfgs: Iterable<number>, sdfg_tree: {[key: number]: number}): number | null {
+export function find_root_sdfg(sdfgs: Iterable<number>, sdfg_tree: { [key: number]: number }): number | null {
     const make_sdfg_path = (sdfg: number, array: Array<number>) => {
         array.push(sdfg);
         if (sdfg in sdfg_tree) {
@@ -319,4 +320,74 @@ export function find_root_sdfg(sdfgs: Iterable<number>, sdfg_tree: {[key: number
         return common_sdfgs[0];
     // No root SDFG found
     return null;
+}
+
+// In-place delete of SDFG state nodes.
+export function delete_sdfg_nodes(sdfg: JsonSDFG, state_id: number, nodes: Array<number>, delete_others = false): void {
+    const state: JsonSDFGState = sdfg.nodes[state_id];
+    nodes.sort((a, b) => (a - b));
+    const mapping: { [key: string]: string } = { '-1': '-1' };
+    state.nodes.forEach((n: JsonSDFGNode) => mapping[n.id] = '-1');
+    let predicate: CallableFunction;
+    if (delete_others)
+        predicate = (ind: number) => nodes.includes(ind);
+    else
+        predicate = (ind: number) => !nodes.includes(ind);
+
+    state.nodes = state.nodes.filter((_v, ind: number) => predicate(ind));
+    state.edges = state.edges.filter((e: JsonSDFGEdge) => (predicate(parseInt(e.src)) &&
+        predicate(parseInt(e.dst))));
+
+    // Remap node and edge indices
+    state.nodes.forEach((n: JsonSDFGNode, index: number) => {
+        mapping[n.id] = index.toString();
+        n.id = index;
+    });
+    state.edges.forEach((e: JsonSDFGEdge) => {
+        e.src = mapping[e.src];
+        e.dst = mapping[e.dst];
+    });
+    // Remap scope dictionaries
+    state.nodes.forEach((n: JsonSDFGNode) => {
+        if (n.scope_entry !== null)
+            n.scope_entry = mapping[n.scope_entry];
+        if (n.scope_exit !== null)
+            n.scope_exit = mapping[n.scope_exit];
+    });
+    const new_scope_dict: any = {};
+    for (const sdkey of Object.keys(state.scope_dict)) {
+        const old_scope = state.scope_dict[sdkey];
+        const new_scope = old_scope.filter((v: any) => mapping[v] !== '-1').map((v: any) => mapping[v]);
+        if ((sdkey === '-1') || (sdkey in mapping && mapping[sdkey] !== '-1'))
+            new_scope_dict[mapping[sdkey]] = new_scope;
+    }
+    state.scope_dict = new_scope_dict;
+}
+
+export function delete_sdfg_states(sdfg: JsonSDFG, states: Array<number>, delete_others = false): void {
+    states.sort((a, b) => (a - b));
+    let predicate: CallableFunction;
+    if (delete_others)
+        predicate = (ind: number) => states.includes(ind);
+    else
+        predicate = (ind: number) => !states.includes(ind);
+
+    sdfg.nodes = sdfg.nodes.filter((_v, ind: number) => predicate(ind));
+    sdfg.edges = sdfg.edges.filter((e: JsonSDFGEdge) => (predicate(parseInt(e.src)) &&
+        predicate(parseInt(e.dst))));
+
+    // Remap node and edge indices
+    const mapping: { [key: string]: string } = {};
+    sdfg.nodes.forEach((n: JsonSDFGState, index: number) => {
+        mapping[n.id] = index.toString();
+        n.id = index;
+    });
+    sdfg.edges.forEach((e: JsonSDFGEdge) => {
+        e.src = mapping[e.src];
+        e.dst = mapping[e.dst];
+    });
+    if (mapping[sdfg.start_state] === '-1')
+        sdfg.start_state = 0;
+    else
+        sdfg.start_state = parseInt(mapping[sdfg.start_state]);
 }

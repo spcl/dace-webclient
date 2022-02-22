@@ -7,6 +7,10 @@ import {
     delete_positioning_info,
     get_uuid_graph_element,
     find_graph_element_by_uuid,
+    find_root_sdfg,
+    delete_sdfg_nodes,
+    delete_sdfg_states,
+    check_and_redirect_edge,
 } from '../utils/sdfg/sdfg_utils';
 import { deepCopy, intersectRect } from '../utils/utils';
 import { traverse_sdfg_scopes } from '../utils/sdfg/traversal';
@@ -25,7 +29,6 @@ import {
     AccessNode,
     EntryNode,
 } from './renderer_elements';
-import { check_and_redirect_edge, find_root_sdfg } from '../utils/sdfg/sdfg_utils';
 import { memlet_tree_complete } from '../utils/sdfg/traversal';
 import { CanvasManager } from './canvas_manager';
 import {
@@ -2724,62 +2727,13 @@ export class SDFGRenderer {
             for (const nkey of Object.keys(nodes)) {
                 const [sdfg_id, state_id] = JSON.parse(nkey);
                 const sdfg = sdfg_list[sdfg_id];
-                const state: JsonSDFGState = sdfg.nodes[state_id];
-                nodes[nkey].sort((a, b) => (a - b));
-                const mapping: { [key: string]: string } = { '-1': '-1' };
-                state.nodes.forEach((n: JsonSDFGNode) => mapping[n.id] = '-1');
-                state.nodes = state.nodes.filter((_v, ind: number) => nodes[nkey].includes(ind));
-                state.edges = state.edges.filter((e: JsonSDFGEdge) => (nodes[nkey].includes(parseInt(e.src)) &&
-                    nodes[nkey].includes(parseInt(e.dst))));
-
-                // Remap node and edge indices
-                state.nodes.forEach((n: JsonSDFGNode, index: number) => {
-                    mapping[n.id] = index.toString();
-                    n.id = index;
-                });
-                state.edges.forEach((e: JsonSDFGEdge) => {
-                    e.src = mapping[e.src];
-                    e.dst = mapping[e.dst];
-                });
-                // Remap scope dictionaries
-                state.nodes.forEach((n: JsonSDFGNode) => {
-                    if (n.scope_entry !== null)
-                        n.scope_entry = mapping[n.scope_entry];
-                    if (n.scope_exit !== null)
-                        n.scope_exit = mapping[n.scope_exit];
-                });
-                const new_scope_dict: any = {};
-                for (const sdkey of Object.keys(state.scope_dict)) {
-                    const old_scope = state.scope_dict[sdkey];
-                    const new_scope = old_scope.filter((v: any) => mapping[v] !== '-1').map((v: any) => mapping[v]);
-                    if ((sdkey === '-1') || (sdkey in mapping && mapping[sdkey] !== '-1'))
-                        new_scope_dict[mapping[sdkey]] = new_scope;
-                }
-                state.scope_dict = new_scope_dict;
+                delete_sdfg_nodes(sdfg, state_id, nodes[nkey], true);
             }
 
             // For every participating SDFG, filter out irrelevant states and interstate edges
             for (const sdfg_id of Object.keys(states)) {
                 const sdfg = sdfg_list[sdfg_id];
-                states[sdfg_id].sort((a, b) => (a - b));
-                sdfg.nodes = sdfg.nodes.filter((_v, ind: number) => states[sdfg_id].includes(ind));
-                sdfg.edges = sdfg.edges.filter((e: JsonSDFGEdge) => (states[sdfg_id].includes(parseInt(e.src)) &&
-                    states[sdfg_id].includes(parseInt(e.dst))));
-
-                // Remap node and edge indices
-                const mapping: { [key: string]: string } = {};
-                sdfg.nodes.forEach((n: JsonSDFGState, index: number) => {
-                    mapping[n.id] = index.toString();
-                    n.id = index;
-                });
-                sdfg.edges.forEach((e: JsonSDFGEdge) => {
-                    e.src = mapping[e.src];
-                    e.dst = mapping[e.dst];
-                });
-                if (mapping[sdfg.start_state] === '-1')
-                    sdfg.start_state = 0;
-                else
-                    sdfg.start_state = parseInt(mapping[sdfg.start_state]);
+                delete_sdfg_states(sdfg, states[sdfg_id], true);
             }
 
             // Set root SDFG as the new SDFG
