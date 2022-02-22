@@ -2776,6 +2776,10 @@ export class SDFGRenderer {
                     e.src = mapping[e.src];
                     e.dst = mapping[e.dst];
                 });
+                if (mapping[sdfg.start_state] === '-1')
+                    sdfg.start_state = 0;
+                else
+                    sdfg.start_state = parseInt(mapping[sdfg.start_state]);
             }
 
             // Set root SDFG as the new SDFG
