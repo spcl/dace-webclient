@@ -1,7 +1,7 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { parse_sdfg } from './utils/sdfg/json_serializer';
-import { mean, median } from 'mathjs';
+import { parse_sdfg, stringify_sdfg } from './utils/sdfg/json_serializer';
+import { mean, median, string } from 'mathjs';
 import { SDFGRenderer } from './renderer/renderer';
 import { htmlSanitize } from './utils/sanitization';
 import {
@@ -18,11 +18,14 @@ import {
 } from './overlays/runtime_micro_seconds_overlay';
 import {
     DagreSDFG,
+    GenericSdfgOverlay,
+    JsonSDFG,
     Point2D,
     sdfg_property_to_string,
     traverse_sdfg_scopes,
 } from './index';
 import $ from 'jquery';
+import { OverlayManager } from './overlay_manager';
 
 let fr: FileReader;
 let file: File | null = null;
@@ -76,12 +79,14 @@ export class SDFV {
                 ) + 'px';
         };
 
-        bar?.addEventListener('mousedown', () => {
-            document.addEventListener('mousemove', drag);
-            document.addEventListener('mouseup', () => {
-                document.removeEventListener('mousemove', drag);
+        if (bar) {
+            bar.addEventListener('mousedown', () => {
+                document.addEventListener('mousemove', drag);
+                document.addEventListener('mouseup', () => {
+                    document.removeEventListener('mousemove', drag);
+                });
             });
-        });
+        }
     }
 
     public sidebar_set_title(title: string): void {
@@ -777,3 +782,31 @@ $(() => {
 
     sdfv.init_menu();
 });
+
+// Define global exports outside of webpack
+declare global {
+    interface Window {
+        // Extensible classes for rendering and overlays
+        OverlayManager: typeof OverlayManager;
+        GenericSdfgOverlay: typeof GenericSdfgOverlay;
+        SDFGElement: typeof SDFGElement;
+
+        // API classes
+        SDFV: typeof SDFV;
+        SDFGRenderer: typeof SDFGRenderer;
+
+        // Exported functions
+        parse_sdfg: (sdfg_json: string) => JsonSDFG;
+        stringify_sdfg: (sdfg: JsonSDFG) => string;
+        init_sdfv: (sdfg: JsonSDFG, user_transform?: DOMMatrix | null, debug_draw?: boolean, existing_sdfv?: SDFV | null) => SDFV;
+    }
+}
+
+window.OverlayManager = OverlayManager;
+window.GenericSdfgOverlay = GenericSdfgOverlay;
+window.SDFGElement = SDFGElement;
+window.SDFV = SDFV;
+window.SDFGRenderer = SDFGRenderer;
+window.parse_sdfg = parse_sdfg;
+window.stringify_sdfg = stringify_sdfg;
+window.init_sdfv = init_sdfv;
