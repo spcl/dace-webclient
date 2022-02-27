@@ -697,11 +697,7 @@ export class SDFGRenderer {
         document.addEventListener('keydown', (e) => this.on_key_event(e));
         document.addEventListener('keyup', (e) => this.on_key_event(e));
         document.addEventListener("visibilitychange", () => {
-            if (document.hidden) {
-                this.clear_key_events();
-            } else {
-                // Tab is visible, do nothing
-            }
+            this.clear_key_events();
         });
 
         // Filter graph to selection
