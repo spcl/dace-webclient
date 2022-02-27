@@ -76,12 +76,14 @@ export class SDFV {
                 ) + 'px';
         };
 
-        bar?.addEventListener('mousedown', () => {
-            document.addEventListener('mousemove', drag);
-            document.addEventListener('mouseup', () => {
-                document.removeEventListener('mousemove', drag);
+        if (bar) {
+            bar.addEventListener('mousedown', () => {
+                document.addEventListener('mousemove', drag);
+                document.addEventListener('mouseup', () => {
+                    document.removeEventListener('mousemove', drag);
+                });
             });
-        });
+        }
     }
 
     public sidebar_set_title(title: string): void {
