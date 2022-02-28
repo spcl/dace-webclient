@@ -697,11 +697,7 @@ export class SDFGRenderer {
         document.addEventListener('keydown', (e) => this.on_key_event(e));
         document.addEventListener('keyup', (e) => this.on_key_event(e));
         document.addEventListener("visibilitychange", () => {
-            if (document.hidden) {
-                this.clear_key_events();
-            } else {
-                // Tab is visible, do nothing
-            }
+            this.clear_key_events();
         });
 
         // Filter graph to selection
@@ -1900,15 +1896,18 @@ export class SDFGRenderer {
             this.set_sdfg(this.sdfg); // Reset and relayout
         }
 
-        if (event.ctrlKey && !event.shiftKey) {
-            if (this.selectmode_btn?.onclick)
-                (this.selectmode_btn as any).onclick(event, true);
-        }
+        // Ctrl + Shift Accelerators temporarily disabled due to a bug with
+        // stuck accelerator keys when shift/ctrl tabbing.
+        // TODO(later): fix and re-add
+        //if (event.ctrlKey && !event.shiftKey) {
+        //    if (this.selectmode_btn?.onclick)
+        //        (this.selectmode_btn as any).onclick(event, true);
+        //}
 
-        if (event.shiftKey && !event.ctrlKey) {
-            if (this.movemode_btn?.onclick)
-                (this.movemode_btn as any).onclick(event, true);
-        }
+        //if (event.shiftKey && !event.ctrlKey) {
+        //    if (this.movemode_btn?.onclick)
+        //        (this.movemode_btn as any).onclick(event, true);
+        //}
 
         return true;
     }
