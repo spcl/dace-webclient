@@ -44,12 +44,14 @@ export class GenericSdfgOverlay {
         return;
     }
 
+    // TODO(later): Refactor 'badness' to 'severity'. Everywhere.
     public get_badness_value(val: number): number {
         let badness = 0;
 
         switch (this.overlay_manager.get_badness_scale_method()) {
             case 'hist':
                 {
+                    // TODO(later): Allow the user to select a number of bins.
                     const idx = this.badness_hist_buckets.indexOf(val);
                     if (idx < 0)
                         badness = 0;
