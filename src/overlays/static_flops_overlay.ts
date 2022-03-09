@@ -199,31 +199,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
             return;
 
         // Calculate the severity color.
-        let badness = 0;
-
-        switch (this.overlay_manager.get_badness_scale_method()) {
-            case 'hist':
-                {
-                    const idx = this.badness_hist_buckets.indexOf(flops);
-                    if (idx < 0)
-                        badness = 0;
-                    else
-                        badness = idx / (this.badness_hist_buckets.length - 1);
-                }
-                break;
-            case 'mean':
-            case 'median':
-            default:
-                badness = (1 / (this.badness_scale_center * 2)) * flops;
-                break;
-        }
-
-
-        if (badness < 0)
-            badness = 0;
-        if (badness > 1)
-            badness = 1;
-        const color = getTempColor(badness);
+        const color = getTempColor(this.get_badness_value(flops));
 
         node.shade(this.renderer, ctx, color);
     }
