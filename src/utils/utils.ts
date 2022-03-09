@@ -8,7 +8,6 @@ import {
     State
 } from '../renderer/renderer_elements';
 import { Point2D } from '..';
-import { median } from 'mathjs';
 
 export function equals<T>(a: T, b: T): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
