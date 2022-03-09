@@ -112,8 +112,9 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
     public recalculate_volume_values(graph: DagreSDFG): void {
         this.badness_scale_center = 5;
+        this.badness_hist_buckets = [];
 
-        const volume_values = [0];
+        const volume_values: number[] = [];
         this.calculate_volume_graph(
             graph,
             this.symbol_resolver.get_symbol_value_map(),
@@ -121,6 +122,10 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         );
 
         switch (this.overlay_manager.get_badness_scale_method()) {
+            case 'hist':
+                this.badness_hist_buckets = [...new Set(volume_values)];
+                this.badness_hist_buckets.sort((a, b) => { return a - b; });
+                break;
             case 'mean':
                 this.badness_scale_center = mean(volume_values);
                 break;
@@ -129,6 +134,9 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 this.badness_scale_center = median(volume_values);
                 break;
         }
+
+        if (volume_values.length === 0)
+            volume_values.push(0);
     }
 
     public refresh(): void {
@@ -147,12 +155,8 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
             if (volume <= 0)
                 return;
 
-            let badness = (1 / (this.badness_scale_center * 2)) * volume;
-            if (badness < 0)
-                badness = 0;
-            if (badness > 1)
-                badness = 1;
-            const color = getTempColor(badness);
+            // Calculate the severity color.
+            const color = getTempColor(this.get_badness_value(volume));
 
             edge.shade(this.renderer, ctx, color);
         }

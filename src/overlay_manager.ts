@@ -52,7 +52,12 @@ export class SymbolResolver {
     ): number | undefined {
         let result: number | undefined = undefined;
         try {
-            const expression_tree = parse(expression_string);
+            // Ensure any expressions with the sympy symbol for 'power of' (**)
+            // is cleaned by replacing with the symbol '^', which is parseable
+            // by mathjs.
+            const pow_cleaned = expression_string.replaceAll('**', '^');
+
+            const expression_tree = parse(pow_cleaned);
             if (prompt_completion) {
                 this.recursive_find_undefined_symbol(expression_tree, mapping);
                 this.prompt_define_symbol(mapping, callback);
