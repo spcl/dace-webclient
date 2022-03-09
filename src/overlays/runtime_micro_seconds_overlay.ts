@@ -20,8 +20,9 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
 
     public refresh(): void {
         this.badness_scale_center = 5;
+        this.badness_hist_buckets = [];
 
-        const micros_values = [0];
+        const micros_values = [];
 
         for (const key of Object.keys(this.runtime_map)) {
             // Make sure the overall SDFG's runtime isn't included in this.
@@ -30,6 +31,10 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
         }
 
         switch (this.overlay_manager.get_badness_scale_method()) {
+            case 'hist':
+                this.badness_hist_buckets = [...new Set(micros_values)];
+                this.badness_hist_buckets.sort((a, b) => { return a - b; });
+                break;
             case 'mean':
                 this.badness_scale_center = mean(micros_values);
                 break;
@@ -38,6 +43,9 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
                 this.badness_scale_center = median(micros_values);
                 break;
         }
+
+        if (micros_values.length === 0)
+            micros_values.push(0);
 
         this.renderer.draw_async();
     }
@@ -97,9 +105,27 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
                 });
         }
 
-        // Calculate the 'badness' color.
+        // Calculate the severity color.
         const micros = rt_summary[this.criterium];
-        let badness = (1 / (this.badness_scale_center * 2)) * micros;
+        let badness = 0;
+
+        switch (this.overlay_manager.get_badness_scale_method()) {
+            case 'hist':
+                {
+                    const idx = this.badness_hist_buckets.indexOf(micros);
+                    if (idx < 0)
+                        badness = 0;
+                    else
+                        badness = idx / (this.badness_hist_buckets.length - 1);
+                }
+                break;
+            case 'mean':
+            case 'median':
+            default:
+                badness = (1 / (this.badness_scale_center * 2)) * micros;
+                break;
+        }
+
         if (badness < 0)
             badness = 0;
         if (badness > 1)

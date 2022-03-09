@@ -12,6 +12,7 @@ export class GenericSdfgOverlay {
     protected symbol_resolver: SymbolResolver;
     protected vscode: any;
     protected badness_scale_center: number;
+    protected badness_hist_buckets: number[];
     protected overlay_manager: OverlayManager;
 
     public constructor(
@@ -21,6 +22,7 @@ export class GenericSdfgOverlay {
         this.symbol_resolver = this.overlay_manager.get_symbol_resolver();
         this.vscode = typeof vscode !== 'undefined' && vscode;
         this.badness_scale_center = 5;
+        this.badness_hist_buckets = [];
     }
 
     public draw(): void {

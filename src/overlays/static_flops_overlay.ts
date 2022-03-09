@@ -116,8 +116,9 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
 
     public recalculate_flops_values(graph: DagreSDFG): void {
         this.badness_scale_center = 5;
+        this.badness_hist_buckets = [];
 
-        const flops_values = [0];
+        const flops_values: number[] = [];
         this.calculate_flops_graph(
             graph,
             this.symbol_resolver.get_symbol_value_map(),
@@ -125,6 +126,10 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         );
 
         switch (this.overlay_manager.get_badness_scale_method()) {
+            case 'hist':
+                this.badness_hist_buckets = [...new Set(flops_values)];
+                this.badness_hist_buckets.sort((a, b) => { return a - b; });
+                break;
             case 'mean':
                 this.badness_scale_center = mean(flops_values);
                 break;
@@ -133,6 +138,9 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
                 this.badness_scale_center = median(flops_values);
                 break;
         }
+
+        if (flops_values.length === 0)
+            flops_values.push(0);
     }
 
     public update_flops_map(flops_map: { [uuids: string]: any }): void {
@@ -190,8 +198,27 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         if (flops <= 0)
             return;
 
-        // Calculate the 'badness' color.
-        let badness = (1 / (this.badness_scale_center * 2)) * flops;
+        // Calculate the severity color.
+        let badness = 0;
+
+        switch (this.overlay_manager.get_badness_scale_method()) {
+            case 'hist':
+                {
+                    const idx = this.badness_hist_buckets.indexOf(flops);
+                    if (idx < 0)
+                        badness = 0;
+                    else
+                        badness = idx / (this.badness_hist_buckets.length - 1);
+                }
+                break;
+            case 'mean':
+            case 'median':
+            default:
+                badness = (1 / (this.badness_scale_center * 2)) * flops;
+                break;
+        }
+
+
         if (badness < 0)
             badness = 0;
         if (badness > 1)
