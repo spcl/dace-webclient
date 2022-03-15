@@ -6,6 +6,7 @@ import { SDFGRenderer } from '../renderer/renderer';
 import { DagreSDFG, SimpleRect } from '../index';
 import { SDFV } from '../sdfv';
 import { get_element_uuid } from '../utils/utils';
+import { Node } from 'dagre';
 
 
 export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
@@ -123,7 +124,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
         // In that case, we draw the measured runtime for the entire state.
         // If it's expanded or zoomed in close enough, we traverse inside.
         graph.nodes().forEach(v => {
-            const state = graph.node(v);
+            const state: Node<SDFGNode> = graph.node(v);
 
             // If the node's invisible, we skip it.
             if ((ctx as any).lod && !state.intersect(

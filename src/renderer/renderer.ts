@@ -1,44 +1,6 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import dagre from 'dagre';
-import {
-    find_exit_for_entry,
-    get_positioning_info,
-    delete_positioning_info,
-    get_uuid_graph_element,
-    find_graph_element_by_uuid,
-    find_root_sdfg,
-    delete_sdfg_nodes,
-    delete_sdfg_states,
-    check_and_redirect_edge,
-} from '../utils/sdfg/sdfg_utils';
-import { deepCopy, intersectRect } from '../utils/utils';
-import { traverse_sdfg_scopes } from '../utils/sdfg/traversal';
-import { ContextMenu } from '../utils/context_menu';
-import {
-    Connector,
-    Edge,
-    offset_state,
-    SDFGElements,
-    draw_sdfg,
-    offset_sdfg,
-    NestedSDFG,
-    SDFGElement,
-    SDFGNode,
-    State,
-    AccessNode,
-    EntryNode,
-} from './renderer_elements';
-import { memlet_tree_complete } from '../utils/sdfg/traversal';
-import { CanvasManager } from './canvas_manager';
-import {
-    boundingBox,
-    calculateBoundingBox,
-    calculateEdgeBoundingBox,
-} from '../utils/bounding_box';
-import { OverlayManager } from '../overlay_manager';
-import { SDFV } from '../sdfv';
-import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
+import dagre, { Node } from 'dagre';
 import {
     DagreSDFG,
     JsonSDFG,
@@ -49,9 +11,31 @@ import {
     Point2D,
     SDFVTooltipFunc,
     SimpleRect,
-    stringify_sdfg,
+    stringify_sdfg
 } from '../index';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
+import { MemoryLocationOverlay } from '../overlays/memory_location_overlay';
+import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
+import { OverlayManager } from '../overlay_manager';
+import { SDFV } from '../sdfv';
+import {
+    boundingBox,
+    calculateBoundingBox,
+    calculateEdgeBoundingBox
+} from '../utils/bounding_box';
+import { ContextMenu } from '../utils/context_menu';
+import {
+    check_and_redirect_edge, delete_positioning_info, delete_sdfg_nodes,
+    delete_sdfg_states, find_exit_for_entry, find_graph_element_by_uuid,
+    find_root_sdfg, get_positioning_info, get_uuid_graph_element
+} from '../utils/sdfg/sdfg_utils';
+import { memlet_tree_complete, traverse_sdfg_scopes } from '../utils/sdfg/traversal';
+import { deepCopy, intersectRect } from '../utils/utils';
+import { CanvasManager } from './canvas_manager';
+import {
+    AccessNode, Connector, draw_sdfg, Edge, EntryNode, NestedSDFG, offset_sdfg, offset_state, SDFGElement, SDFGElements, SDFGNode,
+    State
+} from './renderer_elements';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -100,6 +84,8 @@ export class SDFGRenderer {
     // Rendering related fields.
     protected ctx: CanvasRenderingContext2D | null = null;
     protected canvas: HTMLCanvasElement | null = null;
+    protected minimap_ctx: CanvasRenderingContext2D | null = null;
+    protected minimap_canvas: HTMLCanvasElement | null = null;
     protected canvas_manager: CanvasManager | null = null;
     protected last_dragged_element: SDFGElement | null = null;
     protected tooltip: SDFVTooltipFunc | null = null;
@@ -351,6 +337,12 @@ export class SDFGRenderer {
             this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
 
+        this.minimap_canvas = document.createElement('canvas');
+        this.minimap_canvas.id = 'minimap';
+        this.minimap_canvas.classList.add('sdfg_canvas');
+        this.minimap_canvas.style.backgroundColor = 'white';
+        this.container.append(this.minimap_canvas);
+
         if (this.debug_draw) {
             this.dbg_info_box = document.createElement('div');
             this.dbg_info_box.style.position = 'absolute';
@@ -493,7 +485,28 @@ export class SDFGRenderer {
                                 }
                             );
                             overlays_cmenu.addCheckableOption(
-                                'Logical Groups',
+                                'Storage locations',
+                                that.overlay_manager ?
+                                    that.overlay_manager.is_overlay_active(
+                                        MemoryLocationOverlay
+                                    ) : false,
+                                (x: any, checked: boolean) => {
+                                    if (checked)
+                                        that.overlay_manager?.register_overlay(
+                                            MemoryLocationOverlay
+                                        );
+                                    else
+                                        that.overlay_manager?.deregister_overlay(
+                                            MemoryLocationOverlay
+                                        );
+                                    that.draw_async();
+                                    that.emit_event(
+                                        'active_overlays_changed', null
+                                    );
+                                }
+                            );
+                            overlays_cmenu.addCheckableOption(
+                                'Logical groups',
                                 that.overlay_manager ?
                                     that.overlay_manager.is_overlay_active(
                                         LogicalGroupOverlay
@@ -775,6 +788,12 @@ export class SDFGRenderer {
         this.ctx = this.canvas.getContext('2d');
         if (!this.ctx) {
             console.error('Failed to get canvas context, aborting');
+            return;
+        }
+
+        this.minimap_ctx = this.minimap_canvas.getContext('2d');
+        if (!this.minimap_ctx) {
+            console.error('Failed to get minimap canvas context, aborting');
             return;
         }
 
@@ -1291,6 +1310,80 @@ export class SDFGRenderer {
         this.ctx.stroke();
     }
 
+    private clear_minimap(): void {
+        if (this.minimap_ctx) {
+            this.minimap_ctx.save();
+
+            this.minimap_ctx.setTransform(1, 0, 0, 1, 0, 0);
+            this.minimap_ctx.clearRect(
+                0, 0, this.minimap_ctx.canvas.width,
+                this.minimap_ctx.canvas.height
+            );
+
+            this.minimap_ctx.restore();
+        }
+    }
+
+    private draw_minimap(): void {
+        if (!this.minimap_ctx || !this.minimap_canvas ||
+            !this.canvas || !this.graph)
+            return;
+
+        // Resize the container to reflect the true canvas dimensions.
+        const minDimSize = 200;
+        let targetWidth = minDimSize;
+        let targetHeight = minDimSize;
+        if (this.canvas.width < this.canvas.height)
+            targetHeight = targetWidth * this.canvas.height / this.canvas.width;
+        else
+            targetWidth = targetHeight * this.canvas.width / this.canvas.height;
+        this.minimap_canvas.height = targetHeight;
+        this.minimap_canvas.width = targetWidth;
+        this.minimap_canvas.style.width = targetWidth.toString() + 'px';
+        this.minimap_canvas.style.height = targetHeight.toString() + 'px';
+
+        // Set the zoom level and translation so everything is visible.
+        const bb = {
+            x: 0,
+            y: 0,
+            width: (this.graph as any).width,
+            height: (this.graph as any).height,
+        };
+        const scale = Math.min(
+            targetWidth / bb.width, targetHeight / bb.height
+        );
+        const originX = (targetWidth / 2) - ((bb.width / 2) + bb.x) * scale;
+        const originY = (targetHeight / 2) - ((bb.height / 2) + bb.y) * scale;
+        this.minimap_ctx.setTransform(
+            scale, 0, 0,
+            scale, originX, originY
+        );
+
+        // Draw the top-level state machine on to the minimap.
+        this.graph.nodes().forEach(x => {
+            const n = this.graph?.node(x);
+            if (n && this.minimap_ctx)
+                n.simple_draw(this, this.minimap_ctx, null);
+        });
+        this.graph.edges().forEach(x => {
+            const e = this.graph?.edge(x);
+            if (e && this.minimap_ctx)
+                e.draw(this, this.minimap_ctx, null);
+        });
+
+        // Draw the viewport.
+        if (this.visible_rect) {
+            this.minimap_ctx.strokeStyle = this.getCssProperty(
+                '--color-minimap-viewport'
+            );
+            this.minimap_ctx.lineWidth = 1 / scale;
+            this.minimap_ctx.strokeRect(
+                this.visible_rect.x, this.visible_rect.y,
+                this.visible_rect.w, this.visible_rect.h
+            );
+        }
+    }
+
     // Render SDFG
     public draw(dt: number | null): void {
         if (!this.graph || !this.ctx)
@@ -1362,12 +1455,15 @@ export class SDFGRenderer {
     }
 
     public on_pre_draw(): void {
+        this.clear_minimap();
         return;
     }
 
     public on_post_draw(): void {
         if (this.overlay_manager !== null)
             this.overlay_manager.draw();
+
+        this.draw_minimap();
 
         try {
             (this.ctx as any).end();
@@ -2553,9 +2649,10 @@ export class SDFGRenderer {
         const mouse_x = comp_x_func(event);
         const mouse_y = comp_y_func(event);
         if (this.external_mouse_handler) {
+            const ends_pan = ends_drag && !multi_selection_changed;
             const ext_mh_dirty = this.external_mouse_handler(
                 evtype, event, { x: mouse_x, y: mouse_y }, elements,
-                this, this.selected_elements, this.sdfv_instance
+                this, this.selected_elements, this.sdfv_instance, ends_pan
             );
             dirty = dirty || ext_mh_dirty;
         }
