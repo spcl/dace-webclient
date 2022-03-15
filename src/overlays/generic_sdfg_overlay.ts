@@ -4,6 +4,7 @@ import { OverlayManager, SymbolResolver } from '../overlay_manager';
 import { SDFGRenderer } from '../renderer/renderer';
 import { SDFGElement } from '../renderer/renderer_elements';
 import { Point2D } from '../index';
+import { max, mean, median, min, sqrt } from 'mathjs';
 
 declare const vscode: any;
 
@@ -44,6 +45,33 @@ export class GenericSdfgOverlay {
         return;
     }
 
+    protected update_badness_scale(values: number[]): void {
+        switch (this.overlay_manager.get_badness_scale_method()) {
+            case 'hist':
+                this.badness_hist_buckets = [...new Set(values)];
+                this.badness_hist_buckets.sort((a, b) => { return a - b; });
+                break;
+            case 'linear_interpolation':
+                this.badness_scale_center = (
+                    min(values) + max(values)
+                ) / 2;
+                break;
+            case 'exponential_interpolation':
+                // TODO: Allow the use of a factor other than 2.
+                this.badness_scale_center = sqrt(
+                    min(values) * max(values)
+                );
+                break;
+            case 'mean':
+                this.badness_scale_center = mean(values);
+                break;
+            case 'median':
+            default:
+                this.badness_scale_center = median(values);
+                break;
+        }
+    }
+
     // TODO(later): Refactor 'badness' to 'severity'. Everywhere.
     public get_badness_value(val: number): number {
         let badness = 0;
@@ -61,6 +89,8 @@ export class GenericSdfgOverlay {
                 break;
             case 'mean':
             case 'median':
+            case 'linear_interpolation':
+            case 'exponential_interpolation':
             default:
                 badness = (1 / (this.badness_scale_center * 2)) * val;
                 break;

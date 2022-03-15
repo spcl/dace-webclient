@@ -31,19 +31,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
                 micros_values.push(this.runtime_map[key][this.criterium]);
         }
 
-        switch (this.overlay_manager.get_badness_scale_method()) {
-            case 'hist':
-                this.badness_hist_buckets = [...new Set(micros_values)];
-                this.badness_hist_buckets.sort((a, b) => { return a - b; });
-                break;
-            case 'mean':
-                this.badness_scale_center = mean(micros_values);
-                break;
-            case 'median':
-            default:
-                this.badness_scale_center = median(micros_values);
-                break;
-        }
+        this.update_badness_scale(micros_values);
 
         if (micros_values.length === 0)
             micros_values.push(0);

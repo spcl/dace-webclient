@@ -125,19 +125,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
             flops_values
         );
 
-        switch (this.overlay_manager.get_badness_scale_method()) {
-            case 'hist':
-                this.badness_hist_buckets = [...new Set(flops_values)];
-                this.badness_hist_buckets.sort((a, b) => { return a - b; });
-                break;
-            case 'mean':
-                this.badness_scale_center = mean(flops_values);
-                break;
-            case 'median':
-            default:
-                this.badness_scale_center = median(flops_values);
-                break;
-        }
+        this.update_badness_scale(flops_values);
 
         if (flops_values.length === 0)
             flops_values.push(0);
