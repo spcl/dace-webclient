@@ -1,16 +1,13 @@
+import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
+import { SDFGRenderer } from '../renderer/renderer';
 import {
-    Edge,
-    NestedSDFG,
+    Edge, getTempColor, NestedSDFG,
     SDFGElement,
     SDFGNode,
     State
 } from '../renderer/renderer_elements';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
-import { mean, median } from 'mathjs';
-import { getTempColor } from '../renderer/renderer_elements';
-import { SDFGRenderer } from '../renderer/renderer';
-import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
 import { SDFV } from '../sdfv';
+import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 
 export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 

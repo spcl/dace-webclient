@@ -1,16 +1,13 @@
+import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
+import { SDFGRenderer } from '../renderer/renderer';
 import {
-    Edge,
-    NestedSDFG,
+    Edge, getTempColor, NestedSDFG,
     SDFGElement,
     SDFGNode
 } from '../renderer/renderer_elements';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
-import { mean, median } from 'mathjs';
-import { getTempColor } from '../renderer/renderer_elements';
-import { SDFGRenderer } from '../renderer/renderer';
-import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
 import { SDFV } from '../sdfv';
 import { get_element_uuid } from '../utils/utils';
+import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any;
@@ -29,46 +26,108 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         }
     }
 
-    public clear_cached_flops_values(): void {
+    public clear_cached_values(): void {
         this.renderer.for_all_elements(0, 0, 0, 0, (
-            _type: string, _e: Event, obj: any
+            type: string, e: MouseEvent, obj: any,
         ) => {
             if (obj.data) {
+                if (obj.data.volume !== undefined)
+                    obj.data.volume = undefined;
                 if (obj.data.flops !== undefined)
                     obj.data.flops = undefined;
                 if (obj.data.flops_string !== undefined)
                     obj.data.flops_string = undefined;
+                if (obj.data.opint !== undefined)
+                    obj.data.opint = undefined;
             }
         });
     }
 
-    public calculate_flops_node(
-        node: SDFGNode, symbol_map: SymbolMap, flops_values: number[]
+    public calculate_opint_node(
+        node: SDFGNode, symbol_map: SymbolMap, opint_values: number[]
     ): number | undefined {
+        if (node.parent_id === undefined || node.parent_id === null)
+            return;
+
         const flops_string = this.flops_map[get_element_uuid(node)];
         let flops = undefined;
         if (flops_string !== undefined)
             flops = this.symbol_resolver.parse_symbol_expression(
-                flops_string,
-                symbol_map
+                flops_string, symbol_map
             );
 
         node.data.flops_string = flops_string;
         node.data.flops = flops;
 
-        if (flops !== undefined && flops > 0)
-            flops_values.push(flops);
+        const io_volumes = [];
+        const io_edges = [];
 
-        return flops;
+        for (const e of node.sdfg.nodes[node.parent_id].edges) {
+            if (e.src == node.id || e.dst == node.id)
+                io_edges.push(e);
+        }
+
+        for (const edge of io_edges) {
+            let volume_string = undefined;
+            let volume = undefined;
+            if (!edge.attributes?.data?.volume) {
+                if (edge.attributes?.data?.attributes) {
+                    volume_string = edge.attributes.data.attributes.volume;
+                    if (volume_string !== undefined) {
+                        volume_string = volume_string.replace(/\*\*/g, '^');
+                        volume_string = volume_string.replace(
+                            /ceiling/g, 'ceil'
+                        );
+                    }
+                }
+            } else {
+                volume = edge.attributes.data.volume;
+            }
+
+            if (volume_string !== undefined)
+                volume = this.symbol_resolver.parse_symbol_expression(
+                    volume_string, symbol_map
+                );
+
+            edge.attributes.data.volume = volume;
+
+            if (volume !== undefined && volume > 0) {
+                let io_dt = '';
+                if (edge.attributes?.data?.attributes?.data) {
+                    const array = node.sdfg.attributes._arrays[
+                        edge.attributes.data.attributes.data
+                    ];
+                    io_dt = array.attributes.dtype;
+                }
+                io_volumes.push({
+                    volume: volume,
+                    dtype: io_dt,
+                });
+            }
+        }
+
+        let opint = undefined;
+        if (flops !== undefined && flops > 0 && io_volumes) {
+            let total_volume = 0;
+            for (const io_vol of io_volumes)
+                total_volume += io_vol.volume;
+            if (total_volume > 0)
+                opint = flops / total_volume;
+        }
+        if (opint !== undefined && opint > 0)
+            opint_values.push(opint);
+
+        node.data.opint = opint;
+        return opint;
     }
 
-    public calculate_flops_graph(
+    public calculate_opint_graph(
         g: DagreSDFG, symbol_map: SymbolMap, flops_values: number[]
     ): void {
         const that = this;
         g.nodes().forEach(v => {
             const state = g.node(v);
-            that.calculate_flops_node(state, symbol_map, flops_values);
+            that.calculate_opint_node(state, symbol_map, flops_values);
             const state_graph = state.data.graph;
             if (state_graph) {
                 state_graph.nodes().forEach((v: string) => {
@@ -92,18 +151,18 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                                 nested_symbols_map[symbol] = symbol_map[symbol];
                         });
 
-                        that.calculate_flops_node(
+                        that.calculate_opint_node(
                             node,
                             nested_symbols_map,
                             flops_values
                         );
-                        that.calculate_flops_graph(
+                        that.calculate_opint_graph(
                             node.data.graph,
                             nested_symbols_map,
                             flops_values
                         );
                     } else {
-                        that.calculate_flops_node(
+                        that.calculate_opint_node(
                             node,
                             symbol_map,
                             flops_values
@@ -114,12 +173,12 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         });
     }
 
-    public recalculate_flops_values(graph: DagreSDFG): void {
+    public recalculate_opint_values(graph: DagreSDFG): void {
         this.badness_scale_center = 5;
         this.badness_hist_buckets = [];
 
         const flops_values: number[] = [];
-        this.calculate_flops_graph(
+        this.calculate_opint_graph(
             graph,
             this.symbol_resolver.get_symbol_value_map(),
             flops_values
@@ -137,57 +196,37 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
     }
 
     public refresh(): void {
-        this.clear_cached_flops_values();
+        this.clear_cached_values();
         const graph = this.renderer.get_graph();
         if (graph)
-            this.recalculate_flops_values(graph);
+            this.recalculate_opint_values(graph);
 
         this.renderer.draw_async();
     }
 
     public shade_node(node: SDFGNode, ctx: CanvasRenderingContext2D): void {
-        const flops = node.data.flops;
-        const flops_string = node.data.flops_string;
+        const opint = node.data.opint;
 
         const mousepos = this.renderer.get_mousepos();
-        if (flops_string !== undefined && mousepos &&
+        if (opint !== undefined && mousepos &&
             node.intersect(mousepos.x, mousepos.y)) {
-            // Show the computed FLOPS value if applicable.
-            if (isNaN(flops_string) && flops !== undefined)
-                this.renderer.set_tooltip(() => {
-                    const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
-                        tt_cont.innerText = (
-                            'FLOPS: ' + flops_string + ' (' + flops + ')'
-                        );
-                });
-
-            else
-                this.renderer.set_tooltip(() => {
-                    const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
-                        tt_cont.innerText = 'FLOPS: ' + flops_string;
-                });
+            // Show the computed OP-INT value if applicable.
+            this.renderer.set_tooltip(() => {
+                const tt_cont = this.renderer.get_tooltip_container();
+                if (tt_cont)
+                    tt_cont.innerText = 'Operational Intensity: ' + opint;
+            });
         }
 
-        if (flops === undefined) {
-            // If the FLOPS can't be calculated, but there's an entry for this
-            // node's FLOPS, that means that there's an unresolved symbol. Shade
-            // the node grey to indicate that.
-            if (flops_string !== undefined) {
-                node.shade(this.renderer, ctx, 'gray');
-                return;
-            } else {
-                return;
-            }
-        }
+        if (opint === undefined)
+            return;
 
-        // Only draw positive FLOPS.
-        if (flops <= 0)
+        // Only draw positive OP-INTs.
+        if (opint <= 0)
             return;
 
         // Calculate the severity color.
-        const color = getTempColor(this.get_badness_value(flops));
+        const color = getTempColor(this.get_badness_value(opint));
 
         node.shade(this.renderer, ctx, color);
     }
@@ -200,7 +239,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
     ): void {
         // First go over visible states, skipping invisible ones. We only draw
         // something if the state is collapsed or we're zoomed out far enough.
-        // In that case, we draw the FLOPS calculated for the entire state.
+        // In that case, we draw the OP-INT calculated for the entire state.
         // If it's expanded or zoomed in close enough, we traverse inside.
         graph.nodes().forEach(v => {
             const state = graph.node(v);
@@ -276,10 +315,10 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                             that.symbol_resolver.get_symbol_value_map(),
                             true,
                             () => {
-                                that.clear_cached_flops_values();
+                                that.clear_cached_values();
                                 const graph = that.renderer.get_graph();
                                 if (graph)
-                                    that.recalculate_flops_values(graph);
+                                    that.recalculate_opint_values(graph);
                             }
                         );
                     }

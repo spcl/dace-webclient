@@ -46,6 +46,9 @@ export class GenericSdfgOverlay {
     }
 
     protected update_badness_scale(values: number[]): void {
+        if (!values || values.length === 0)
+            return;
+
         switch (this.overlay_manager.get_badness_scale_method()) {
             case 'hist':
                 this.badness_hist_buckets = [...new Set(values)];
