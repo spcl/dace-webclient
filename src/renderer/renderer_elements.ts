@@ -1686,6 +1686,10 @@ export function drawAdaptiveText(
         Math.abs(label_metrics.actualBoundingBoxRight);
     let label_height = Math.abs(label_metrics.actualBoundingBoxDescent) +
         Math.abs(label_metrics.actualBoundingBoxAscent);
+    if (label_width != label_width)
+        label_width = label_metrics.width;
+    if (label_height != label_height)
+        label_height = (label_metrics as any).height;  // Account for canvas2pdf
 
     const padding_left = padding.left !== undefined ? padding.left : 1.0;
     const padding_top = padding.top !== undefined ? padding.top : 0.0;
