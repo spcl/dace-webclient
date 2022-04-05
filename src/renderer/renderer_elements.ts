@@ -16,6 +16,7 @@ import {
 import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
 import { SDFGRenderer } from './renderer';
+import { e } from 'mathjs';
 
 export class SDFGElement {
 
@@ -473,7 +474,6 @@ export class Edge extends SDFGElement {
     }
 
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
-        ctx.beginPath();
         ctx.moveTo(this.points[0].x, this.points[0].y);
         if (this.points.length === 2) {
             // Straight line can be drawn
@@ -498,6 +498,7 @@ export class Edge extends SDFGElement {
     ): void {
         const edge = this;
 
+        ctx.beginPath();
         this.create_arrow_line(ctx);
 
         let style = this.strokeStyle(renderer);
@@ -522,7 +523,6 @@ export class Edge extends SDFGElement {
 
         if (edge.points.length < 2)
             return;
-
 
         // Show anchor points for moving
         if (this.selected && renderer.get_mouse_mode() === 'move') {
@@ -1551,6 +1551,19 @@ export function draw_sdfg(
             });
             if ((ctx as any).lod && ppp >= SDFV.EDGE_LOD)
                 return;
+
+            // Speed up edge drawing by batching together all 'standard' edges
+            // into one beginPath/stroke call pair. Edges are considered to be
+            // 'standard', if they're not hovered, highlighted, or selected,
+            // and do not contain a conflict resultion. Any edges NOT in that
+            // category are deferred for a separate draw loop that handles them
+            // in the traditional manner. That is computationally cheap because
+            // the number of these edges should always be relatively low.
+            // Arrow-heads are drawn separately, but only the ones that are
+            // in frame.
+            const deferredEdges: any[] = [];
+            const arrowEdges: any[] = [];
+            ctx.beginPath();
             ng.edges().forEach((e: any) => {
                 const edge = ng.edge(e);
                 if ((ctx as any).lod && visible_rect && !edge.intersect(
@@ -1558,8 +1571,44 @@ export function draw_sdfg(
                     visible_rect.h
                 ))
                     return;
-                edge.draw(renderer, ctx, mousepos);
-                edge.debug_draw(renderer, ctx);
+
+                // WCR Edge.
+                if (edge.parent_id !== null &&
+                    edge.data.attributes.wcr !== null) {
+                    deferredEdges.push(edge);
+                    return;
+                }
+
+                // Colored edge through selection/hovering/highlighting.
+                if (edge.selected || edge.hovered || edge.highlighted) {
+                    deferredEdges.push(edge);
+                    return;
+                }
+
+                const lPoint = edge.points[edge.points.length - 1];
+                if (visible_rect && lPoint.x >= visible_rect.x &&
+                    lPoint.x <= visible_rect.x + visible_rect.w &&
+                    lPoint.y >= visible_rect.y &&
+                    lPoint.y <= visible_rect.y + visible_rect.h)
+                    arrowEdges.push(edge);
+
+                edge.create_arrow_line(ctx);
+            });
+            ctx.setLineDash([1, 0]);
+            ctx.stroke();
+
+            ctx.fillStyle = ctx.strokeStyle = renderer.getCssProperty(
+                '--color-default'
+            );
+            arrowEdges.forEach(e => {
+                drawArrow(
+                    ctx, e.points[e.points.length - 2],
+                    e.points[e.points.length - 1], 3
+                );
+            });
+
+            deferredEdges.forEach(e => {
+                e.draw(renderer, ctx, mousepos);
             });
         }
     });
