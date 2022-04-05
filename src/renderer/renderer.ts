@@ -1,6 +1,6 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
-import dagre, { Node } from 'dagre';
+import dagre from 'dagre';
 import {
     DagreSDFG,
     JsonSDFG,

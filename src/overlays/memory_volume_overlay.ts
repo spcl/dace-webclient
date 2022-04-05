@@ -108,8 +108,8 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
     }
 
     public recalculate_volume_values(graph: DagreSDFG): void {
-        this.badness_scale_center = 5;
-        this.badness_hist_buckets = [];
+        this.heatmap_scale_center = 5;
+        this.heatmap_hist_buckets = [];
 
         const volume_values: number[] = [];
         this.calculate_volume_graph(
@@ -118,7 +118,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
             volume_values
         );
 
-        this.update_badness_scale(volume_values);
+        this.update_heatmap_scale(volume_values);
 
         if (volume_values.length === 0)
             volume_values.push(0);
@@ -141,7 +141,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 return;
 
             // Calculate the severity color.
-            const color = getTempColor(this.get_badness_value(volume));
+            const color = getTempColor(this.get_severity_value(volume));
 
             edge.shade(this.renderer, ctx, color);
         }

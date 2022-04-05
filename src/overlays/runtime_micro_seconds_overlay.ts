@@ -1,6 +1,5 @@
 import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
 import { GenericSdfgOverlay } from './generic_sdfg_overlay';
-import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
 import { SDFGRenderer } from '../renderer/renderer';
 import { DagreSDFG, SimpleRect } from '../index';
@@ -16,12 +15,12 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
-        this.badness_scale_center = 0;
+        this.heatmap_scale_center = 0;
     }
 
     public refresh(): void {
-        this.badness_scale_center = 5;
-        this.badness_hist_buckets = [];
+        this.heatmap_scale_center = 5;
+        this.heatmap_hist_buckets = [];
 
         const micros_values = [];
 
@@ -31,7 +30,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
                 micros_values.push(this.runtime_map[key][this.criterium]);
         }
 
-        this.update_badness_scale(micros_values);
+        this.update_heatmap_scale(micros_values);
 
         if (micros_values.length === 0)
             micros_values.push(0);
@@ -96,7 +95,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
 
         // Calculate the severity color.
         const micros = rt_summary[this.criterium];
-        const color = getTempColor(this.get_badness_value(micros));
+        const color = getTempColor(this.get_severity_value(micros));
 
         node.shade(this.renderer, ctx, color);
     }

@@ -174,8 +174,8 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
     }
 
     public recalculate_opint_values(graph: DagreSDFG): void {
-        this.badness_scale_center = 5;
-        this.badness_hist_buckets = [];
+        this.heatmap_scale_center = 5;
+        this.heatmap_hist_buckets = [];
 
         const flops_values: number[] = [];
         this.calculate_opint_graph(
@@ -184,7 +184,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
             flops_values
         );
 
-        this.update_badness_scale(flops_values);
+        this.update_heatmap_scale(flops_values);
 
         if (flops_values.length === 0)
             flops_values.push(0);
@@ -226,7 +226,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
             return;
 
         // Calculate the severity color.
-        const color = getTempColor(this.get_badness_value(opint));
+        const color = getTempColor(this.get_severity_value(opint));
 
         node.shade(this.renderer, ctx, color);
     }

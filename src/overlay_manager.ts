@@ -245,7 +245,9 @@ export class SymbolResolver {
 
 export class OverlayManager {
 
-    private badness_scale_method: string = 'median';
+    private heatmap_scaling_method: string = 'median';
+    private heatmap_scaling_hist_n_buckets: number = 0;
+    private heatmap_scaling_exp_base: number = 2;
     private overlays: GenericSdfgOverlay[] = [];
     private symbol_resolver: SymbolResolver;
 
@@ -293,8 +295,22 @@ export class OverlayManager {
         });
     }
 
-    public update_badness_scale_method(method: string): void {
-        this.badness_scale_method = method;
+    public update_heatmap_scaling_method(method: string): void {
+        this.heatmap_scaling_method = method;
+        this.overlays.forEach(overlay => {
+            overlay.refresh();
+        });
+    }
+
+    public update_heatmap_scaling_hist_n_buckets(n: number): void {
+        this.heatmap_scaling_hist_n_buckets = n;
+        this.overlays.forEach(overlay => {
+            overlay.refresh();
+        });
+    }
+
+    public update_heatmap_scaling_exp_base(base: number): void {
+        this.heatmap_scaling_exp_base = base;
         this.overlays.forEach(overlay => {
             overlay.refresh();
         });
@@ -330,8 +346,16 @@ export class OverlayManager {
         return dirty;
     }
 
-    public get_badness_scale_method(): string {
-        return this.badness_scale_method;
+    public get_heatmap_scaling_hist_n_buckets(): number {
+        return this.heatmap_scaling_hist_n_buckets;
+    }
+
+    public get_heatmap_scaling_exp_base(): number {
+        return this.heatmap_scaling_exp_base;
+    }
+
+    public get_heatmap_scaling_method(): string {
+        return this.heatmap_scaling_method;
     }
 
     public get_symbol_resolver(): SymbolResolver {
