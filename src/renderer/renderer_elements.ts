@@ -16,7 +16,6 @@ import {
 import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
 import { SDFGRenderer } from './renderer';
-import { e } from 'mathjs';
 
 export class SDFGElement {
 
