@@ -215,7 +215,10 @@ export class SDFGRenderer {
     }
 
     public view_settings(): any {
-        return { inclusive_ranges: this.inclusive_ranges };
+        return {
+            inclusive_ranges: this.inclusive_ranges,
+            omit_access_nodes: this.omit_access_nodes,
+        };
     }
 
     // Updates buttons based on cursor mode
