@@ -736,9 +736,11 @@ export function mouse_event(
     _elements: any[],
     renderer: SDFGRenderer,
     selected_elements: SDFGElement[],
-    sdfv: SDFV
+    sdfv: SDFV,
+    ends_pan: boolean
 ): boolean {
-    if (evtype === 'click' || evtype === 'dblclick') {
+    // If the click ends a pan, we don't want to open the sidebar.
+    if (evtype === 'click' && !ends_pan) {
         const menu = renderer.get_menu();
         if (menu)
             menu.destroy();

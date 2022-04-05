@@ -5,7 +5,6 @@ import {
     SDFGNode
 } from '../renderer/renderer_elements';
 import { GenericSdfgOverlay } from './generic_sdfg_overlay';
-import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
 import { SDFGRenderer } from '../renderer/renderer';
 import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
@@ -115,8 +114,8 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
     }
 
     public recalculate_flops_values(graph: DagreSDFG): void {
-        this.badness_scale_center = 5;
-        this.badness_hist_buckets = [];
+        this.heatmap_scale_center = 5;
+        this.heatmap_hist_buckets = [];
 
         const flops_values: number[] = [];
         this.calculate_flops_graph(
@@ -125,19 +124,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
             flops_values
         );
 
-        switch (this.overlay_manager.get_badness_scale_method()) {
-            case 'hist':
-                this.badness_hist_buckets = [...new Set(flops_values)];
-                this.badness_hist_buckets.sort((a, b) => { return a - b; });
-                break;
-            case 'mean':
-                this.badness_scale_center = mean(flops_values);
-                break;
-            case 'median':
-            default:
-                this.badness_scale_center = median(flops_values);
-                break;
-        }
+        this.update_heatmap_scale(flops_values);
 
         if (flops_values.length === 0)
             flops_values.push(0);
@@ -199,7 +186,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
             return;
 
         // Calculate the severity color.
-        const color = getTempColor(this.get_badness_value(flops));
+        const color = getTempColor(this.get_severity_value(flops));
 
         node.shade(this.renderer, ctx, color);
     }

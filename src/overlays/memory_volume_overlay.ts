@@ -1,16 +1,13 @@
+import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
+import { SDFGRenderer } from '../renderer/renderer';
 import {
-    Edge,
-    NestedSDFG,
+    Edge, getTempColor, NestedSDFG,
     SDFGElement,
     SDFGNode,
     State
 } from '../renderer/renderer_elements';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
-import { mean, median } from 'mathjs';
-import { getTempColor } from '../renderer/renderer_elements';
-import { SDFGRenderer } from '../renderer/renderer';
-import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
 import { SDFV } from '../sdfv';
+import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 
 export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
@@ -111,8 +108,8 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
     }
 
     public recalculate_volume_values(graph: DagreSDFG): void {
-        this.badness_scale_center = 5;
-        this.badness_hist_buckets = [];
+        this.heatmap_scale_center = 5;
+        this.heatmap_hist_buckets = [];
 
         const volume_values: number[] = [];
         this.calculate_volume_graph(
@@ -121,19 +118,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
             volume_values
         );
 
-        switch (this.overlay_manager.get_badness_scale_method()) {
-            case 'hist':
-                this.badness_hist_buckets = [...new Set(volume_values)];
-                this.badness_hist_buckets.sort((a, b) => { return a - b; });
-                break;
-            case 'mean':
-                this.badness_scale_center = mean(volume_values);
-                break;
-            case 'median':
-            default:
-                this.badness_scale_center = median(volume_values);
-                break;
-        }
+        this.update_heatmap_scale(volume_values);
 
         if (volume_values.length === 0)
             volume_values.push(0);
@@ -156,7 +141,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 return;
 
             // Calculate the severity color.
-            const color = getTempColor(this.get_badness_value(volume));
+            const color = getTempColor(this.get_severity_value(volume));
 
             edge.shade(this.renderer, ctx, color);
         }

@@ -1,9 +1,10 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
+import { log, max, mean, median, min } from 'mathjs';
+import { Point2D } from '../index';
 import { OverlayManager, SymbolResolver } from '../overlay_manager';
 import { SDFGRenderer } from '../renderer/renderer';
 import { SDFGElement } from '../renderer/renderer_elements';
-import { Point2D } from '../index';
 
 declare const vscode: any;
 
@@ -11,8 +12,8 @@ export class GenericSdfgOverlay {
 
     protected symbol_resolver: SymbolResolver;
     protected vscode: any;
-    protected badness_scale_center: number;
-    protected badness_hist_buckets: number[];
+    protected heatmap_scale_center: number;
+    protected heatmap_hist_buckets: number[];
     protected overlay_manager: OverlayManager;
 
     public constructor(
@@ -21,8 +22,8 @@ export class GenericSdfgOverlay {
         this.overlay_manager = renderer.get_overlay_manager();
         this.symbol_resolver = this.overlay_manager.get_symbol_resolver();
         this.vscode = typeof vscode !== 'undefined' && vscode;
-        this.badness_scale_center = 5;
-        this.badness_hist_buckets = [];
+        this.heatmap_scale_center = 5;
+        this.heatmap_hist_buckets = [];
     }
 
     public draw(): void {
@@ -44,34 +45,78 @@ export class GenericSdfgOverlay {
         return;
     }
 
-    // TODO(later): Refactor 'badness' to 'severity'. Everywhere.
-    public get_badness_value(val: number): number {
-        let badness = 0;
+    protected update_heatmap_scale(values: number[]): void {
+        if (!values || values.length === 0)
+            return;
 
-        switch (this.overlay_manager.get_badness_scale_method()) {
+        switch (this.overlay_manager.get_heatmap_scaling_method()) {
             case 'hist':
                 {
-                    // TODO(later): Allow the user to select a number of bins.
-                    const idx = this.badness_hist_buckets.indexOf(val);
-                    if (idx < 0)
-                        badness = 0;
-                    else
-                        badness = idx / (this.badness_hist_buckets.length - 1);
+                    const n = this.overlay_manager
+                        .get_heatmap_scaling_hist_n_buckets();
+                    if (n <= 1) {
+                        this.heatmap_hist_buckets = [...new Set(values)];
+                    } else {
+                        const minval = min(values);
+                        const maxval = max(values);
+                        const step = (maxval - minval) / n;
+                        for (let i = 0; i < n; i++)
+                            this.heatmap_hist_buckets.push(minval + (i * step));
+                    }
+                    this.heatmap_hist_buckets.sort((a, b) => { return a - b; });
+                }
+                break;
+            case 'linear_interpolation':
+                this.heatmap_scale_center = (
+                    min(values) + max(values)
+                ) / 2;
+                break;
+            case 'exponential_interpolation':
+                // TODO: Allow the use of a factor other than 2.
+                this.heatmap_scale_center = log(
+                    min(values) * max(values),
+                    this.overlay_manager.get_heatmap_scaling_exp_base()
+                );
+                break;
+            case 'mean':
+                this.heatmap_scale_center = mean(values);
+                break;
+            case 'median':
+            default:
+                this.heatmap_scale_center = median(values);
+                break;
+        }
+    }
+
+    public get_severity_value(val: number): number {
+        let severity = 0;
+
+        switch (this.overlay_manager.get_heatmap_scaling_method()) {
+            case 'hist':
+                {
+                    let i;
+                    for (i = 0; i < this.heatmap_hist_buckets.length - 1; i++) {
+                        if (val >= this.heatmap_hist_buckets[i])
+                            break;
+                    }
+                    severity = i / (this.heatmap_hist_buckets.length - 1);
                 }
                 break;
             case 'mean':
             case 'median':
+            case 'linear_interpolation':
+            case 'exponential_interpolation':
             default:
-                badness = (1 / (this.badness_scale_center * 2)) * val;
+                severity = (1 / (this.heatmap_scale_center * 2)) * val;
                 break;
         }
 
-        if (badness < 0)
-            badness = 0;
-        if (badness > 1)
-            badness = 1;
+        if (severity < 0)
+            severity = 0;
+        if (severity > 1)
+            severity = 1;
 
-        return badness;
+        return severity;
     }
 
 }

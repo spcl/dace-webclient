@@ -1,11 +1,11 @@
 import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
 import { GenericSdfgOverlay } from './generic_sdfg_overlay';
-import { mean, median } from 'mathjs';
 import { getTempColor } from '../renderer/renderer_elements';
 import { SDFGRenderer } from '../renderer/renderer';
 import { DagreSDFG, SimpleRect } from '../index';
 import { SDFV } from '../sdfv';
 import { get_element_uuid } from '../utils/utils';
+import { Node } from 'dagre';
 
 
 export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
@@ -15,12 +15,12 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
-        this.badness_scale_center = 0;
+        this.heatmap_scale_center = 0;
     }
 
     public refresh(): void {
-        this.badness_scale_center = 5;
-        this.badness_hist_buckets = [];
+        this.heatmap_scale_center = 5;
+        this.heatmap_hist_buckets = [];
 
         const micros_values = [];
 
@@ -30,19 +30,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
                 micros_values.push(this.runtime_map[key][this.criterium]);
         }
 
-        switch (this.overlay_manager.get_badness_scale_method()) {
-            case 'hist':
-                this.badness_hist_buckets = [...new Set(micros_values)];
-                this.badness_hist_buckets.sort((a, b) => { return a - b; });
-                break;
-            case 'mean':
-                this.badness_scale_center = mean(micros_values);
-                break;
-            case 'median':
-            default:
-                this.badness_scale_center = median(micros_values);
-                break;
-        }
+        this.update_heatmap_scale(micros_values);
 
         if (micros_values.length === 0)
             micros_values.push(0);
@@ -107,7 +95,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
 
         // Calculate the severity color.
         const micros = rt_summary[this.criterium];
-        const color = getTempColor(this.get_badness_value(micros));
+        const color = getTempColor(this.get_severity_value(micros));
 
         node.shade(this.renderer, ctx, color);
     }
@@ -123,7 +111,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
         // In that case, we draw the measured runtime for the entire state.
         // If it's expanded or zoomed in close enough, we traverse inside.
         graph.nodes().forEach(v => {
-            const state = graph.node(v);
+            const state: Node<SDFGNode> = graph.node(v);
 
             // If the node's invisible, we skip it.
             if ((ctx as any).lod && !state.intersect(

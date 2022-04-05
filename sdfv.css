@@ -26,6 +26,15 @@ body {
   overflow: auto;
 }
 
+#minimap {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 100px;
+  height: 200px;
+  border: 1px solid black;
+}
+
 @keyframes animateright{
   from{
     right: -300px;
@@ -321,4 +330,5 @@ pre.code code {
   --color-selected: red;
   --color-selected-hovered: salmon;
   --color-selected-highlighted: darkorange;
+  --color-minimap-viewport: #ff7a00;
 }

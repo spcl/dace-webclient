@@ -3,6 +3,8 @@ import { SDFGElement } from './renderer/renderer_elements';
 export * from './overlays/generic_sdfg_overlay';
 export * from './overlays/memory_volume_overlay';
 export * from './overlays/runtime_micro_seconds_overlay';
+export * from './overlays/memory_location_overlay';
+export * from './overlays/operational_intensity_overlay';
 export * from './overlays/static_flops_overlay';
 export * from './overlays/logical_group_overlay';
 export * from './renderer/canvas_manager';
