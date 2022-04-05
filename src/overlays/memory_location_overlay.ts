@@ -3,7 +3,8 @@ import { SDFGRenderer } from '../renderer/renderer';
 import {
     AccessNode,
     NestedSDFG,
-    SDFGElement
+    SDFGElement,
+    SDFGNode
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
 import { KELLY_COLORS } from '../utils/utils';
@@ -67,9 +68,10 @@ enum ScheduleType {
 
 // Maps from ScheduleType to default StorageType.
 const SCOPEDEFAULT_STORAGE =
-    new Map<(StorageType | ScheduleType | null), StorageType>([
+    new Map<(StorageType | ScheduleType | null | undefined), StorageType>([
         [StorageType.Default, StorageType.Default],
         [null, StorageType.CPU_Heap],
+        [undefined, StorageType.CPU_Heap],
         [ScheduleType.Sequential, StorageType.Register],
         [ScheduleType.MPI, StorageType.CPU_Heap],
         [ScheduleType.CPU_Multicore, StorageType.Register],
@@ -83,21 +85,23 @@ const SCOPEDEFAULT_STORAGE =
     ]);
 
 // Maps from ScheduleType to default ScheduleType for sub-scopes.
-const SCOPEDEFAULT_SCHEDULE = new Map<(ScheduleType | null), ScheduleType>([
-    [ScheduleType.Default, ScheduleType.Default],
-    [null, ScheduleType.CPU_Multicore],
-    [ScheduleType.Sequential, ScheduleType.Sequential],
-    [ScheduleType.MPI, ScheduleType.CPU_Multicore],
-    [ScheduleType.CPU_Multicore, ScheduleType.Sequential],
-    [ScheduleType.Unrolled, ScheduleType.CPU_Multicore],
-    [ScheduleType.GPU_Default, ScheduleType.GPU_Device],
-    [ScheduleType.GPU_Persistent, ScheduleType.GPU_Device],
-    [ScheduleType.GPU_Device, ScheduleType.GPU_ThreadBlock],
-    [ScheduleType.GPU_ThreadBlock, ScheduleType.Sequential],
-    [ScheduleType.GPU_ThreadBlock_Dynamic, ScheduleType.Sequential],
-    [ScheduleType.FPGA_Device, ScheduleType.FPGA_Device],
-    [ScheduleType.SVE_Map, ScheduleType.Sequential]
-]);
+const SCOPEDEFAULT_SCHEDULE =
+    new Map<(ScheduleType | null | undefined), ScheduleType>([
+        [ScheduleType.Default, ScheduleType.Default],
+        [null, ScheduleType.CPU_Multicore],
+        [undefined, ScheduleType.CPU_Multicore],
+        [ScheduleType.Sequential, ScheduleType.Sequential],
+        [ScheduleType.MPI, ScheduleType.CPU_Multicore],
+        [ScheduleType.CPU_Multicore, ScheduleType.Sequential],
+        [ScheduleType.Unrolled, ScheduleType.CPU_Multicore],
+        [ScheduleType.GPU_Default, ScheduleType.GPU_Device],
+        [ScheduleType.GPU_Persistent, ScheduleType.GPU_Device],
+        [ScheduleType.GPU_Device, ScheduleType.GPU_ThreadBlock],
+        [ScheduleType.GPU_ThreadBlock, ScheduleType.Sequential],
+        [ScheduleType.GPU_ThreadBlock_Dynamic, ScheduleType.Sequential],
+        [ScheduleType.FPGA_Device, ScheduleType.FPGA_Device],
+        [ScheduleType.SVE_Map, ScheduleType.Sequential]
+    ]);
 
 const STYPE_COLOR = new Map<StorageType, number>([
     [StorageType.Default, KELLY_COLORS[3]],
@@ -131,34 +135,78 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
         this.renderer.draw_async();
     }
 
-    public shade_node(node: AccessNode, ctx: CanvasRenderingContext2D): void {
-        const sdfg_array = node.sdfg.attributes._arrays[node.attributes().data];
+    private recursiveFindScopeSchedule(
+        node: any, parentId?: number, sdfg?: any
+    ): ScheduleType | undefined {
+        let scopeNode;
+        if (node instanceof SDFGNode) {
+            if (node.data?.node?.scope_entry !== undefined &&
+                node.parent_id !== null) {
+                scopeNode = node.sdfg.nodes[node.parent_id].nodes[
+                    node.data.node.scope_entry
+                ];
+                parentId = node.parent_id;
+                sdfg = node.sdfg;
+            }
+        } else if (node.scope_entry !== undefined &&
+            parentId !== undefined && sdfg !== undefined) {
+            scopeNode = sdfg.nodes[parentId].nodes[node.scope_entry];
+        }
 
-        const storage_type = sdfg_array?.attributes?.storage;
-        if (storage_type) {
-            // TODO: if the storage type is Default, derive the final one from
-            // the surrounding scope.
+        const schedule = scopeNode?.attributes?.schedule;
+        if (schedule) {
+            if (schedule === ScheduleType.Default) {
+                const parentSchedule = this.recursiveFindScopeSchedule(
+                    scopeNode, parentId, sdfg
+                );
+                return SCOPEDEFAULT_SCHEDULE.get(parentSchedule);
+            } else {
+                return schedule;
+            }
+        }
+        return undefined;
+    }
+
+    public shadeNode(node: AccessNode, ctx: CanvasRenderingContext2D): void {
+        const sdfgArray = node.sdfg.attributes._arrays[node.attributes().data];
+
+        let storageType = sdfgArray?.attributes?.storage;
+        let originalType: string | null = null;
+        if (storageType) {
+            if (storageType === StorageType.Default) {
+                const schedule = this.recursiveFindScopeSchedule(node);
+                const derivedStorageType = SCOPEDEFAULT_STORAGE.get(schedule);
+                if (derivedStorageType) {
+                    originalType = storageType;
+                    storageType = derivedStorageType;
+                }
+            }
 
             const mousepos = this.renderer.get_mousepos();
             if (mousepos && node.intersect(mousepos.x, mousepos.y)) {
                 this.renderer.set_tooltip(() => {
-                    const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
-                        tt_cont.innerText = 'Location: ' + storage_type;
+                    const ttContainer = this.renderer.get_tooltip_container();
+                    if (ttContainer) {
+                        if (originalType)
+                            ttContainer.innerHTML = 'Location: ' +
+                                originalType + ' &rarr; ' + storageType;
+                        else
+                            ttContainer.innerHTML = 'Location: ' + storageType;
+                    }
                 });
             }
 
-            const color = STYPE_COLOR.get(storage_type)?.toString(16);
+            const color = STYPE_COLOR.get(storageType)?.toString(16);
             if (color)
                 node.shade(this.renderer, ctx, '#' + color);
         }
     }
 
-    public recursively_shade_sdfg(
+    public recursivelyShadeSdfg(
         graph: DagreSDFG,
         ctx: CanvasRenderingContext2D,
         ppp: number,
-        visible_rect: SimpleRect
+        visibleRect: SimpleRect
     ): void {
         // First go over visible states, skipping invisible ones. We traverse
         // inside to shade memory nodes wherever applicable.
@@ -167,8 +215,8 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
 
             // If the node's invisible, we skip it.
             if ((ctx as any).lod && !state.intersect(
-                visible_rect.x, visible_rect.y,
-                visible_rect.w, visible_rect.h
+                visibleRect.x, visibleRect.y,
+                visibleRect.w, visibleRect.h
             ))
                 return;
 
@@ -179,22 +227,22 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                 // traverse its insides.
                 return;
             } else {
-                const state_graph = state.data.graph;
-                if (state_graph) {
-                    state_graph.nodes().forEach((v: any) => {
-                        const node = state_graph.node(v);
+                const stateGraph = state.data.graph;
+                if (stateGraph) {
+                    stateGraph.nodes().forEach((v: any) => {
+                        const node = stateGraph.node(v);
 
                         // Skip the node if it's not visible.
-                        if ((ctx as any).lod && !node.intersect(visible_rect.x,
-                            visible_rect.y, visible_rect.w, visible_rect.h))
+                        if ((ctx as any).lod && !node.intersect(visibleRect.x,
+                            visibleRect.y, visibleRect.w, visibleRect.h))
                             return;
 
                         if (node instanceof NestedSDFG) {
-                            this.recursively_shade_sdfg(
-                                node.data.graph, ctx, ppp, visible_rect
+                            this.recursivelyShadeSdfg(
+                                node.data.graph, ctx, ppp, visibleRect
                             );
                         } else if (node instanceof AccessNode) {
-                            this.shade_node(node, ctx);
+                            this.shadeNode(node, ctx);
                         }
                     });
                 }
@@ -206,9 +254,9 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
         const graph = this.renderer.get_graph();
         const ppp = this.renderer.get_canvas_manager()?.points_per_pixel();
         const context = this.renderer.get_context();
-        const visible_rect = this.renderer.get_visible_rect();
-        if (graph && ppp !== undefined && context && visible_rect)
-            this.recursively_shade_sdfg(graph, context, ppp, visible_rect);
+        const visibleRect = this.renderer.get_visible_rect();
+        if (graph && ppp !== undefined && context && visibleRect)
+            this.recursivelyShadeSdfg(graph, context, ppp, visibleRect);
     }
 
     public on_mouse_event(
