@@ -57,6 +57,7 @@ export class GenericSdfgOverlay {
                     if (n <= 1) {
                         this.heatmap_hist_buckets = [...new Set(values)];
                     } else {
+                        this.heatmap_hist_buckets = [];
                         const minval = min(values);
                         const maxval = max(values);
                         const step = (maxval - minval) / n;
@@ -96,7 +97,7 @@ export class GenericSdfgOverlay {
                 {
                     let i;
                     for (i = 0; i < this.heatmap_hist_buckets.length - 1; i++) {
-                        if (val >= this.heatmap_hist_buckets[i])
+                        if (val <= this.heatmap_hist_buckets[i])
                             break;
                     }
                     severity = i / (this.heatmap_hist_buckets.length - 1);
