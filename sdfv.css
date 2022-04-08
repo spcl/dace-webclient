@@ -324,6 +324,7 @@ pre.code code {
   --connector-unscoped-color: #f0fdff;
   --nested-sdfg-background-color: #ffffff;
   --nested-sdfg-foreground-color: #000000;
+  --reference-background-color: #ffdede;
   --color-default: black;
   --color-hovered: green;
   --color-highlighted: orange;
