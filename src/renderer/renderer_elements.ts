@@ -788,6 +788,10 @@ export class AccessNode extends SDFGNode {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--connector-unscoped-color'
             );
+        } else if (nodedesc && nodedesc.type === 'Reference') {
+            ctx.fillStyle = this.getCssProperty(
+                renderer, '--reference-background-color'
+            );
         } else if (nodedesc && this.sdfg.attributes.constants_prop[name] !== undefined) {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--connector-scoped-color'
