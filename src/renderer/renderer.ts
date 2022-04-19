@@ -1379,10 +1379,10 @@ export class SDFGRenderer {
             return;
 
         // Ensure the minimap isn't taking up too much screen realestate.
-        const minDimSize = 200;
+        const minDimSize = 180;
         let targetWidth = minDimSize;
         let targetHeight = minDimSize;
-        const maxPercentage = 0.25;
+        const maxPercentage = 0.22;
         if (targetHeight > this.canvas.height * maxPercentage)
             targetHeight = this.canvas.height * maxPercentage;
         if (targetWidth > this.canvas.width * maxPercentage)

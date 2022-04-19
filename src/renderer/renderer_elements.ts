@@ -65,7 +65,7 @@ export class SDFGElement {
 
     public shade(
         _renderer: SDFGRenderer, _ctx: CanvasRenderingContext2D, _color: string,
-        _alpha: number = 0.6
+        _alpha: number = 0.4
     ): void {
         return;
     }
@@ -309,8 +309,8 @@ export class State extends SDFGElement {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -426,8 +426,8 @@ export class SDFGNode extends SDFGElement {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -538,8 +538,8 @@ export class Edge extends SDFGElement {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         ctx.beginPath();
         this.create_arrow_line(ctx);
@@ -552,17 +552,17 @@ export class Edge extends SDFGElement {
         const orig_alpha = ctx.globalAlpha;
 
         ctx.globalAlpha = alpha;
-        ctx.lineWidth = orig_line_width + 1;
+        ctx.lineWidth = orig_line_width + 4;
         ctx.fillStyle = color;
         ctx.strokeStyle = color;
-        ctx.lineCap = 'round';
+        ctx.lineCap = 'butt';
 
         ctx.stroke();
 
         if (this.points.length < 2)
             return;
         drawArrow(ctx, this.points[this.points.length - 2],
-            this.points[this.points.length - 1], 3, 0, 2);
+            this.points[this.points.length - 1], 3, 0, 4);
 
         // Restore previous stroke style, width, and opacity.
         ctx.strokeStyle = orig_stroke_style;
@@ -830,8 +830,8 @@ export class AccessNode extends SDFGNode {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -941,8 +941,8 @@ export class ScopeNode extends SDFGNode {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -1210,8 +1210,8 @@ export class Tasklet extends SDFGNode {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -1269,8 +1269,8 @@ export class Reduce extends SDFGNode {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -1346,7 +1346,7 @@ export class NestedSDFG extends SDFGNode {
 
     public shade(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        alpha: number = 0.4
     ): void {
         if (this.data.node.attributes.is_collapsed) {
             // Save the current style properties.
@@ -1446,8 +1446,8 @@ export class LibraryNode extends SDFGNode {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
