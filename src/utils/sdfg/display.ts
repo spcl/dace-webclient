@@ -1,7 +1,6 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { simplify } from 'mathjs';
-import { LogicalGroup } from '../../overlays/logical_group_overlay';
 
 export function sdfg_range_elem_to_string(
     range: any,

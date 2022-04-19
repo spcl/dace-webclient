@@ -260,12 +260,12 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
     }
 
     public on_mouse_event(
-        type: string,
+        _type: string,
         _ev: MouseEvent,
         _mousepos: Point2D,
         _elements: SDFGElement[],
-        foreground_elem: SDFGElement | undefined,
-        ends_drag: boolean
+        _foreground_elem: SDFGElement | undefined,
+        _ends_drag: boolean
     ): boolean {
         return false;
     }

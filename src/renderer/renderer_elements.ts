@@ -496,8 +496,6 @@ export class Edge extends SDFGElement {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos: Point2D
     ): void {
-        const edge = this;
-
         ctx.beginPath();
         this.create_arrow_line(ctx);
 
@@ -521,7 +519,7 @@ export class Edge extends SDFGElement {
 
         ctx.setLineDash([1, 0]);
 
-        if (edge.points.length < 2)
+        if (this.points.length < 2)
             return;
 
         // Show anchor points for moving
@@ -534,8 +532,8 @@ export class Edge extends SDFGElement {
         }
 
         drawArrow(
-            ctx, edge.points[edge.points.length - 2],
-            edge.points[edge.points.length - 1], 3
+            ctx, this.points[this.points.length - 2],
+            this.points[this.points.length - 1], 3
         );
     }
 
@@ -1808,7 +1806,7 @@ export function drawAdaptiveText(
 
 export function drawHexagon(
     ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number,
-    offset: Point2D
+    _offset: Point2D
 ): void {
     const topleft = { x: x - w / 2.0, y: y - h / 2.0 };
     const hexseg = h / 3.0;

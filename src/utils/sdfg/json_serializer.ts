@@ -8,7 +8,7 @@ export function parse_sdfg(sdfg_json: string): JsonSDFG {
 }
 
 export function stringify_sdfg(sdfg: JsonSDFG): string {
-    return JSON.stringify(sdfg, (name, val) => replacer(name, val, sdfg));
+    return JSON.stringify(sdfg, (name, val) => replacer(name, val));
 }
 
 function reviver(name: string, val: unknown) {
@@ -18,12 +18,7 @@ function reviver(name: string, val: unknown) {
     return val;
 }
 
-function isDict(v: unknown): v is Record<string, unknown> {
-    return typeof v === 'object' && v !== null && !(v instanceof Array) &&
-        !(v instanceof Date);
-}
-
-function replacer(name: string, val: unknown, orig_sdfg: unknown): unknown {
+function replacer(name: string, val: unknown): unknown {
     if (name === 'edge' && val instanceof Edge) {  // Skip circular dependencies
         return undefined;
     }

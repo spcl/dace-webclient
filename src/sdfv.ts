@@ -1,7 +1,7 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { parse_sdfg, stringify_sdfg } from './utils/sdfg/json_serializer';
-import { mean, median, string } from 'mathjs';
+import { mean, median } from 'mathjs';
 import { SDFGRenderer } from './renderer/renderer';
 import { htmlSanitize } from './utils/sanitization';
 import {
@@ -691,7 +691,7 @@ function find_edge(state: State, edge_id: number): Edge | undefined {
     return edge;
 }
 
-function find_graph_element(
+export function find_graph_element(
     graph: DagreSDFG, type: string, sdfg_id: number, state_id: number = -1,
     el_id: number = -1
 ): SDFGElement | undefined {
