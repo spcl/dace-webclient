@@ -4,7 +4,7 @@ import {
     SDFGElement,
     SDFGNode
 } from '../renderer/renderer_elements';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 import { getTempColor } from '../renderer/renderer_elements';
 import { SDFGRenderer } from '../renderer/renderer';
 import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
@@ -15,6 +15,8 @@ import { get_element_uuid } from '../utils/utils';
 declare const vscode: any;
 
 export class StaticFlopsOverlay extends GenericSdfgOverlay {
+
+    public static type: OverlayType = OverlayType.NODE;
 
     private flops_map: { [uuids: string]: any } = {};
 

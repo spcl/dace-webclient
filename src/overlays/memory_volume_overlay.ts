@@ -7,9 +7,11 @@ import {
     State
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class MemoryVolumeOverlay extends GenericSdfgOverlay {
+
+    public static type: OverlayType = OverlayType.EDGE;
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);

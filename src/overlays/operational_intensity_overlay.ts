@@ -7,12 +7,14 @@ import {
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
 import { get_element_uuid } from '../utils/utils';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any;
 
 export class OperationalIntensityOverlay extends GenericSdfgOverlay {
+
+    public static type: OverlayType = OverlayType.NODE;
 
     private flops_map: { [uuids: string]: any } = {};
 

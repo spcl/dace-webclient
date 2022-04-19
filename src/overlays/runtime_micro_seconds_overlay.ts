@@ -1,5 +1,5 @@
 import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 import { getTempColor } from '../renderer/renderer_elements';
 import { SDFGRenderer } from '../renderer/renderer';
 import { DagreSDFG, SimpleRect } from '../index';
@@ -9,6 +9,8 @@ import { Node } from 'dagre';
 
 
 export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
+
+    public static type: OverlayType = OverlayType.NODE;
 
     private criterium: string = 'mean';
     private runtime_map: { [uuids: string]: any } = {}
