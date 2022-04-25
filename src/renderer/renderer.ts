@@ -51,7 +51,7 @@ export type SDFGListType = any[];//{ [key: number]: DagreSDFG };
 
 function check_valid_add_position(
     type: string | null, foreground_elem: SDFGElement | undefined | null,
-    lib: any, mousepos: any
+    lib: any, _mousepos: any
 ): boolean {
     if (type !== null) {
         switch (type) {
@@ -392,62 +392,61 @@ export class SDFGRenderer {
             menu_button.innerHTML = '<i class="material-icons">menu</i>';
             menu_button.style.paddingBottom = '0px';
             menu_button.style.userSelect = 'none';
-            const that = this;
-            menu_button.onclick = function () {
-                if (that.menu && that.menu.visible()) {
-                    that.menu.destroy();
+            menu_button.onclick = () => {
+                if (this.menu && this.menu.visible()) {
+                    this.menu.destroy();
                     return;
                 }
                 const rect = menu_button.getBoundingClientRect();
                 const cmenu = new ContextMenu();
-                if (!that.in_vscode) {
+                if (!this.in_vscode) {
                     cmenu.addOption(
-                        'Save SDFG as...', (_x: any) => that.save_sdfg()
+                        'Save SDFG as...', (_x: any) => this.save_sdfg()
                     );
                 }
                 cmenu.addOption(
-                    'Save view as PNG', (_x: any) => that.save_as_png()
+                    'Save view as PNG', (_x: any) => this.save_as_png()
                 );
-                if (that.has_pdf()) {
+                if (this.has_pdf()) {
                     cmenu.addOption(
-                        'Save view as PDF', (_x: any) => that.save_as_pdf()
+                        'Save view as PDF', (_x: any) => this.save_as_pdf()
                     );
                     cmenu.addOption(
-                        'Save all as PDF', (_x: any) => that.save_as_pdf(true)
+                        'Save all as PDF', (_x: any) => this.save_as_pdf(true)
                     );
                 }
                 cmenu.addCheckableOption(
                     'Inclusive ranges',
-                    that.inclusive_ranges,
+                    this.inclusive_ranges,
                     (_x: any, checked: boolean) => {
-                        that.inclusive_ranges = checked;
+                        this.inclusive_ranges = checked;
                     }
                 );
                 cmenu.addCheckableOption(
                     'Adaptive content hiding',
-                    (that.ctx as any).lod,
+                    (this.ctx as any).lod,
                     (_x: any, checked: boolean) => {
-                        (that.ctx as any).lod = checked;
+                        (this.ctx as any).lod = checked;
                     }
                 );
-                if (that.in_vscode) {
+                if (this.in_vscode) {
                     cmenu.addCheckableOption(
                         'Show Logical Groups',
-                        that.overlay_manager ?
-                            that.overlay_manager.is_overlay_active(
+                        this.overlay_manager ?
+                            this.overlay_manager.is_overlay_active(
                                 LogicalGroupOverlay
                             ) : false,
                         (x: any, checked: boolean) => {
                             if (checked)
-                                that.overlay_manager?.register_overlay(
+                                this.overlay_manager?.register_overlay(
                                     LogicalGroupOverlay
                                 );
                             else
-                                that.overlay_manager?.deregister_overlay(
+                                this.overlay_manager?.deregister_overlay(
                                     LogicalGroupOverlay
                                 );
-                            that.draw_async();
-                            that.emit_event(
+                            this.draw_async();
+                            this.emit_event(
                                 'active_overlays_changed', null
                             );
                         }
@@ -457,10 +456,10 @@ export class SDFGRenderer {
                         'Overlays',
                         () => {
                             if (
-                                that.overlays_menu &&
-                                that.overlays_menu.visible()
+                                this.overlays_menu &&
+                                this.overlays_menu.visible()
                             ) {
-                                that.overlays_menu.destroy();
+                                this.overlays_menu.destroy();
                                 return;
                             }
                             const rect =
@@ -468,86 +467,86 @@ export class SDFGRenderer {
                             const overlays_cmenu = new ContextMenu();
                             overlays_cmenu.addCheckableOption(
                                 'Memory volume analysis',
-                                that.overlay_manager ?
-                                    that.overlay_manager.is_overlay_active(
+                                this.overlay_manager ?
+                                    this.overlay_manager.is_overlay_active(
                                         MemoryVolumeOverlay
                                     ) : false,
                                 (x: any, checked: boolean) => {
                                     if (checked)
-                                        that.overlay_manager?.register_overlay(
+                                        this.overlay_manager?.register_overlay(
                                             MemoryVolumeOverlay
                                         );
                                     else
-                                        that.overlay_manager?.deregister_overlay(
+                                        this.overlay_manager?.deregister_overlay(
                                             MemoryVolumeOverlay
                                         );
-                                    that.draw_async();
-                                    that.emit_event(
+                                    this.draw_async();
+                                    this.emit_event(
                                         'active_overlays_changed', null
                                     );
                                 }
                             );
                             overlays_cmenu.addCheckableOption(
                                 'Storage locations',
-                                that.overlay_manager ?
-                                    that.overlay_manager.is_overlay_active(
+                                this.overlay_manager ?
+                                    this.overlay_manager.is_overlay_active(
                                         MemoryLocationOverlay
                                     ) : false,
                                 (x: any, checked: boolean) => {
                                     if (checked)
-                                        that.overlay_manager?.register_overlay(
+                                        this.overlay_manager?.register_overlay(
                                             MemoryLocationOverlay
                                         );
                                     else
-                                        that.overlay_manager?.deregister_overlay(
+                                        this.overlay_manager?.deregister_overlay(
                                             MemoryLocationOverlay
                                         );
-                                    that.draw_async();
-                                    that.emit_event(
+                                    this.draw_async();
+                                    this.emit_event(
                                         'active_overlays_changed', null
                                     );
                                 }
                             );
                             overlays_cmenu.addCheckableOption(
                                 'Logical groups',
-                                that.overlay_manager ?
-                                    that.overlay_manager.is_overlay_active(
+                                this.overlay_manager ?
+                                    this.overlay_manager.is_overlay_active(
                                         LogicalGroupOverlay
                                     ) : false,
                                 (x: any, checked: boolean) => {
                                     if (checked)
-                                        that.overlay_manager?.register_overlay(
+                                        this.overlay_manager?.register_overlay(
                                             LogicalGroupOverlay
                                         );
                                     else
-                                        that.overlay_manager?.deregister_overlay(
+                                        this.overlay_manager?.deregister_overlay(
                                             LogicalGroupOverlay
                                         );
-                                    that.draw_async();
-                                    that.emit_event(
+                                    this.draw_async();
+                                    this.emit_event(
                                         'active_overlays_changed', null
                                     );
                                 }
                             );
-                            that.overlays_menu = overlays_cmenu;
-                            that.overlays_menu.show(rect?.left, rect?.top);
+                            this.overlays_menu = overlays_cmenu;
+                            this.overlays_menu.show(rect?.left, rect?.top);
                         }
                     );
                 }
                 cmenu.addCheckableOption(
                     'Hide Access Nodes',
-                    that.omit_access_nodes,
+                    this.omit_access_nodes,
                     (_: any, checked: boolean) => {
-                        that.omit_access_nodes = checked;
-                        that.relayout();
-                        that.draw_async();
+                        this.omit_access_nodes = checked;
+                        this.relayout();
+                        this.draw_async();
                     }
                 );
                 cmenu.addOption(
-                    'Reset positions', () => that.reset_positions()
+                    'Reset positions', () => this.reset_positions()
                 );
-                that.menu = cmenu;
-                that.menu.show(rect.left, rect.bottom);
+                this.menu = cmenu;
+                this.menu.show(rect.left, rect.bottom);
             };
             menu_button.title = 'Menu';
             this.toolbar.appendChild(menu_button);
@@ -772,12 +771,11 @@ export class SDFGRenderer {
         this.error_popover_container.className = 'invalid_popup';
         this.error_popover_text = document.createElement('div');
         const error_popover_dismiss = document.createElement('button');
-        const that = this;
         error_popover_dismiss.onclick = () => {
-            that.sdfg.error = undefined;
-            if (that.error_popover_container && that.error_popover_text) {
-                that.error_popover_text.innerText = '';
-                that.error_popover_container.style.display = 'none';
+            this.sdfg.error = undefined;
+            if (this.error_popover_container && this.error_popover_text) {
+                this.error_popover_text.innerText = '';
+                this.error_popover_container.style.display = 'none';
             }
         };
         error_popover_dismiss.style.float = 'right';
@@ -806,7 +804,7 @@ export class SDFGRenderer {
             this.canvas_manager.set_user_transform(user_transform);
 
         // Resize event for container
-        const observer = new MutationObserver((mutations) => {
+        const observer = new MutationObserver(() => {
             this.onresize();
             this.draw_async();
         });
@@ -998,6 +996,11 @@ export class SDFGRenderer {
                 }
             });
         }
+
+        // Set minimap event handlers.
+        this.minimap_canvas?.addEventListener('click', (ev) => {
+            this.on_minimap_click(ev);
+        });
     }
 
     public onresize(): void {
@@ -1327,19 +1330,63 @@ export class SDFGRenderer {
         }
     }
 
+    private on_minimap_click(mouse_event: MouseEvent): void {
+        if (!this.minimap_canvas || !this.visible_rect)
+            return;
+
+        // Get target offset from graph center in minimap coordinates.
+        const centerX = this.minimap_canvas.width / 2;
+        const centerY = this.minimap_canvas.height / 2;
+        const minimapCenterOffset = {
+            x: mouse_event.offsetX - centerX,
+            y: mouse_event.offsetY - centerY,
+        };
+
+        // Translate minimap coordinate center offset to graph canvas center
+        // offset.
+        const graphBoundingBox = {
+            x: 0,
+            y: 0,
+            width: (this.graph as any).width,
+            height: (this.graph as any).height,
+        };
+        const scale = Math.min(
+            this.minimap_canvas.width / graphBoundingBox.width,
+            this.minimap_canvas.height / graphBoundingBox.height
+        );
+        const targetCenterOffset = {
+            x: minimapCenterOffset.x * (1 / scale),
+            y: minimapCenterOffset.y * (1 / scale),
+        };
+        const targetPos = {
+            x: (graphBoundingBox.width / 2) + targetCenterOffset.x,
+            y: (graphBoundingBox.height / 2) + targetCenterOffset.y,
+        };
+
+        // Move to the target position.
+        const targetRect = new DOMRect(
+            targetPos.x - (this.visible_rect.w / 2),
+            targetPos.y - (this.visible_rect.h / 2),
+            this.visible_rect.w, this.visible_rect.h
+        );
+        this.canvas_manager?.set_view(targetRect, true);
+        this.draw_async();
+    }
+
     private draw_minimap(): void {
         if (!this.minimap_ctx || !this.minimap_canvas ||
             !this.canvas || !this.graph)
             return;
 
-        // Resize the container to reflect the true canvas dimensions.
-        const minDimSize = 200;
+        // Ensure the minimap isn't taking up too much screen realestate.
+        const minDimSize = 180;
         let targetWidth = minDimSize;
         let targetHeight = minDimSize;
-        if (this.canvas.width < this.canvas.height)
-            targetHeight = targetWidth * this.canvas.height / this.canvas.width;
-        else
-            targetWidth = targetHeight * this.canvas.width / this.canvas.height;
+        const maxPercentage = 0.22;
+        if (targetHeight > this.canvas.height * maxPercentage)
+            targetHeight = this.canvas.height * maxPercentage;
+        if (targetWidth > this.canvas.width * maxPercentage)
+            targetWidth = this.canvas.width * maxPercentage;
         this.minimap_canvas.height = targetHeight;
         this.minimap_canvas.width = targetWidth;
         this.minimap_canvas.style.width = targetWidth.toString() + 'px';
@@ -1388,7 +1435,7 @@ export class SDFGRenderer {
     }
 
     // Render SDFG
-    public draw(dt: number | null): void {
+    public draw(_dt: number | null): void {
         if (!this.graph || !this.ctx)
             return;
 
@@ -1569,7 +1616,7 @@ export class SDFGRenderer {
         const elements: any[] = [];
         this.do_for_intersected_elements(
             curx, cury, curw, curh,
-            (type: any, e: any, obj: any) => {
+            (type: any, e: any, _obj: any) => {
                 const state_id = e.state ? Number(e.state) : -1;
                 let el_type = 'other';
                 if (type === 'nodes')
@@ -2907,7 +2954,7 @@ function relayout_sdfg(
     // Layout the SDFG as a dagre graph
     const g: DagreSDFG = new dagre.graphlib.Graph();
     g.setGraph({});
-    g.setDefaultEdgeLabel((u, v) => { return {}; });
+    g.setDefaultEdgeLabel(() => { return {}; });
 
     // layout each state to get its size
     sdfg.nodes.forEach((state: any) => {
@@ -3010,7 +3057,7 @@ function relayout_state(
 
 
     // Set an object for the graph label
-    g.setDefaultEdgeLabel((u, v) => { return {}; });
+    g.setDefaultEdgeLabel(() => { return {}; });
 
     // Add nodes to the graph. The first argument is the node id. The
     // second is metadata about the node (label, width, height),

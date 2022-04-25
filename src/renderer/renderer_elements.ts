@@ -8,6 +8,7 @@ import {
     JsonSDFGNode,
     JsonSDFGState,
     Point2D,
+    SimpleRect,
 } from '../index';
 import {
     sdfg_range_elem_to_string,
@@ -64,7 +65,7 @@ export class SDFGElement {
 
     public shade(
         _renderer: SDFGRenderer, _ctx: CanvasRenderingContext2D, _color: string,
-        _alpha: number = 0.6
+        _alpha: number = 0.4
     ): void {
         return;
     }
@@ -308,8 +309,8 @@ export class State extends SDFGElement {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -425,8 +426,8 @@ export class SDFGNode extends SDFGElement {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -495,8 +496,6 @@ export class Edge extends SDFGElement {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos: Point2D
     ): void {
-        const edge = this;
-
         ctx.beginPath();
         this.create_arrow_line(ctx);
 
@@ -520,7 +519,7 @@ export class Edge extends SDFGElement {
 
         ctx.setLineDash([1, 0]);
 
-        if (edge.points.length < 2)
+        if (this.points.length < 2)
             return;
 
         // Show anchor points for moving
@@ -533,15 +532,16 @@ export class Edge extends SDFGElement {
         }
 
         drawArrow(
-            ctx, edge.points[edge.points.length - 2],
-            edge.points[edge.points.length - 1], 3
+            ctx, this.points[this.points.length - 2],
+            this.points[this.points.length - 1], 3
         );
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
+        ctx.beginPath();
         this.create_arrow_line(ctx);
 
         // Save current style properties.
@@ -552,17 +552,17 @@ export class Edge extends SDFGElement {
         const orig_alpha = ctx.globalAlpha;
 
         ctx.globalAlpha = alpha;
-        ctx.lineWidth = orig_line_width + 1;
+        ctx.lineWidth = orig_line_width + 4;
         ctx.fillStyle = color;
         ctx.strokeStyle = color;
-        ctx.lineCap = 'round';
+        ctx.lineCap = 'butt';
 
         ctx.stroke();
 
         if (this.points.length < 2)
             return;
         drawArrow(ctx, this.points[this.points.length - 2],
-            this.points[this.points.length - 1], 3, 0, 2);
+            this.points[this.points.length - 1], 3, 0, 4);
 
         // Restore previous stroke style, width, and opacity.
         ctx.strokeStyle = orig_stroke_style;
@@ -830,8 +830,8 @@ export class AccessNode extends SDFGNode {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -941,8 +941,8 @@ export class ScopeNode extends SDFGNode {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -1210,8 +1210,8 @@ export class Tasklet extends SDFGNode {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -1269,8 +1269,8 @@ export class Reduce extends SDFGNode {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -1346,7 +1346,7 @@ export class NestedSDFG extends SDFGNode {
 
     public shade(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        alpha: number = 0.4
     ): void {
         if (this.data.node.attributes.is_collapsed) {
             // Save the current style properties.
@@ -1446,8 +1446,8 @@ export class LibraryNode extends SDFGNode {
     }
 
     public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.6
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
     ): void {
         // Save the current style properties.
         const orig_fill_style = ctx.fillStyle;
@@ -1468,6 +1468,74 @@ export class LibraryNode extends SDFGNode {
 
 //////////////////////////////////////////////////////
 
+/**
+ * Batched drawing of graph edges, given a specific default color.
+ * 
+ * Speed up edge drawing by batching together all 'standard' edges into one
+ * beginPath/stroke call pair. Edges are considered to be 'standard', if they're
+ * not hovered, highlighted, or selected, and do not contain a conflict
+ * resultion. Any edges NOT in that category are deferred for a separate drawl
+ * loop that handles them in the traditional manner. That is computationally
+ * cheap because the number of these edges should always be relatively low.
+ * Arrow-heads are drawn separately, but only the ones that are in frame.
+ * 
+ * @param renderer     An SDFG renderer instance.
+ * @param graph        Graph for which to draw eges.
+ * @param ctx          Canvas context.
+ * @param visible_rect Visible area of the graph.
+ * @param mousepos     Mouse position.
+ * @param color        Default edge color to use.
+ */
+function batched_draw_edges(
+    renderer: SDFGRenderer, graph: DagreSDFG, ctx: CanvasRenderingContext2D,
+    visible_rect: SimpleRect | null, mousepos: Point2D | null, color: string
+): void {
+    const deferredEdges: any[] = [];
+    const arrowEdges: any[] = [];
+    ctx.beginPath();
+    graph.edges().forEach((e: any) => {
+        const edge = graph.edge(e);
+        if ((ctx as any).lod && visible_rect && !edge.intersect(
+            visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h
+        ))
+            return;
+
+        // WCR Edge.
+        if (edge.parent_id !== null && edge.data.attributes.wcr !== null) {
+            deferredEdges.push(edge);
+            return;
+        }
+
+        // Colored edge through selection/hovering/highlighting.
+        if (edge.selected || edge.hovered || edge.highlighted) {
+            deferredEdges.push(edge);
+            return;
+        }
+
+        const lPoint = edge.points[edge.points.length - 1];
+        if (visible_rect && lPoint.x >= visible_rect.x &&
+            lPoint.x <= visible_rect.x + visible_rect.w &&
+            lPoint.y >= visible_rect.y &&
+            lPoint.y <= visible_rect.y + visible_rect.h)
+            arrowEdges.push(edge);
+
+        edge.create_arrow_line(ctx);
+    });
+    ctx.setLineDash([1, 0]);
+    ctx.fillStyle = ctx.strokeStyle = renderer.getCssProperty(color);
+    ctx.stroke();
+
+    arrowEdges.forEach(e => {
+        drawArrow(
+            ctx, e.points[e.points.length - 2], e.points[e.points.length - 1], 3
+        );
+    });
+
+    deferredEdges.forEach(e => {
+        e.draw(renderer, ctx, mousepos);
+    });
+}
+
 // Draw an entire SDFG
 export function draw_sdfg(
     renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
@@ -1479,17 +1547,15 @@ export function draw_sdfg(
 
     const ppp = canvas_manager.points_per_pixel();
 
-    // Render state machine
+    const visible_rect = renderer.get_visible_rect();
+
+    // Render state machine's edges.
     const g = sdfg_dagre;
     if (!(ctx as any).lod || ppp < SDFV.EDGE_LOD)
-        g.edges().forEach(e => {
-            const edge = g.edge(e);
-            edge.draw(renderer, ctx, mousepos);
-            edge.debug_draw(renderer, ctx);
-        });
+        batched_draw_edges(
+            renderer, g, ctx, visible_rect, mousepos, '--interstate-edge-color'
+        );
 
-
-    const visible_rect = renderer.get_visible_rect();
 
     // Render each visible state's contents
     g.nodes().forEach((v: string) => {
@@ -1555,64 +1621,9 @@ export function draw_sdfg(
             if ((ctx as any).lod && ppp >= SDFV.EDGE_LOD)
                 return;
 
-            // Speed up edge drawing by batching together all 'standard' edges
-            // into one beginPath/stroke call pair. Edges are considered to be
-            // 'standard', if they're not hovered, highlighted, or selected,
-            // and do not contain a conflict resultion. Any edges NOT in that
-            // category are deferred for a separate draw loop that handles them
-            // in the traditional manner. That is computationally cheap because
-            // the number of these edges should always be relatively low.
-            // Arrow-heads are drawn separately, but only the ones that are
-            // in frame.
-            const deferredEdges: any[] = [];
-            const arrowEdges: any[] = [];
-            ctx.beginPath();
-            ng.edges().forEach((e: any) => {
-                const edge = ng.edge(e);
-                if ((ctx as any).lod && visible_rect && !edge.intersect(
-                    visible_rect.x, visible_rect.y, visible_rect.w,
-                    visible_rect.h
-                ))
-                    return;
-
-                // WCR Edge.
-                if (edge.parent_id !== null &&
-                    edge.data.attributes.wcr !== null) {
-                    deferredEdges.push(edge);
-                    return;
-                }
-
-                // Colored edge through selection/hovering/highlighting.
-                if (edge.selected || edge.hovered || edge.highlighted) {
-                    deferredEdges.push(edge);
-                    return;
-                }
-
-                const lPoint = edge.points[edge.points.length - 1];
-                if (visible_rect && lPoint.x >= visible_rect.x &&
-                    lPoint.x <= visible_rect.x + visible_rect.w &&
-                    lPoint.y >= visible_rect.y &&
-                    lPoint.y <= visible_rect.y + visible_rect.h)
-                    arrowEdges.push(edge);
-
-                edge.create_arrow_line(ctx);
-            });
-            ctx.setLineDash([1, 0]);
-            ctx.stroke();
-
-            ctx.fillStyle = ctx.strokeStyle = renderer.getCssProperty(
-                '--color-default'
+            batched_draw_edges(
+                renderer, ng, ctx, visible_rect, mousepos, '--color-default'
             );
-            arrowEdges.forEach(e => {
-                drawArrow(
-                    ctx, e.points[e.points.length - 2],
-                    e.points[e.points.length - 1], 3
-                );
-            });
-
-            deferredEdges.forEach(e => {
-                e.draw(renderer, ctx, mousepos);
-            });
         }
     });
 }
@@ -1795,7 +1806,7 @@ export function drawAdaptiveText(
 
 export function drawHexagon(
     ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number,
-    offset: Point2D
+    _offset: Point2D
 ): void {
     const topleft = { x: x - w / 2.0, y: y - h / 2.0 };
     const hexseg = h / 3.0;

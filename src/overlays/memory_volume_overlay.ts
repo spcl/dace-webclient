@@ -7,9 +7,11 @@ import {
     State
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class MemoryVolumeOverlay extends GenericSdfgOverlay {
+
+    public static type: OverlayType = OverlayType.EDGE;
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
@@ -61,7 +63,6 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         symbol_map: SymbolMap,
         volume_values: number[]
     ): void {
-        const that = this;
         g.nodes().forEach((v: string) => {
             const state = g.node(v);
             const state_graph = state.data.graph;
@@ -69,7 +70,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 state_graph.edges().forEach((e: number) => {
                     const edge = state_graph.edge(e);
                     if (edge instanceof Edge)
-                        that.calculate_volume_edge(
+                        this.calculate_volume_edge(
                             edge,
                             symbol_map,
                             volume_values
@@ -85,7 +86,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol) => {
                             nested_symbols_map[symbol] =
-                                that.symbol_resolver.parse_symbol_expression(
+                                this.symbol_resolver.parse_symbol_expression(
                                     mapping[symbol],
                                     symbol_map
                                 );
@@ -96,7 +97,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                                 nested_symbols_map[symbol] = symbol_map[symbol];
                         });
 
-                        that.calculate_volume_graph(
+                        this.calculate_volume_graph(
                             node.data.graph,
                             nested_symbols_map,
                             volume_values
@@ -227,16 +228,15 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 foreground_elem instanceof Edge) {
                 if (foreground_elem.data.volume === undefined) {
                     if (foreground_elem.data.attributes.volume) {
-                        const that = this;
                         this.symbol_resolver.parse_symbol_expression(
                             foreground_elem.data.attributes.volume,
-                            that.symbol_resolver.get_symbol_value_map(),
+                            this.symbol_resolver.get_symbol_value_map(),
                             true,
                             () => {
-                                const graph = that.renderer.get_graph();
+                                const graph = this.renderer.get_graph();
                                 if (graph) {
-                                    that.clear_cached_volume_values();
-                                    that.recalculate_volume_values(graph);
+                                    this.clear_cached_volume_values();
+                                    this.recalculate_volume_values(graph);
                                 }
                             }
                         );

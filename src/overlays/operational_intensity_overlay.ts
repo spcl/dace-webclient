@@ -7,12 +7,14 @@ import {
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
 import { get_element_uuid } from '../utils/utils';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any;
 
 export class OperationalIntensityOverlay extends GenericSdfgOverlay {
+
+    public static type: OverlayType = OverlayType.NODE;
 
     private flops_map: { [uuids: string]: any } = {};
 
@@ -124,10 +126,9 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
     public calculate_opint_graph(
         g: DagreSDFG, symbol_map: SymbolMap, flops_values: number[]
     ): void {
-        const that = this;
         g.nodes().forEach(v => {
             const state = g.node(v);
-            that.calculate_opint_node(state, symbol_map, flops_values);
+            this.calculate_opint_node(state, symbol_map, flops_values);
             const state_graph = state.data.graph;
             if (state_graph) {
                 state_graph.nodes().forEach((v: string) => {
@@ -140,7 +141,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol: string) => {
                             nested_symbols_map[symbol] =
-                                that.symbol_resolver.parse_symbol_expression(
+                                this.symbol_resolver.parse_symbol_expression(
                                     mapping[symbol],
                                     symbol_map
                                 );
@@ -151,18 +152,18 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                                 nested_symbols_map[symbol] = symbol_map[symbol];
                         });
 
-                        that.calculate_opint_node(
+                        this.calculate_opint_node(
                             node,
                             nested_symbols_map,
                             flops_values
                         );
-                        that.calculate_opint_graph(
+                        this.calculate_opint_graph(
                             node.data.graph,
                             nested_symbols_map,
                             flops_values
                         );
                     } else {
-                        that.calculate_opint_node(
+                        this.calculate_opint_node(
                             node,
                             symbol_map,
                             flops_values
@@ -309,16 +310,15 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                         get_element_uuid(foreground_elem)
                     ];
                     if (flops_string) {
-                        const that = this;
                         this.symbol_resolver.parse_symbol_expression(
                             flops_string,
-                            that.symbol_resolver.get_symbol_value_map(),
+                            this.symbol_resolver.get_symbol_value_map(),
                             true,
                             () => {
-                                that.clear_cached_values();
-                                const graph = that.renderer.get_graph();
+                                this.clear_cached_values();
+                                const graph = this.renderer.get_graph();
                                 if (graph)
-                                    that.recalculate_opint_values(graph);
+                                    this.recalculate_opint_values(graph);
                             }
                         );
                     }

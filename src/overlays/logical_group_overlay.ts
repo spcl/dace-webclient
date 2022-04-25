@@ -7,7 +7,7 @@ import {
     State,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export type LogicalGroup = {
     name: string,
@@ -17,6 +17,8 @@ export type LogicalGroup = {
 };
 
 export class LogicalGroupOverlay extends GenericSdfgOverlay {
+
+    public static type: OverlayType = OverlayType.NODE;
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
@@ -145,12 +147,12 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
     }
 
     public on_mouse_event(
-        type: string,
+        _type: string,
         _ev: MouseEvent,
         _mousepos: Point2D,
         _elements: SDFGElement[],
-        foreground_elem: SDFGElement | undefined,
-        ends_drag: boolean
+        _foreground_elem: SDFGElement | undefined,
+        _ends_drag: boolean
     ): boolean {
         return false;
     }

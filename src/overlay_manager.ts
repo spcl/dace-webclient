@@ -89,7 +89,6 @@ export class SymbolResolver {
             const symbol = this.symbols_to_define.pop();
             if (symbol === undefined)
                 return;
-            const that = this;
             this.popup_dialogue._show(
                 symbol,
                 mapping,
@@ -102,7 +101,7 @@ export class SymbolResolver {
                         });
                     if (callback !== undefined)
                         callback();
-                    that.prompt_define_symbol(mapping, callback);
+                    this.prompt_define_symbol(mapping, callback);
                 }
             );
         }

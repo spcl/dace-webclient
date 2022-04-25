@@ -8,7 +8,15 @@ import { SDFGElement } from '../renderer/renderer_elements';
 
 declare const vscode: any;
 
+export enum OverlayType {
+    NODE,
+    EDGE,
+    BOTH,
+}
+
 export class GenericSdfgOverlay {
+
+    public static type: OverlayType = OverlayType.BOTH;
 
     protected symbol_resolver: SymbolResolver;
     protected vscode: any;

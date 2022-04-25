@@ -49,7 +49,6 @@ export class SDFG_Parser {
                 }
 
                 // Find parent nodes
-                const parent = sdfg.nodes[state_id].nodes[m.src];
                 const tmp = SDFG_Parser.lookup_symbols(
                     sdfg, state_id, m.src, symbols_to_resolve, depth + 1
                 );
