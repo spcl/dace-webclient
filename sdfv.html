@@ -8,12 +8,14 @@
     <link rel="stylesheet" type="text/css" href="./external_lib/material/material-icons.css">
     <link rel="stylesheet" type="text/css" href="./sdfv.css">
 
-    <script src="./external_lib/pdfkit.standalone.js"></script>
-    <script src="./external_lib/blob-stream.js"></script>
-    <script src="./external_lib/canvas2pdf.js"></script>
-
+    <script>
+        var process = {
+            env: {
+                NODE_DEBUG: undefined,
+            },
+        };
+    </script>
     <script defer src="./dist/sdfv.js"></script>
-
 </head>
 
 <body>

@@ -2,6 +2,8 @@
 const path = require('path');
 
 module.exports = {
+    plugins: {
+    },
     entry: {
         sdfv: './src/sdfv.ts',
     },
@@ -23,6 +25,16 @@ module.exports = {
     },
     resolve: {
         extensions: ['.ts', '.js'],
+        alias: {
+            fs: 'pdfkit/js/virtual-fs.js',
+        },
+        fallback: {
+            stream: require.resolve('stream-browserify'),
+            util: require.resolve('util/'),
+            buffer: require.resolve('buffer/'),
+            zlib: require.resolve('browserify-zlib'),
+            assert: false,
+        },
     },
     devtool: 'source-map',
     devServer: {

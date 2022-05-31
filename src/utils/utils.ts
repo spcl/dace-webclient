@@ -1,6 +1,7 @@
 // Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
+    drawHexagon,
     MapExit,
     NestedSDFG,
     SDFGElement,
@@ -179,3 +180,27 @@ export function get_element_uuid(element: SDFGElement): string {
         undefined_val
     );
 }
+
+export function rgbaToHex(r: number, g: number, b: number, a?: number): string {
+    if (a === undefined)
+        return '#' + Math.min(255, r).toString(16) +
+            Math.min(255, g).toString(16) +
+            Math.min(255, b).toString(16);
+    else
+        return '#' + Math.min(255, r).toString(16) +
+            Math.min(255, g).toString(16) +
+            Math.min(255, b).toString(16) +
+            Math.min(255, a * 255).toString(16);
+}
+
+/*
+export function hslaToHex(h: number, s: number, l: number, a?: number): string {
+    h = h % 360 + (h < 0 ? 360 : 0);
+    s = isNaN(h) || isNaN(s) ? 0 : s;
+    const m2 = l + (l < 0.5 ? l : 1 - l) * s;
+    const m1 = 2 * l - m2;
+    return rgbaToHex(
+        hsl
+    );
+}
+*/

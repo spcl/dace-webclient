@@ -23,6 +23,7 @@ import {
     calculateBoundingBox,
     calculateEdgeBoundingBox
 } from '../utils/bounding_box';
+import { PDFContext } from '../utils/canvas_to_pdf';
 import { ContextMenu } from '../utils/context_menu';
 import {
     check_and_redirect_edge, delete_positioning_info, delete_sdfg_nodes,
@@ -36,11 +37,6 @@ import {
     AccessNode, Connector, draw_sdfg, Edge, EntryNode, NestedSDFG, offset_sdfg, offset_state, SDFGElement, SDFGElements, SDFGNode,
     State
 } from './renderer_elements';
-
-// External, non-typescript libraries which are presented as previously loaded
-// scripts and global javascript variables:
-declare const blobStream: any;
-declare const canvas2pdf: any;
 
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any | null;
@@ -1221,9 +1217,9 @@ export class SDFGRenderer {
     }
 
     public has_pdf(): boolean {
+        return true;
         try {
-            blobStream;
-            canvas2pdf.PdfContext;
+            // TODO: check if we really need to check for something here.
             return true;
         } catch (e) {
             return false;
@@ -1231,8 +1227,6 @@ export class SDFGRenderer {
     }
 
     public save_as_pdf(save_all = false): void {
-        const stream = blobStream();
-
         // Compute document size
         const curx = this.canvas_manager?.mapPixelToCoordsX(0);
         const cury = this.canvas_manager?.mapPixelToCoordsY(0);
@@ -1263,11 +1257,15 @@ export class SDFGRenderer {
         }
         //
 
-        const ctx = new canvas2pdf.PdfContext(stream, {
-            size: size
+        const ctx = new PDFContext({
+            textAlign: 'left',
+            textBaseline: 'center',
+            pdfOptions: {
+                size: size,
+            },
         });
         const oldctx = this.ctx;
-        this.ctx = ctx;
+        this.ctx = ctx as any;
         (this.ctx as any).lod = !save_all;
         (this.ctx as any).pdf = true;
         // Center on saved region
