@@ -1918,20 +1918,6 @@ export function ptLineDistance(
     return Math.abs(res) / Math.sqrt(dy * dy + dx * dx);
 }
 
-/**
- * Get the color on a green-red temperature scale based on a fractional value.
- * @param {Number} val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
- * @returns            HSL color string
- */
-export function getTempColor(val: number): string {
-    if (val < 0)
-        val = 0;
-    if (val > 1)
-        val = 1;
-    const hue = ((1 - val) * 120).toString(10);
-    return 'hsl(' + hue + ',100%,50%)';
-}
-
 export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     SDFGElement,
     SDFG,

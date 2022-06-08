@@ -8,6 +8,7 @@ import {
     State
 } from '../renderer/renderer_elements';
 import { Point2D } from '..';
+import { rgb2hex } from '@pixi/utils';
 
 // From: https://eleanormaclure.files.wordpress.com/2011/03/colour-coding.pdf,
 // Via: https://stackoverflow.com/a/4382138/3547036
@@ -178,4 +179,44 @@ export function get_element_uuid(element: SDFGElement): string {
         undefined_val + '/' +
         undefined_val
     );
+}
+
+export function hsl2rgb(h: number, s: number, l: number): number[] {
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number, k = (n + h / 30) % 12): number => {
+        return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    };
+    return [f(0), f(8), f(4)];
+}
+
+function tempColor(badness: number): [number, number, number] {
+    if (Number.isNaN(badness))
+        badness = 0;
+
+    if (badness < 0)
+        badness = 0;
+    else if (badness > 1)
+        badness = 1;
+
+    return [(1 - badness) * 120, 1, 0.6];
+}
+
+/**
+ * Get the color on a green-red temperature scale based on a fractional value.
+ * @param {Number} val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
+ * @returns            HSL color string
+ */
+export function getTempColorHslString(badness: number): string {
+    const col = tempColor(badness);
+    return 'hsl(' + col[0] + ',' + (col[1] * 100) + '%,' + (col[2] * 100) +
+        '%)';
+}
+
+/**
+ * Get the color on a green-red temperature scale based on a fractional value.
+ * @param {Number} val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
+ * @returns            Hex color number
+ */
+export function getTempColorHEX(badness: number): number {
+    return rgb2hex(hsl2rgb(...tempColor(badness)));
 }

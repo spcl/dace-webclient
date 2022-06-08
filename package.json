@@ -51,8 +51,12 @@
     "dependencies": {
         "@babel/runtime": "^7.17.2",
         "@types/mathjs": "^6.0.11",
+        "chart.js": "^3.8.0",
+        "chartjs-plugin-annotation": "^1.4.0",
         "dagre": "^0.8.5",
         "jquery": "^3.6.0",
-        "mathjs": "^10.0.0"
+        "mathjs": "^10.0.0",
+        "pixi-viewport": "^4.34.4",
+        "pixi.js": "^6.3.2"
     }
 }

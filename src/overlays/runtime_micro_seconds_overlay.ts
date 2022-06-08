@@ -1,11 +1,10 @@
-import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
-import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
-import { getTempColor } from '../renderer/renderer_elements';
-import { SDFGRenderer } from '../renderer/renderer';
-import { DagreSDFG, SimpleRect } from '../index';
-import { SDFV } from '../sdfv';
-import { get_element_uuid } from '../utils/utils';
 import { Node } from 'dagre';
+import { DagreSDFG, SimpleRect } from '../index';
+import { SDFGRenderer } from '../renderer/renderer';
+import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
+import { SDFV } from '../sdfv';
+import { getTempColorHslString, get_element_uuid } from '../utils/utils';
+import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 
 export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
@@ -97,7 +96,7 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
 
         // Calculate the severity color.
         const micros = rt_summary[this.criterium];
-        const color = getTempColor(this.get_severity_value(micros));
+        const color = getTempColorHslString(this.get_severity_value(micros));
 
         node.shade(this.renderer, ctx, color);
     }

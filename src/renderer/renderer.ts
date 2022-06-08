@@ -13,6 +13,7 @@ import {
     SimpleRect,
     stringify_sdfg
 } from '../index';
+import { LViewRenderer } from '../local_view/lview_renderer';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
 import { MemoryLocationOverlay } from '../overlays/memory_location_overlay';
 import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
@@ -29,12 +30,15 @@ import {
     delete_sdfg_states, find_exit_for_entry, find_graph_element_by_uuid,
     find_root_sdfg, get_positioning_info, get_uuid_graph_element
 } from '../utils/sdfg/sdfg_utils';
-import { memlet_tree_complete, traverse_sdfg_scopes } from '../utils/sdfg/traversal';
+import {
+    memlet_tree_complete,
+    traverse_sdfg_scopes,
+} from '../utils/sdfg/traversal';
 import { deepCopy, intersectRect } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
 import {
-    AccessNode, Connector, draw_sdfg, Edge, EntryNode, NestedSDFG, offset_sdfg, offset_state, SDFGElement, SDFGElements, SDFGNode,
-    State
+    AccessNode, Connector, draw_sdfg, Edge, EntryNode, NestedSDFG, offset_sdfg,
+    offset_state, SDFGElement, SDFGElements, SDFGNode, State
 } from './renderer_elements';
 
 // External, non-typescript libraries which are presented as previously loaded
@@ -103,6 +107,7 @@ export class SDFGRenderer {
     protected movemode_btn: HTMLElement | null = null;
     protected selectmode_btn: HTMLElement | null = null;
     protected filter_btn: HTMLElement | null = null;
+    protected localViewBtn: HTMLElement | null = null;
     protected addmode_btns: HTMLElement[] = [];
     protected add_type: string | null = null;
     protected add_mode_lib: string | null = null;
@@ -189,6 +194,8 @@ export class SDFGRenderer {
             this.canvas_manager?.destroy();
             if (this.canvas)
                 this.container.removeChild(this.canvas);
+            if (this.minimap_canvas)
+                this.container.removeChild(this.minimap_canvas);
             if (this.toolbar)
                 this.container.removeChild(this.toolbar);
             if (this.tooltip_container)
@@ -724,6 +731,17 @@ export class SDFGRenderer {
         d.onclick = () => this.cutout_selection();
         d.title = 'Filter selection (cutout)';
         this.filter_btn = d;
+        this.toolbar.appendChild(d);
+
+        // Transition to local view with selection
+        d = document.createElement('button');
+        d.className = 'button hidden';
+        d.innerHTML = '<i class="material-icons">memory</i>';
+        d.style.paddingBottom = '0px';
+        d.style.userSelect = 'none';
+        d.onclick = () => this.localViewSelection();
+        d.title = 'Inspect access patterns (local view)';
+        this.localViewBtn = d;
         this.toolbar.appendChild(d);
 
         // Exit previewing mode
@@ -2811,10 +2829,53 @@ export class SDFGRenderer {
     }
 
     public on_selection_changed(): void {
-        if (this.selected_elements.length > 0 && this.filter_btn)
-            this.filter_btn.className = 'button';
-        else if (this.filter_btn)
-            this.filter_btn.className = 'button hidden';
+        if (this.localViewBtn) {
+            if (this.isLocalViewViable())
+                this.localViewBtn.className = 'button';
+            else
+                this.localViewBtn.className = 'button hidden';
+        }
+
+        if (this.filter_btn) {
+            if (this.selected_elements.length > 0)
+                this.filter_btn.className = 'button';
+            else
+                this.filter_btn.className = 'button hidden';
+        }
+    }
+
+    private isLocalViewViable(): boolean {
+        if (this.selected_elements.length > 0) {
+            if (this.selected_elements.length === 1 &&
+                this.selected_elements[0] instanceof State)
+                return true;
+
+            // Multiple elements are selected. The local view is only a viable
+            // option if all selected elements are inside the same state. If a
+            // state is selected alongside other elements, all elements must be
+            // inside that state.
+            let parentStateId = null;
+            console.log(this.selected_elements);
+            for (const elem of this.selected_elements) {
+                if (elem instanceof State) {
+                    if (parentStateId === null)
+                        parentStateId = elem.id;
+                    else if (parentStateId !== elem.id)
+                        return false;
+                } else if (elem instanceof Connector || elem instanceof Edge) {
+                    continue;
+                } else {
+                    if (elem.parent_id === null)
+                        return false;
+                    else if (parentStateId === null)
+                        parentStateId = elem.parent_id;
+                    else if (parentStateId !== elem.parent_id)
+                        return false;
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
     public deselect(): void {
@@ -2823,6 +2884,45 @@ export class SDFGRenderer {
         });
         this.selected_elements = [];
         this.on_selection_changed();
+    }
+
+    public localViewSelection(): void {
+        if (!this.graph)
+            return;
+
+        /*
+        if (this.selected_elements.length === 1 &&
+            this.selected_elements[0] instanceof State) {
+            this.sdfv_instance.setLocalViewRenderer(new LViewRenderer(
+                this.sdfv_instance,
+                this.selected_elements[0],
+                this.container
+            ));
+        }
+
+        */
+
+        // Transition to the local view by first cutting out the selection,
+        // then parsing and calculating the size of all nodes to fit the local
+        // view, and then performing a re-layout. The resulting graph is thenl
+        // passed to a new instance of the local view renderer.
+        this.cutout_selection();
+
+        // Collapse everything except the state.
+        this.for_all_sdfg_elements(
+            (_type: SDFGElementType, _odict: any, obj: any) => {
+                if ('is_collapsed' in obj.attributes &&
+                    !obj.type.endsWith('Exit'))
+                    obj.attributes.is_collapsed = true;
+            }
+        );
+        this.sdfg.nodes[0].attributes.is_collapsed = false;
+
+        const lGraph = LViewRenderer.parseGraph(this.graph);
+
+        this.relayout();
+
+        console.log(lGraph);
     }
 
     public cutout_selection(): void {

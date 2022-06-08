@@ -1,12 +1,14 @@
 import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
-    Edge, getTempColor, NestedSDFG,
+    Edge,
+    NestedSDFG,
     SDFGElement,
     SDFGNode,
     State
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
+import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class MemoryVolumeOverlay extends GenericSdfgOverlay {
@@ -142,7 +144,9 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 return;
 
             // Calculate the severity color.
-            const color = getTempColor(this.get_severity_value(volume));
+            const color = getTempColorHslString(
+                this.get_severity_value(volume)
+            );
 
             edge.shade(this.renderer, ctx, color);
         }
