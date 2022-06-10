@@ -1,21 +1,19 @@
 import { Polygon, Rectangle } from '@pixi/math';
 import { Text } from '@pixi/text';
-import math, { evaluate as mathEvaluate } from 'mathjs';
+import $ from 'jquery';
+import { evaluate as mathEvaluate } from 'mathjs';
+import { AccessStack } from '../../utils/collections';
 import { Graph } from '../graph/graph';
 import { Button } from '../gui/button';
 import { Slider } from '../gui/slider';
-import { AccessStack } from '../../utils/collections';
 import { AccessMap, ConcreteDataAccess, DataContainer } from './data_container';
 import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from './element';
 import { MemoryNode } from './memory_node';
 import { Node } from './node';
-import $ from 'jquery';
 
 const HEADER_HEIGHT = 80;
 const NESTING_PADDING = 7;
-const NESTING_PADDING_SLIM = 10;
 const BUTTON_PADDING = 10;
-//const LABEL_PADDING = HEADER_HEIGHT / 2;
 
 type Range = {
     itvar: string,
@@ -87,29 +85,23 @@ export class MapNode extends Node {
         }
 
         if (this.overrideWidth !== undefined) {
-            /*
-            this.labelWidth =
-                (this._width - 2 * LABEL_PADDING) / this.ranges.length;
-                */
             this.labelWidth = this._width / this.ranges.length;
         } else {
             // If no explicit width was provided, set the map to be wide enough
             // to accomodate the largest label.
             this.labelWidth = Math.max(
                 maxLabelWidth,
-                //(this._width - 2 * LABEL_PADDING) / this.ranges.length
                 this._width / this.ranges.length
             );
             
-            this._width = (this.labelWidth * this.ranges.length);/* +
-                2 * LABEL_PADDING;*/
+            this._width = (this.labelWidth * this.ranges.length);
         }
 
         for (let i = 0; i < this.ranges.length; i++) {
             const range = this.ranges[i];
             const label = this.labels[i];
             label.position.set(
-                /*LABEL_PADDING + */(i * this.labelWidth) + (this.labelWidth / 2),
+                (i * this.labelWidth) + (this.labelWidth / 2),
                 HEADER_HEIGHT / 4
             );
             this.addChild(label);
@@ -135,9 +127,9 @@ export class MapNode extends Node {
                 step = typeof(range.step) === 'string' ? 1 : range.step;
             }
 
-            const slider = new Slider(start, end - step, step, this.labelWidth);
+            const slider = new Slider(start, end, step, this.labelWidth);
             slider.position.set(
-                /*LABEL_PADDING + */i * this.labelWidth, HEADER_HEIGHT / 2
+                i * this.labelWidth, HEADER_HEIGHT / 2
             );
             this.addChild(slider);
             this.sliders.set(range.itvar, slider);
@@ -288,13 +280,6 @@ export class MapNode extends Node {
                     access.dataContainer
                 );
                 if (nodes) {
-                    //let node: MemoryNode | undefined = undefined;
-                    //for (let i = 0; i < nodes.length; i++) {
-                    //    if (nodes[i][0] === access.accessMode) {
-                    //        node = nodes[i][1];
-                    //        break;
-                    //    }
-                    //}
                     const node = nodes[0][1];
 
                     if (node && !access.index.includes(undefined)) {
@@ -330,20 +315,35 @@ export class MapNode extends Node {
 
                             if (distance < 0 || distance >= distThreshold) {
                                 if (tile) {
-                                    const missPrev = MemoryNode.missesHistogram.get(tile.totalMisses);
-                                    if (missPrev !== undefined && missPrev >= 0) {
+                                    const missPrev =
+                                        MemoryNode.missesHistogram.get(
+                                            tile.totalMisses
+                                        );
+                                    if (missPrev !== undefined &&
+                                        missPrev >= 0) {
                                         if (missPrev > 1)
-                                            MemoryNode.missesHistogram.set(tile.totalMisses, missPrev - 1);
+                                            MemoryNode.missesHistogram.set(
+                                                tile.totalMisses, missPrev - 1
+                                            );
                                         else
-                                            MemoryNode.missesHistogram.delete(tile.totalMisses);
+                                            MemoryNode.missesHistogram.delete(
+                                                tile.totalMisses
+                                            );
                                     }
                                     tile.totalMisses++;
 
-                                    const nMissPrev = MemoryNode.missesHistogram.get(tile.totalMisses);
+                                    const nMissPrev =
+                                        MemoryNode.missesHistogram.get(
+                                            tile.totalMisses
+                                        );
                                     if (nMissPrev !== undefined)
-                                        MemoryNode.missesHistogram.set(tile.totalMisses, nMissPrev + 1);
+                                        MemoryNode.missesHistogram.set(
+                                            tile.totalMisses, nMissPrev + 1
+                                        );
                                     else
-                                        MemoryNode.missesHistogram.set(tile.totalMisses, 1);
+                                        MemoryNode.missesHistogram.set(
+                                            tile.totalMisses, 1
+                                        );
                                 }
                             }
                         }
@@ -481,7 +481,7 @@ export class MapNode extends Node {
 
         // Draw separating lines between labels.
         for (let i = 0; i < this.labels.length - 1; i++) {
-            const lineX = /*LABEL_PADDING + */(i + 1) * this.labelWidth;
+            const lineX = (i + 1) * this.labelWidth;
             this.moveTo(lineX, 0);
             this.lineTo(lineX, HEADER_HEIGHT);
         }
