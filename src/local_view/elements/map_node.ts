@@ -195,7 +195,8 @@ export class MapNode extends Node {
 
         this.innerGraph.position.set(
             (this._width / 2) - (this.innerGraph.width / 2),
-            HEADER_HEIGHT + padding
+            HEADER_HEIGHT + (this.paddingOverride !== undefined ?
+                this.paddingOverride : NESTING_PADDING)
         );
         this.addChild(this.innerGraph);
 
@@ -209,7 +210,41 @@ export class MapNode extends Node {
         this.calculateStackDistances();
     }
 
-    private onSlidersUpdated() {
+    private recalculateSize(): void {
+        if (this.overrideWidth !== undefined)
+            this._width = this.overrideWidth;
+        else
+            this._width = Math.max(
+                this.labelWidth * this.ranges.length,
+                this.innerGraph.width +
+                    2 * (this.paddingOverride !== undefined ?
+                        this.paddingOverride : NESTING_PADDING)
+            );
+
+        if (this.overrideHeight !== undefined)
+            this._height = this.overrideHeight;
+        else
+            this._height = this.innerGraph.height + HEADER_HEIGHT +
+                2 * (this.paddingOverride !== undefined ?
+                    this.paddingOverride : NESTING_PADDING);
+
+        this.labelWidth = this._width / this.ranges.length;
+        for (let i = 0; i < this.labels.length; i++) {
+            const range = this.ranges[i];
+            const label = this.labels[i];
+            label.position.set(
+                (i * this.labelWidth) + (this.labelWidth / 2),
+                HEADER_HEIGHT / 4
+            );
+            const slider = this.sliders.get(range.itvar);
+            slider?.position.set(
+                i * this.labelWidth, HEADER_HEIGHT / 2
+            );
+            slider?.updateSliderWidth(this.labelWidth);
+        }
+    }
+
+    private onSlidersUpdated(): void {
         // TODO: We shouldn't save / cache extScope, but get it from the parent
         //  instead to make sure it's up-to-date.
         const scope = new Map<string, number>([...this.extScope.entries()]);
@@ -455,6 +490,10 @@ export class MapNode extends Node {
     public draw(): void {
         super.draw();
 
+        // Draw the contents of the map.
+        this.innerGraph.draw();
+        this.recalculateSize();
+
         this.labels.forEach((label) => {
             label.renderable = true;
         });
@@ -499,10 +538,6 @@ export class MapNode extends Node {
             this.pauseButton.renderable = false;
             this.resetButton.renderable = false;
         }
-
-        // Draw the contents of the map.
-        // TODO:
-        //this.innerGraph.draw();
     }
 
     private buildScopes(

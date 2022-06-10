@@ -1,5 +1,6 @@
 import dagre from 'dagre';
 import { Edge } from './elements/edge';
+import { MapNode } from './elements/map_node';
 import { Node } from './elements/node';
 import { Graph } from './graph/graph';
 
@@ -15,6 +16,9 @@ export class LViewLayouter {
         g.setDefaultEdgeLabel(() => { return {}; });
 
         graph.nodes.forEach((node: Node) => {
+            if (node instanceof MapNode)
+                this.layoutGraph(node.innerGraph);
+
             g.setNode(node.id, {
                 node: node,
                 width: node.unscaledWidth,

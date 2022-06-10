@@ -25,7 +25,7 @@ export class Slider extends GUIComponent {
         private min: number,
         private max: number,
         private step: number,
-        private readonly sliderWidth: number,
+        private sliderWidth: number,
         private readonly lineThickness: number = 2,
         private readonly lineColor: number = 0x000000,
         private readonly pommelRadius: number = 6,
@@ -179,6 +179,19 @@ export class Slider extends GUIComponent {
             this.minPommelX + ((val - this.min) * this.lineSegmentLength);
         this.valText.position.x = this.pommel.position.x;
         this.valText.text = val.toString();
+    }
+
+    public updateSliderWidth(width: number): void {
+        this.sliderWidth = width;
+        this.maxPommelX = this.sliderWidth -
+            (SLIDER_PADDING + this.pommelRadius);
+        const lineWidth = (this.sliderWidth - (2 * SLIDER_PADDING)) -
+            (2 * this.pommelRadius);
+        this.lineSegmentLength = lineWidth / (this.max - this.min);
+        this.maxText.position.set(
+            this.sliderWidth - (SLIDER_PADDING / 2), this.lineY
+        );
+        this.draw();
     }
 
 }
