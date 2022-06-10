@@ -6,7 +6,7 @@ import { max, median, min } from 'mathjs';
 import { InteractionEvent } from 'pixi.js';
 import { getTempColorHEX, KELLY_COLORS } from '../../utils/utils';
 import { Graph } from '../graph/graph';
-import { AccessMap, DataContainer } from './data_container';
+import { AccessMap, AccessMode, DataContainer } from './data_container';
 import { DataDimension } from './dimensions';
 import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from './element';
 import { MapNode } from './map_node';
@@ -495,8 +495,8 @@ export class MemoryNode extends Node {
 
     public static MAX_ACCESSES: number = 1;
 
-    public readonly unscaledWidth: number;
-    public readonly unscaledHeight: number;
+    public readonly _unscaledWidth: number;
+    public readonly _unscaledHeight: number;
 
     private readonly tiles: MemoryTile[];
     private readonly gfxText: Text;
@@ -514,27 +514,30 @@ export class MemoryNode extends Node {
     public reuseDistanceOverlayActive: boolean = false;
 
     constructor(
+        id: string,
         parentGraph: Graph,
         public readonly dataContainer: DataContainer,
+        public readonly accessMode: AccessMode,
         private readonly nameBottom: boolean = false,
         private readonly tileSizeOverride?: number,
     ) {
-        super(parentGraph);
+        super(parentGraph, id);
         
-        this.unscaledWidth = this.calcUnscaledWidthRecursive(
+        this._unscaledWidth = this.calcUnscaledWidthRecursive(
             this.dataContainer.dim.slice()
         );
-        this.unscaledHeight = this.calcUnscaledHeightRecursive(
+        this._unscaledHeight = this.calcUnscaledHeightRecursive(
             this.dataContainer.dim.slice()
         );
 
         this.gfxText = new Text(this.dataContainer.name, DEFAULT_TEXT_STYLE);
+        this.gfxText.renderable = false;
 
-        this.gfxText.position.x = this.unscaledWidth / 2;
+        this.gfxText.position.x = this._unscaledWidth / 2;
         let tilesY = 0;
         if (this.nameBottom) {
             this.gfxText.position.y =
-                this.unscaledHeight + ((this.gfxText.height / 2) + 5);
+                this._unscaledHeight + ((this.gfxText.height / 2) + 5);
         } else {
             this.gfxText.position.y = this.gfxText.height / 2;
             tilesY += this.gfxText.height + 10;
@@ -549,7 +552,7 @@ export class MemoryNode extends Node {
         ).fill(null);
         this.recursiveInit(
             this.dataContainer.dim.slice(), 0, tilesY,
-            this.unscaledWidth, this.unscaledHeight, this.tiles, []
+            this._unscaledWidth, this._unscaledHeight, this.tiles, []
         );
     }
 
@@ -887,6 +890,7 @@ export class MemoryNode extends Node {
     public draw(): void {
         super.draw();
 
+        this.gfxText.renderable = true;
         const remaining: MemoryTile[][] = [this.tiles];
         while (remaining.length > 0) {
             const next = remaining.shift();
@@ -899,6 +903,14 @@ export class MemoryNode extends Node {
                 }
             }
         }
+    }
+
+    public get unscaledWidth(): number {
+        return this._unscaledWidth;
+    }
+
+    public get unscaledHeight(): number {
+        return this._unscaledHeight + this.gfxText.height + 10;
     }
 
 }

@@ -8,7 +8,8 @@ export class Node extends Element {
     public readonly outEdges: Edge[] = [];
 
     constructor(
-        public readonly parentGraph: Graph
+        public readonly parentGraph: Graph,
+        public readonly id: string,
     ) {
         super();
     }

@@ -1,6 +1,6 @@
 import { Polygon, Rectangle } from '@pixi/math';
 import { Text } from '@pixi/text';
-import { evaluate as mathEvaluate } from 'mathjs';
+import math, { evaluate as mathEvaluate } from 'mathjs';
 import { Graph } from '../graph/graph';
 import { Button } from '../gui/button';
 import { Slider } from '../gui/slider';
@@ -48,25 +48,26 @@ export class MapNode extends Node {
     private extScope: Map<string, number> = new Map();
 
     constructor(
+        id: string,
         parentGraph: Graph,
         private ranges: Range[],
         public readonly innerGraph: Graph,
-        width?: number,
-        height?: number,
+        private readonly overrideWidth?: number,
+        private readonly overrideHeight?: number,
         private readonly paddingOverride?: number,
     ) {
-        super(parentGraph);
+        super(parentGraph, id);
 
         const padding = this.paddingOverride !== undefined ?
             this.paddingOverride : NESTING_PADDING;
 
-        if (width !== undefined)
-            this._width = width;
+        if (this.overrideWidth !== undefined)
+            this._width = this.overrideWidth;
         else
             this._width = this.innerGraph.width + (2 * padding);
 
-        if (height !== undefined)
-            this._height = height;
+        if (this.overrideHeight !== undefined)
+            this._height = this.overrideHeight;
         else
             this._height =
                 this.innerGraph.height + HEADER_HEIGHT + (2 * padding);
@@ -79,12 +80,13 @@ export class MapNode extends Node {
                 range.itvar + '=' + range.start + ':' + range.end +
                 (range.step > 1 ? (':' + range.step) : '');
             const label = new Text(labelText, DEFAULT_TEXT_STYLE);
+            label.renderable = false;
             maxLabelWidth = Math.max(maxLabelWidth, label.width + 60);
             label.anchor.set(0.5),
             this.labels.push(label);
         }
 
-        if (width !== undefined) {
+        if (this.overrideWidth !== undefined) {
             /*
             this.labelWidth =
                 (this._width - 2 * LABEL_PADDING) / this.ranges.length;
@@ -453,6 +455,10 @@ export class MapNode extends Node {
     public draw(): void {
         super.draw();
 
+        this.labels.forEach((label) => {
+            label.renderable = true;
+        });
+
         // Draw the border.
         this.lineStyle(DEFAULT_LINE_STYLE);
         this.drawPolygon([
@@ -495,7 +501,8 @@ export class MapNode extends Node {
         }
 
         // Draw the contents of the map.
-        this.innerGraph.draw();
+        // TODO:
+        //this.innerGraph.draw();
     }
 
     private buildScopes(
@@ -632,6 +639,27 @@ export class MapNode extends Node {
         ConcreteDataAccess[]
     ][] {
         return this.accessPattern;
+    }
+
+    public get unscaledWidth(): number {
+        if (this.overrideWidth)
+            return this.overrideWidth;
+        else
+            return Math.max(
+                this.labelWidth * this.ranges.length,
+                this.innerGraph.width +
+                    2 * (this.paddingOverride !== undefined ?
+                        this.paddingOverride : NESTING_PADDING)
+            );
+    }
+
+    public get unscaledHeight(): number {
+        if (this.overrideHeight)
+            return this.overrideHeight;
+        else
+            return this.innerGraph.height + HEADER_HEIGHT +
+                2 * (this.paddingOverride !== undefined ?
+                    this.paddingOverride : NESTING_PADDING);
     }
 
 }

@@ -1,6 +1,7 @@
 import { Text } from '@pixi/text';
 import $ from 'jquery';
 import { cos, sin, tanh } from 'mathjs';
+import { Point } from 'pixi.js';
 import { getTempColorHEX } from '../../utils/utils';
 import { Graph } from '../graph/graph';
 import { Edge } from './edge';
@@ -19,6 +20,7 @@ export class MemoryMovementEdge extends Edge {
     constructor(
         private text: string | null,
         private readonly parentGraph: Graph,
+        public points: Point[],
         src: Node,
         dst: Node,
     ) {
@@ -130,8 +132,14 @@ export class MemoryMovementEdge extends Edge {
 
         // Figure out the line angle with respect to the x-axis (in the
         // src->dst direction).
-        const theta = (fromX === toX) ?
-            0 : 0 - tanh((fromX - toX) / (fromY - toY));
+        const firstPoint = this.points[0];
+        const secondToLastPoint = this.points[this.points.length - 2];
+        const lastPoint = this.points[this.points.length - 1];
+        const theta = (lastPoint.x === secondToLastPoint.x) ?
+                0 : 0 - tanh(
+                    (secondToLastPoint.x - lastPoint.x) /
+                    (secondToLastPoint.y - lastPoint.y)
+                );
 
         let color = 0x000000;
         let text: string | null = null;
@@ -190,34 +198,35 @@ export class MemoryMovementEdge extends Edge {
         });
 
         // Draw the edge.
-        this.moveTo(fromX, fromY);
-        this.lineTo(toX, toY);
+        this.moveTo(firstPoint.x, firstPoint.y);
+        for (let i = 1; i < this.points.length; i++)
+            this.lineTo(this.points[i].x, this.points[i].y);
 
         // Draw the arrow head at the destination.
-        const arrowTopLeftXStraight = toX - (arrowHeadLength / 2);
-        const arrowTopLeftYStraight = toY - arrowHeadLength;
-        const arrowTopRightXStraight = toX + (arrowHeadLength / 2);
-        const arrowTopRightYStraight = toY - arrowHeadLength;
+        const arrowTopLeftXStraight = lastPoint.x - (arrowHeadLength / 2);
+        const arrowTopLeftYStraight = lastPoint.y - arrowHeadLength;
+        const arrowTopRightXStraight = lastPoint.x + (arrowHeadLength / 2);
+        const arrowTopRightYStraight = lastPoint.y - arrowHeadLength;
 
         // Rotate according to angle.
         const arrowTopLeft = this.rotatePoint(
             { x: arrowTopLeftXStraight, y: arrowTopLeftYStraight },
-            { x: toX, y: toY }, theta
+            { x: lastPoint.x, y: lastPoint.y }, theta
         );
         const arrowTopRight = this.rotatePoint(
             { x: arrowTopRightXStraight, y: arrowTopRightYStraight },
-            { x: toX, y: toY }, theta
+            { x: lastPoint.x, y: lastPoint.y }, theta
         );
         this.lineStyle({
             color: color,
         }).beginFill(color).drawPolygon([
-            toX - (lineWidth / 2), toY,
+            lastPoint.x - (lineWidth / 2), lastPoint.y,
             arrowTopLeft.x, arrowTopLeft.y,
             arrowTopRight.x, arrowTopRight.y,
-            toX + (lineWidth / 2), toY,
+            lastPoint.x + (lineWidth / 2), lastPoint.y,
         ]);
 
-        this.drawText(text, fromX, toX, fromY, toY, fontSize);
+        //this.drawText(text, fromX, toX, fromY, toY, fontSize);
     }
 
     public get volume(): number {

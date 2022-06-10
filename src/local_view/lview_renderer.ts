@@ -1,14 +1,31 @@
 import { Viewport } from 'pixi-viewport';
 import { Application } from 'pixi.js';
 import { DagreSDFG } from '..';
-import { AccessNode, MapEntry, SDFGElement, State } from '../renderer/renderer_elements';
+import {
+    AccessNode,
+    Edge,
+    ExitNode,
+    MapEntry,
+    SDFGElement,
+    SDFGNode,
+    State,
+    Tasklet,
+} from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { AccessMode, DataContainer } from './elements/data_container';
+import { ComputationNode } from './elements/computation_node';
+import {
+    AccessMode,
+    DataContainer,
+    SymbolicDataAccess,
+} from './elements/data_container';
 import { DataDimension } from './elements/dimensions';
 import { Element } from './elements/element';
 import { MapNode } from './elements/map_node';
+import { MemoryMovementEdge } from './elements/memory_movement_edge';
 import { MemoryNode } from './elements/memory_node';
 import { Graph } from './graph/graph';
+
+export class LViewGraphParseError extends Error {}
 
 export class LViewRenderer {
 
@@ -17,10 +34,13 @@ export class LViewRenderer {
 
     public constructor(
         protected sdfvInstance: SDFV,
-        protected state: State,
+        protected graph: Graph,
         protected container: HTMLElement,
     ) {
         this.initPixi();
+
+        this.viewport?.addChild(this.graph);
+        this.graph.draw();
     }
 
     private initPixi(): void {
@@ -56,71 +76,6 @@ export class LViewRenderer {
             this.container.removeChild(this.pixiApp.view);
     }
 
-    private parseAccessNode(element: any, graph: Graph): MemoryNode {
-        const containerName = element.attributes.data;
-        const sdfgContainer =
-            this.state.sdfg.attributes._arrays[containerName];
-
-        console.log(sdfgContainer);
-        
-        let container = graph.dataContainers.get(containerName);
-        if (!container) {
-            const dimensions = [];
-            for (const s of sdfgContainer.attributes.shape)
-                dimensions.push(new DataDimension(
-                    s.toString(), 10 // TODO
-                ));
-            container = new DataContainer(
-                containerName,
-                dimensions,
-                false, // TODO
-                8, // TODO
-                sdfgContainer.attributes.start_offset,
-                sdfgContainer.attributes.alignment,
-                sdfgContainer.attributes.strides
-            );
-            console.log(container);
-        }
-        const accessNode = new MemoryNode(graph, container);
-        console.log(accessNode);
-
-        graph.addChild(accessNode);
-        graph.registerMemoryNode(container, accessNode, AccessMode.ReadWrite);
-
-        return accessNode;
-    }
-
-    public parseStateLegacy(): void {
-        console.log(this.state);
-        const scopeDict = this.state.data.state.scope_dict;
-        if (scopeDict) {
-            const rootScope = this.state.data.state.nodes.filter(
-                (el: any) => {
-                    return scopeDict[-1].includes(el.id);
-                }
-            );
-
-            const graph = new Graph();
-
-            for (const el of rootScope) {
-                switch (el.type) {
-                    case 'AccessNode':
-                        this.parseAccessNode(el, graph);
-                        break;
-                    case 'MapEntry':
-                        // TODO:
-                        break;
-                    default:
-                        break;
-                }
-                console.log(el);
-            }
-
-            this.viewport?.addChild(graph);
-            graph.draw();
-        }
-    }
-
     private static parseMap(
         elem: MapEntry, graph: Graph, state: State, sdfg: DagreSDFG
     ): MapNode {
@@ -153,51 +108,169 @@ export class LViewRenderer {
             }
         }
 
-        return new MapNode(graph, ranges, innerGraph);
+        const node = new MapNode(elem.id.toString(), graph, ranges, innerGraph);
+        elem.data.node.attributes.lview_node = node;
+        return node;
+    }
+
+    private static getOrCreateContainer(
+        name: string, graph: Graph, state: State
+    ): DataContainer | null {
+        if (name) {
+            const sdfgContainer = state.sdfg.attributes._arrays[name];
+            let container = graph.dataContainers.get(name);
+            if (!container) {
+                const dimensions = [];
+                for (const s of sdfgContainer.attributes.shape) {
+                    const val = +s;
+                    dimensions.push(new DataDimension(
+                        s.toString(), isNaN(val) ? 0 : val
+                    ));
+                }
+                container = new DataContainer(
+                    name,
+                    dimensions,
+                    false, // TODO
+                    8, // TODO
+                    sdfgContainer.attributes.start_offset,
+                    sdfgContainer.attributes.alignment,
+                    sdfgContainer.attributes.strides
+                );
+                graph.dataContainers.set(name, container);
+            }
+            return container;
+        }
+        return null;
     }
 
     private static parseAcccessNode(
         element: AccessNode, graph: Graph, state: State
-    ): MemoryNode {
-        const containerName = element.attributes().data;
-        const sdfgContainer =
-            state.sdfg.attributes._arrays[containerName];
-        
-        let container = graph.dataContainers.get(containerName);
-        if (!container) {
-            const dimensions = [];
-            for (const s of sdfgContainer.attributes.shape) {
-                const val = +s;
-                dimensions.push(new DataDimension(
-                    s.toString(), isNaN(val) ? 0 : val
-                ));
-            }
-            container = new DataContainer(
-                containerName,
-                dimensions,
-                false, // TODO
-                8, // TODO
-                sdfgContainer.attributes.start_offset,
-                sdfgContainer.attributes.alignment,
-                sdfgContainer.attributes.strides
+    ): MemoryNode | null {
+        const container = this.getOrCreateContainer(
+            element.attributes().data, graph, state
+        );
+        if (container) {
+            const node = new MemoryNode(
+                element.id.toString(), graph, container, AccessMode.ReadWrite
             );
-            console.log(container);
+            element.data.node.attributes.lview_node = node;
+            return node;
         }
-        const accessNode = new MemoryNode(graph, container);
+        return null;
+    }
 
-        graph.addChild(accessNode);
-        graph.registerMemoryNode(container, accessNode, AccessMode.ReadWrite);
+    private static getMemletAccess(
+        edge: Edge, mode: AccessMode, graph: Graph, state: State
+    ): SymbolicDataAccess | null {
+        const attributes = edge.attributes();
+        const dataContainer = this.getOrCreateContainer(
+            attributes.data, graph, state
+        );
+        const ranges = attributes.other_subset ?
+            attributes.other_subset.ranges : attributes.subset.ranges;
+        const volume = +attributes.num_accesses;
+        if (dataContainer && ranges) {
+            if (volume === 1) {
+                const accessIdx = [];
+                for (const rng of ranges)
+                    accessIdx.push(rng.start);
+                return {
+                    dataContainer: dataContainer,
+                    accessMode: mode,
+                    index: accessIdx,
+                };
+            } else {
+                // TODO: How should we handle this? We can't necessarily
+                // derive the exact access order for this type of
+                // access if there is no exact subset. Typically this
+                // will be a range and we could only give an upper
+                // bound.
+                throw new LViewGraphParseError(
+                    'This subgraph cannot be statically analyzed for data ' +
+                    'access patterns due to data dependent executions.'
+                );
+            }
+        }
+        return null;
+    }
 
-        return accessNode;
+    private static parseTasklet(
+        graph: Graph, el: Tasklet, state: State, sdfg: DagreSDFG
+    ): ComputationNode {
+        const label = el.attributes().code?.string_data;
+        const farLabel = el.attributes().label;
+
+        const accessOrder: SymbolicDataAccess[] = [];
+        for (const iedgeId of state.data.graph.inEdges(el.id.toString())) {
+            const iedge: Edge = state.data.graph.edge(iedgeId);
+            if (iedge) {
+                const accesses = this.getMemletAccess(
+                    iedge, AccessMode.ReadOnly, graph, state
+                );
+                if (accesses)
+                    accessOrder.push(accesses);
+            }
+        }
+        for (const oedgeId of state.data.graph.outEdges(el.id.toString())) {
+            const oedge = state.data.graph.edge(oedgeId);
+            if (oedge) {
+                const accesses =
+                    this.getMemletAccess(oedge, AccessMode.Write, graph, state);
+                if (accesses)
+                    accessOrder.push(accesses);
+            }
+        }
+
+        return new ComputationNode(
+            el.id.toString(), graph, label, accessOrder, farLabel
+        );
+    }
+
+    private static parseEdge(
+        graph: Graph, el: { name: string, v: string, w: string }, state: State,
+        sdfg: DagreSDFG
+    ): Element | null {
+        let src: SDFGNode = state.data.graph.node(el.v);
+        if (src instanceof ExitNode)
+            src = state.data.graph.node(src.data.node.scope_entry);
+        const dst: SDFGNode = state.data.graph.node(el.w);
+        const edge: Edge = state.data.graph.edge(el);
+
+        if (src?.attributes().lview_node && dst?.attributes().lview_node &&
+            edge) {
+            let text = edge.attributes().data;
+            let sep = '[';
+            for (const rng of edge.attributes().subset.ranges) {
+                text += sep +
+                    (rng.start != rng.end ?
+                        rng.start + ':' + rng.end : rng.start) +
+                    (rng.step != '1' ? ':' + rng.step : '');
+                sep = ',';
+            }
+            text += ']';
+            const elem = new MemoryMovementEdge(
+                text, graph, edge.points,
+                src.attributes().lview_node,
+                dst.attributes().lview_node
+            );
+            edge.data.attributes.lview_edge = elem;
+            return elem;
+        }
+        
+        return null;
     }
 
     private static parseElement(
         graph: Graph, el: SDFGElement, state: State, sdfg: DagreSDFG
     ): Element | null {
-        if (el instanceof AccessNode)
-            return this.parseAcccessNode(el, graph, state);
-        else if (el instanceof MapEntry)
-            return this.parseMap(el, graph, state, sdfg);
+        if (el instanceof SDFGNode) {
+            if (el instanceof AccessNode)
+                return this.parseAcccessNode(el, graph, state);
+            else if (el instanceof MapEntry)
+                return this.parseMap(el, graph, state, sdfg);
+            else if (el instanceof Tasklet)
+                return this.parseTasklet(graph, el, state, sdfg);
+        }
         return null;
     }
 
@@ -210,8 +283,40 @@ export class LViewRenderer {
             for (const id of scopeDict[-1])
                 rootScope.push(state.data.graph.node(id.toString()));
 
-            for (const el of rootScope)
-                this.parseElement(graph, el, state, sdfg);
+            const rootScopeEdges: Set<{
+                name: string,
+                v: string,
+                w: string,
+            }> = new Set();
+            for (const el of rootScope) {
+                const elem = this.parseElement(graph, el, state, sdfg);
+                if (elem)
+                    graph.addChild(elem);
+
+                const iedges = state.data.graph.inEdges(el.id.toString());
+                for (const iedge of iedges)
+                    rootScopeEdges.add(iedge);
+                if (el instanceof MapEntry && !el.attributes().is_collapsed) {
+                    const exitNode = state.data.graph.node(
+                        el.data.node.scope_exit
+                    );
+                    const oedges = state.data.graph.outEdges(
+                        exitNode.id.toString()
+                    );
+                    for (const oedge of oedges)
+                        rootScopeEdges.add(oedge);
+                } else {
+                    const oedges = state.data.graph.outEdges(el.id.toString());
+                    for (const oedge of oedges)
+                        rootScopeEdges.add(oedge);
+                }
+            }
+
+            for (const edge of rootScopeEdges) {
+                const elem = this.parseEdge(graph, edge, state, sdfg);
+                if (elem)
+                    graph.addChild(elem);
+            }
         }
 
         return graph;

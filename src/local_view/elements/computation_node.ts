@@ -17,12 +17,14 @@ export class ComputationNode extends Node {
     private label: Text;
 
     constructor(
+        id: string,
         parentGraph: Graph,
         private text: string,
         public readonly accessOrder: SymbolicDataAccess[],
+        private farText: string | undefined = undefined,
         public drawBorder: boolean = true
     ) {
-        super(parentGraph);
+        super(parentGraph, id);
 
         this.label = new Text(this.text, DEFAULT_TEXT_STYLE);
         this.label.position.set(CNODE_INTERNAL_PADDING);

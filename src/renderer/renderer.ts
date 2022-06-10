@@ -13,6 +13,7 @@ import {
     SimpleRect,
     stringify_sdfg
 } from '../index';
+import { LViewLayouter } from '../local_view/lview_layouter';
 import { LViewRenderer } from '../local_view/lview_renderer';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
 import { MemoryLocationOverlay } from '../overlays/memory_location_overlay';
@@ -2855,7 +2856,6 @@ export class SDFGRenderer {
             // state is selected alongside other elements, all elements must be
             // inside that state.
             let parentStateId = null;
-            console.log(this.selected_elements);
             for (const elem of this.selected_elements) {
                 if (elem instanceof State) {
                     if (parentStateId === null)
@@ -2890,39 +2890,15 @@ export class SDFGRenderer {
         if (!this.graph)
             return;
 
-        /*
-        if (this.selected_elements.length === 1 &&
-            this.selected_elements[0] instanceof State) {
+        // Transition to the local view by first cutting out the selection.
+        this.cutout_selection();
+        const lGraph = LViewRenderer.parseGraph(this.graph);
+        if (lGraph) {
+            LViewLayouter.layoutGraph(lGraph);
             this.sdfv_instance.setLocalViewRenderer(new LViewRenderer(
-                this.sdfv_instance,
-                this.selected_elements[0],
-                this.container
+                this.sdfv_instance, lGraph, this.container
             ));
         }
-
-        */
-
-        // Transition to the local view by first cutting out the selection,
-        // then parsing and calculating the size of all nodes to fit the local
-        // view, and then performing a re-layout. The resulting graph is thenl
-        // passed to a new instance of the local view renderer.
-        this.cutout_selection();
-
-        // Collapse everything except the state.
-        this.for_all_sdfg_elements(
-            (_type: SDFGElementType, _odict: any, obj: any) => {
-                if ('is_collapsed' in obj.attributes &&
-                    !obj.type.endsWith('Exit'))
-                    obj.attributes.is_collapsed = true;
-            }
-        );
-        this.sdfg.nodes[0].attributes.is_collapsed = false;
-
-        const lGraph = LViewRenderer.parseGraph(this.graph);
-
-        this.relayout();
-
-        console.log(lGraph);
     }
 
     public cutout_selection(): void {
@@ -3383,6 +3359,9 @@ function relayout_state(
                 y: topleft.y + SDFV.LINEHEIGHT
             });
         }
+        // Write back layout information
+        node.attributes.layout.x = gnode.x;
+        node.attributes.layout.y = gnode.y;
         // Connector management 
         const SPACING = SDFV.LINEHEIGHT;
         const iconn_length = (SDFV.LINEHEIGHT + SPACING) * Object.keys(

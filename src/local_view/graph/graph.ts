@@ -96,10 +96,15 @@ export class Graph extends Graphics {
 
     public addChild(...children: DisplayObject[]): DisplayObject {
         children.forEach(child => {
-            if (child instanceof Node)
+            if (child instanceof Node) {
                 this.nodes.push(child);
-            else if (child instanceof Edge)
+                if (child instanceof MemoryNode)
+                    this.registerMemoryNode(
+                        child.dataContainer, child, child.accessMode
+                    );
+            } else if (child instanceof Edge) {
                 this.edges.push(child);
+            }
         });
 
         return super.addChild(...children);

@@ -21,4 +21,12 @@ export class Element extends Graphics {
         this.clear();
     }
 
+    public get unscaledWidth(): number {
+        return this.width;
+    }
+
+    public get unscaledHeight(): number {
+        return this.height;
+    }
+
 }
