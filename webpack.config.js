@@ -25,8 +25,8 @@ module.exports = {
     resolve: {
         extensions: ['.ts', '.js'],
         alias: {
-            assert: require.resolve("assert"),
-            buffer: require.resolve("buffer"),
+            assert: require.resolve('assert'),
+            buffer: require.resolve('buffer'),
             stream: require.resolve('stream-browserify'),
             zlib: require.resolve('browserify-zlib'),
         }
