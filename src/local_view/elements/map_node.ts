@@ -210,7 +210,7 @@ export class MapNode extends Node {
         this.calculateStackDistances();
     }
 
-    private recalculateSize(): void {
+    public recalculateSize(): void {
         if (this.overrideWidth !== undefined)
             this._width = this.overrideWidth;
         else
@@ -242,6 +242,12 @@ export class MapNode extends Node {
             );
             slider?.updateSliderWidth(this.labelWidth);
         }
+
+        this.innerGraph.position.set(
+            (this._width / 2) - (this.innerGraph.width / 2),
+            HEADER_HEIGHT + (this.paddingOverride !== undefined ?
+                this.paddingOverride : NESTING_PADDING)
+        );
     }
 
     private onSlidersUpdated(): void {

@@ -16,8 +16,13 @@ export class LViewLayouter {
         g.setDefaultEdgeLabel(() => { return {}; });
 
         graph.nodes.forEach((node: Node) => {
-            if (node instanceof MapNode)
+            if (node instanceof MapNode) {
                 this.layoutGraph(node.innerGraph);
+                // TODO: this is a hack, drawing gets the proper sizes, but
+                // it has to be possible without.
+                node.innerGraph.draw();
+                node.recalculateSize();
+            }
 
             g.setNode(node.id, {
                 node: node,

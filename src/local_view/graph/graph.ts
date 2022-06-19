@@ -160,11 +160,22 @@ export class Graph extends Graphics {
         this.setPhysMovementOverlay(false);
     }
 
-    public hasDataContainer(name: string): boolean {
-        for (const container of this.memoryNodesMap) {
-            console.log(container);
-        }
-        return true;
+    public predecessors(node: Node): Set<Node> {
+        const preds = new Set<Node>();
+        this.edges.forEach(edge => {
+            if (edge.dst === node && edge.src !== node)
+                preds.add(edge.src);
+        });
+        return preds;
+    }
+
+    public successors(node: Node): Set<Node> {
+        const succs = new Set<Node>();
+        this.edges.forEach(edge => {
+            if (edge.src === node && edge.dst !== node)
+                succs.add(edge.dst);
+        });
+        return succs;
     }
 
 }

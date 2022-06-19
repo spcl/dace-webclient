@@ -47,8 +47,15 @@ export class ComputationNode extends Node {
         );
     }
 
+    /**
+     * Given a specific symbol scope, get all accesses related to this node.
+     * This returns an access map (mapping data containers to the accesses to
+     * them), and an ordered list of concrete data accesses.
+     * @param scope Symbol scope
+     * @returns     Access map and ordered list of concrete accesses as a tuple
+     */
     public getAccessesFor(
-        scope: any, updateParameters: boolean = false
+        scope: any
     ): [AccessMap<(number | undefined)[]>, ConcreteDataAccess[]] {
         const idxMap = new AccessMap<(number | undefined)[]>();
         const resolvedAccessOrder: ConcreteDataAccess[] = [];
@@ -83,19 +90,30 @@ export class ComputationNode extends Node {
         return [idxMap, resolvedAccessOrder];
     }
 
+    /**
+     * For a given data container and numeric index, get all related accesses.
+     * @param source    Source data container
+     * @param index     Numeric index in source data container
+     * @returns         Access map of related accesses
+     */
     public getRelatedAccesses(
         source: DataContainer, index: number[]
     ): AccessMap<(number | undefined)[]> {
         const idxMap = new AccessMap<(number | undefined)[]>();
 
+        // Find out what symbolic accesses the numeric indices to the source
+        // relate to.
         const sourceAccesses: string[][] = [];
         this.accessOrder.forEach(val => {
             if (val.dataContainer === source)
                 sourceAccesses.push(val.index);
         });
 
+        // Construct a scope which reflects the symbol values that result in
+        // this data access. We can use this to deduce further data accesses
+        // based on symbolic indices.
+        const scope = new Map<string, number>();
         if (sourceAccesses.length > 0) {
-            const scope = new Map<string, number>();
             sourceAccesses.forEach(access => {
                 access.forEach((idx: string, i: number) => {
                     if (i < index.length)
@@ -130,11 +148,28 @@ export class ComputationNode extends Node {
             }
         }
 
+        const [superAccessMap, _] = this.parentGraph.getAccessesFor(scope);
+        superAccessMap.forEach((val, key) => {
+            const prev = idxMap.get(key);
+            if (prev)
+                idxMap.set(key, val.concat(prev));
+            else
+                idxMap.set(key, val);
+        });
+
         return idxMap;
     }
 
     public setDrawBorder(drawBorder: boolean): void {
         this.drawBorder = drawBorder;
+    }
+
+    public get unscaledWidth(): number {
+        return this.label.width + (2 * CNODE_INTERNAL_PADDING);
+    }
+
+    public get unscaledHeight(): number {
+        return this.label.height + (2 * CNODE_INTERNAL_PADDING);
     }
 
 }

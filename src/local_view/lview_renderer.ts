@@ -18,6 +18,9 @@ import {
     DataContainer,
     SymbolicDataAccess,
 } from './elements/data_container';
+import {
+    MemoryLocationOverlay
+} from '../overlays/memory_location_overlay';
 import { DataDimension } from './elements/dimensions';
 import { Element } from './elements/element';
 import { MapNode } from './elements/map_node';
@@ -29,21 +32,14 @@ export class LViewGraphParseError extends Error {}
 
 export class LViewRenderer {
 
-    private pixiApp: Application | null = null;
-    private viewport: Viewport | null = null;
+    public readonly pixiApp: Application | null = null;
+    public readonly viewport: Viewport | null = null;
 
     public constructor(
         protected sdfvInstance: SDFV,
         protected graph: Graph,
         protected container: HTMLElement,
     ) {
-        this.initPixi();
-
-        this.viewport?.addChild(this.graph);
-        this.graph.draw();
-    }
-
-    private initPixi(): void {
         const containerRect = this.container.getBoundingClientRect();
         this.pixiApp = new Application({
             width: containerRect.width - 10,
@@ -69,6 +65,9 @@ export class LViewRenderer {
             .decelerate({
                 friction: 0.3,
             });
+
+        this.viewport?.addChild(this.graph);
+        this.graph.draw();
     }
 
     public destroy(): void {
@@ -99,12 +98,31 @@ export class LViewRenderer {
         const innerGraph = new Graph();
         const mapScopeDict = state.data.state.scope_dict[elem.id];
         if (mapScopeDict) {
+            const scopeEdges = new Set<{
+                v: string,
+                w: string,
+                name: string,
+            }>();
             for (const id of mapScopeDict) {
                 const childElem = this.parseElement(
                     graph, state.data.graph.node(id), state, sdfg
                 );
-                if (childElem)
+                if (childElem) {
                     innerGraph.addChild(childElem);
+
+                    const iedges = state.data.graph.inEdges(id);
+                    for (const iedge of iedges)
+                        scopeEdges.add(iedge);
+                    const oedges = state.data.graph.outEdges(id);
+                    for (const oedge of oedges)
+                        scopeEdges.add(oedge);
+                }
+            }
+
+            for (const edge of scopeEdges) {
+                const elem = this.parseEdge(graph, edge, state, sdfg);
+                if (elem)
+                    innerGraph.addChild(elem);
             }
         }
 
@@ -114,7 +132,7 @@ export class LViewRenderer {
     }
 
     private static getOrCreateContainer(
-        name: string, graph: Graph, state: State
+        name: string, graph: Graph, state: State, elem?: AccessNode
     ): DataContainer | null {
         if (name) {
             const sdfgContainer = state.sdfg.attributes._arrays[name];
@@ -127,6 +145,9 @@ export class LViewRenderer {
                         s.toString(), isNaN(val) ? 0 : val
                     ));
                 }
+                const storageType = elem ?
+                    MemoryLocationOverlay.getStorageType(elem) :
+                    undefined;
                 container = new DataContainer(
                     name,
                     dimensions,
@@ -134,20 +155,26 @@ export class LViewRenderer {
                     8, // TODO
                     sdfgContainer.attributes.start_offset,
                     sdfgContainer.attributes.alignment,
-                    sdfgContainer.attributes.strides
+                    storageType?.type,
+                    sdfgContainer.attributes.strides,
                 );
                 graph.dataContainers.set(name, container);
+            } else if (container.storage === undefined) {
+                const storageType = elem ?
+                    MemoryLocationOverlay.getStorageType(elem) :
+                    undefined;
+                container.storage = storageType?.type;
             }
             return container;
         }
         return null;
     }
 
-    private static parseAcccessNode(
+    private static parseAccessNode(
         element: AccessNode, graph: Graph, state: State
     ): MemoryNode | null {
         const container = this.getOrCreateContainer(
-            element.attributes().data, graph, state
+            element.attributes().data, graph, state, element
         );
         if (container) {
             const node = new MemoryNode(
@@ -221,9 +248,11 @@ export class LViewRenderer {
             }
         }
 
-        return new ComputationNode(
+        const node = new ComputationNode(
             el.id.toString(), graph, label, accessOrder, farLabel
         );
+        el.data.node.attributes.lview_node = node;
+        return node;
     }
 
     private static parseEdge(
@@ -265,7 +294,7 @@ export class LViewRenderer {
     ): Element | null {
         if (el instanceof SDFGNode) {
             if (el instanceof AccessNode)
-                return this.parseAcccessNode(el, graph, state);
+                return this.parseAccessNode(el, graph, state);
             else if (el instanceof MapEntry)
                 return this.parseMap(el, graph, state, sdfg);
             else if (el instanceof Tasklet)
@@ -321,6 +350,22 @@ export class LViewRenderer {
 
         return graph;
     }
+
+    /*
+    private static contractSubgraph(graph: Graph): Graph {
+        let hasContractions = true;
+        while (hasContractions) {
+            hasContractions = false;
+            graph.nodes.forEach(node => {
+                const preds = graph.predecessors(node);
+                preds.forEach(predecessor => {
+                    if (predecessor instanceof MemoryNode && predecessor)
+                });
+            });
+        }
+        return graph;
+    }
+    */
 
     public static parseGraph(sdfg: DagreSDFG): Graph | null {
         const state = sdfg.node('0');
