@@ -1,6 +1,6 @@
 {
     "name": "@spcl/sdfv",
-    "version": "1.0.28",
+    "version": "1.0.29",
     "description": "A standalone viewer for SDFGs",
     "homepage": "https://github.com/spcl/dace-webclient",
     "main": "out/index.js",
@@ -58,6 +58,7 @@
         "jquery": "^3.6.0",
         "mathjs": "^10.0.0",
         "process": "^0.11.10",
-        "stream-browserify": "^3.0.0"
+        "stream-browserify": "^3.0.0",
+        "zlib": "^1.0.5"
     }
 }
