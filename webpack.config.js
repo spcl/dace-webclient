@@ -1,5 +1,6 @@
 // This file uses CommonJS require instead of ES6 imports because it is not transpiled
 const path = require('path');
+const webpack = require('webpack');
 
 module.exports = {
     entry: {
@@ -23,6 +24,12 @@ module.exports = {
     },
     resolve: {
         extensions: ['.ts', '.js'],
+        alias: {
+            assert: require.resolve('assert'),
+            buffer: require.resolve('buffer'),
+            stream: require.resolve('stream-browserify'),
+            zlib: require.resolve('browserify-zlib'),
+        }
     },
     devtool: 'source-map',
     devServer: {
@@ -37,4 +44,9 @@ module.exports = {
         filename: '[name].js',
         path: path.resolve(__dirname, 'dist'),
     },
+    plugins: [
+        new webpack.ProvidePlugin({
+            process: 'process/browser',
+        }),
+    ]
 };

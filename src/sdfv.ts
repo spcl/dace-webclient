@@ -428,14 +428,14 @@ function reload_file(sdfv: SDFV): void {
     fr.onload = () => {
         file_read_complete(sdfv);
     };
-    fr.readAsText(file);
+    fr.readAsArrayBuffer(file);
 }
 
 function file_read_complete(sdfv: SDFV): void {
     const result_string = fr.result;
     const container = document.getElementById('contents');
     if (result_string && container) {
-        const sdfg = parse_sdfg(result_string.toString());
+        const sdfg = parse_sdfg(result_string);
         sdfv.get_renderer()?.destroy();
         sdfv.set_renderer(new SDFGRenderer(sdfv, sdfg, container, mouse_event));
         sdfv.close_menu();
