@@ -1,4 +1,3 @@
-import { Viewport } from 'pixi-viewport';
 import { Application } from 'pixi.js';
 import { DagreSDFG } from '..';
 import {
@@ -27,6 +26,7 @@ import { MapNode } from './elements/map_node';
 import { MemoryMovementEdge } from './elements/memory_movement_edge';
 import { MemoryNode } from './elements/memory_node';
 import { Graph } from './graph/graph';
+import { Viewport } from 'pixi-viewport';
 
 export class LViewGraphParseError extends Error {}
 
@@ -126,9 +126,22 @@ export class LViewRenderer {
             }
         }
 
+        innerGraph.contractGraph();
+
         const node = new MapNode(elem.id.toString(), graph, ranges, innerGraph);
         elem.data.node.attributes.lview_node = node;
         return node;
+    }
+
+    private static findAccessNodeForContainer(
+        name: string, state: State
+    ): AccessNode | undefined {
+        for (const nid of state.data.graph.nodes()) {
+            const node = state.data.graph.node(nid);
+            if (node instanceof AccessNode && node.attributes().data === name)
+                return node;
+        }
+        return undefined;
     }
 
     private static getOrCreateContainer(
@@ -145,6 +158,8 @@ export class LViewRenderer {
                         s.toString(), isNaN(val) ? 0 : val
                     ));
                 }
+                if (!elem)
+                    elem = this.findAccessNodeForContainer(name, state);
                 const storageType = elem ?
                     MemoryLocationOverlay.getStorageType(elem) :
                     undefined;
@@ -160,6 +175,8 @@ export class LViewRenderer {
                 );
                 graph.dataContainers.set(name, container);
             } else if (container.storage === undefined) {
+                if (!elem)
+                    elem = this.findAccessNodeForContainer(name, state);
                 const storageType = elem ?
                     MemoryLocationOverlay.getStorageType(elem) :
                     undefined;

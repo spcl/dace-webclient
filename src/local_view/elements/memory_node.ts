@@ -1,9 +1,7 @@
-import { Graphics } from '@pixi/graphics';
 import { Rectangle } from '@pixi/math';
-import { Text } from '@pixi/text';
 import $ from 'jquery';
 import { max, median, min } from 'mathjs';
-import { InteractionEvent } from 'pixi.js';
+import { Graphics, InteractionEvent, Text } from 'pixi.js';
 import { getTempColorHEX, KELLY_COLORS } from '../../utils/utils';
 import { Graph } from '../graph/graph';
 import { AccessMap, AccessMode, DataContainer } from './data_container';
@@ -132,13 +130,13 @@ class MemoryTile extends Graphics {
             region[1].forEach((val, key) => {
                 const nodeRet =
                     this.memoryNode.parentGraph.memoryNodesMap.get(key);
-                if (nodeRet !== undefined && nodeRet.length > 0) {
-                    const node = nodeRet[0][1];
+                if (nodeRet !== undefined && nodeRet.size) {
+                    const node = nodeRet.values().next().value[1];
 
                     val.forEach(v => {
                         node.applyToIdx(
                             v[1],
-                            (t) => {
+                            (t: MemoryTile) => {
                                 if (!t.borderMarkingColors.includes(color))
                                     t.borderMarkingColors.push(color);
                             });

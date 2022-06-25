@@ -1,5 +1,4 @@
-import { Graphics } from '@pixi/graphics';
-import { Text } from '@pixi/text';
+import { Graphics, Text } from 'pixi.js';
 import { GUIComponent } from './gui_component';
 
 const SLIDER_PADDING: number = 30;

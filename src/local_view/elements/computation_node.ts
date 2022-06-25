@@ -1,5 +1,5 @@
-import { Text } from '@pixi/text';
 import * as math from 'mathjs';
+import { Text } from 'pixi.js';
 import { Graph } from '../graph/graph';
 import {
     AccessMap,
@@ -19,9 +19,9 @@ export class ComputationNode extends Node {
     constructor(
         id: string,
         parentGraph: Graph,
-        private text: string,
+        public readonly text: string,
         public readonly accessOrder: SymbolicDataAccess[],
-        private farText: string | undefined = undefined,
+        public readonly farText: string | undefined = undefined,
         public drawBorder: boolean = true
     ) {
         super(parentGraph, id);

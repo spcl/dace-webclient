@@ -1,7 +1,7 @@
 import { Polygon, Rectangle } from '@pixi/math';
-import { Text } from '@pixi/text';
 import $ from 'jquery';
 import { evaluate as mathEvaluate } from 'mathjs';
+import { Text } from 'pixi.js';
 import { AccessStack } from '../../utils/collections';
 import { Graph } from '../graph/graph';
 import { Button } from '../gui/button';
@@ -321,7 +321,7 @@ export class MapNode extends Node {
                     access.dataContainer
                 );
                 if (nodes) {
-                    const node = nodes[0][1];
+                    const node = nodes.values().next().value[1];
 
                     if (node && !access.index.includes(undefined)) {
                         const cl = node.getCacheLine(access.index as number[]);

@@ -1,5 +1,4 @@
-import { Graphics } from '@pixi/graphics';
-import { TextStyle } from '@pixi/text';
+import { Graphics, TextStyle } from 'pixi.js';
 
 export const DEFAULT_LINE_STYLE: any = {
     color: 0x000000,

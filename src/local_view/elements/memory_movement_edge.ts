@@ -1,7 +1,6 @@
-import { Text } from '@pixi/text';
 import $ from 'jquery';
 import { cos, sin, tanh } from 'mathjs';
-import { Point } from 'pixi.js';
+import { Point, Text } from 'pixi.js';
 import { getTempColorHEX } from '../../utils/utils';
 import { Graph } from '../graph/graph';
 import { Edge } from './edge';
@@ -18,7 +17,7 @@ export class MemoryMovementEdge extends Edge {
     private _volume: number = 0;
 
     constructor(
-        private text: string | null,
+        public readonly text: string | null,
         private readonly parentGraph: Graph,
         public points: Point[],
         src: Node,

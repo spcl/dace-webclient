@@ -1,6 +1,5 @@
-import { Graphics } from '@pixi/graphics';
 import { IShape, RoundedRectangle } from '@pixi/math';
-import { Text } from '@pixi/text';
+import { Graphics, Text } from 'pixi.js';
 import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from '../elements/element';
 import { GUIComponent } from './gui_component';
 
