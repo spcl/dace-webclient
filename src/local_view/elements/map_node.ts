@@ -598,7 +598,7 @@ export class MapNode extends Node {
         }
 
         const rangeValuesMap: [string, number[]][] = [];
-        this.ranges.forEach(range => {
+        for (const range of this.ranges) {
             let start = undefined;
             if (typeof(range.start) === 'number') {
                 start = range.start;
@@ -642,14 +642,14 @@ export class MapNode extends Node {
                 // TODO: Handle the case where at least one of the ranges canot
                 // be evaluated.
             }
-        });
+        }
 
         const scopes: Map<string, number>[] = [];
         this.buildScopes(new Map(), rangeValuesMap, scopes);
 
         const accessOrder: ConcreteDataAccess[] = [];
 
-        scopes.forEach(s => {
+        for (const s of scopes) {
             const [subIdxMap, subAccessOrder] = this.innerGraph.getAccessesFor(
                 new Map([...scope.entries(), ...s.entries()])
             );
@@ -664,7 +664,7 @@ export class MapNode extends Node {
             );
 
             accessOrder.push(...subAccessOrder);
-        });
+        }
 
         return [idxMap, accessOrder];
     }

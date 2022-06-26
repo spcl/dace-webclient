@@ -149,9 +149,8 @@ export class Graph extends Graphics {
         const idxMap = new AccessMap<(number | undefined)[]>();
         const resolvedAccessOrder: ConcreteDataAccess[] = [];
 
-        this.children.forEach(child => {
-            if (child instanceof MapNode ||
-                child instanceof ComputationNode) {
+        for (const child of this.children) {
+            if (child instanceof MapNode || child instanceof ComputationNode) {
                 const [compIdxMap, compAccessOrder] = child.getAccessesFor(
                     scope, updateParameters
                 );
@@ -166,7 +165,7 @@ export class Graph extends Graphics {
                 );
                 resolvedAccessOrder.push(...compAccessOrder);
             }
-        });
+        }
 
         return [idxMap, resolvedAccessOrder];
     }
@@ -177,9 +176,8 @@ export class Graph extends Graphics {
     ): AccessMap<(number | undefined)[]> {
         const idxMap = new AccessMap<(number | undefined)[]>();
         
-        this.children.forEach(child => {
-            if (child instanceof MapNode ||
-                child instanceof ComputationNode) {
+        for (const child of this.children) {
+            if (child instanceof MapNode || child instanceof ComputationNode) {
                 const childMap = child.getRelatedAccesses(source, index);
 
                 for (const key of childMap.keys()) {
@@ -194,7 +192,7 @@ export class Graph extends Graphics {
                     }
                 }
             }
-        });
+        }
 
         return idxMap;
     }

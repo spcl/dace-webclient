@@ -4,6 +4,7 @@ import { max, median, min } from 'mathjs';
 import { Graphics, InteractionEvent, Text } from 'pixi.js';
 import { getTempColorHEX, KELLY_COLORS } from '../../utils/utils';
 import { Graph } from '../graph/graph';
+import { ComputationNode } from './computation_node';
 import { AccessMap, AccessMode, DataContainer } from './data_container';
 import { DataDimension } from './dimensions';
 import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from './element';
@@ -96,10 +97,27 @@ class MemoryTile extends Graphics {
     }
 
     private markRelatedAccesses(asAccess: boolean = false): void {
-        this.memoryNode.parentGraph.getRelatedAccesses(
+        /*
+        const relatedAccesses = new AccessMap<(number | undefined)>();
+        const neighborhood =
+            this.memoryNode.parentGraph.neighborhood(this.memoryNode);
+        for (const neighbor of neighborhood) {
+            if (neighbor instanceof MapNode || neighbor instanceof ComputationNode) {
+                const neighborAccesses = neighbor.getRelatedAccesses(
+                    this.memoryNode.dataContainer, this.index
+                );
+                neighborAccesses.forEach((access, container) => {
+                    relatedAccesses.set(container, access);
+                });
+            }
+        }
+        */
+
+        const relAccesses = this.memoryNode.parentGraph.getRelatedAccesses(
             this.memoryNode.dataContainer,
             this.index
-        ).forEach((accesses, container) => {
+        );
+        relAccesses.forEach((accesses, container) => {
             const nodes =
                 this.memoryNode.parentGraph.memoryNodesMap.get(container);
             if (nodes) {

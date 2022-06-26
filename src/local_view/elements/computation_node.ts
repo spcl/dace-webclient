@@ -60,32 +60,30 @@ export class ComputationNode extends Node {
         const idxMap = new AccessMap<(number | undefined)[]>();
         const resolvedAccessOrder: ConcreteDataAccess[] = [];
 
-        this.accessOrder.forEach(
-            val => {
-                const idx: (number | undefined)[] = [];
-                val.index.forEach(e => {
-                    let res = undefined;
-                    try {
-                        res = math.evaluate(e, scope);
-                        if (typeof res !== 'number')
-                            res = undefined;
-                    } catch (_ignored) {
+        for (const val of this.accessOrder) {
+            const idx: (number | undefined)[] = [];
+            for (const e of val.index) {
+                let res = undefined;
+                try {
+                    res = math.evaluate(e, scope);
+                    if (typeof res !== 'number')
                         res = undefined;
-                    }
-                    idx.push(res);
-                });
-                resolvedAccessOrder.push({
-                    dataContainer: val.dataContainer,
-                    accessMode: val.accessMode,
-                    index: idx,
-                });
-                const prev = idxMap.get(val.dataContainer);
-                if (prev !== undefined)
-                    prev.push([val.accessMode, idx]);
-                else
-                    idxMap.set(val.dataContainer, [[val.accessMode, idx]]);
+                } catch (_ignored) {
+                    res = undefined;
+                }
+                idx.push(res);
             }
-        );
+            resolvedAccessOrder.push({
+                dataContainer: val.dataContainer,
+                accessMode: val.accessMode,
+                index: idx,
+            });
+            const prev = idxMap.get(val.dataContainer);
+            if (prev !== undefined)
+                prev.push([val.accessMode, idx]);
+            else
+                idxMap.set(val.dataContainer, [[val.accessMode, idx]]);
+        }
 
         return [idxMap, resolvedAccessOrder];
     }
@@ -114,18 +112,18 @@ export class ComputationNode extends Node {
         // based on symbolic indices.
         const scope = new Map<string, number>();
         if (sourceAccesses.length > 0) {
-            sourceAccesses.forEach(access => {
+            for (const access of sourceAccesses) {
                 access.forEach((idx: string, i: number) => {
                     if (i < index.length)
                         scope.set(idx, index[i]);
                 });
-            });
+            }
 
             for (const access of this.accessOrder) {
                 if (access.dataContainer !== source) {
                     if (access.index) {
                         const idx: (number | undefined)[] = [];
-                        access.index.forEach(e => {
+                        for (const e of access.index) {
                             let res = undefined;
                             try {
                                 res = math.evaluate(e, scope);
@@ -135,7 +133,7 @@ export class ComputationNode extends Node {
                                 res = undefined;
                             }
                             idx.push(res);
-                        });
+                        }
                         const prev = idxMap.get(access.dataContainer);
                         if (prev !== undefined)
                             prev.push([access.accessMode, idx]);
@@ -146,16 +144,16 @@ export class ComputationNode extends Node {
                     }
                 }
             }
-        }
 
-        const [superAccessMap, _] = this.parentGraph.getAccessesFor(scope);
-        superAccessMap.forEach((val, key) => {
-            const prev = idxMap.get(key);
-            if (prev)
-                idxMap.set(key, val.concat(prev));
-            else
-                idxMap.set(key, val);
-        });
+            const [superAccessMap, _] = this.parentGraph.getAccessesFor(scope);
+            superAccessMap.forEach((val, key) => {
+                const prev = idxMap.get(key);
+                if (prev)
+                    idxMap.set(key, val.concat(prev));
+                else
+                    idxMap.set(key, val);
+            });
+        }
 
         return idxMap;
     }
