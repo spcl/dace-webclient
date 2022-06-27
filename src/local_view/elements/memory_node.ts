@@ -97,22 +97,48 @@ class MemoryTile extends Graphics {
     }
 
     private markRelatedAccesses(asAccess: boolean = false): void {
-        /*
-        const relatedAccesses = new AccessMap<(number | undefined)>();
+        const relatedAccesses = new AccessMap<(number | undefined)[]>();
         const neighborhood =
             this.memoryNode.parentGraph.neighborhood(this.memoryNode);
         for (const neighbor of neighborhood) {
-            if (neighbor instanceof MapNode || neighbor instanceof ComputationNode) {
+            if (neighbor instanceof MapNode ||
+                neighbor instanceof ComputationNode) {
                 const neighborAccesses = neighbor.getRelatedAccesses(
-                    this.memoryNode.dataContainer, this.index
+                    this.memoryNode.dataContainer, this.index, this.memoryNode
                 );
-                neighborAccesses.forEach((access, container) => {
-                    relatedAccesses.set(container, access);
+                neighborAccesses.forEach((accesses, container) => {
+                    const containerAccesses = relatedAccesses.get(container);
+                    if (containerAccesses)
+                        relatedAccesses.set(container, containerAccesses.concat(
+                            accesses
+                        ));
+                    else
+                        relatedAccesses.set(container, accesses);
                 });
             }
         }
-        */
 
+        relatedAccesses.forEach((accesses, container) => {
+            const nodes =
+                this.memoryNode.parentGraph.memoryNodesMap.get(container);
+            if (nodes) {
+                accesses.forEach((access) => {
+                    nodes.forEach(node => {
+                        if (asAccess)
+                            node[1].applyToIdx(
+                                access[1], (t) => t.onMarkAccess()
+                            );
+                        else
+                            node[1].applyToIdx(
+                                access[1], (t) => t.onMarkRelated()
+                            );
+                        node[1].draw();
+                    });
+                });
+            }
+        });
+
+        /*
         const relAccesses = this.memoryNode.parentGraph.getRelatedAccesses(
             this.memoryNode.dataContainer,
             this.index
@@ -136,6 +162,7 @@ class MemoryTile extends Graphics {
                 });
             }
         });
+        */
     }
 
     private markTilingRegion(): void {

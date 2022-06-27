@@ -289,7 +289,7 @@ export class MapNode extends Node {
             return;
 
         // TODO: Allow inverse traversal (negative step) -> adapt end cond..
-        for (let i = nRange.start; i < nRange.end; i += nRange.step) {
+        for (let i = nRange.start; i <= nRange.end; i += nRange.step) {
             if (newNRanges.length > 0) {
                 this.recursiveSimulate(
                     new Map([...scope.entries(), [nRange.itvar, i]]),
@@ -670,7 +670,7 @@ export class MapNode extends Node {
     }
 
     public getRelatedAccesses(
-        source: DataContainer, index: number[]
+        source: DataContainer, index: number[], origin?: Node
     ): AccessMap<(number | undefined)[]> {
         return this.innerGraph.getRelatedAccesses(source, index);
     }
