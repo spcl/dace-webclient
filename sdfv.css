@@ -23,7 +23,7 @@ body {
   width: 1024px;
   height: 768px;
   border: 1px solid;
-  overflow: auto;
+  overflow: hidden;
 }
 
 #minimap {
@@ -332,4 +332,21 @@ pre.code code {
   --color-selected-hovered: salmon;
   --color-selected-highlighted: darkorange;
   --color-minimap-viewport: #ff7a00;
+}
+
+#reuse-distance-metric-box {
+  margin-left: 1rem;
+}
+
+#access-pattern-button-box {
+  margin-left: 1rem;
+}
+
+#access-pattern-button-box .button {
+  margin-top: .2rem;
+  margin-bottom: .2rem;
+  display: inline-block;
+  border: 1px solid black;
+  padding: .2rem .4rem;
+  font-size: .8rem;
 }

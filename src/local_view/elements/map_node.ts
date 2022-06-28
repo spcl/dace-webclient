@@ -30,9 +30,9 @@ export class MapNode extends Node {
     private readonly sliders: Map<string, Slider> = new Map();
     private readonly freeSymbolSliders: Map<string, [Range, Slider]> =
         new Map();
-    private readonly playButton: Button;
-    private readonly resetButton: Button;
-    private readonly pauseButton: Button;
+    public readonly playButton: Button;
+    public readonly resetButton: Button;
+    public readonly pauseButton: Button;
     private labelWidth: number;
     private accessPattern: [
         Map<string, number>, AccessMap<(number | undefined)[]>,
@@ -309,7 +309,7 @@ export class MapNode extends Node {
 
     public calculateStackDistances(): void {
         let distThreshold = -1;
-        const thresholdRaw = $('#reuseDistanceThresholdInput').val();
+        const thresholdRaw = $('#reuse-distance-threshold-input').val();
         if (thresholdRaw !== undefined && typeof(thresholdRaw) === 'string')
             distThreshold = parseInt(thresholdRaw);
 
@@ -394,7 +394,7 @@ export class MapNode extends Node {
         });
     }
 
-    private playbackReset(): void {
+    public playbackReset(): void {
         MemoryNode.MAX_ACCESSES = 1;
         this.playbackPlaying = false;
         this.playbackTicker = 0;
@@ -419,7 +419,7 @@ export class MapNode extends Node {
         });
     }
 
-    private playbackPause(): void {
+    public playbackPause(): void {
         this.playbackPlaying = false;
 
         this.playButton.enable();
@@ -433,7 +433,9 @@ export class MapNode extends Node {
         this.resetButton.disable();
 
         const playbackSpeedInputVal = (
-            <HTMLInputElement> document.getElementById('mapPlaybackSpeedInput')
+            <HTMLInputElement> document.getElementById(
+                'map-playback-speed-input'
+            )
         )?.value;
         const playbackSpeed = parseInt(playbackSpeedInputVal);
 
@@ -449,15 +451,20 @@ export class MapNode extends Node {
         }, 1000 / playbackSpeed);
     }
 
-    private showAccesses(map: AccessMap<(number | undefined)[]>): void {
+    public showAccesses(
+        map: AccessMap<(number | undefined)[]>, redraw: boolean = true
+    ): void {
         map.forEach((accessList, container) => {
             const nodes =
                 this.parentGraph.memoryNodesMap.get(container);
             if (nodes) {
                 accessList.forEach((access) => {
                     nodes.forEach(node => {
-                        node[1].applyToIdx(access[1], (t) => t.onMarkAccess());
-                        node[1].draw();
+                        node[1].applyToIdx(access[1], (t) => {
+                            t.onMarkAccess(redraw);
+                        });
+                        if (redraw)
+                            node[1].draw();
                     });
                 });
             }
@@ -532,14 +539,16 @@ export class MapNode extends Node {
         }
 
         // Draw the buttons if we're in access pattern viewmode.
-        if ($('#input-access-pattern-viewmode').is(':checked')) {
+        if ($('#input-access-pattern-viewmode')?.is(':checked')) {
             this.playButton.renderable = true;
             this.pauseButton.renderable = true;
             this.resetButton.renderable = true;
+            this.playButton.enable();
             this.playButton.draw();
             this.pauseButton.draw();
             this.resetButton.draw();
         } else {
+            this.playButton.disable();
             this.playButton.renderable = false;
             this.pauseButton.renderable = false;
             this.resetButton.renderable = false;

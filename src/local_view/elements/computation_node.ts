@@ -170,17 +170,6 @@ export class ComputationNode extends Node {
                 }
             });
             this.findRelatedFromScope(source, scope, idxMap);
-
-            /*
-            const [superAccessMap, _] = this.parentGraph.getAccessesFor(scope);
-            superAccessMap.forEach((val, key) => {
-                const prev = idxMap.get(key);
-                if (prev)
-                    idxMap.set(key, val.concat(prev));
-                else
-                    idxMap.set(key, val);
-            });
-            */
         }
 
         return idxMap;

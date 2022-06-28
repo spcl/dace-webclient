@@ -14,6 +14,7 @@ import {
     stringify_sdfg
 } from '../index';
 import { LViewLayouter } from '../local_view/lview_layouter';
+import { LViewParser } from '../local_view/lview_parser';
 import { LViewRenderer } from '../local_view/lview_renderer';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
 import { MemoryLocationOverlay } from '../overlays/memory_location_overlay';
@@ -166,6 +167,9 @@ export class SDFGRenderer {
         background: string | null = null,
         mode_buttons: any = null
     ) {
+        sdfv_instance.enable_menu_close();
+        sdfv_instance.close_menu();
+
         this.external_mouse_handler = on_mouse_event;
 
         this.overlay_manager = new OverlayManager(this);
@@ -2892,7 +2896,7 @@ export class SDFGRenderer {
 
         // Transition to the local view by first cutting out the selection.
         this.cutout_selection();
-        const lGraph = LViewRenderer.parseGraph(this.graph);
+        const lGraph = LViewParser.parseGraph(this.graph);
         if (lGraph) {
             LViewLayouter.layoutGraph(lGraph);
             this.sdfv_instance.setLocalViewRenderer(new LViewRenderer(

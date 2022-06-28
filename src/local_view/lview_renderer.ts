@@ -1,51 +1,53 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
+import {
+    BarController,
+    BarElement,
+    CategoryScale,
+    Chart,
+    ChartData,
+    Legend,
+    LinearScale,
+    Tooltip
+} from 'chart.js';
+import annotationPlugin from 'chartjs-plugin-annotation';
+import $ from 'jquery';
+import { Viewport } from 'pixi-viewport';
 import { Application } from 'pixi.js';
-import { DagreSDFG } from '..';
-import {
-    AccessNode,
-    Edge,
-    ExitNode,
-    MapEntry,
-    SDFGElement,
-    SDFGNode,
-    State,
-    Tasklet,
-} from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { ComputationNode } from './elements/computation_node';
-import {
-    AccessMode,
-    DataContainer,
-    SymbolicDataAccess,
-} from './elements/data_container';
-import {
-    MemoryLocationOverlay
-} from '../overlays/memory_location_overlay';
-import { DataDimension } from './elements/dimensions';
-import { Element } from './elements/element';
 import { MapNode } from './elements/map_node';
 import { MemoryMovementEdge } from './elements/memory_movement_edge';
 import { MemoryNode } from './elements/memory_node';
 import { Graph } from './graph/graph';
-import { Viewport } from 'pixi-viewport';
-
-export class LViewGraphParseError extends Error {}
+import sidebarHtml from './lview_sidebar.html';
 
 export class LViewRenderer {
 
     public readonly pixiApp: Application | null = null;
     public readonly viewport: Viewport | null = null;
 
+    private sidebarContents?: JQuery<HTMLDivElement>;
+    private sidebarTitle?: JQuery<HTMLDivElement>;
+    private chartContainer?: JQuery<HTMLDivElement>;
+    private reuseDistanceHistogramCanvas?: JQuery<HTMLCanvasElement>;
+    private reuseDistanceHistogram?: Chart;
+
+    public globalMemoryMovementHistogram: Map<number, number> = new Map();
+
     public constructor(
         protected sdfvInstance: SDFV,
         protected graph: Graph,
         protected container: HTMLElement,
     ) {
+        this.initLocalViewSidebar();
+
         const containerRect = this.container.getBoundingClientRect();
         this.pixiApp = new Application({
             width: containerRect.width - 10,
             height: containerRect.height - 10,
             backgroundAlpha: 0.0,
             antialias: true,
+            resizeTo: this.container,
         });
 
         this.container.appendChild(this.pixiApp.view);
@@ -55,6 +57,18 @@ export class LViewRenderer {
             screenHeight: containerRect.height,
             interaction: this.pixiApp.renderer.plugins.interaction,
         });
+
+        const resizeObserver = new ResizeObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.contentBoxSize) {
+                    this.pixiApp?.resize();
+                    this.viewport?.resize(
+                        entry.contentRect.width, entry.contentRect.height
+                    );
+                }
+            });
+        });
+        resizeObserver.observe(this.container);
 
         this.pixiApp.stage.addChild(this.viewport);
 
@@ -75,320 +89,197 @@ export class LViewRenderer {
             this.container.removeChild(this.pixiApp.view);
     }
 
-    private static parseMap(
-        elem: MapEntry, graph: Graph, state: State, sdfg: DagreSDFG
-    ): MapNode {
-        const rRanges = elem.data.node.attributes.range.ranges;
-        const rParams = elem.data.node.attributes.params;
-        const ranges = [];
-        for (let i = 0; i < rParams.length; i++) {
-            const rng = rRanges[i];
-            const start = +rng.start;
-            const end = +rng.end;
-            const step = +rng.step;
-            
-            ranges.push({
-                itvar: rParams[i],
-                start: isNaN(start) ? rng.start : start,
-                end: isNaN(end) ? rng.end : end,
-                step: isNaN(step) ? rng.step : step,
-            });
-        }
-        
-        const innerGraph = new Graph();
-        const mapScopeDict = state.data.state.scope_dict[elem.id];
-        if (mapScopeDict) {
-            const scopeEdges = new Set<{
-                v: string,
-                w: string,
-                name: string,
-            }>();
-            for (const id of mapScopeDict) {
-                const childElem = this.parseElement(
-                    graph, state.data.graph.node(id), state, sdfg
-                );
-                if (childElem) {
-                    innerGraph.addChild(childElem);
+    private initLocalViewSidebar(): void {
+        this.sdfvInstance.sidebar_set_title('Local View');
+        this.sdfvInstance.close_menu();
+        this.sdfvInstance.disable_menu_close();
 
-                    const iedges = state.data.graph.inEdges(id);
-                    for (const iedge of iedges)
-                        scopeEdges.add(iedge);
-                    const oedges = state.data.graph.outEdges(id);
-                    for (const oedge of oedges)
-                        scopeEdges.add(oedge);
-                }
-            }
+        const rawContents = this.sdfvInstance.sidebar_get_contents();
+        if (!rawContents)
+            return;
+        const contents = $(rawContents);
+        contents.html(sidebarHtml);
 
-            for (const edge of scopeEdges) {
-                const elem = this.parseEdge(graph, edge, state, sdfg);
-                if (elem)
-                    innerGraph.addChild(elem);
-            }
-        }
+        this.sidebarTitle = $('#lview-sidebar-title');
+        this.chartContainer = $('#lview-chart-container');
+        this.reuseDistanceHistogramCanvas = $('#reuse-distance-histogram');
+        this.sidebarContents = $('#lview-sidebar-contents');
 
-        innerGraph.contractGraph();
-
-        const node = new MapNode(elem.id.toString(), graph, ranges, innerGraph);
-        elem.data.node.attributes.lview_node = node;
-        return node;
-    }
-
-    private static findAccessNodeForContainer(
-        name: string, state: State
-    ): AccessNode | undefined {
-        for (const nid of state.data.graph.nodes()) {
-            const node = state.data.graph.node(nid);
-            if (node instanceof AccessNode && node.attributes().data === name)
-                return node;
-        }
-        return undefined;
-    }
-
-    private static getOrCreateContainer(
-        name: string, graph: Graph, state: State, elem?: AccessNode
-    ): DataContainer | null {
-        if (name) {
-            const sdfgContainer = state.sdfg.attributes._arrays[name];
-            let container = graph.dataContainers.get(name);
-            if (!container) {
-                const dimensions = [];
-                for (const s of sdfgContainer.attributes.shape) {
-                    const val = +s;
-                    dimensions.push(new DataDimension(
-                        s.toString(), isNaN(val) ? 0 : val
-                    ));
-                }
-                if (!elem)
-                    elem = this.findAccessNodeForContainer(name, state);
-                const storageType = elem ?
-                    MemoryLocationOverlay.getStorageType(elem) :
-                    undefined;
-                container = new DataContainer(
-                    name,
-                    dimensions,
-                    false, // TODO
-                    8, // TODO
-                    sdfgContainer.attributes.start_offset,
-                    sdfgContainer.attributes.alignment,
-                    storageType?.type,
-                    sdfgContainer.attributes.strides,
-                );
-                graph.dataContainers.set(name, container);
-            } else if (container.storage === undefined) {
-                if (!elem)
-                    elem = this.findAccessNodeForContainer(name, state);
-                const storageType = elem ?
-                    MemoryLocationOverlay.getStorageType(elem) :
-                    undefined;
-                container.storage = storageType?.type;
-            }
-            return container;
-        }
-        return null;
-    }
-
-    private static parseAccessNode(
-        element: AccessNode, graph: Graph, state: State
-    ): MemoryNode | null {
-        const container = this.getOrCreateContainer(
-            element.attributes().data, graph, state, element
+        Chart.register(annotationPlugin);
+        Chart.register(
+            BarController, BarElement, CategoryScale, Tooltip, Legend,
+            LinearScale
         );
-        if (container) {
-            const node = new MemoryNode(
-                element.id.toString(), graph, container, AccessMode.ReadWrite
-            );
-            element.data.node.attributes.lview_node = node;
-            return node;
-        }
-        return null;
-    }
-
-    private static getMemletAccess(
-        edge: Edge, mode: AccessMode, graph: Graph, state: State
-    ): SymbolicDataAccess | null {
-        const attributes = edge.attributes();
-        const dataContainer = this.getOrCreateContainer(
-            attributes.data, graph, state
+        this.reuseDistanceHistogram = new Chart(
+            this.reuseDistanceHistogramCanvas,
+            {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [],
+                },
+                options: {},
+            }
         );
-        const ranges = attributes.other_subset ?
-            attributes.other_subset.ranges : attributes.subset.ranges;
-        const volume = +attributes.num_accesses;
-        if (dataContainer && ranges) {
-            if (volume === 1) {
-                const accessIdx = [];
-                for (const rng of ranges)
-                    accessIdx.push(rng.start);
-                return {
-                    dataContainer: dataContainer,
-                    accessMode: mode,
-                    index: accessIdx,
-                };
+        this.hideReuseDistanceHist();
+
+        $('#input-reuse-distance-viewmode')?.on('change', () => {
+            this.onUpdateReuseDistanceViewmode();
+        });
+        $('#reuse-distance-metric-box')?.on('change', () => {
+            this.onUpdateReuseDistanceViewmode();
+        });
+        $('#input-physical-data-movement-viewmode')?.on('change', () => {
+            this.onUpdateDataMovementViewmode();
+        });
+
+        $('#cache-line-size-input')?.on('change', () => {
+            this.recalculateAll();
+        });
+        $('#reuse-distance-threshold-input')?.on('change', () => {
+            this.recalculateAll();
+        });
+
+        const inputAccessPatternMode = $('#input-access-pattern-viewmode');
+        const btnShowAll = $('#show-all-access-pattern-button');
+        const btnClearAll = $('#clear-all-access-pattern-button');
+        inputAccessPatternMode?.on('change', () => {
+            if (inputAccessPatternMode?.is(':checked')) {
+                btnShowAll.show();
+                btnClearAll.show();
             } else {
-                // TODO: How should we handle this? We can't necessarily
-                // derive the exact access order for this type of
-                // access if there is no exact subset. Typically this
-                // will be a range and we could only give an upper
-                // bound.
-                throw new LViewGraphParseError(
-                    'This subgraph cannot be statically analyzed for data ' +
-                    'access patterns due to data dependent executions.'
-                );
+                btnShowAll.hide();
+                btnClearAll.hide();
             }
-        }
-        return null;
+            this.clearGraphAccesses(this.graph);
+        });
+        btnClearAll?.on('click', () => {
+            this.clearGraphAccesses(this.graph);
+        });
+        btnShowAll?.on('click', () => {
+            this.clearGraphAccesses(this.graph);
+            this.graphShowAllAccesses(this.graph);
+        });
+
+        this.sdfvInstance.sidebar_show();
     }
 
-    private static parseTasklet(
-        graph: Graph, el: Tasklet, state: State, sdfg: DagreSDFG
-    ): ComputationNode {
-        const label = el.attributes().code?.string_data;
-        const farLabel = el.attributes().label;
-
-        const accessOrder: SymbolicDataAccess[] = [];
-        for (const iedgeId of state.data.graph.inEdges(el.id.toString())) {
-            const iedge: Edge = state.data.graph.edge(iedgeId);
-            if (iedge) {
-                const accesses = this.getMemletAccess(
-                    iedge, AccessMode.ReadOnly, graph, state
-                );
-                if (accesses)
-                    accessOrder.push(accesses);
+    public clearGraphAccesses(g: Graph, redraw: boolean = true): void {
+        g.nodes.forEach(node => {
+            if (node instanceof MemoryNode) {
+                node.clearAllAccesses();
+            } else if (node instanceof MapNode) {
+                node.playbackPause();
+                node.playbackReset();
+                this.clearGraphAccesses(node.innerGraph, false);
             }
-        }
-        for (const oedgeId of state.data.graph.outEdges(el.id.toString())) {
-            const oedge = state.data.graph.edge(oedgeId);
-            if (oedge) {
-                const accesses =
-                    this.getMemletAccess(oedge, AccessMode.Write, graph, state);
-                if (accesses)
-                    accessOrder.push(accesses);
-            }
-        }
-
-        const node = new ComputationNode(
-            el.id.toString(), graph, label, accessOrder, farLabel
-        );
-        el.data.node.attributes.lview_node = node;
-        return node;
+        });
+        if (redraw)
+            g.draw();
     }
 
-    private static parseEdge(
-        graph: Graph, el: { name: string, v: string, w: string }, state: State,
-        sdfg: DagreSDFG
-    ): Element | null {
-        let src: SDFGNode = state.data.graph.node(el.v);
-        if (src instanceof ExitNode)
-            src = state.data.graph.node(src.data.node.scope_entry);
-        const dst: SDFGNode = state.data.graph.node(el.w);
-        const edge: Edge = state.data.graph.edge(el);
-
-        if (src?.attributes().lview_node && dst?.attributes().lview_node &&
-            edge) {
-            let text = edge.attributes().data;
-            let sep = '[';
-            for (const rng of edge.attributes().subset.ranges) {
-                text += sep +
-                    (rng.start != rng.end ?
-                        rng.start + ':' + rng.end : rng.start) +
-                    (rng.step != '1' ? ':' + rng.step : '');
-                sep = ',';
-            }
-            text += ']';
-            const elem = new MemoryMovementEdge(
-                text, graph, edge.points,
-                src.attributes().lview_node,
-                dst.attributes().lview_node
-            );
-            edge.data.attributes.lview_edge = elem;
-            return elem;
-        }
-        
-        return null;
-    }
-
-    private static parseElement(
-        graph: Graph, el: SDFGElement, state: State, sdfg: DagreSDFG
-    ): Element | null {
-        if (el instanceof SDFGNode) {
-            if (el instanceof AccessNode)
-                return this.parseAccessNode(el, graph, state);
-            else if (el instanceof MapEntry)
-                return this.parseMap(el, graph, state, sdfg);
-            else if (el instanceof Tasklet)
-                return this.parseTasklet(graph, el, state, sdfg);
-        }
-        return null;
-    }
-
-    private static parseState(state: State, sdfg: DagreSDFG): Graph {
-        const graph = new Graph();
-
-        const scopeDict = state.data.state.scope_dict;
-        if (scopeDict) {
-            const rootScope = [];
-            for (const id of scopeDict[-1])
-                rootScope.push(state.data.graph.node(id.toString()));
-
-            const rootScopeEdges: Set<{
-                name: string,
-                v: string,
-                w: string,
-            }> = new Set();
-            for (const el of rootScope) {
-                const elem = this.parseElement(graph, el, state, sdfg);
-                if (elem)
-                    graph.addChild(elem);
-
-                const iedges = state.data.graph.inEdges(el.id.toString());
-                for (const iedge of iedges)
-                    rootScopeEdges.add(iedge);
-                if (el instanceof MapEntry && !el.attributes().is_collapsed) {
-                    const exitNode = state.data.graph.node(
-                        el.data.node.scope_exit
-                    );
-                    const oedges = state.data.graph.outEdges(
-                        exitNode.id.toString()
-                    );
-                    for (const oedge of oedges)
-                        rootScopeEdges.add(oedge);
-                } else {
-                    const oedges = state.data.graph.outEdges(el.id.toString());
-                    for (const oedge of oedges)
-                        rootScopeEdges.add(oedge);
+    public graphShowAllAccesses(g: Graph, redraw: boolean = true): void {
+        g.nodes.forEach(node => {
+            if (node instanceof MapNode) {
+                const accessPattern = node.getAccessPattern();
+                for (let i = 0; i < accessPattern.length; i++) {
+                    const map = accessPattern[i][1];
+                    node.showAccesses(map, false);
                 }
+                node.playButton.draw();
+                this.graphShowAllAccesses(node.innerGraph, false);
             }
-
-            for (const edge of rootScopeEdges) {
-                const elem = this.parseEdge(graph, edge, state, sdfg);
-                if (elem)
-                    graph.addChild(elem);
-            }
-        }
-
-        return graph;
+        });
+        if (redraw)
+            g.draw();
     }
 
-    /*
-    private static contractSubgraph(graph: Graph): Graph {
-        let hasContractions = true;
-        while (hasContractions) {
-            hasContractions = false;
-            graph.nodes.forEach(node => {
-                const preds = graph.predecessors(node);
-                preds.forEach(predecessor => {
-                    if (predecessor instanceof MemoryNode && predecessor)
+    private constructMemoryMovementHistForGraph(g: Graph): void {
+        g.edges.forEach(edge => {
+            if (edge instanceof MemoryMovementEdge) {
+                const volume = edge.calculateMovementVolume();
+                const prev = this.globalMemoryMovementHistogram.get(volume);
+                if (prev !== undefined)
+                    this.globalMemoryMovementHistogram.set(volume, prev + 1);
+                else
+                    this.globalMemoryMovementHistogram.set(volume, 1);
+            }
+        });
+
+        g.nodes.forEach(node => {
+            if (node instanceof MapNode)
+                this.constructMemoryMovementHistForGraph(node.innerGraph);
+        });
+    }
+
+    public showReuseDistanceHist(data: ChartData): void {
+        this.chartContainer?.show();
+        if (data && this.reuseDistanceHistogram) {
+            this.reuseDistanceHistogram.data = data;
+            this.reuseDistanceHistogram.update();
+        }
+    }
+
+    public hideReuseDistanceHist(): void {
+        this.chartContainer?.hide();
+    }
+
+    private recalculateForGraph(g: Graph): void {
+        g.nodes.forEach(node => {
+            if (node instanceof MapNode) {
+                node.calculateStackDistances();
+                this.recalculateForGraph(node.innerGraph);
+            }
+        });
+    }
+
+    private graphClearCalculatedValue(g: Graph): void {
+        g.edges.forEach(edge => {
+            if (edge instanceof MemoryMovementEdge)
+                edge.clearVolume();
+        });
+
+        g.nodes.forEach(node => {
+            if (node instanceof MemoryNode)
+                node.applyToAll(undefined, t => {
+                    t.stackDistancesFlattened = [];
+                    t.stackDistances.clear();
+                    t.coldMisses = 0;
+                    t.totalMisses = 0;
                 });
-            });
-        }
-        return graph;
+            else if (node instanceof MapNode)
+                this.graphClearCalculatedValue(node.innerGraph);
+        });
     }
-    */
 
-    public static parseGraph(sdfg: DagreSDFG): Graph | null {
-        const state = sdfg.node('0');
-        if (state)
-            return this.parseState(state, sdfg);
-        return null;
+    public recalculateAll(): void {
+        this.graphClearCalculatedValue(this.graph);
+
+        MemoryNode.reuseDistanceHistogram.clear();
+        MemoryNode.minReuseDistanceHistogram.clear();
+        MemoryNode.maxReuseDistanceHistogram.clear();
+        MemoryNode.missesHistogram.clear();
+
+        this.recalculateForGraph(this.graph);
+
+        this.globalMemoryMovementHistogram.clear();
+        this.constructMemoryMovementHistForGraph(this.graph);
+
+        this.graph.draw();
+    }
+
+    private onUpdateReuseDistanceViewmode(): void {
+        if ($('#input-reuse-distance-viewmode')?.is(':checked'))
+            this.graph.enableReuseDistanceOverlay();
+        else
+            this.graph.disableReuseDistanceOverlay();
+    }
+
+    private onUpdateDataMovementViewmode(): void {
+        if ($('#input-physical-data-movement-viewmode')?.is(':checked'))
+            this.graph.enablePhysMovementOverlay();
+        else
+            this.graph.disablePhysMovementOverlay();
     }
 
 }

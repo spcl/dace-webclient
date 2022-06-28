@@ -16,6 +16,9 @@ const TILE_SIZE = 10;
 
 class MemoryTile extends Graphics {
 
+    private hoverMarkedTiles: Set<MemoryTile> = new Set<MemoryTile>();
+    private accessMarkedTiles: Set<MemoryTile> = new Set<MemoryTile>();
+
     public marked: boolean = false;
     public stackedHighlights: number = 0;
 
@@ -72,28 +75,17 @@ class MemoryTile extends Graphics {
     }
 
     private unmarkRelatedAccesses(asAccess: boolean = false): void {
-        this.memoryNode.parentGraph.getRelatedAccesses(
-            this.memoryNode.dataContainer,
-            this.index
-        ).forEach((accesses, container) => {
-            const nodes =
-                this.memoryNode.parentGraph.memoryNodesMap.get(container);
-            if (nodes) {
-                accesses.forEach((access) => {
-                    nodes.forEach(node => {
-                        if (asAccess)
-                            node[1].applyToIdx(
-                                access[1], (t) => t.unmarkAccess()
-                            );
-                        else
-                            node[1].applyToIdx(
-                                access[1], (t) => t.unmarkRelated()
-                            );
-                        node[1].draw();
-                    });
-                });
-            }
-        });
+        if (asAccess) {
+            this.accessMarkedTiles.forEach(tile => {
+                tile.unmarkAccess();
+            });
+            this.accessMarkedTiles.clear();
+        } else {
+            this.hoverMarkedTiles.forEach(tile => {
+                tile.unmarkRelated();
+            });
+            this.hoverMarkedTiles.clear();
+        }
     }
 
     private markRelatedAccesses(asAccess: boolean = false): void {
@@ -124,45 +116,28 @@ class MemoryTile extends Graphics {
             if (nodes) {
                 accesses.forEach((access) => {
                     nodes.forEach(node => {
+                        const tiles: MemoryTile[] = [];
                         if (asAccess)
                             node[1].applyToIdx(
-                                access[1], (t) => t.onMarkAccess()
+                                access[1], (t) => t.onMarkAccess(),
+                                undefined, undefined, tiles
                             );
                         else
                             node[1].applyToIdx(
-                                access[1], (t) => t.onMarkRelated()
+                                access[1], (t) => t.onMarkRelated(),
+                                undefined, undefined, tiles
                             );
+                        tiles.forEach(tile => {
+                            if (asAccess)
+                                this.accessMarkedTiles.add(tile);
+                            else
+                                this.hoverMarkedTiles.add(tile);
+                        });
                         node[1].draw();
                     });
                 });
             }
         });
-
-        /*
-        const relAccesses = this.memoryNode.parentGraph.getRelatedAccesses(
-            this.memoryNode.dataContainer,
-            this.index
-        );
-        relAccesses.forEach((accesses, container) => {
-            const nodes =
-                this.memoryNode.parentGraph.memoryNodesMap.get(container);
-            if (nodes) {
-                accesses.forEach((access) => {
-                    nodes.forEach(node => {
-                        if (asAccess)
-                            node[1].applyToIdx(
-                                access[1], (t) => t.onMarkAccess()
-                            );
-                        else
-                            node[1].applyToIdx(
-                                access[1], (t) => t.onMarkRelated()
-                            );
-                        node[1].draw();
-                    });
-                });
-            }
-        });
-        */
     }
 
     private markTilingRegion(): void {
@@ -359,7 +334,7 @@ class MemoryTile extends Graphics {
         }
     }
 
-    public onMarkAccess(): void {
+    public onMarkAccess(redraw: boolean = true): void {
         // If this had stacked accesses before, try to remove it from the
         // global histogram.
         this.removeFromGlobalHist();
@@ -372,7 +347,8 @@ class MemoryTile extends Graphics {
 
         this.addToGlobalHist();
 
-        this.draw();
+        if (redraw)
+            this.draw();
     }
 
     public unmarkAccess(): void {
@@ -700,7 +676,7 @@ export class MemoryNode extends Node {
     public getCacheLine(idx: number[]): MemoryTile[] {
         const ret: MemoryTile[] = [];
 
-        const lineBytesRaw = $('#cacheLineSizeInput').val();
+        const lineBytesRaw = $('#cache-line-size-input').val();
         let lineBytes = undefined;
         if (lineBytesRaw !== undefined) {
             if (typeof(lineBytesRaw) === 'number')

@@ -6,7 +6,7 @@ import {
     AccessMode,
     ConcreteDataAccess,
     DataContainer,
-    SymbolicDataAccess,
+    SymbolicDataAccess
 } from '../elements/data_container';
 import { Edge } from '../elements/edge';
 import { Element } from '../elements/element';

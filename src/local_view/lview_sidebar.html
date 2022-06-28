@@ -1,0 +1,101 @@
+<label for="map-playback-speed-input">
+    Access Pattern Playback Speed:
+</label>
+<br>
+<input type="number" id="map-playback-speed-input" min="1" max="10" value="1">
+
+<hr>
+
+<label for="cache-line-size-input">
+    Cache Line Size (bytes):
+</label>
+<br>
+<input type="number" id="cache-line-size-input" min="1" value="32">
+
+<hr>
+
+<label for="reuse-distance-threshold-input">
+    Reuse Distance Threshold:
+</label>
+<br>
+<input type="number" id="reuse-distance-threshold-input" min="1" value="10">
+
+<hr>
+
+<h3>
+    View Modes
+</h3>
+
+<input type="checkbox" id="input-access-pattern-viewmode" name="viewmode"
+    value="access-pattern" checked="checked">
+<label for="input-access-pattern-viewmode">
+    Access Pattern / Number of Accesses
+</label>
+<br>
+
+<div id="access-pattern-button-box">
+    <div class="button" id="clear-all-access-pattern-button">
+        Clear All
+    </div>
+    <div class="button" id="show-all-access-pattern-button">
+        Show All
+    </div>
+</div>
+
+<input type="checkbox" id="input-reuse-distance-viewmode" name="viewmode"
+    value="reuse-distance">
+<label for="input-reuse-distance-viewmode">
+    Reuse Distance (Stack Distance)
+</label>
+<br>
+
+<div>
+    <form id="reuse-distance-metric-box">
+        <input type="radio" id="input-rdm-median" name="reuse-distance-metric"
+            value="median" checked="checked">
+        <label for="input-rdm-median">
+            Median
+        </label>
+        <input type="radio" id="input-rdm-min" name="reuse-distance-metric"
+            value="min">
+        <label for="input-rdm-min">
+            Min
+        </label>
+        <input type="radio" id="input-rdm-max" name="reuse-distance-metric"
+            value="max">
+        <label for="input-rdm-max">
+            Max
+        </label>
+        <input type="radio" id="input-rdm-misses" name="reuse-distance-metric"
+            value="misses">
+        <label for="input-rdm-misses">
+            Misses
+        </label>
+    </form>
+</div>
+
+<input type="checkbox" id="input-physical-data-movement-viewmode"
+    name="viewmode" value="physica-data-movement">
+<label for="input-physical-data-movement-viewmode">
+    Physical Data Movement
+</label>
+<br>
+
+<input type="checkbox" id="input-cache-lines-viewmode"
+    name="viewmode" value="cache-lines">
+<label for="input-cache-lines-viewmode">
+    Cache Lines
+</label>
+<br>
+
+<hr>
+
+<div id="lview-sidebar-title">
+</div>
+
+<div id="lview-chart-container">
+    <canvas id="reuse-distance-histogram"></canvas>
+</div>
+
+<div id="lview-sidebar-contents">
+</div>
