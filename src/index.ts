@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { SDFGElement } from './renderer/renderer_elements';
 
 export * from './overlays/generic_sdfg_overlay';

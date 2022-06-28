@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { IShape, RoundedRectangle } from '@pixi/math';
 import { Graphics, Text } from 'pixi.js';
 import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from '../elements/element';

@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { Graphics, TextStyle } from 'pixi.js';
 
 export const DEFAULT_LINE_STYLE: any = {

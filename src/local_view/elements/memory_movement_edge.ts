@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import $ from 'jquery';
 import { cos, sin, tanh } from 'mathjs';
 import { Point, Text } from 'pixi.js';

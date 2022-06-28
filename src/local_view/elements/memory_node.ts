@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { Rectangle } from '@pixi/math';
 import $ from 'jquery';
 import { max, median, min } from 'mathjs';

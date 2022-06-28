@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { Graph } from '../graph/graph';
 import { Edge } from './edge';
 import { Element } from './element';

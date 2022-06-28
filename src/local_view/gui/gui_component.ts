@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { Graphics } from 'pixi.js';
 
 export class GUIComponent extends Graphics {

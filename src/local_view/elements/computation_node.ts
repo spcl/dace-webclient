@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import CoffeeQuate from 'coffeequate';
 import * as math from 'mathjs';
 import { Text } from 'pixi.js';

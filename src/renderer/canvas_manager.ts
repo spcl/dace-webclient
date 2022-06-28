@@ -1,4 +1,4 @@
-// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Edge, EntryNode, SDFGElement, SDFGNode } from './renderer_elements';
 import { lerpMatrix } from '../utils/lerp_matrix';

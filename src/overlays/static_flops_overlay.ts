@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {

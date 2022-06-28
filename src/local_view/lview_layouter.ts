@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import dagre from 'dagre';
 import { Edge } from './elements/edge';
 import { MapNode } from './elements/map_node';

@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { DisplayObject, Graphics } from 'pixi.js';
 import { StorageType } from '../../overlays/memory_location_overlay';
 import { ComputationNode } from '../elements/computation_node';

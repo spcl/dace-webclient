@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { StorageType } from '../../overlays/memory_location_overlay';
 import { DataDimension } from './dimensions';
 
