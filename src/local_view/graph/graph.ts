@@ -16,6 +16,7 @@ import { MapNode } from '../elements/map_node';
 import { MemoryMovementEdge } from '../elements/memory_movement_edge';
 import { MemoryNode } from '../elements/memory_node';
 import { Node } from '../elements/node';
+import { LViewRenderer } from '../lview_renderer';
 
 type MemoryNodeMap = Map<DataContainer, Set<[AccessMode, MemoryNode]>>;
 
@@ -27,7 +28,7 @@ export class Graph extends Graphics {
     public readonly nodes: Set<Node> = new Set<Node>();
     public readonly edges: Set<Edge> = new Set<Edge>();
 
-    public constructor() {
+    public constructor(public readonly renderer?: LViewRenderer) {
         super();
     }
 
@@ -275,6 +276,19 @@ export class Graph extends Graphics {
 
     public disableReuseDistanceOverlay(): void {
         this.setReuseDistanceOverlay(false);
+    }
+
+    public setReuseDistanceMetric(
+        metric: string, redraw: boolean = true
+    ): void {
+        this.memoryNodesMap.forEach(nodesList => {
+            nodesList.forEach(tuple => {
+                const node = tuple[1];
+                node.reuseDistanceMetric = metric;
+                if (redraw)
+                    node.draw();
+            });
+        });
     }
 
     public setPhysMovementOverlay(enabled: boolean): void {

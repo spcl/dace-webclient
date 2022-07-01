@@ -81,7 +81,6 @@ export class GenericSdfgOverlay {
                 ) / 2;
                 break;
             case 'exponential_interpolation':
-                // TODO: Allow the use of a factor other than 2.
                 this.heatmap_scale_center = log(
                     min(values) * max(values),
                     this.overlay_manager.get_heatmap_scaling_exp_base()

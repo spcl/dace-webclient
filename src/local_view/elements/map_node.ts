@@ -8,6 +8,7 @@ import { AccessStack } from '../../utils/collections';
 import { Graph } from '../graph/graph';
 import { Button } from '../gui/button';
 import { Slider } from '../gui/slider';
+import { LViewRenderer } from '../lview_renderer';
 import { AccessMap, ConcreteDataAccess, DataContainer } from './data_container';
 import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from './element';
 import { MemoryNode } from './memory_node';
@@ -55,8 +56,9 @@ export class MapNode extends Node {
         private readonly overrideWidth?: number,
         private readonly overrideHeight?: number,
         private readonly paddingOverride?: number,
+        renderer?: LViewRenderer,
     ) {
-        super(parentGraph, id);
+        super(parentGraph, id, renderer);
 
         const padding = this.paddingOverride !== undefined ?
             this.paddingOverride : NESTING_PADDING;

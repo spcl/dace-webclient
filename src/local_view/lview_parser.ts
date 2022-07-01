@@ -24,13 +24,15 @@ import { ComputationNode } from './elements/computation_node';
 import { MemoryMovementEdge } from './elements/memory_movement_edge';
 import { MemoryNode } from './elements/memory_node';
 import { Element } from './elements/element';
+import { LViewRenderer } from './lview_renderer';
 
 export class LViewGraphParseError extends Error {}
 
 export class LViewParser {
 
     private static parseMap(
-        elem: MapEntry, graph: Graph, state: State, sdfg: DagreSDFG
+        elem: MapEntry, graph: Graph, state: State, sdfg: DagreSDFG,
+        renderer?: LViewRenderer
     ): MapNode {
         const rRanges = elem.data.node.attributes.range.ranges;
         const rParams = elem.data.node.attributes.params;
@@ -49,7 +51,7 @@ export class LViewParser {
             });
         }
         
-        const innerGraph = new Graph();
+        const innerGraph = new Graph(renderer);
         const mapScopeDict = state.data.state.scope_dict[elem.id];
         if (mapScopeDict) {
             const scopeEdges = new Set<{
@@ -59,7 +61,7 @@ export class LViewParser {
             }>();
             for (const id of mapScopeDict) {
                 const childElem = this.parseElement(
-                    graph, state.data.graph.node(id), state, sdfg
+                    graph, state.data.graph.node(id), state, sdfg, renderer
                 );
                 if (childElem) {
                     innerGraph.addChild(childElem);
@@ -74,7 +76,7 @@ export class LViewParser {
             }
 
             for (const edge of scopeEdges) {
-                const elem = this.parseEdge(graph, edge, state, sdfg);
+                const elem = this.parseEdge(graph, edge, state, sdfg, renderer);
                 if (elem)
                     innerGraph.addChild(elem);
             }
@@ -82,7 +84,10 @@ export class LViewParser {
 
         innerGraph.contractGraph();
 
-        const node = new MapNode(elem.id.toString(), graph, ranges, innerGraph);
+        const node = new MapNode(
+            elem.id.toString(), graph, ranges, innerGraph, undefined,
+            undefined, undefined, renderer
+        );
         elem.data.node.attributes.lview_node = node;
         return node;
     }
@@ -151,14 +156,16 @@ export class LViewParser {
     }
 
     private static parseAccessNode(
-        element: AccessNode, graph: Graph, state: State
+        element: AccessNode, graph: Graph, state: State,
+        renderer?: LViewRenderer
     ): MemoryNode | null {
         const container = this.getOrCreateContainer(
             element.attributes().data, graph, state, element
         );
         if (container) {
             const node = new MemoryNode(
-                element.id.toString(), graph, container, AccessMode.ReadWrite
+                element.id.toString(), graph, container, AccessMode.ReadWrite,
+                undefined, undefined, renderer
             );
             element.data.node.attributes.lview_node = node;
             return node;
@@ -202,7 +209,8 @@ export class LViewParser {
     }
 
     private static parseTasklet(
-        graph: Graph, el: Tasklet, state: State, sdfg: DagreSDFG
+        graph: Graph, el: Tasklet, state: State, sdfg: DagreSDFG,
+        renderer?: LViewRenderer
     ): ComputationNode {
         const label = el.attributes().code?.string_data;
         const farLabel = el.attributes().label;
@@ -229,7 +237,8 @@ export class LViewParser {
         }
 
         const node = new ComputationNode(
-            el.id.toString(), graph, label, accessOrder, farLabel
+            el.id.toString(), graph, label, accessOrder, farLabel, undefined,
+            renderer
         );
         el.data.node.attributes.lview_node = node;
         return node;
@@ -237,7 +246,7 @@ export class LViewParser {
 
     private static parseEdge(
         graph: Graph, el: { name: string, v: string, w: string }, state: State,
-        sdfg: DagreSDFG
+        sdfg: DagreSDFG, renderer?: LViewRenderer
     ): Element | null {
         let src: SDFGNode = state.data.graph.node(el.v);
         if (src instanceof ExitNode)
@@ -260,7 +269,8 @@ export class LViewParser {
             const elem = new MemoryMovementEdge(
                 text, graph, edge.points,
                 src.attributes().lview_node,
-                dst.attributes().lview_node
+                dst.attributes().lview_node,
+                renderer
             );
             edge.data.attributes.lview_edge = elem;
             return elem;
@@ -270,21 +280,24 @@ export class LViewParser {
     }
 
     private static parseElement(
-        graph: Graph, el: SDFGElement, state: State, sdfg: DagreSDFG
+        graph: Graph, el: SDFGElement, state: State, sdfg: DagreSDFG,
+        renderer?: LViewRenderer
     ): Element | null {
         if (el instanceof SDFGNode) {
             if (el instanceof AccessNode)
-                return this.parseAccessNode(el, graph, state);
+                return this.parseAccessNode(el, graph, state, renderer);
             else if (el instanceof MapEntry)
-                return this.parseMap(el, graph, state, sdfg);
+                return this.parseMap(el, graph, state, sdfg, renderer);
             else if (el instanceof Tasklet)
-                return this.parseTasklet(graph, el, state, sdfg);
+                return this.parseTasklet(graph, el, state, sdfg, renderer);
         }
         return null;
     }
 
-    private static parseState(state: State, sdfg: DagreSDFG): Graph {
-        const graph = new Graph();
+    private static parseState(
+        state: State, sdfg: DagreSDFG, renderer?: LViewRenderer
+    ): Graph {
+        const graph = new Graph(renderer);
 
         const scopeDict = state.data.state.scope_dict;
         if (scopeDict) {
@@ -298,7 +311,9 @@ export class LViewParser {
                 w: string,
             }> = new Set();
             for (const el of rootScope) {
-                const elem = this.parseElement(graph, el, state, sdfg);
+                const elem = this.parseElement(
+                    graph, el, state, sdfg, renderer
+                );
                 if (elem)
                     graph.addChild(elem);
 
@@ -322,7 +337,7 @@ export class LViewParser {
             }
 
             for (const edge of rootScopeEdges) {
-                const elem = this.parseEdge(graph, edge, state, sdfg);
+                const elem = this.parseEdge(graph, edge, state, sdfg, renderer);
                 if (elem)
                     graph.addChild(elem);
             }
@@ -331,10 +346,12 @@ export class LViewParser {
         return graph;
     }
 
-    public static parseGraph(sdfg: DagreSDFG): Graph | null {
+    public static parseGraph(
+        sdfg: DagreSDFG, renderer?: LViewRenderer
+    ): Graph | null {
         const state = sdfg.node('0');
         if (state)
-            return this.parseState(state, sdfg);
+            return this.parseState(state, sdfg, renderer);
         return null;
     }
 

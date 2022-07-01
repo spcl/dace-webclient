@@ -20,11 +20,19 @@ import { MemoryMovementEdge } from './elements/memory_movement_edge';
 import { MemoryNode } from './elements/memory_node';
 import { Graph } from './graph/graph';
 import sidebarHtml from './lview_sidebar.html';
+import { AccessPatternOverlay } from './overlays/access_pattern_overlay';
+import { EdgeOverlay, NodeOverlay, NoEdgeOverlay, NoNodeOverlay } from './overlays/base_overlays';
+import { CacheLineOverlay } from './overlays/cache_line_overlay';
+import { PhysicalMovementOverlay } from './overlays/physical_movement_overlay';
+import { ReuseDistanceOverlay } from './overlays/reuse_distance_overlay';
 
 export class LViewRenderer {
 
     public readonly pixiApp: Application | null = null;
     public readonly viewport: Viewport | null = null;
+
+    private tooltipContainer?: JQuery<HTMLDivElement>;
+    private tooltipText?: JQuery<HTMLSpanElement>;
 
     private sidebarContents?: JQuery<HTMLDivElement>;
     private sidebarTitle?: JQuery<HTMLDivElement>;
@@ -32,12 +40,20 @@ export class LViewRenderer {
     private reuseDistanceHistogramCanvas?: JQuery<HTMLCanvasElement>;
     private reuseDistanceHistogram?: Chart;
 
+    private nViewModeSelector?: JQuery<HTMLSelectElement>;
+    private nViewModeSelectorAdditional?: JQuery<HTMLDivElement>;
+    private eViewModeSelector?: JQuery<HTMLSelectElement>;
+    private eViewModeSelectorAdditional?: JQuery<HTMLDivElement>;
+
+    private nOverlay?: NodeOverlay;
+    private eOverlay?: EdgeOverlay;
+
     public globalMemoryMovementHistogram: Map<number, number> = new Map();
 
     public constructor(
         protected sdfvInstance: SDFV,
-        protected graph: Graph,
         protected container: HTMLElement,
+        protected _graph?: Graph,
     ) {
         this.initLocalViewSidebar();
 
@@ -80,13 +96,144 @@ export class LViewRenderer {
                 friction: 0.3,
             });
 
-        this.viewport?.addChild(this.graph);
-        this.graph.draw();
+        if (this._graph)
+            this.viewport?.addChild(this._graph);
+        this._graph?.draw();
+    }
+
+    public showTooltip(x: number, y: number, text: string): void {
+        this.tooltipText = $('<span>', {
+            id: 'lview-tooltip-text',
+            text: text,
+            css: {
+                'white-space': 'pre-line',
+            },
+        });
+        this.tooltipContainer = $('<div>', {
+            id: 'lview-tooltip-container',
+            css: {
+                left: '0px',
+                top: '0px',
+            },
+        });
+        this.tooltipText.appendTo(this.tooltipContainer);
+        this.tooltipContainer.appendTo(document.body);
+        const bcr = this.tooltipContainer[0].getBoundingClientRect();
+        const containerBcr = this.container.getBoundingClientRect();
+        this.tooltipContainer.css(
+            'left', (x - bcr.width / 2).toString() + 'px'
+        );
+        this.tooltipContainer.css(
+            'top', (((y + containerBcr.y) - bcr.height) - 8).toString() + 'px'
+        );
+    }
+
+    public hideTooltip(): void {
+        if (this.tooltipContainer)
+            this.tooltipContainer.remove();
+    }
+
+    public set graph(g: Graph | undefined) {
+        if (g) {
+            this._graph = g;
+            this.viewport?.addChild(this._graph);
+            this._graph.draw();
+        } else {
+            this.viewport?.removeChildren();
+            this._graph = undefined;
+        }
+    }
+
+    public get graph(): Graph | undefined {
+        return this._graph;
+    }
+
+    public getGraph(): Graph | undefined {
+        return this._graph;
     }
 
     public destroy(): void {
         if (this.pixiApp)
             this.container.removeChild(this.pixiApp.view);
+    }
+
+    private onViewModeChanged(): void {
+        return;
+    }
+
+    private initOverlays(): void {
+        this.nViewModeSelector = $('#node-viewmode-input');
+        this.nViewModeSelectorAdditional =
+            $('#node-viewmode-selector-additional');
+        this.eViewModeSelector = $('#edge-viewmode-input');
+        this.eViewModeSelectorAdditional =
+            $('#edge-viewmode-selector-additional');
+
+        for (const cls of [
+            NoNodeOverlay,
+            AccessPatternOverlay,
+            ReuseDistanceOverlay,
+            CacheLineOverlay,
+        ]) {
+            const inst = new cls(this);
+            NodeOverlay.availableOverlays.push(inst.value);
+            NodeOverlay.overlayMap.set(inst.value, inst);
+            const option = new Option(
+                inst.displayName, inst.value, cls === NoNodeOverlay,
+                cls === NoNodeOverlay
+            );
+            if (cls == NoNodeOverlay) {
+                this.nOverlay = inst;
+                inst.onSelect();
+            }
+            this.nViewModeSelector?.append(option);
+        }
+
+        for (const cls of [
+            NoEdgeOverlay,
+            PhysicalMovementOverlay,
+        ]) {
+            const inst = new cls(this);
+            EdgeOverlay.availableOverlays.push(inst.value);
+            EdgeOverlay.overlayMap.set(inst.value, inst);
+            const option = new Option(
+                inst.displayName, inst.value, cls === NoEdgeOverlay,
+                cls === NoEdgeOverlay
+            );
+            if (cls == NoEdgeOverlay) {
+                this.eOverlay = inst;
+                inst.onSelect();
+            }
+            this.eViewModeSelector?.append(option);
+        }
+
+        // TODO: When changing the node overlay, any selected memory node tiles
+        // should be cleared.
+        this.nViewModeSelector?.on('change', () => {
+            const newVal = this.nViewModeSelector?.val();
+            if (newVal && typeof newVal === 'string') {
+                const inst = NodeOverlay.overlayMap.get(newVal);
+                if (inst) {
+                    if (this.nOverlay)
+                        this.nOverlay.onDeselect();
+                    this.nOverlay = inst;
+                    inst.onSelect();
+                }
+            }
+        });
+
+        this.eViewModeSelector?.on('change', () => {
+            const newVal = this.eViewModeSelector?.val();
+            if (newVal && typeof newVal === 'string') {
+                const inst = EdgeOverlay.overlayMap.get(newVal);
+                if (inst) {
+                    if (this.eOverlay)
+                        this.eOverlay.onDeselect();
+                    this.eOverlay = inst;
+                    inst.onSelect();
+                }
+            }
+        });
     }
 
     private initLocalViewSidebar(): void {
@@ -100,11 +247,17 @@ export class LViewRenderer {
         const contents = $(rawContents);
         contents.html(sidebarHtml);
 
-        this.sidebarTitle = $('#lview-sidebar-title');
-        this.chartContainer = $('#lview-chart-container');
-        this.reuseDistanceHistogramCanvas = $('#reuse-distance-histogram');
-        this.sidebarContents = $('#lview-sidebar-contents');
+        $('#cache-line-size-input')?.on('change', () => {
+            this.recalculateAll();
+        });
+        $('#reuse-distance-threshold-input')?.on('change', () => {
+            this.recalculateAll();
+        });
 
+        this.initOverlays();
+
+        // Set up the reuse distance historgram.
+        this.reuseDistanceHistogramCanvas = $('#reuse-distance-histogram');
         Chart.register(annotationPlugin);
         Chart.register(
             BarController, BarElement, CategoryScale, Tooltip, Legend,
@@ -123,43 +276,9 @@ export class LViewRenderer {
         );
         this.hideReuseDistanceHist();
 
-        $('#input-reuse-distance-viewmode')?.on('change', () => {
-            this.onUpdateReuseDistanceViewmode();
-        });
-        $('#reuse-distance-metric-box')?.on('change', () => {
-            this.onUpdateReuseDistanceViewmode();
-        });
-        $('#input-physical-data-movement-viewmode')?.on('change', () => {
-            this.onUpdateDataMovementViewmode();
-        });
-
-        $('#cache-line-size-input')?.on('change', () => {
-            this.recalculateAll();
-        });
-        $('#reuse-distance-threshold-input')?.on('change', () => {
-            this.recalculateAll();
-        });
-
-        const inputAccessPatternMode = $('#input-access-pattern-viewmode');
-        const btnShowAll = $('#show-all-access-pattern-button');
-        const btnClearAll = $('#clear-all-access-pattern-button');
-        inputAccessPatternMode?.on('change', () => {
-            if (inputAccessPatternMode?.is(':checked')) {
-                btnShowAll.show();
-                btnClearAll.show();
-            } else {
-                btnShowAll.hide();
-                btnClearAll.hide();
-            }
-            this.clearGraphAccesses(this.graph);
-        });
-        btnClearAll?.on('click', () => {
-            this.clearGraphAccesses(this.graph);
-        });
-        btnShowAll?.on('click', () => {
-            this.clearGraphAccesses(this.graph);
-            this.graphShowAllAccesses(this.graph);
-        });
+        this.sidebarTitle = $('#lview-sidebar-title');
+        this.chartContainer = $('#lview-chart-container');
+        this.sidebarContents = $('#lview-sidebar-contents');
 
         this.sdfvInstance.sidebar_show();
     }
@@ -194,7 +313,7 @@ export class LViewRenderer {
             g.draw();
     }
 
-    private constructMemoryMovementHistForGraph(g: Graph): void {
+    public constructMemoryMovementHistForGraph(g: Graph): void {
         g.edges.forEach(edge => {
             if (edge instanceof MemoryMovementEdge) {
                 const volume = edge.calculateMovementVolume();
@@ -253,33 +372,44 @@ export class LViewRenderer {
     }
 
     public recalculateAll(): void {
-        this.graphClearCalculatedValue(this.graph);
+        if (!this._graph)
+            return;
+
+        this.graphClearCalculatedValue(this._graph);
 
         MemoryNode.reuseDistanceHistogram.clear();
         MemoryNode.minReuseDistanceHistogram.clear();
         MemoryNode.maxReuseDistanceHistogram.clear();
         MemoryNode.missesHistogram.clear();
 
-        this.recalculateForGraph(this.graph);
+        this.recalculateForGraph(this._graph);
 
         this.globalMemoryMovementHistogram.clear();
-        this.constructMemoryMovementHistForGraph(this.graph);
+        this.constructMemoryMovementHistForGraph(this._graph);
 
-        this.graph.draw();
+        this._graph.draw();
     }
 
-    private onUpdateReuseDistanceViewmode(): void {
-        if ($('#input-reuse-distance-viewmode')?.is(':checked'))
-            this.graph.enableReuseDistanceOverlay();
-        else
-            this.graph.disableReuseDistanceOverlay();
+    public get nodeOverlay(): NodeOverlay | undefined {
+        return this.nOverlay;
     }
 
-    private onUpdateDataMovementViewmode(): void {
-        if ($('#input-physical-data-movement-viewmode')?.is(':checked'))
-            this.graph.enablePhysMovementOverlay();
-        else
-            this.graph.disablePhysMovementOverlay();
+    public get edgeOverlay(): EdgeOverlay | undefined {
+        return this.eOverlay;
+    }
+
+    public hideNodeViewModeSelectorAdditional(): void {
+        this.nViewModeSelectorAdditional?.empty();
+        this.nViewModeSelectorAdditional?.hide();
+    }
+
+    public hideEdgeViewModeSelectorAdditional(): void {
+        this.eViewModeSelectorAdditional?.empty();
+        this.eViewModeSelectorAdditional?.hide();
+    }
+
+    public get nodeOverlayAdditional(): JQuery<HTMLDivElement> | undefined {
+        return this.nViewModeSelectorAdditional;
     }
 
 }

@@ -4,6 +4,7 @@ import CoffeeQuate from 'coffeequate';
 import * as math from 'mathjs';
 import { Text } from 'pixi.js';
 import { Graph } from '../graph/graph';
+import { LViewRenderer } from '../lview_renderer';
 import {
     AccessMap,
     ConcreteDataAccess,
@@ -27,9 +28,10 @@ export class ComputationNode extends Node {
         public readonly text: string,
         public readonly accessOrder: SymbolicDataAccess[],
         public readonly farText: string | undefined = undefined,
-        public drawBorder: boolean = true
+        public drawBorder: boolean = true,
+        renderer?: LViewRenderer,
     ) {
-        super(parentGraph, id);
+        super(parentGraph, id, renderer);
 
         this.label = new Text(this.text, DEFAULT_TEXT_STYLE);
         this.label.position.set(CNODE_INTERNAL_PADDING);

@@ -336,19 +336,20 @@ pre.code code {
   --color-minimap-viewport: #ff7a00;
 }
 
-#reuse-distance-metric-box {
-  margin-left: 1rem;
-}
-
-#access-pattern-button-box {
-  margin-left: 1rem;
-}
-
 #access-pattern-button-box .button {
-  margin-top: .2rem;
-  margin-bottom: .2rem;
+  margin: .2rem;
   display: inline-block;
   border: 1px solid black;
   padding: .2rem .4rem;
   font-size: .8rem;
+}
+
+#lview-tooltip-container {
+  position: absolute;
+  color: white;
+  background: #333;
+  font-weight: bold;
+  padding: .2rem .4rem;
+  font-size: .9rem;
+  border-radius: .2rem;
 }

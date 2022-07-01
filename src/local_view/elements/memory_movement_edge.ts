@@ -5,6 +5,7 @@ import { cos, sin, tanh } from 'mathjs';
 import { Point, Text } from 'pixi.js';
 import { getTempColorHEX } from '../../utils/utils';
 import { Graph } from '../graph/graph';
+import { LViewRenderer } from '../lview_renderer';
 import { Edge } from './edge';
 import { DEFAULT_TEXT_STYLE } from './element';
 import { MemoryNode } from './memory_node';
@@ -24,8 +25,9 @@ export class MemoryMovementEdge extends Edge {
         public points: Point[],
         src: Node,
         dst: Node,
+        renderer?: LViewRenderer,
     ) {
-        super(src, dst);
+        super(src, dst, renderer);
 
         src.outEdges.push(this);
         dst.inEdges.push(this);
@@ -36,8 +38,7 @@ export class MemoryMovementEdge extends Edge {
     }
 
     private drawText(
-        text: string | null, fromX: number, toX: number, fromY: number,
-        toY: number, fontSize: number
+        text: string | null, x: number, y: number, fontSize: number
     ): void {
         if (text !== null && text !== '') {
             this.gfxText.renderable = true;
@@ -47,19 +48,16 @@ export class MemoryMovementEdge extends Edge {
                 fontFamily: DEFAULT_TEXT_STYLE.fontFamily,
             };
 
-            const centerX = fromX + (toX - fromX) / 2;
-            const centerY = fromY + (toY - fromY) / 2;
-
-            this.gfxText.position.x = centerX;
-            this.gfxText.position.y = centerY;
+            this.gfxText.position.x = x;
+            this.gfxText.position.y = y;
             this.gfxText.anchor.x = 0.5;
-            this.gfxText.anchor.y = 0.5;
+            this.gfxText.anchor.y = 1.0;
 
             this.lineStyle({
                 color: 0x000000,
             }).beginFill(0xffffff).drawRect(
                 this.gfxText.position.x - ((this.gfxText.width / 2) + 5),
-                this.gfxText.position.y - ((this.gfxText.height / 2) + 5),
+                this.gfxText.position.y - (this.gfxText.height + 5),
                 this.gfxText.width + 10,
                 this.gfxText.height + 10
             );
@@ -74,7 +72,7 @@ export class MemoryMovementEdge extends Edge {
 
     private getVolumeFromMemNode(memNode: MemoryNode): number {
         const misses = memNode.getTotalCacheMisses();
-        const lineSizeInput = $('#cacheLineSizeInput').val();
+        const lineSizeInput = $('#cache-line-size-input').val();
         let lineSize = 0;
         if (lineSizeInput !== undefined && typeof(lineSizeInput) === 'string')
             lineSize = parseInt(lineSizeInput);
@@ -111,26 +109,6 @@ export class MemoryMovementEdge extends Edge {
     public draw(): void {
         super.draw();
 
-        // Figure out where on the x axis of the source we should position
-        // ourselves.
-        const srcNEdges = this.src.outEdges.length;
-        const srcSegmentWidth = this.src.width / srcNEdges;
-        const srcStartOffset = srcSegmentWidth / 2;
-        const srcIdx = this.src.outEdges.indexOf(this);
-
-        const fromX = this.src.x + (srcIdx * srcSegmentWidth) + srcStartOffset;
-        const fromY = this.src.y + this.src.height;
-
-        // Figure out where on the x axis of the destionation we should position
-        // ourselves.
-        const dstNEdges = this.dst.inEdges.length;
-        const dstSegmentWidth = this.dst.width / dstNEdges;
-        const dstStartOffset = dstSegmentWidth / 2;
-        const dstIdx = this.dst.inEdges.indexOf(this);
-
-        const toX = this.dst.x + (dstIdx * dstSegmentWidth) + dstStartOffset;
-        const toY = this.dst.y;
-
         // Figure out the line angle with respect to the x-axis (in the
         // src->dst direction).
         const firstPoint = this.points[0];
@@ -149,19 +127,18 @@ export class MemoryMovementEdge extends Edge {
         let fontSize = 30;
 
         if (this.physMovementOverlayActive) {
-            // TODO
-            //const keys = [
-            //    ...Application.getInstance().globalMemMovementHistogram.keys()
-            //];
-            //keys.sort((a, b) => { return a - b; });
+            let badness = 0;
+            if (this.renderer) {
+                const keys = [
+                    ...this.renderer.globalMemoryMovementHistogram.keys()
+                ];
+                keys.sort((a, b) => { return a - b; });
 
-            //const idx = keys.indexOf(this._volume);
+                const idx = keys.indexOf(this._volume);
 
-            //let badness = 0;
-
-            //if (idx > 0 && keys.length > 1)
-            //    badness = idx / (keys.length - 1);
-            const badness = 0;
+                if (idx > 0 && keys.length > 1)
+                    badness = idx / (keys.length - 1);
+            }
 
             color = getTempColorHEX(badness);
 
@@ -190,7 +167,7 @@ export class MemoryMovementEdge extends Edge {
             fontSize = 20;
         } else {
             text = this.text;
-            fontSize = 30;
+            fontSize = 20;
         }
 
         this.lineStyle({
@@ -227,7 +204,16 @@ export class MemoryMovementEdge extends Edge {
             lastPoint.x + (lineWidth / 2), lastPoint.y,
         ]);
 
-        //this.drawText(text, fromX, toX, fromY, toY, fontSize);
+        const textX = (
+            this.points[this.points.length - 1].x +
+            this.points[this.points.length - 2].x
+        ) / 2;
+        const textY = (
+            this.points[this.points.length - 1].y +
+            this.points[this.points.length - 2].y
+        ) / 2;
+
+        this.drawText(text, textX, textY, fontSize);
     }
 
     public get volume(): number {

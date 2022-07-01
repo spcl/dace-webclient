@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Graphics, TextStyle } from 'pixi.js';
+import { LViewRenderer } from '../lview_renderer';
 
 export const DEFAULT_LINE_STYLE: any = {
     color: 0x000000,
@@ -14,7 +15,7 @@ export const DEFAULT_TEXT_STYLE: TextStyle = new TextStyle({
 
 export class Element extends Graphics {
 
-    constructor() {
+    constructor(public readonly renderer?: LViewRenderer) {
         super();
     }
 

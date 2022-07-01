@@ -6,6 +6,10 @@ import { max, median, min } from 'mathjs';
 import { Graphics, InteractionEvent, Text } from 'pixi.js';
 import { getTempColorHEX, KELLY_COLORS } from '../../utils/utils';
 import { Graph } from '../graph/graph';
+import { LViewRenderer } from '../lview_renderer';
+import { AccessPatternOverlay } from '../overlays/access_pattern_overlay';
+import { CacheLineOverlay } from '../overlays/cache_line_overlay';
+import { ReuseDistanceOverlay } from '../overlays/reuse_distance_overlay';
 import { ComputationNode } from './computation_node';
 import { AccessMap, AccessMode, DataContainer } from './data_container';
 import { DataDimension } from './dimensions';
@@ -198,25 +202,18 @@ class MemoryTile extends Graphics {
         const newData = {
             labels: [...allVals, 'Cold'],
             datasets: [{
-                label: this.memoryNode.dataContainer.name + '[' + this.index.toString() + ']',
+                label: this.memoryNode.dataContainer.name +
+                    '[' + this.index.toString() + ']',
                 backgroundColor: '#00538A',
                 data: [...data, coldMisses === undefined ? 0 : coldMisses],
             }],
         };
 
-        // TODO
-        //Application.getInstance().showReuseDistanceHist();
-
-        //const hist = Application.getInstance().reuseDistanceHistogram;
-        //if (hist) {
-        //    hist.data = newData;
-        //    hist.update();
-        //}
+        this.memoryNode.renderer?.showReuseDistanceHist(newData);
     }
 
     private clearReuseDistanceHistogram(): void {
-        // TODO
-        //Application.getInstance().hideReuseDistanceHist();
+        this.memoryNode.renderer?.hideReuseDistanceHist();
     }
 
     public onClicked(): void {
@@ -225,19 +222,23 @@ class MemoryTile extends Graphics {
 
         this.selected = !this.selected;
 
+        const nOverlay = this.memoryNode.renderer?.nodeOverlay;
         if (this.selected) {
-            if ($('#input-cache-lines-viewmode').is(':checked'))
+            // TODO: if a node is selected, in the reuse distance overlay this
+            // should clear any other selected nodes! Dito if _no_ overlay is
+            // selected.
+            if (nOverlay instanceof CacheLineOverlay)
                 this.markCacheLine();
-            else if ($('#input-reuse-distance-viewmode').is(':checked'))
+            else if (nOverlay instanceof ReuseDistanceOverlay)
                 this.fillReuseDistanceHistogram();
-            else
+            else if (nOverlay instanceof AccessPatternOverlay)
                 this.markRelatedAccesses(true);
         } else {
-            if ($('#input-cache-lines-viewmode').is(':checked'))
+            if (nOverlay instanceof CacheLineOverlay)
                 this.unmarkCacheLine();
-            else if ($('#input-reuse-distance-viewmode').is(':checked'))
+            else if (nOverlay instanceof ReuseDistanceOverlay)
                 this.clearReuseDistanceHistogram();
-            else
+            else if (nOverlay instanceof AccessPatternOverlay)
                 this.unmarkRelatedAccesses(true);
         }
 
@@ -250,11 +251,10 @@ class MemoryTile extends Graphics {
                 x: this.elementX,
                 y: this.elementY,
             });
-            // TODO:
-            //Application.getInstance().showTooltip(
-            //    globalPos.x + (this.elementWidth / 2), globalPos.y,
-            //    this.stackedAccesses.toString()
-            //);
+            this.memoryNode.renderer?.showTooltip(
+                globalPos.x + (this.elementWidth / 2), globalPos.y,
+                this.stackedAccesses.toString()
+            );
         }
 
         this.hovered = true;
@@ -270,14 +270,12 @@ class MemoryTile extends Graphics {
                 y: this.elementY,
             });
 
-            // TODO
-            /*
             if (this.stackDistancesFlattened.length > 0) {
                 const med = median(this.stackDistancesFlattened);
                 const mx = max(this.stackDistancesFlattened);
                 const mi = min(this.stackDistancesFlattened);
 
-                Application.getInstance().showTooltip(
+                this.memoryNode.renderer?.showTooltip(
                     globalPos.x + (this.elementWidth / 2), globalPos.y,
                     'Median: ' + med.toString() + '\n' +
                     'Min: ' + mi.toString() + '\n' +
@@ -285,7 +283,7 @@ class MemoryTile extends Graphics {
                     'Misses: ' + this.totalMisses.toString()
                 );
             } else {
-                Application.getInstance().showTooltip(
+                this.memoryNode.renderer?.showTooltip(
                     globalPos.x + (this.elementWidth / 2), globalPos.y,
                     'Median: N/A\n' +
                     'Min: N/A\n' +
@@ -293,7 +291,6 @@ class MemoryTile extends Graphics {
                     'Misses: ' + this.totalMisses.toString()
                 );
             }
-            */
         } else {
             this.markRelatedAccesses();
         }
@@ -302,8 +299,7 @@ class MemoryTile extends Graphics {
     }
 
     public onMouseOut(): void {
-        // TODO
-        //Application.getInstance().hideTooltip();
+        this.memoryNode.renderer?.hideTooltip();
 
         this.hovered = false;
 
@@ -444,24 +440,30 @@ class MemoryTile extends Graphics {
             if (this.stackDistancesFlattened.length > 0) {
                 let v;
                 let keys;
-                if ($('#input-rdm-max').is(':checked')) {
-                    v = max(this.stackDistancesFlattened);
-                    keys = [
-                        ...MemoryNode.maxReuseDistanceHistogram.keys()
-                    ];
-                } else if ($('#input-rdm-min').is(':checked')) {
-                    v = min(this.stackDistancesFlattened);
-                    keys = [
-                        ...MemoryNode.minReuseDistanceHistogram.keys()
-                    ];
-                } else if ($('#input-rdm-misses').is(':checked')) {
-                    v = this.totalMisses;
-                    keys = [...MemoryNode.missesHistogram.keys()];
-                } else {
-                    v = median(this.stackDistancesFlattened);
-                    keys = [
-                        ...MemoryNode.reuseDistanceHistogram.keys()
-                    ];
+                switch (this.memoryNode.reuseDistanceMetric) {
+                    case 'max':
+                        v = max(this.stackDistancesFlattened);
+                        keys = [
+                            ...MemoryNode.maxReuseDistanceHistogram.keys()
+                        ];
+                        break;
+                    case 'min':
+                        v = min(this.stackDistancesFlattened);
+                        keys = [
+                            ...MemoryNode.minReuseDistanceHistogram.keys()
+                        ];
+                        break;
+                    case 'misses':
+                        v = this.totalMisses;
+                        keys = [...MemoryNode.missesHistogram.keys()];
+                        break;
+                    case 'median':
+                    default:
+                        v = median(this.stackDistancesFlattened);
+                        keys = [
+                            ...MemoryNode.reuseDistanceHistogram.keys()
+                        ];
+                        break;
                 }
 
                 keys.sort((a, b) => { return a - b; });
@@ -533,6 +535,7 @@ export class MemoryNode extends Node {
     public static readonly missesHistogram: Map<number, number> = new Map();
 
     public reuseDistanceOverlayActive: boolean = false;
+    public reuseDistanceMetric: string = 'median';
 
     constructor(
         id: string,
@@ -541,8 +544,9 @@ export class MemoryNode extends Node {
         public readonly accessMode: AccessMode,
         private readonly nameBottom: boolean = false,
         private readonly tileSizeOverride?: number,
+        renderer?: LViewRenderer
     ) {
-        super(parentGraph, id);
+        super(parentGraph, id, renderer);
         
         this._unscaledWidth = this.calcUnscaledWidthRecursive(
             this.dataContainer.dim.slice()
