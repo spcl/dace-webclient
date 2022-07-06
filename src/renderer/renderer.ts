@@ -1583,23 +1583,16 @@ export class SDFGRenderer {
         if (this.sdfg.error && this.graph) {
             const error = this.sdfg.error;
 
-            let type = '';
             let state_id = -1;
             let el_id = -1;
             if (error.isedge_id !== undefined) {
-                type = 'isedge';
                 el_id = error.isedge_id;
             } else if (error.state_id !== undefined) {
                 state_id = error.state_id;
-                if (error.node_id !== undefined) {
-                    type = 'node';
+                if (error.node_id !== undefined)
                     el_id = error.node_id;
-                } else if (error.edge_id !== undefined) {
-                    type = 'edge';
+                else if (error.edge_id !== undefined)
                     el_id = error.edge_id;
-                } else {
-                    type = 'state';
-                }
             } else {
                 return;
             }
@@ -2100,10 +2093,14 @@ export class SDFGRenderer {
         return true;
     }
 
+    // TODO(later): Improve event system using event types (instanceof) instead
+    // of passing string eventtypes.
+    /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
     public on_mouse_event(
         event: any, comp_x_func: CallableFunction,
         comp_y_func: CallableFunction, evtype: string = 'other'
     ): boolean {
+        /* eslint-enable @typescript-eslint/explicit-module-boundary-types */
         if (!this.graph)
             return false;
 

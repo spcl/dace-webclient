@@ -197,12 +197,12 @@ export class CanvasManager {
         this.clearDrawables();
     }
 
-    public addDrawable(obj: any): void {
+    public addDrawable(obj: unknown): void {
         this.drawables.push(obj);
         this.indices.push({ 'c': CanvasManager.counter(), 'd': obj });
     }
 
-    public removeDrawable(drawable: any): void {
+    public removeDrawable(drawable: unknown): void {
         this.drawables = this.drawables.filter(x => x != drawable);
     }
 

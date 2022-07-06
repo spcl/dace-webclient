@@ -491,7 +491,8 @@ function get_minmax(arr: number[]): [number, number] {
 }
 
 export function instrumentation_report_read_complete(
-    sdfv: SDFV, report: any, renderer: SDFGRenderer | null = null
+    sdfv: SDFV, report: { traceEvents: any[] },
+    renderer: SDFGRenderer | null = null
 ): void {
     const runtime_map: { [uuids: string]: number[] } = {};
     const summarized_map: { [uuids: string]: { [key: string]: number } } = {};

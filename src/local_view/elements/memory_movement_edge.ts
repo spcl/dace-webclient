@@ -166,7 +166,7 @@ export class MemoryMovementEdge extends Edge {
             text = vol.toString() + ' ' + unitString;
             fontSize = 20;
         } else {
-            text = this.text;
+            text = '';
             fontSize = 20;
         }
 
@@ -204,14 +204,20 @@ export class MemoryMovementEdge extends Edge {
             lastPoint.x + (lineWidth / 2), lastPoint.y,
         ]);
 
-        const textX = (
-            this.points[this.points.length - 1].x +
-            this.points[this.points.length - 2].x
-        ) / 2;
-        const textY = (
-            this.points[this.points.length - 1].y +
-            this.points[this.points.length - 2].y
-        ) / 2;
+        let textX;
+        let textY;
+        if (this.points.length == 2) {
+            textX = (this.points[0].x + this.points[1].x) / 2;
+            textY = (this.points[0].y + this.points[1].y) / 2;
+        } else {
+            const centerIdx = (
+                this.points.length % 2 === 0 ?
+                    this.points.length / 2 : (this.points.length + 1) / 2
+            ) - 1;
+            const center = this.points[centerIdx];
+            textX = center.x;
+            textY = center.y;
+        }
 
         this.drawText(text, textX, textY, fontSize);
     }

@@ -198,7 +198,7 @@ function tempColor(badness: number): [number, number, number] {
     else if (badness > 1)
         badness = 1;
 
-    return [(1 - badness) * 120, 0.8, 0.6];
+    return [(1 - badness) * 120, 1.0, 0.75];
 }
 
 /**
