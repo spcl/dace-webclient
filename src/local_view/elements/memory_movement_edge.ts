@@ -111,9 +111,12 @@ export class MemoryMovementEdge extends Edge {
 
         // Figure out the line angle with respect to the x-axis (in the
         // src->dst direction).
-        const firstPoint = this.points[0];
-        const secondToLastPoint = this.points[this.points.length - 2];
-        const lastPoint = this.points[this.points.length - 1];
+        const firstPoint =
+            this.points.length ? this.points[0] : this.src.position;
+        const secondToLastPoint = this.points.length ?
+            this.points[this.points.length - 2] : firstPoint;
+        const lastPoint = this.points.length ?
+            this.points[this.points.length - 1] : this.dst.position;
         const theta = (lastPoint.x === secondToLastPoint.x) ?
                 0 : 0 - tanh(
                     (secondToLastPoint.x - lastPoint.x) /
@@ -209,7 +212,7 @@ export class MemoryMovementEdge extends Edge {
         if (this.points.length == 2) {
             textX = (this.points[0].x + this.points[1].x) / 2;
             textY = (this.points[0].y + this.points[1].y) / 2;
-        } else {
+        } else if (this.points.length) {
             const centerIdx = (
                 this.points.length % 2 === 0 ?
                     this.points.length / 2 : (this.points.length + 1) / 2
@@ -217,6 +220,9 @@ export class MemoryMovementEdge extends Edge {
             const center = this.points[centerIdx];
             textX = center.x;
             textY = center.y;
+        } else {
+            textX = (this.src.position.x + this.dst.position.x) / 2;
+            textY = (this.src.position.y + this.dst.position.y) / 2;
         }
 
         this.drawText(text, textX, textY, fontSize);

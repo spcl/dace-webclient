@@ -2910,14 +2910,14 @@ export class SDFGRenderer {
         this.on_selection_changed();
     }
 
-    public localViewSelection(): void {
+    public async localViewSelection(): Promise<void> {
         if (!this.graph)
             return;
 
         // Transition to the local view by first cutting out the selection.
         this.cutout_selection();
         const lRenderer = new LViewRenderer(this.sdfv_instance, this.container);
-        const lGraph = LViewParser.parseGraph(this.graph, lRenderer);
+        const lGraph = await LViewParser.parseGraph(this.graph, lRenderer);
         if (lGraph) {
             LViewLayouter.layoutGraph(lGraph);
             lRenderer.graph = lGraph;

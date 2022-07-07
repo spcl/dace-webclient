@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreSDFG } from '..';
+import $ from 'jquery';
+import { DagreSDFG, JsonSDFG } from '..';
 import {
     AccessNode,
     Edge,
@@ -25,29 +26,42 @@ import { MemoryMovementEdge } from './elements/memory_movement_edge';
 import { MemoryNode } from './elements/memory_node';
 import { Element } from './elements/element';
 import { LViewRenderer } from './lview_renderer';
+import { evaluate } from 'mathjs';
 
 export class LViewGraphParseError extends Error {}
 
 export class LViewParser {
 
+    private static parseSymbolic(
+        symbol: string | number, symbolMap: Map<string, number>
+    ): number {
+        let result;
+        if (typeof symbol === 'number')
+            result = symbol;
+        else
+            result = evaluate(symbol, symbolMap);
+        return result;
+    }
+
     private static parseMap(
         elem: MapEntry, graph: Graph, state: State, sdfg: DagreSDFG,
-        renderer?: LViewRenderer
+        symbolMap: Map<string, number>, renderer?: LViewRenderer
     ): MapNode {
         const rRanges = elem.data.node.attributes.range.ranges;
         const rParams = elem.data.node.attributes.params;
         const ranges = [];
         for (let i = 0; i < rParams.length; i++) {
             const rng = rRanges[i];
-            const start = +rng.start;
-            const end = +rng.end;
-            const step = +rng.step;
+
+            const start = this.parseSymbolic(rng.start, symbolMap);
+            const end = this.parseSymbolic(rng.end, symbolMap);
+            const step = this.parseSymbolic(rng.step, symbolMap);
             
             ranges.push({
                 itvar: rParams[i],
-                start: isNaN(start) ? rng.start : start,
-                end: isNaN(end) ? rng.end : end,
-                step: isNaN(step) ? rng.step : step,
+                start: start,
+                end: end,
+                step: step,
             });
         }
         
@@ -61,7 +75,8 @@ export class LViewParser {
             }>();
             for (const id of mapScopeDict) {
                 const childElem = this.parseElement(
-                    graph, state.data.graph.node(id), state, sdfg, renderer
+                    graph, state.data.graph.node(id), state, sdfg, symbolMap,
+                    renderer
                 );
                 if (childElem) {
                     innerGraph.addChild(childElem);
@@ -76,7 +91,9 @@ export class LViewParser {
             }
 
             for (const edge of scopeEdges) {
-                const elem = this.parseEdge(graph, edge, state, sdfg, renderer);
+                const elem = this.parseEdge(
+                    graph, edge, state, sdfg, symbolMap, renderer
+                );
                 if (elem)
                     innerGraph.addChild(elem);
             }
@@ -104,7 +121,8 @@ export class LViewParser {
     }
 
     private static getOrCreateContainer(
-        name: string, graph: Graph, state: State, elem?: AccessNode
+        name: string, graph: Graph, state: State,
+        symbolMap: Map<string, number>, elem?: AccessNode
     ): DataContainer | null {
         if (name) {
             const sdfgContainer = state.sdfg.attributes._arrays[name];
@@ -112,10 +130,8 @@ export class LViewParser {
             if (!container) {
                 const dimensions = [];
                 for (const s of sdfgContainer.attributes.shape) {
-                    const val = +s;
-                    dimensions.push(new DataDimension(
-                        s.toString(), isNaN(val) ? 0 : val
-                    ));
+                    const val = this.parseSymbolic(s, symbolMap);
+                    dimensions.push(new DataDimension(s.toString(), val));
                 }
                 if (!elem)
                     elem = this.findAccessNodeForContainer(name, state);
@@ -124,12 +140,17 @@ export class LViewParser {
                     undefined;
                 const strides: DataDimension[] = [];
                 const sdfgStrides = sdfgContainer.attributes.strides;
-                for (let i = 0; i < sdfgStrides.length; i++) {
-                    const currStride = sdfgStrides[i];
-                    const strideDim = new DataDimension(
-                        currStride, parseInt(currStride)
-                    );
-                    strides.push(strideDim);
+                if (sdfgStrides) {
+                    for (let i = 0; i < sdfgStrides.length; i++) {
+                        const currStride = sdfgStrides[i];
+                        const strideDim = new DataDimension(
+                            currStride,
+                            this.parseSymbolic(currStride, symbolMap)
+                        );
+                        strides.push(strideDim);
+                    }
+                } else {
+                    strides.push(new DataDimension('1', 1));
                 }
                 container = new DataContainer(
                     name,
@@ -157,10 +178,10 @@ export class LViewParser {
 
     private static parseAccessNode(
         element: AccessNode, graph: Graph, state: State,
-        renderer?: LViewRenderer
+        symbolMap: Map<string, number>, renderer?: LViewRenderer
     ): MemoryNode | null {
         const container = this.getOrCreateContainer(
-            element.attributes().data, graph, state, element
+            element.attributes().data, graph, state, symbolMap, element
         );
         if (container) {
             const node = new MemoryNode(
@@ -174,15 +195,16 @@ export class LViewParser {
     }
 
     private static getMemletAccess(
-        edge: Edge, mode: AccessMode, graph: Graph, state: State
+        edge: Edge, mode: AccessMode, graph: Graph, state: State,
+        symbolMap: Map<string, number>
     ): SymbolicDataAccess | null {
         const attributes = edge.attributes();
         const dataContainer = this.getOrCreateContainer(
-            attributes.data, graph, state
+            attributes.data, graph, state, symbolMap
         );
         const ranges = attributes.other_subset ?
             attributes.other_subset.ranges : attributes.subset.ranges;
-        const volume = +attributes.num_accesses;
+        const volume = this.parseSymbolic(attributes.num_accesses, symbolMap);
         if (dataContainer && ranges) {
             if (volume === 1) {
                 const accessIdx = [];
@@ -210,7 +232,7 @@ export class LViewParser {
 
     private static parseTasklet(
         graph: Graph, el: Tasklet, state: State, sdfg: DagreSDFG,
-        renderer?: LViewRenderer
+        symbolMap: Map<string, number>, renderer?: LViewRenderer
     ): ComputationNode {
         const label = el.attributes().code?.string_data;
         const farLabel = el.attributes().label;
@@ -220,7 +242,7 @@ export class LViewParser {
             const iedge: Edge = state.data.graph.edge(iedgeId);
             if (iedge) {
                 const accesses = this.getMemletAccess(
-                    iedge, AccessMode.ReadOnly, graph, state
+                    iedge, AccessMode.ReadOnly, graph, state, symbolMap
                 );
                 if (accesses)
                     accessOrder.push(accesses);
@@ -229,8 +251,9 @@ export class LViewParser {
         for (const oedgeId of state.data.graph.outEdges(el.id.toString())) {
             const oedge = state.data.graph.edge(oedgeId);
             if (oedge) {
-                const accesses =
-                    this.getMemletAccess(oedge, AccessMode.Write, graph, state);
+                const accesses = this.getMemletAccess(
+                    oedge, AccessMode.Write, graph, state, symbolMap
+                );
                 if (accesses)
                     accessOrder.push(accesses);
             }
@@ -246,7 +269,8 @@ export class LViewParser {
 
     private static parseEdge(
         graph: Graph, el: { name: string, v: string, w: string }, state: State,
-        sdfg: DagreSDFG, renderer?: LViewRenderer
+        sdfg: DagreSDFG, symbolMap: Map<string, number>,
+        renderer?: LViewRenderer
     ): Element | null {
         let src: SDFGNode = state.data.graph.node(el.v);
         if (src instanceof ExitNode)
@@ -281,21 +305,28 @@ export class LViewParser {
 
     private static parseElement(
         graph: Graph, el: SDFGElement, state: State, sdfg: DagreSDFG,
-        renderer?: LViewRenderer
+        symbolMap: Map<string, number>, renderer?: LViewRenderer
     ): Element | null {
         if (el instanceof SDFGNode) {
             if (el instanceof AccessNode)
-                return this.parseAccessNode(el, graph, state, renderer);
+                return this.parseAccessNode(
+                    el, graph, state, symbolMap, renderer
+                );
             else if (el instanceof MapEntry)
-                return this.parseMap(el, graph, state, sdfg, renderer);
+                return this.parseMap(
+                    el, graph, state, sdfg, symbolMap, renderer
+                );
             else if (el instanceof Tasklet)
-                return this.parseTasklet(graph, el, state, sdfg, renderer);
+                return this.parseTasklet(
+                    graph, el, state, sdfg, symbolMap, renderer
+                );
         }
         return null;
     }
 
     private static parseState(
-        state: State, sdfg: DagreSDFG, renderer?: LViewRenderer
+        state: State, sdfg: DagreSDFG, symbolMap: Map<string, number>,
+        renderer?: LViewRenderer
     ): Graph {
         const graph = new Graph(renderer);
 
@@ -312,7 +343,7 @@ export class LViewParser {
             }> = new Set();
             for (const el of rootScope) {
                 const elem = this.parseElement(
-                    graph, el, state, sdfg, renderer
+                    graph, el, state, sdfg, symbolMap, renderer
                 );
                 if (elem)
                     graph.addChild(elem);
@@ -337,7 +368,9 @@ export class LViewParser {
             }
 
             for (const edge of rootScopeEdges) {
-                const elem = this.parseEdge(graph, edge, state, sdfg, renderer);
+                const elem = this.parseEdge(
+                    graph, edge, state, sdfg, symbolMap, renderer
+                );
                 if (elem)
                     graph.addChild(elem);
             }
@@ -346,12 +379,92 @@ export class LViewParser {
         return graph;
     }
 
-    public static parseGraph(
+    private static async promptDefineSymbol(symbol: string): Promise<number> {
+        return new Promise((resolve) => {
+            const dialogueBackground = $('<div>', {
+                class: 'sdfv_modal_background',
+            });
+
+            const dialogue = $('<div>', {
+                class: 'sdfv_modal',
+            }).appendTo(dialogueBackground);
+
+            const headerBar = $('<div>', {
+                class: 'sdfv_modal_title_bar',
+            }).appendTo(dialogue);
+            $('<span>', {
+                class: 'sdfv_modal_title',
+                text: 'Define symbol ' + symbol,
+            }).appendTo(headerBar);
+            $('<div>', {
+                class: 'modal_close',
+                html: '<i class="material-icons">close</i>',
+                click: () => {
+                    dialogueBackground.remove();
+                    throw new LViewGraphParseError(
+                        'Symbol ' + symbol + ' left undefined'
+                    );
+                },
+            }).appendTo(headerBar);
+
+            const contentBox = $('<div>', {
+                class: 'sdfv_modal_content_box',
+            }).appendTo(dialogue);
+            const content = $('<div>', {
+                class: 'sdfv_modal_content',
+            }).appendTo(contentBox);
+            const input = $('<input>', {
+                type: 'text',
+                class: 'sdfv_modal_input_text',
+            }).appendTo(content);
+            input.on('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const val = input.val();
+                    if (val && typeof val === 'string') {
+                        const intval = parseInt(val);
+                        if (intval) {
+                            dialogueBackground.remove();
+                            resolve(intval);
+                        }
+                    }
+                }
+            });
+
+            dialogueBackground.appendTo(document.body);
+            dialogueBackground.show();
+            input.trigger('focus');
+        });
+    }
+
+    private static async resolveSymbols(
+        sdfg: JsonSDFG
+    ): Promise<Map<string, number>> {
+        const symbolMap = new Map<string, number>();
+        const symbols = sdfg.attributes.symbols;
+        const constants = sdfg.attributes.constants_prop;
+
+        if (symbols) {
+            for (const symbol in symbols) {
+                if (constants && constants[symbol] && constants[symbol][1]) {
+                    symbolMap.set(symbol, constants[symbol][1]);
+                } else {
+                    const symbolValue = await this.promptDefineSymbol(symbol);
+                    symbolMap.set(symbol, symbolValue);
+                }
+            }
+        }
+
+        return symbolMap;
+    }
+
+    public static async parseGraph(
         sdfg: DagreSDFG, renderer?: LViewRenderer
-    ): Graph | null {
+    ): Promise<Graph | null> {
         const state = sdfg.node('0');
-        if (state)
-            return this.parseState(state, sdfg, renderer);
+        if (state) {
+            const symbolMap = await this.resolveSymbols(state.sdfg);
+            return this.parseState(state, sdfg, symbolMap, renderer);
+        }
         return null;
     }
 
