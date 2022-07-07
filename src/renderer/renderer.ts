@@ -50,6 +50,7 @@ declare const canvas2pdf: any;
 
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any | null;
+declare const MINIMAP_ENABLED: boolean;
 
 type SDFGElementType = 'states' | 'nodes' | 'edges' | 'isedges';
 // If type is explicitly set, dagre typecheck fails with integer node ids
@@ -356,11 +357,15 @@ export class SDFGRenderer {
             this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
 
-        this.minimap_canvas = document.createElement('canvas');
-        this.minimap_canvas.id = 'minimap';
-        this.minimap_canvas.classList.add('sdfg_canvas');
-        this.minimap_canvas.style.backgroundColor = 'white';
-        this.container.append(this.minimap_canvas);
+        if (MINIMAP_ENABLED !== undefined && MINIMAP_ENABLED === false) {
+            this.minimap_canvas = null;
+        } else {
+            this.minimap_canvas = document.createElement('canvas');
+            this.minimap_canvas.id = 'minimap';
+            this.minimap_canvas.classList.add('sdfg_canvas');
+            this.minimap_canvas.style.backgroundColor = 'white';
+            this.container.append(this.minimap_canvas);
+        }
 
         if (this.debug_draw) {
             this.dbg_info_box = document.createElement('div');
@@ -819,11 +824,10 @@ export class SDFGRenderer {
             return;
         }
 
-        this.minimap_ctx = this.minimap_canvas.getContext('2d');
-        if (!this.minimap_ctx) {
-            console.error('Failed to get minimap canvas context, aborting');
-            return;
-        }
+        if (this.minimap_canvas)
+            this.minimap_ctx = this.minimap_canvas.getContext('2d');
+        else
+            this.minimap_ctx = null;
 
         // Translation/scaling management
         this.canvas_manager = new CanvasManager(this.ctx, this, this.canvas);
