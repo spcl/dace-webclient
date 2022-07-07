@@ -14,7 +14,7 @@ import {
     stringify_sdfg
 } from '../index';
 import { LViewLayouter } from '../local_view/lview_layouter';
-import { LViewParser } from '../local_view/lview_parser';
+import { LViewGraphParseError, LViewParser } from '../local_view/lview_parser';
 import { LViewRenderer } from '../local_view/lview_renderer';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
 import { MemoryLocationOverlay } from '../overlays/memory_location_overlay';
@@ -2915,13 +2915,52 @@ export class SDFGRenderer {
             return;
 
         // Transition to the local view by first cutting out the selection.
-        this.cutout_selection();
-        const lRenderer = new LViewRenderer(this.sdfv_instance, this.container);
-        const lGraph = await LViewParser.parseGraph(this.graph, lRenderer);
-        if (lGraph) {
-            LViewLayouter.layoutGraph(lGraph);
-            lRenderer.graph = lGraph;
-            this.sdfv_instance.setLocalViewRenderer(lRenderer);
+        try {
+            this.cutout_selection();
+            const lRenderer =
+                new LViewRenderer(this.sdfv_instance, this.container);
+            const lGraph = await LViewParser.parseGraph(this.graph, lRenderer);
+            if (lGraph) {
+                LViewLayouter.layoutGraph(lGraph);
+                lRenderer.graph = lGraph;
+                this.sdfv_instance.setLocalViewRenderer(lRenderer);
+            }
+        } catch (e) {
+            if (e instanceof LViewGraphParseError) {
+                const errModalBg = $('<div>', {
+                    class: 'sdfv_modal_background',
+                }).appendTo(document.body);
+                const modal = $('<div>', {
+                    class: 'sdfv_modal',
+                }).appendTo(errModalBg);
+                const header = $('<div>', {
+                    class: 'sdfv_modal_title_bar',
+                }).appendTo(modal);
+                $('<span>', {
+                    class: 'sdfv_modal_title',
+                    text: 'Error',
+                }).appendTo(header);
+                $('<div>', {
+                    class: 'modal_close',
+                    html: '<i class="material-icons">close</i>',
+                    click: () => {
+                        errModalBg.remove();
+                    },
+                }).appendTo(header);
+
+                const contentBox = $('<div>', {
+                    class: 'sdfv_modal_content_box',
+                }).appendTo(modal);
+                const content = $('<div>', {
+                    class: 'sdfv_modal_content',
+                }).appendTo(contentBox);
+                $('<span>', {
+                    text: e.message,
+                }).appendTo(content);
+                errModalBg.show();
+            } else {
+                throw e;
+            }
         }
     }
 
