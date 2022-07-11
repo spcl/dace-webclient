@@ -19,7 +19,6 @@ import { MapNode } from './elements/map_node';
 import { MemoryMovementEdge } from './elements/memory_movement_edge';
 import { MemoryNode } from './elements/memory_node';
 import { Graph } from './graph/graph';
-import sidebarHtml from './lview_sidebar.html';
 import { AccessPatternOverlay } from './overlays/access_pattern_overlay';
 import { EdgeOverlay, NodeOverlay, NoEdgeOverlay, NoNodeOverlay } from './overlays/base_overlays';
 import { CacheLineOverlay } from './overlays/cache_line_overlay';
@@ -31,22 +30,22 @@ export class LViewRenderer {
     public readonly pixiApp: Application | null = null;
     public readonly viewport: Viewport | null = null;
 
-    private tooltipContainer?: JQuery<HTMLDivElement>;
-    private tooltipText?: JQuery<HTMLSpanElement>;
+    protected tooltipContainer?: JQuery<HTMLDivElement>;
+    protected tooltipText?: JQuery<HTMLSpanElement>;
 
-    private sidebarContents?: JQuery<HTMLDivElement>;
-    private sidebarTitle?: JQuery<HTMLDivElement>;
-    private chartContainer?: JQuery<HTMLDivElement>;
-    private reuseDistanceHistogramCanvas?: JQuery<HTMLCanvasElement>;
-    private reuseDistanceHistogram?: Chart;
+    protected sidebarContents?: JQuery<HTMLDivElement>;
+    protected sidebarTitle?: JQuery<HTMLDivElement>;
+    protected chartContainer?: JQuery<HTMLDivElement>;
+    protected reuseDistanceHistogramCanvas?: JQuery<HTMLCanvasElement>;
+    protected reuseDistanceHistogram?: Chart;
 
-    private nViewModeSelector?: JQuery<HTMLSelectElement>;
-    private nViewModeSelectorAdditional?: JQuery<HTMLDivElement>;
-    private eViewModeSelector?: JQuery<HTMLSelectElement>;
-    private eViewModeSelectorAdditional?: JQuery<HTMLDivElement>;
+    protected nViewModeSelector?: JQuery<HTMLSelectElement>;
+    protected nViewModeSelectorAdditional?: JQuery<HTMLDivElement>;
+    protected eViewModeSelector?: JQuery<HTMLSelectElement>;
+    protected eViewModeSelectorAdditional?: JQuery<HTMLDivElement>;
 
-    private nOverlay?: NodeOverlay;
-    private eOverlay?: EdgeOverlay;
+    protected nOverlay?: NodeOverlay;
+    protected eOverlay?: EdgeOverlay;
 
     public globalMemoryMovementHistogram: Map<number, number> = new Map();
 
@@ -245,7 +244,65 @@ export class LViewRenderer {
         if (!rawContents)
             return;
         const contents = $(rawContents);
-        contents.html(sidebarHtml);
+        contents.html(`
+<div id="lview-sidebar">
+    <label for="map-playback-speed-input">
+        Access Pattern Playback Speed:
+    </label>
+    <br>
+    <input type="number" id="map-playback-speed-input" min="1" max="10"
+        value="1">
+
+    <br>
+
+    <label for="cache-line-size-input">
+        Cache Line Size (bytes):
+    </label>
+    <br>
+    <input type="number" id="cache-line-size-input" min="1" value="32">
+
+    <br>
+
+    <label for="reuse-distance-threshold-input">
+        Reuse Distance Threshold:
+    </label>
+    <br>
+    <input type="number" id="reuse-distance-threshold-input" min="1" value="10">
+
+    <hr>
+
+    <div id="node-viewmode-selector-box">
+        <label for="node-viewmode-input">
+            Node Overlay:
+        </label>
+        <br>
+        <select id="node-viewmode-input"></select>
+        <div id="node-viewmode-selector-additional"></div>
+    </div>
+
+    <div id="edge-viewmode-selector-box">
+        <label for="edge-viewmode-input">
+            Edge Overlay:
+        </label>
+        <br>
+        <select id="edge-viewmode-input"></select>
+        <div id="edge-viewmode-selector-additional"></div>
+    </div>
+
+    <hr>
+
+    <div id="lview-sidebar-title">
+    </div>
+
+    <div id="lview-chart-container">
+        <canvas id="reuse-distance-histogram"></canvas>
+    </div>
+
+    <div id="lview-sidebar-contents">
+    </div>
+
+</div>
+        `);
 
         $('#cache-line-size-input')?.on('change', () => {
             this.recalculateAll();

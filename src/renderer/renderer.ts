@@ -50,7 +50,7 @@ declare const canvas2pdf: any;
 
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any | null;
-declare const MINIMAP_ENABLED: boolean;
+declare const MINIMAP_ENABLED: boolean | undefined;
 
 type SDFGElementType = 'states' | 'nodes' | 'edges' | 'isedges';
 // If type is explicitly set, dagre typecheck fails with integer node ids
@@ -357,7 +357,8 @@ export class SDFGRenderer {
             this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
 
-        if (MINIMAP_ENABLED !== undefined && MINIMAP_ENABLED === false) {
+        if (typeof MINIMAP_ENABLED !== 'undefined' &&
+            MINIMAP_ENABLED === false) {
             this.minimap_canvas = null;
         } else {
             this.minimap_canvas = document.createElement('canvas');

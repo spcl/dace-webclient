@@ -1,6 +1,6 @@
 {
     "name": "@spcl/sdfv",
-    "version": "1.0.29-beta.3",
+    "version": "1.0.29-beta.4",
     "description": "A standalone viewer for SDFGs",
     "homepage": "https://github.com/spcl/dace-webclient",
     "main": "out/index.js",
@@ -44,7 +44,6 @@
         "babel-loader": "^8.2.3",
         "babel-plugin-transform-class-properties": "^6.24.1",
         "eslint": "^7.22.0",
-        "raw-loader": "^4.0.2",
         "rimraf": "^3.0.2",
         "ts-loader": "^9.2.6",
         "typescript": "^4.0.0",
