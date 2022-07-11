@@ -750,6 +750,7 @@ export class SDFGRenderer {
 
         // Transition to local view with selection
         d = document.createElement('button');
+        d.id = 'enter-local-view-button';
         d.className = 'button hidden';
         d.innerHTML = '<i class="material-icons">memory</i>';
         d.style.paddingBottom = '0px';
