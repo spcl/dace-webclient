@@ -60,7 +60,7 @@ export class LViewRenderer {
         this.pixiApp = new Application({
             width: containerRect.width - 10,
             height: containerRect.height - 10,
-            backgroundAlpha: 0.0,
+            backgroundColor: 0xdeebf7, // TODO: Make this color themeable
             antialias: true,
             resizeTo: this.container,
         });

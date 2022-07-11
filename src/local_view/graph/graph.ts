@@ -260,6 +260,24 @@ export class Graph extends Graphics {
         return;
     }
 
+    public setAccessPatternOverlay(enabled: boolean): void {
+        this.nodes.forEach(node => {
+            if (node instanceof MapNode) {
+                node.showingAccessPatternControls = enabled;
+                node.draw();
+                node.innerGraph.setAccessPatternOverlay(enabled);
+            }
+        });
+    }
+
+    public enableAccessPatternOverlay(): void {
+        this.setAccessPatternOverlay(true);
+    }
+
+    public disableAccessPatternOverlay(): void {
+        this.setAccessPatternOverlay(false);
+    }
+
     public setReuseDistanceOverlay(enabled: boolean): void {
         this.memoryNodesMap.forEach(nodesList => {
             nodesList.forEach(tuple => {

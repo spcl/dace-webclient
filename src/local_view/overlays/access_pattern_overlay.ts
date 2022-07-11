@@ -35,13 +35,17 @@ export class AccessPatternOverlay extends NodeOverlay {
             },
         }).appendTo(container);
 
+        this.renderer.graph?.enableAccessPatternOverlay();
+
         this.renderer.nodeOverlayAdditional?.append(container);
         this.renderer.nodeOverlayAdditional?.show();
     }
 
     public onDeselect(): void {
-        if (this.renderer.graph)
+        if (this.renderer.graph) {
+            this.renderer.graph.disableAccessPatternOverlay();
             this.renderer.clearGraphAccesses(this.renderer.graph);
+        }
     }
 
 }

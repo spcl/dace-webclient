@@ -15,7 +15,7 @@ import { MemoryNode } from './memory_node';
 import { Node } from './node';
 
 const HEADER_HEIGHT = 80;
-const NESTING_PADDING = 7;
+const NESTING_PADDING = 30;
 const BUTTON_PADDING = 10;
 
 type Range = {
@@ -36,6 +36,7 @@ export class MapNode extends Node {
     public readonly playButton: Button;
     public readonly resetButton: Button;
     public readonly pauseButton: Button;
+    public showingAccessPatternControls: boolean = false;
     private labelWidth: number;
     private accessPattern: [
         Map<string, number>, AccessMap<(number | undefined)[]>,
@@ -517,6 +518,7 @@ export class MapNode extends Node {
 
         // Draw the border.
         this.lineStyle(DEFAULT_LINE_STYLE);
+        this.beginFill(0xffffff, 0.95);
         this.drawPolygon([
             0, HEADER_HEIGHT,
             0, HEADER_HEIGHT / 2,
@@ -529,6 +531,7 @@ export class MapNode extends Node {
             0, HEADER_HEIGHT,
             this._width, HEADER_HEIGHT,
         ]);
+        this.endFill();
 
         // Draw the sliders.
         this.sliders.forEach((slider) => {
@@ -543,7 +546,7 @@ export class MapNode extends Node {
         }
 
         // Draw the buttons if we're in access pattern viewmode.
-        if ($('#input-access-pattern-viewmode')?.is(':checked')) {
+        if (this.showingAccessPatternControls) {
             this.playButton.renderable = true;
             this.pauseButton.renderable = true;
             this.resetButton.renderable = true;

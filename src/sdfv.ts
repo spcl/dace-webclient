@@ -429,7 +429,7 @@ function start_find_in_graph(sdfv: SDFV): void {
         }, 1);
 }
 
-function reload_file(sdfv: SDFV): void {
+export function reload_file(sdfv: SDFV): void {
     if (!file)
         return;
     fr = new FileReader();

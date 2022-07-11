@@ -20,7 +20,7 @@ import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
 import { MemoryLocationOverlay } from '../overlays/memory_location_overlay';
 import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
 import { OverlayManager } from '../overlay_manager';
-import { SDFV } from '../sdfv';
+import { reload_file, SDFV } from '../sdfv';
 import {
     boundingBox,
     calculateBoundingBox,
@@ -208,6 +208,10 @@ export class SDFGRenderer {
                 this.container.removeChild(this.toolbar);
             if (this.tooltip_container)
                 this.container.removeChild(this.tooltip_container);
+            if (this.interaction_info_box)
+                this.container.removeChild(this.interaction_info_box);
+            if (this.dbg_info_box)
+                this.container.removeChild(this.dbg_info_box);
         } catch (ex) {
             // Do nothing
         }
@@ -2916,6 +2920,10 @@ export class SDFGRenderer {
         this.on_selection_changed();
     }
 
+    public exitLocalView(): void {
+        reload_file(this.sdfv_instance);
+    }
+
     public async localViewSelection(): Promise<void> {
         if (!this.graph)
             return;
@@ -2929,6 +2937,23 @@ export class SDFGRenderer {
             if (lGraph) {
                 LViewLayouter.layoutGraph(lGraph);
                 lRenderer.graph = lGraph;
+
+                // Set a button to exit the local view again.
+                const exitBtn = document.createElement('button');
+                exitBtn.className = 'button';
+                exitBtn.innerHTML = '<i class="material-icons">close</i>';
+                exitBtn.style.paddingBottom = '0px';
+                exitBtn.style.userSelect = 'none';
+                exitBtn.style.position = 'absolute';
+                exitBtn.style.top = '10px';
+                exitBtn.style.left = '10px';
+                exitBtn.title = 'Exit local view';
+                exitBtn.onclick = () => {
+                    this.exitLocalView();
+                    this.container.removeChild(exitBtn);
+                };
+                this.container.appendChild(exitBtn);
+
                 this.sdfv_instance.setLocalViewRenderer(lRenderer);
             }
         } catch (e) {
