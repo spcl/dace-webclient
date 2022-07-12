@@ -1037,6 +1037,10 @@ export class ScopeNode extends SDFGNode {
             ];
             if (entry !== undefined)
                 attrs = entry.attributes;
+            else {
+                this.cached_close_label = 'MISSING ENTRY NODE';
+                return 'MISSING ENTRY NODE';
+            }
         }
 
         result += '[';
