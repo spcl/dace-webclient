@@ -152,12 +152,10 @@ export class LViewRenderer {
     }
 
     public destroy(): void {
-        if (this.pixiApp)
+        if (this.pixiApp) {
             this.container.removeChild(this.pixiApp.view);
-    }
-
-    private onViewModeChanged(): void {
-        return;
+            this.pixiApp.destroy();
+        }
     }
 
     private initOverlays(): void {

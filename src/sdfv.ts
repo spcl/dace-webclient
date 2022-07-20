@@ -47,8 +47,8 @@ export class SDFV {
     public static DEFAULT_MAX_FONTSIZE: number = 50;
     public static DEFAULT_FAR_FONT_MULTIPLIER: number = 16;
 
-    private renderer: SDFGRenderer | null = null;
-    private localViewRenderer: LViewRenderer | null = null;
+    protected renderer: SDFGRenderer | null = null;
+    protected localViewRenderer: LViewRenderer | null = null;
 
     public constructor() {
         return;
