@@ -14,6 +14,7 @@ import annotationPlugin from 'chartjs-plugin-annotation';
 import $ from 'jquery';
 import { Viewport } from 'pixi-viewport';
 import { Application } from 'pixi.js';
+import { SDFGRenderer } from '../renderer/renderer';
 import { SDFV } from '../sdfv';
 import { MapNode } from './elements/map_node';
 import { MemoryMovementEdge } from './elements/memory_movement_edge';
@@ -49,6 +50,8 @@ export class LViewRenderer {
 
     public globalMemoryMovementHistogram: Map<number, number> = new Map();
 
+    private readonly invisibleCssBootstrapElement: Node;
+
     public constructor(
         protected sdfvInstance: SDFV,
         protected container: HTMLElement,
@@ -57,10 +60,13 @@ export class LViewRenderer {
         this.initLocalViewSidebar();
 
         const containerRect = this.container.getBoundingClientRect();
+        const bgColorString = SDFGRenderer.getCssProperty(
+            '--state-background-color'
+        );
         this.pixiApp = new Application({
             width: containerRect.width - 10,
             height: containerRect.height - 10,
-            backgroundColor: 0xdeebf7, // TODO: Make this color themeable
+            backgroundColor: Number(bgColorString.replace('#', '0x')),
             antialias: true,
             resizeTo: this.container,
         });
@@ -94,6 +100,14 @@ export class LViewRenderer {
             .decelerate({
                 friction: 0.3,
             });
+
+        // Adds an invisible container item to retrieve computed styles through
+        // css stylesheets.
+        this.invisibleCssBootstrapElement = $('<div>', {
+            style: 'display: none',
+            class: 'sdfg_canvas',
+        })[0];
+        this.container.appendChild(this.invisibleCssBootstrapElement);
 
         if (this._graph)
             this.viewport?.addChild(this._graph);
@@ -155,6 +169,7 @@ export class LViewRenderer {
         if (this.pixiApp) {
             this.container.removeChild(this.pixiApp.view);
             this.pixiApp.destroy();
+            this.container.removeChild(this.invisibleCssBootstrapElement);
         }
     }
 

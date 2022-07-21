@@ -103,7 +103,7 @@ export class LViewParser {
 
         const node = new MapNode(
             elem.id.toString(), graph, ranges, innerGraph, undefined,
-            undefined, undefined, renderer
+            undefined, renderer
         );
         elem.data.node.attributes.lview_node = node;
         return node;

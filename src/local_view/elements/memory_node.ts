@@ -36,7 +36,7 @@ class MemoryTile extends Graphics {
 
     public borderMarkingColors: number[] = [];
 
-    public descendandts: MemoryTile[] | null = null;
+    public descendants: MemoryTile[] | null = null;
 
     public stackDistances: Map<number, number> = new Map();
     public stackDistancesFlattened: number[] = [];
@@ -225,7 +225,7 @@ class MemoryTile extends Graphics {
         const nOverlay = this.memoryNode.renderer?.nodeOverlay;
         if (this.selected) {
             // TODO: if a node is selected, in the reuse distance overlay this
-            // should clear any other selected nodes! Dito if _no_ overlay is
+            // should clear any other selected nodes! Ditto if _no_ overlay is
             // selected.
             if (nOverlay instanceof CacheLineOverlay)
                 this.markCacheLine();
@@ -765,8 +765,8 @@ export class MemoryNode extends Node {
             const next = remaining.shift();
 
             next?.forEach(tile => {
-                if (tile.descendandts && tile.descendandts.length)
-                    remaining.push(tile.descendandts);
+                if (tile.descendants && tile.descendants.length)
+                    remaining.push(tile.descendants);
                 fun(tile);
             });
         }
@@ -781,17 +781,17 @@ export class MemoryNode extends Node {
         if (index !== undefined && typeof index === 'number') {
             const nPivot = pivot[index];
 
-            if (i < idx.length - 1 && nPivot.descendandts)
-                return this.recGetTilesAt(idx, i + 1, nPivot.descendandts);
+            if (i < idx.length - 1 && nPivot.descendants)
+                return this.recGetTilesAt(idx, i + 1, nPivot.descendants);
             else
                 return nPivot;
         } else {
             if (i < idx.length - 1) {
                 const rVal: MemoryTile[] = [];
                 pivot.forEach(el => {
-                    if (el.descendandts) {
+                    if (el.descendants) {
                         const ret =
-                            this.recGetTilesAt(idx, i + 1, el.descendandts);
+                            this.recGetTilesAt(idx, i + 1, el.descendants);
                         if (ret instanceof MemoryTile)
                             rVal.push(ret);
                         else
@@ -829,8 +829,8 @@ export class MemoryNode extends Node {
 
             const nPivot = pivot[index];
 
-            if (i < idx.length - 1 && nPivot.descendandts) {
-                this.applyToIdx(idx, fun, i + 1, nPivot.descendandts, targets);
+            if (i < idx.length - 1 && nPivot.descendants) {
+                this.applyToIdx(idx, fun, i + 1, nPivot.descendants, targets);
             } else {
                 fun(nPivot);
                 targets.push(nPivot);
@@ -838,9 +838,9 @@ export class MemoryNode extends Node {
         } else {
             if (i < idx.length - 1) {
                 pivot.forEach(el => {
-                    if (el.descendandts)
+                    if (el.descendants)
                         this.applyToIdx(
-                            idx, fun, i + 1, el.descendandts, targets
+                            idx, fun, i + 1, el.descendants, targets
                         );
                 });
             } else {
@@ -882,7 +882,7 @@ export class MemoryNode extends Node {
 
             if (dims.length > 1) {
                 const nextSize = dims[1].value;
-                rect.descendandts = new Array(nextSize).fill(null);
+                rect.descendants = new Array(nextSize).fill(null);
 
                 this.recursiveInit(
                     dims.slice(1),
@@ -890,7 +890,7 @@ export class MemoryNode extends Node {
                     padded ? elY + INTERNAL_PADDING / 2 : elY,
                     padded ? elWidth - INTERNAL_PADDING : elWidth,
                     padded ? elHeight - INTERNAL_PADDING : elHeight,
-                    rect.descendandts,
+                    rect.descendants,
                     nTargetIndexes
                 );
             }
@@ -919,7 +919,7 @@ export class MemoryNode extends Node {
             if (next) {
                 for (let i = 0; i < next.length; i++) {
                     next[i].draw();
-                    const desc = next[i].descendandts;
+                    const desc = next[i].descendants;
                     if (desc !== null)
                         remaining.push(desc);
                 }

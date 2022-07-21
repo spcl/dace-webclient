@@ -334,6 +334,22 @@ pre.code code {
   --color-selected-hovered: salmon;
   --color-selected-highlighted: darkorange;
   --color-minimap-viewport: #ff7a00;
+
+  --overlay-color-lightness: 0.5;
+  --overlay-color-saturation: 1.0;
+
+  --local-view-map-header-height: 80;
+  --local-view-map-nesting-padding: 30;
+  --local-view-map-button-padding: 10;
+  --local-view-map-button-internal-padding: 5;
+  --local-view-map-button-size: 30;
+
+  --local-view-edge-width: 1;
+  --local-view-edge-arrowhead-length: 16;
+  --local-view-edge-fontsize: 20;
+  --local-view-edge-overlay-width: 10;
+  --local-view-edge-overlay-arrowhead-length: 30;
+  --local-view-edge-overlay-fontsize: 20;
 }
 
 #access-pattern-button-box .button {

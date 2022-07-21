@@ -4,6 +4,7 @@ import { Polygon, Rectangle } from '@pixi/math';
 import $ from 'jquery';
 import { evaluate as mathEvaluate } from 'mathjs';
 import { Text } from 'pixi.js';
+import { SDFGRenderer } from '../../renderer/renderer';
 import { AccessStack } from '../../utils/collections';
 import { Graph } from '../graph/graph';
 import { Button } from '../gui/button';
@@ -13,10 +14,6 @@ import { AccessMap, ConcreteDataAccess, DataContainer } from './data_container';
 import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from './element';
 import { MemoryNode } from './memory_node';
 import { Node } from './node';
-
-const HEADER_HEIGHT = 80;
-const NESTING_PADDING = 30;
-const BUTTON_PADDING = 10;
 
 type Range = {
     itvar: string,
@@ -49,6 +46,12 @@ export class MapNode extends Node {
     // TODO: Don't cache this.
     private extScope: Map<string, number> = new Map();
 
+    private headerHeight: number = 80;
+    private nestingPadding: number = 30;
+    private buttonPadding: number = 10;
+    private buttonInternalPadding: number = 5;
+    private buttonSize: number = 30;
+
     constructor(
         id: string,
         parentGraph: Graph,
@@ -56,24 +59,42 @@ export class MapNode extends Node {
         public readonly innerGraph: Graph,
         private readonly overrideWidth?: number,
         private readonly overrideHeight?: number,
-        private readonly paddingOverride?: number,
         renderer?: LViewRenderer,
     ) {
         super(parentGraph, id, renderer);
 
-        const padding = this.paddingOverride !== undefined ?
-            this.paddingOverride : NESTING_PADDING;
+        try {
+            this.nestingPadding = parseInt(
+                SDFGRenderer.getCssProperty('--local-view-map-nesting-padding')
+            );
+            this.headerHeight = parseInt(
+                SDFGRenderer.getCssProperty('--local-view-map-header-height')
+            );
+            this.buttonPadding = parseInt(
+                SDFGRenderer.getCssProperty('--local-view-map-button-padding')
+            );
+            this.buttonInternalPadding = parseInt(
+                SDFGRenderer.getCssProperty(
+                    '--local-view-map-button-internal-padding'
+                )
+            );
+            this.buttonSize = parseInt(
+                SDFGRenderer.getCssProperty('--local-view-map-button-size')
+            );
+        } catch (_ignored) {
+            // Ignored.
+        }
 
         if (this.overrideWidth !== undefined)
             this._width = this.overrideWidth;
         else
-            this._width = this.innerGraph.width + (2 * padding);
+            this._width = this.innerGraph.width + (2 * this.nestingPadding);
 
         if (this.overrideHeight !== undefined)
             this._height = this.overrideHeight;
         else
-            this._height =
-                this.innerGraph.height + HEADER_HEIGHT + (2 * padding);
+            this._height = this.innerGraph.height + this.headerHeight +
+                (2 * this.nestingPadding);
 
         // Construct the labels and sliders for each dimension.
         let maxLabelWidth = 0;
@@ -107,7 +128,7 @@ export class MapNode extends Node {
             const label = this.labels[i];
             label.position.set(
                 (i * this.labelWidth) + (this.labelWidth / 2),
-                HEADER_HEIGHT / 4
+                this.headerHeight / 4
             );
             this.addChild(label);
 
@@ -134,7 +155,7 @@ export class MapNode extends Node {
 
             const slider = new Slider(start, end, step, this.labelWidth);
             slider.position.set(
-                i * this.labelWidth, HEADER_HEIGHT / 2
+                i * this.labelWidth, this.headerHeight / 2
             );
             this.addChild(slider);
             this.sliders.set(range.itvar, slider);
@@ -145,63 +166,74 @@ export class MapNode extends Node {
             });
         }
 
-        const buttonWidth = 30;
-        const buttonHeight = buttonWidth;
-        const buttonRadius = buttonWidth / 4;
+        const buttonRadius = this.buttonSize / 4;
         const playPolygon = new Polygon([
-            buttonWidth / 4, buttonHeight / 4,
-            3 * buttonWidth / 4, buttonHeight / 2,
-            buttonWidth / 4, 3 * buttonHeight / 4,
+            this.buttonSize / 4, this.buttonSize / 4,
+            3 * this.buttonSize / 4, this.buttonSize / 2,
+            this.buttonSize / 4, 3 * this.buttonSize / 4,
         ]);
         this.playButton = new Button(
             () => {
                 this.playbackStart();
-            }, playPolygon, buttonWidth, buttonHeight,
+            }, playPolygon, this.buttonSize, this.buttonSize,
             buttonRadius
         );
         this.playButton.position.set(
-            BUTTON_PADDING, HEADER_HEIGHT + BUTTON_PADDING
+            this.buttonPadding, this.headerHeight + this.buttonPadding
         );
         this.addChild(this.playButton);
 
+        const pRectPaddingRatio = 1.5;
+        const pRectHeight = this.buttonSize - 2 * this.buttonInternalPadding;
+        const pRectWidth = (
+            this.buttonSize - (
+                this.buttonInternalPadding * pRectPaddingRatio * 2
+            )
+        ) / 3;
         const pauseRects = [
             new Rectangle(
-                buttonWidth / 4, buttonWidth / 4,
-                (buttonWidth / 4) - (buttonWidth / 15), buttonWidth / 2
+                this.buttonInternalPadding * pRectPaddingRatio,
+                this.buttonInternalPadding,
+                pRectWidth,
+                pRectHeight
             ),
             new Rectangle(
-                (buttonWidth / 2) + (buttonWidth / 15), buttonWidth / 4,
-                (buttonWidth / 4) - (buttonWidth / 15),
-                buttonWidth / 2
+                this.buttonSize - (
+                    this.buttonInternalPadding * pRectPaddingRatio + pRectWidth
+                ),
+                this.buttonInternalPadding,
+                pRectWidth,
+                pRectHeight
             ),
         ];
         this.pauseButton = new Button(
             () => {
                 this.playbackPause();
-            }, pauseRects, buttonWidth, buttonWidth, buttonRadius
+            }, pauseRects, this.buttonSize, this.buttonSize, buttonRadius
         );
         this.pauseButton.disable();
         this.pauseButton.position.set(
-            (2 * BUTTON_PADDING) + buttonWidth, HEADER_HEIGHT + BUTTON_PADDING
+            (2 * this.buttonPadding) + this.buttonSize,
+            this.headerHeight + this.buttonPadding
         );
         this.addChild(this.pauseButton);
 
         this.resetButton = new Button(
             () => {
                 this.playbackReset();
-            }, 'reset', undefined, buttonWidth, buttonRadius, 20
+            }, 'reset', undefined, this.buttonSize, buttonRadius,
+            this.buttonSize - this.buttonInternalPadding * 2
         );
         this.resetButton.disable();
         this.resetButton.position.set(
-            (3 * BUTTON_PADDING) + (2 * buttonWidth),
-            HEADER_HEIGHT + BUTTON_PADDING
+            (3 * this.buttonPadding) + (2 * this.buttonSize),
+            this.headerHeight + this.buttonPadding
         );
         this.addChild(this.resetButton);
 
         this.innerGraph.position.set(
             (this._width / 2) - (this.innerGraph.width / 2),
-            HEADER_HEIGHT + (this.paddingOverride !== undefined ?
-                this.paddingOverride : NESTING_PADDING)
+            this.headerHeight + this.nestingPadding
         );
         this.addChild(this.innerGraph);
 
@@ -221,17 +253,14 @@ export class MapNode extends Node {
         else
             this._width = Math.max(
                 this.labelWidth * this.ranges.length,
-                this.innerGraph.width +
-                    2 * (this.paddingOverride !== undefined ?
-                        this.paddingOverride : NESTING_PADDING)
+                this.innerGraph.width + 2 * this.nestingPadding
             );
 
         if (this.overrideHeight !== undefined)
             this._height = this.overrideHeight;
         else
-            this._height = this.innerGraph.height + HEADER_HEIGHT +
-                2 * (this.paddingOverride !== undefined ?
-                    this.paddingOverride : NESTING_PADDING);
+            this._height = this.innerGraph.height + this.headerHeight +
+                2 * this.nestingPadding;
 
         this.labelWidth = this._width / this.ranges.length;
         for (let i = 0; i < this.labels.length; i++) {
@@ -239,19 +268,18 @@ export class MapNode extends Node {
             const label = this.labels[i];
             label.position.set(
                 (i * this.labelWidth) + (this.labelWidth / 2),
-                HEADER_HEIGHT / 4
+                this.headerHeight / 4
             );
             const slider = this.sliders.get(range.itvar);
             slider?.position.set(
-                i * this.labelWidth, HEADER_HEIGHT / 2
+                i * this.labelWidth, this.headerHeight / 2
             );
             slider?.updateSliderWidth(this.labelWidth);
         }
 
         this.innerGraph.position.set(
             (this._width / 2) - (this.innerGraph.width / 2),
-            HEADER_HEIGHT + (this.paddingOverride !== undefined ?
-                this.paddingOverride : NESTING_PADDING)
+            this.headerHeight + this.nestingPadding
         );
     }
 
@@ -520,16 +548,16 @@ export class MapNode extends Node {
         this.lineStyle(DEFAULT_LINE_STYLE);
         this.beginFill(0xffffff, 0.95);
         this.drawPolygon([
-            0, HEADER_HEIGHT,
-            0, HEADER_HEIGHT / 2,
-            HEADER_HEIGHT / 2, 0,
-            this._width - (HEADER_HEIGHT / 2), 0,
-            this._width, HEADER_HEIGHT / 2,
-            this._width, HEADER_HEIGHT,
+            0, this.headerHeight,
+            0, this.headerHeight / 2,
+            this.headerHeight / 2, 0,
+            this._width - (this.headerHeight / 2), 0,
+            this._width, this.headerHeight / 2,
+            this._width, this.headerHeight,
             this._width, this._height,
             0, this._height,
-            0, HEADER_HEIGHT,
-            this._width, HEADER_HEIGHT,
+            0, this.headerHeight,
+            this._width, this.headerHeight,
         ]);
         this.endFill();
 
@@ -542,7 +570,7 @@ export class MapNode extends Node {
         for (let i = 0; i < this.labels.length - 1; i++) {
             const lineX = (i + 1) * this.labelWidth;
             this.moveTo(lineX, 0);
-            this.lineTo(lineX, HEADER_HEIGHT);
+            this.lineTo(lineX, this.headerHeight);
         }
 
         // Draw the buttons if we're in access pattern viewmode.
@@ -704,9 +732,7 @@ export class MapNode extends Node {
         else
             return Math.max(
                 this.labelWidth * this.ranges.length,
-                this.innerGraph.width +
-                    2 * (this.paddingOverride !== undefined ?
-                        this.paddingOverride : NESTING_PADDING)
+                this.innerGraph.width + 2 * this.nestingPadding
             );
     }
 
@@ -714,9 +740,8 @@ export class MapNode extends Node {
         if (this.overrideHeight)
             return this.overrideHeight;
         else
-            return this.innerGraph.height + HEADER_HEIGHT +
-                2 * (this.paddingOverride !== undefined ?
-                    this.paddingOverride : NESTING_PADDING);
+            return this.innerGraph.height + this.headerHeight +
+                2 * this.nestingPadding;
     }
 
 }

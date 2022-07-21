@@ -101,8 +101,7 @@ export class SDFGRenderer {
     protected overlay_manager: OverlayManager;
     protected bgcolor: string | null = null;
     protected visible_rect: SimpleRect | null = null;
-    protected cssProps: { [key: string]: string } = {};
-
+    protected static cssProps: { [key: string]: string } = {};
 
     // Toolbar related fields.
     protected menu: ContextMenu | null = null;
@@ -212,24 +211,36 @@ export class SDFGRenderer {
                 this.container.removeChild(this.interaction_info_box);
             if (this.dbg_info_box)
                 this.container.removeChild(this.dbg_info_box);
+            if (this.error_popover_container)
+                this.container.removeChild(this.error_popover_container);
+            if (this.mouse_follow_element)
+                this.container.removeChild(this.mouse_follow_element);
         } catch (ex) {
             // Do nothing
         }
     }
 
     public clearCssPropertyCache(): void {
-        this.cssProps = {};
+        SDFGRenderer.cssProps = {};
     }
 
     public getCssProperty(property_name: string): string {
-        if (this.cssProps[property_name])
-            return this.cssProps[property_name];
+        return SDFGRenderer.getCssProperty(property_name, this.canvas);
+    }
 
-        if (this.canvas) {
+    public static getCssProperty(
+        property_name: string, canvas?: HTMLElement | null
+    ): string {
+        if (SDFGRenderer.cssProps[property_name])
+            return SDFGRenderer.cssProps[property_name];
+
+        const elem =
+            canvas ?? document.getElementsByClassName('sdfg_canvas').item(0);
+        if (elem) {
             const prop_val: string = window.getComputedStyle(
-                this.canvas
+                elem
             ).getPropertyValue(property_name).trim();
-            this.cssProps[property_name] = prop_val;
+            SDFGRenderer.cssProps[property_name] = prop_val;
             return prop_val;
         }
         return '';

@@ -3,6 +3,7 @@
 import $ from 'jquery';
 import { cos, sin, tanh } from 'mathjs';
 import { Point, Text } from 'pixi.js';
+import { SDFGRenderer } from '../../renderer/renderer';
 import { getTempColorHEX } from '../../utils/utils';
 import { Graph } from '../graph/graph';
 import { LViewRenderer } from '../lview_renderer';
@@ -145,8 +146,19 @@ export class MemoryMovementEdge extends Edge {
 
             color = getTempColorHEX(badness);
 
-            lineWidth = 10;
-            arrowHeadLength = 30;
+            try {
+                lineWidth = parseInt(SDFGRenderer.getCssProperty(
+                    '--local-view-edge-overlay-width'
+                ));
+                arrowHeadLength = parseInt(SDFGRenderer.getCssProperty(
+                    '--local-view-edge-overlay-arrowhead-length'
+                ));
+                fontSize = parseInt(SDFGRenderer.getCssProperty(
+                    '--local-view-edge-overlay-fontsize'
+                ));
+            } catch (_ignored) {
+                // Ignored.
+            }
 
             let vol = this._volume;
             let unit = 1;
@@ -167,10 +179,22 @@ export class MemoryMovementEdge extends Edge {
                     break;
             }
             text = vol.toString() + ' ' + unitString;
-            fontSize = 20;
         } else {
             text = '';
-            fontSize = 20;
+
+            try {
+                lineWidth = parseInt(SDFGRenderer.getCssProperty(
+                    '--local-view-edge-width'
+                ));
+                arrowHeadLength = parseInt(SDFGRenderer.getCssProperty(
+                    '--local-view-edge-arrowhead-length'
+                ));
+                fontSize = parseInt(SDFGRenderer.getCssProperty(
+                    '--local-view-edge-fontsize'
+                ));
+            } catch (_ignored) {
+                // Ignored.
+            }
         }
 
         this.lineStyle({

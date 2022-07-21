@@ -10,6 +10,8 @@ import {
 import { Point2D } from '..';
 import { rgb2hex } from '@pixi/utils';
 
+declare const SDFGRenderer: any;
+
 // From: https://eleanormaclure.files.wordpress.com/2011/03/colour-coding.pdf,
 // Via: https://stackoverflow.com/a/4382138/3547036
 export const KELLY_COLORS = [
@@ -198,7 +200,23 @@ function tempColor(badness: number): [number, number, number] {
     else if (badness > 1)
         badness = 1;
 
-    return [(1 - badness) * 120, 1.0, 0.75];
+    // The hue of the green-red spectrum must lie between 0 and 120, so we map
+    // the 'badness' to that interval (inverted, since green=120 hue and 
+    // red=0 hue).
+    const maxHue = 120;
+    let saturation = 1.0;
+    let lightness = 0.75;
+    try {
+        saturation = parseFloat(
+            SDFGRenderer.getCssProperty('--overlay-color-saturation')
+        );
+        lightness = parseFloat(
+            SDFGRenderer.getCssProperty('--overlay-color-lightness')
+        );
+    } catch (_ignored) {
+        // Ignored.
+    }
+    return [(1 - badness) * maxHue, saturation, lightness];
 }
 
 /**
