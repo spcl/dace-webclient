@@ -126,7 +126,7 @@ export class ComputationNode extends Node {
                 for (const e of access.index) {
                     let res = undefined;
                     try {
-                        res = math.evaluate(e.replaceAll('_', ''), scope);
+                        res = math.evaluate(e, scope);
                         if (typeof res !== 'number')
                             res = undefined;
                     } catch (_ignored) {
@@ -150,11 +150,11 @@ export class ComputationNode extends Node {
      * For a given data container and numeric index, get all related accesses.
      * @param source    Source data container
      * @param index     Numeric index in source data container
-     * @param origin    The node asking for related accesses
+     * @param _origi    The node asking for related accesses
      * @returns         Access map of related accesses
      */
     public getRelatedAccesses(
-        source: DataContainer, index: number[], origin?: Node
+        source: DataContainer, index: number[], _origin?: Node
     ): AccessMap<(number | undefined)[]> {
         const idxMap = new AccessMap<(number | undefined)[]>();
 
@@ -175,11 +175,8 @@ export class ComputationNode extends Node {
                 if (i < index.length) {
                     const rightHand = index[i];
                     const leftHand = idx;
-                    // TODO: Having to replace underscores here is ugly. We
-                    // should be avoiding them alltogether.
                     const equation = CoffeeQuate(
-                        leftHand.toString().replaceAll('_', '') + ' = ' +
-                        rightHand.toString()
+                        leftHand.toString() + ' = ' + rightHand.toString()
                     );
                     const variables = equation.getAllVariables();
                     if (variables.length === 1) {
