@@ -326,6 +326,18 @@ export class Graph extends Graphics {
         this.setPhysMovementOverlay(false);
     }
 
+    public disableCacheLineOverlay(): void {
+        this.nodes.forEach(node => {
+            if (node instanceof MemoryNode) {
+                node.applyToAll(undefined, (t) => {
+                    t.selected = false;
+                    t.showingCached = false;
+                });
+                node.draw();
+            }
+        });
+    }
+
     public *inEdges(node: Node): Generator<Edge> {
         for (const edge of this.edges)
             if (edge.dst === node && edge.src !== node)

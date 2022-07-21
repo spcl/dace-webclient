@@ -12,7 +12,7 @@ export class CacheLineOverlay extends NodeOverlay {
     }
 
     public onDeselect(): void {
-        // TODO: remove all cache line visualizations.
+        this.renderer.getGraph()?.disableCacheLineOverlay();
         return;
     }
 

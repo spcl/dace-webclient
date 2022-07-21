@@ -62,7 +62,7 @@ export class ComputationNode extends Node {
      * @returns     Access map and ordered list of concrete accesses as a tuple
      */
     public getAccessesFor(
-        scope: any
+        scope: Record<string, any>
     ): [AccessMap<(number | undefined)[]>, ConcreteDataAccess[]] {
         const idxMap = new AccessMap<(number | undefined)[]>();
         const resolvedAccessOrder: ConcreteDataAccess[] = [];
@@ -95,6 +95,25 @@ export class ComputationNode extends Node {
         return [idxMap, resolvedAccessOrder];
     }
 
+    /**
+     * Find all related memory accesses for a given scope and source container.
+     * For a given symbol scope, this method appends all data accesses to an
+     * index map, which are related to accesses to the given source container
+     * under that symbol scope.
+     * 
+     * For example:
+     * - On a computation node calculating C[i, j] = A[i, j] + B[i, j].
+     * - Given A as the source container and a symbol scope of { i: 1, j: 3 }.
+     * - Appends the accesses to C[1, 3] and B[1, 3] to the provided index map.
+     * 
+     * Unknown / undefined symbols under the provided scope are taken all the
+     * way from their minium to their maximum value. In the example above,
+     * if i is in [0:N] and j is in [0:M], if the provided scope is only
+     * { i: 1 }, the appended accesses are: C[1, 0:M] and B[1, 0:M].
+     * @param source Source container from where to check for related accesses
+     * @param scope  Symbol scope under which to check for related accesses
+     * @param idxMap Index map to which accesses are appended
+     */
     private findRelatedFromScope(
         source: DataContainer, scope: Map<string, number>,
         idxMap: AccessMap<(number | undefined)[]>

@@ -28,11 +28,11 @@ class MemoryTile extends Graphics {
     public marked: boolean = false;
     public stackedHighlights: number = 0;
 
-    private stackedAccesses: number = 0;
-    private showingRelated: boolean = false;
-    private showingCached: boolean = false;
-    private selected: boolean = false;
-    private hovered: boolean = false;
+    public stackedAccesses: number = 0;
+    public showingRelated: boolean = false;
+    public showingCached: boolean = false;
+    public selected: boolean = false;
+    public hovered: boolean = false;
 
     public borderMarkingColors: number[] = [];
 
@@ -583,9 +583,15 @@ export class MemoryNode extends Node {
 
     private calcUnscaledWidthRecursive(dims: DataDimension[]): number {
         if (dims.length === 1)
-            return dims[0].value * (this.tileSizeOverride !== undefined ? this.tileSizeOverride : TILE_SIZE);
+            return dims[0].value * (
+                this.tileSizeOverride !== undefined ?
+                    this.tileSizeOverride : TILE_SIZE
+            );
         else if (dims.length === 2)
-            return dims[1].value * (this.tileSizeOverride !== undefined ? this.tileSizeOverride : TILE_SIZE);
+            return dims[1].value * (
+                this.tileSizeOverride !== undefined ?
+                    this.tileSizeOverride : TILE_SIZE
+            );
         else if (dims.length % 2 === 0)
             return INTERNAL_PADDING + this.calcUnscaledWidthRecursive(
                 dims.slice(1)
@@ -600,9 +606,15 @@ export class MemoryNode extends Node {
 
     private calcUnscaledHeightRecursive(dims: DataDimension[]): number {
         if (dims.length === 1)
-            return (this.tileSizeOverride !== undefined ? this.tileSizeOverride : TILE_SIZE);
+            return (
+                this.tileSizeOverride !== undefined ?
+                    this.tileSizeOverride : TILE_SIZE
+            );
         else if (dims.length === 2)
-            return dims[0].value * (this.tileSizeOverride !== undefined ? this.tileSizeOverride : TILE_SIZE);
+            return dims[0].value * (
+                this.tileSizeOverride !== undefined ?
+                    this.tileSizeOverride : TILE_SIZE
+            );
         else if (dims.length % 2 !== 0)
             return INTERNAL_PADDING + this.calcUnscaledHeightRecursive(
                 dims.slice(1)
