@@ -150,7 +150,7 @@ export class ComputationNode extends Node {
      * For a given data container and numeric index, get all related accesses.
      * @param source    Source data container
      * @param index     Numeric index in source data container
-     * @param _origi    The node asking for related accesses
+     * @param _origin    The node asking for related accesses
      * @returns         Access map of related accesses
      */
     public getRelatedAccesses(
