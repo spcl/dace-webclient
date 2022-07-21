@@ -1,4 +1,4 @@
-// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import dagre from 'dagre';
 import {
@@ -13,11 +13,14 @@ import {
     SimpleRect,
     stringify_sdfg
 } from '../index';
+import { LViewLayouter } from '../local_view/lview_layouter';
+import { LViewGraphParseError, LViewParser } from '../local_view/lview_parser';
+import { LViewRenderer } from '../local_view/lview_renderer';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
 import { MemoryLocationOverlay } from '../overlays/memory_location_overlay';
 import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
 import { OverlayManager } from '../overlay_manager';
-import { SDFV } from '../sdfv';
+import { reload_file, SDFV } from '../sdfv';
 import {
     boundingBox,
     calculateBoundingBox,
@@ -29,12 +32,15 @@ import {
     delete_sdfg_states, find_exit_for_entry, find_graph_element_by_uuid,
     find_root_sdfg, get_positioning_info, get_uuid_graph_element
 } from '../utils/sdfg/sdfg_utils';
-import { memlet_tree_complete, traverse_sdfg_scopes } from '../utils/sdfg/traversal';
-import { deepCopy, intersectRect } from '../utils/utils';
+import {
+    memlet_tree_complete,
+    traverse_sdfg_scopes,
+} from '../utils/sdfg/traversal';
+import { deepCopy, intersectRect, showErrorModal } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
 import {
-    AccessNode, Connector, draw_sdfg, Edge, EntryNode, NestedSDFG, offset_sdfg, offset_state, SDFGElement, SDFGElements, SDFGNode,
-    State
+    AccessNode, Connector, draw_sdfg, Edge, EntryNode, NestedSDFG, offset_sdfg,
+    offset_state, SDFGElement, SDFGElements, SDFGNode, State
 } from './renderer_elements';
 
 // External, non-typescript libraries which are presented as previously loaded
@@ -44,6 +50,7 @@ declare const canvas2pdf: any;
 
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any | null;
+declare const MINIMAP_ENABLED: boolean | undefined;
 
 type SDFGElementType = 'states' | 'nodes' | 'edges' | 'isedges';
 // If type is explicitly set, dagre typecheck fails with integer node ids
@@ -75,7 +82,8 @@ export class SDFGRenderer {
 
     protected sdfg_list: any = {};
     protected graph: DagreSDFG | null = null;
-    protected sdfg_tree: { [key: number]: number } = {};  // Parent-pointing SDFG tree
+    // Parent-pointing SDFG tree.
+    protected sdfg_tree: { [key: number]: number } = {};
     // List of all state's parent elements.
     protected state_parent_list: any = {};
     protected in_vscode: boolean = false;
@@ -93,8 +101,7 @@ export class SDFGRenderer {
     protected overlay_manager: OverlayManager;
     protected bgcolor: string | null = null;
     protected visible_rect: SimpleRect | null = null;
-    protected cssProps: { [key: string]: string } = {};
-
+    protected static cssProps: { [key: string]: string } = {};
 
     // Toolbar related fields.
     protected menu: ContextMenu | null = null;
@@ -103,6 +110,7 @@ export class SDFGRenderer {
     protected movemode_btn: HTMLElement | null = null;
     protected selectmode_btn: HTMLElement | null = null;
     protected filter_btn: HTMLElement | null = null;
+    protected localViewBtn: HTMLElement | null = null;
     protected addmode_btns: HTMLElement[] = [];
     protected add_type: string | null = null;
     protected add_mode_lib: string | null = null;
@@ -130,7 +138,8 @@ export class SDFGRenderer {
     protected dragging: boolean = false;
     // Null if the mouse/touch is not activated.
     protected drag_start: any = null;
-    protected external_mouse_handler: ((...args: any[]) => boolean) | null = null;
+    protected external_mouse_handler: ((...args: any[]) => boolean) | null =
+        null;
     protected ctrl_key_selection: boolean = false;
     protected shift_key_movement: boolean = false;
     protected add_position: Point2D | null = null;
@@ -160,6 +169,9 @@ export class SDFGRenderer {
         background: string | null = null,
         mode_buttons: any = null
     ) {
+        sdfv_instance.enable_menu_close();
+        sdfv_instance.close_menu();
+
         this.external_mouse_handler = on_mouse_event;
 
         this.overlay_manager = new OverlayManager(this);
@@ -189,26 +201,46 @@ export class SDFGRenderer {
             this.canvas_manager?.destroy();
             if (this.canvas)
                 this.container.removeChild(this.canvas);
+            if (this.minimap_canvas)
+                this.container.removeChild(this.minimap_canvas);
             if (this.toolbar)
                 this.container.removeChild(this.toolbar);
             if (this.tooltip_container)
                 this.container.removeChild(this.tooltip_container);
+            if (this.interaction_info_box)
+                this.container.removeChild(this.interaction_info_box);
+            if (this.dbg_info_box)
+                this.container.removeChild(this.dbg_info_box);
+            if (this.error_popover_container)
+                this.container.removeChild(this.error_popover_container);
+            if (this.mouse_follow_element)
+                this.container.removeChild(this.mouse_follow_element);
         } catch (ex) {
             // Do nothing
         }
     }
 
     public clearCssPropertyCache(): void {
-        this.cssProps = {};
+        SDFGRenderer.cssProps = {};
     }
 
     public getCssProperty(property_name: string): string {
-        if (this.cssProps[property_name])
-            return this.cssProps[property_name];
+        return SDFGRenderer.getCssProperty(property_name, this.canvas);
+    }
 
-        if (this.canvas) {
-            const prop_val: string = window.getComputedStyle(this.canvas).getPropertyValue(property_name).trim();
-            this.cssProps[property_name] = prop_val;
+    public static getCssProperty(
+        property_name: string, canvas?: HTMLElement | null
+    ): string {
+        if (SDFGRenderer.cssProps[property_name])
+            return SDFGRenderer.cssProps[property_name];
+
+        const elem =
+            canvas ?? document.getElementsByClassName('sdfg_canvas').item(0);
+        if (elem) {
+            const prop_val: string = window.getComputedStyle(
+                elem
+            ).getPropertyValue(property_name).trim();
+            SDFGRenderer.cssProps[property_name] = prop_val;
             return prop_val;
         }
         return '';
@@ -340,11 +372,16 @@ export class SDFGRenderer {
             this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
 
-        this.minimap_canvas = document.createElement('canvas');
-        this.minimap_canvas.id = 'minimap';
-        this.minimap_canvas.classList.add('sdfg_canvas');
-        this.minimap_canvas.style.backgroundColor = 'white';
-        this.container.append(this.minimap_canvas);
+        if (typeof MINIMAP_ENABLED !== 'undefined' &&
+            MINIMAP_ENABLED === false) {
+            this.minimap_canvas = null;
+        } else {
+            this.minimap_canvas = document.createElement('canvas');
+            this.minimap_canvas.id = 'minimap';
+            this.minimap_canvas.classList.add('sdfg_canvas');
+            this.minimap_canvas.style.backgroundColor = 'white';
+            this.container.append(this.minimap_canvas);
+        }
 
         if (this.debug_draw) {
             this.dbg_info_box = document.createElement('div');
@@ -365,9 +402,9 @@ export class SDFGRenderer {
         // canvas.
         this.interaction_info_box = document.createElement('div');
         this.interaction_info_box.style.position = 'absolute';
-        this.interaction_info_box.style.bottom = '.5rem',
-            this.interaction_info_box.style.left = '.5rem',
-            this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        this.interaction_info_box.style.bottom = '.5rem';
+        this.interaction_info_box.style.left = '.5rem';
+        this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
         this.interaction_info_box.style.borderRadius = '5px';
         this.interaction_info_box.style.padding = '.3rem';
         this.interaction_info_box.style.display = 'none';
@@ -726,6 +763,18 @@ export class SDFGRenderer {
         this.filter_btn = d;
         this.toolbar.appendChild(d);
 
+        // Transition to local view with selection
+        d = document.createElement('button');
+        d.id = 'enter-local-view-button';
+        d.className = 'button hidden';
+        d.innerHTML = '<i class="material-icons">memory</i>';
+        d.style.paddingBottom = '0px';
+        d.style.userSelect = 'none';
+        d.onclick = () => this.localViewSelection();
+        d.title = 'Inspect access patterns (local view)';
+        this.localViewBtn = d;
+        this.toolbar.appendChild(d);
+
         // Exit previewing mode
         if (this.in_vscode) {
             const exit_preview_btn = document.createElement('button');
@@ -792,11 +841,10 @@ export class SDFGRenderer {
             return;
         }
 
-        this.minimap_ctx = this.minimap_canvas.getContext('2d');
-        if (!this.minimap_ctx) {
-            console.error('Failed to get minimap canvas context, aborting');
-            return;
-        }
+        if (this.minimap_canvas)
+            this.minimap_ctx = this.minimap_canvas.getContext('2d');
+        else
+            this.minimap_ctx = null;
 
         // Translation/scaling management
         this.canvas_manager = new CanvasManager(this.ctx, this, this.canvas);
@@ -955,10 +1003,13 @@ export class SDFGRenderer {
 
         // Update SDFG metadata
         this.sdfg_tree = {};
-        this.for_all_sdfg_elements((otype: SDFGElementType, odict: any, obj: any) => {
-            if (obj.type === 'NestedSDFG')
-                this.sdfg_tree[obj.attributes.sdfg.sdfg_list_id] = odict.sdfg.sdfg_list_id;
-        });
+        this.for_all_sdfg_elements(
+            (otype: SDFGElementType, odict: any, obj: any) => {
+                if (obj.type === 'NestedSDFG')
+                    this.sdfg_tree[obj.attributes.sdfg.sdfg_list_id] =
+                        odict.sdfg.sdfg_list_id;
+            }
+        );
     }
 
     // Set mouse events (e.g., click, drag, zoom)
@@ -1150,7 +1201,7 @@ export class SDFGRenderer {
     }
 
     public collapse_all(): void {
-        this.for_all_sdfg_elements((otype: SDFGElementType, odict: any, obj: any) => {
+        this.for_all_sdfg_elements((_t: SDFGElementType, _d: any, obj: any) => {
             if ('is_collapsed' in obj.attributes && !obj.type.endsWith('Exit'))
                 obj.attributes.is_collapsed = true;
         });
@@ -1165,8 +1216,9 @@ export class SDFGRenderer {
     }
 
     public expand_all(): void {
-        this.for_all_sdfg_elements((otype: SDFGElementType, odict: any, obj: any) => {
-            if ('is_collapsed' in obj.attributes && !obj.type.endsWith('Exit'))
+        this.for_all_sdfg_elements((_t: SDFGElementType, _d: any, obj: any) => {
+            if ('is_collapsed' in obj.attributes &&
+                !obj.type.endsWith('Exit'))
                 obj.attributes.is_collapsed = false;
         });
 
@@ -1180,7 +1232,7 @@ export class SDFGRenderer {
     }
 
     public reset_positions(): void {
-        this.for_all_sdfg_elements((otype: SDFGElementType, odict: any, obj: any) => {
+        this.for_all_sdfg_elements((_t: SDFGElementType, _d: any, obj: any) => {
             delete_positioning_info(obj);
         });
 
@@ -1211,7 +1263,8 @@ export class SDFGRenderer {
 
     public save_sdfg(): void {
         const name = this.sdfg.attributes.name;
-        const contents = 'data:text/json;charset=utf-8,' + encodeURIComponent(stringify_sdfg(this.sdfg));
+        const contents = 'data:text/json;charset=utf-8,' +
+            encodeURIComponent(stringify_sdfg(this.sdfg));
         this.save(name + '.sdfg', contents);
     }
 
@@ -1551,23 +1604,16 @@ export class SDFGRenderer {
         if (this.sdfg.error && this.graph) {
             const error = this.sdfg.error;
 
-            let type = '';
             let state_id = -1;
             let el_id = -1;
             if (error.isedge_id !== undefined) {
-                type = 'isedge';
                 el_id = error.isedge_id;
             } else if (error.state_id !== undefined) {
                 state_id = error.state_id;
-                if (error.node_id !== undefined) {
-                    type = 'node';
+                if (error.node_id !== undefined)
                     el_id = error.node_id;
-                } else if (error.edge_id !== undefined) {
-                    type = 'edge';
+                else if (error.edge_id !== undefined)
                     el_id = error.edge_id;
-                } else {
-                    type = 'state';
-                }
             } else {
                 return;
             }
@@ -1731,35 +1777,40 @@ export class SDFGRenderer {
                             if (node.data.node.type === 'NestedSDFG')
                                 traverse_recursive(
                                     node.data.graph,
-                                    node.data.node.attributes.sdfg.attributes.name,
+                                    node.data.node.attributes.sdfg.attributes
+                                        .name,
                                     node.data.node.attributes.sdfg.sdfg_list_id
                                 );
                         }
                         // Connectors
-                        node.in_connectors.forEach((c: Connector, i: number) => {
-                            if (c.intersect(x, y, w, h))
-                                func(
-                                    'connectors',
-                                    {
-                                        sdfg: sdfg_name, sdfg_id: sdfg_id,
-                                        state: state_id, node: node_id,
-                                        connector: i, conntype: 'in'
-                                    },
-                                    c
-                                );
-                        });
-                        node.out_connectors.forEach((c: Connector, i: number) => {
-                            if (c.intersect(x, y, w, h))
-                                func(
-                                    'connectors',
-                                    {
-                                        sdfg: sdfg_name, sdfg_id: sdfg_id,
-                                        state: state_id, node: node_id,
-                                        connector: i, conntype: 'out'
-                                    },
-                                    c
-                                );
-                        });
+                        node.in_connectors.forEach(
+                            (c: Connector, i: number) => {
+                                if (c.intersect(x, y, w, h))
+                                    func(
+                                        'connectors',
+                                        {
+                                            sdfg: sdfg_name, sdfg_id: sdfg_id,
+                                            state: state_id, node: node_id,
+                                            connector: i, conntype: 'in'
+                                        },
+                                        c
+                                    );
+                            }
+                        );
+                        node.out_connectors.forEach(
+                            (c: Connector, i: number) => {
+                                if (c.intersect(x, y, w, h))
+                                    func(
+                                        'connectors',
+                                        {
+                                            sdfg: sdfg_name, sdfg_id: sdfg_id,
+                                            state: state_id, node: node_id,
+                                            connector: i, conntype: 'out'
+                                        },
+                                        c
+                                    );
+                            }
+                        );
                     });
 
                     // Selected edges
@@ -2021,17 +2072,22 @@ export class SDFGRenderer {
                 this.draw_async();
             }
         } else if (event.key === 'Delete' && event.type === 'keyup') {
-            // Sort in reversed order, so that deletion in sequence always retains original IDs
+            // Sort in reversed order, so that deletion in sequence always
+            // retains original IDs.
             this.selected_elements.sort((a, b) => (b.id - a.id));
             for (const e of this.selected_elements) {
                 if (e instanceof Connector)
                     continue;
                 else if (e instanceof Edge) {
                     if (e.parent_id == null)
-                        e.sdfg.edges = e.sdfg.edges.filter((_, ind: number) => ind != e.id);
+                        e.sdfg.edges = e.sdfg.edges.filter(
+                            (_, ind: number) => ind != e.id
+                        );
                     else {
                         const state: JsonSDFGState = e.sdfg.nodes[e.parent_id];
-                        state.edges = state.edges.filter((_, ind: number) => ind != e.id);
+                        state.edges = state.edges.filter(
+                            (_, ind: number) => ind != e.id
+                        );
                     }
                 } else if (e instanceof State)
                     delete_sdfg_states(e.sdfg, [e.id]);
@@ -2058,10 +2114,14 @@ export class SDFGRenderer {
         return true;
     }
 
+    // TODO(later): Improve event system using event types (instanceof) instead
+    // of passing string eventtypes.
+    /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
     public on_mouse_event(
         event: any, comp_x_func: CallableFunction,
         comp_y_func: CallableFunction, evtype: string = 'other'
     ): boolean {
+        /* eslint-enable @typescript-eslint/explicit-module-boundary-types */
         if (!this.graph)
             return false;
 
@@ -2210,8 +2270,10 @@ export class SDFGRenderer {
                 this.drag_start = event;
             } else if (event.touches.length == 1) { // Move/drag
                 this.canvas_manager?.translate(
-                    event.touches[0].clientX - this.drag_start.touches[0].clientX,
-                    event.touches[0].clientY - this.drag_start.touches[0].clientY
+                    event.touches[0].clientX -
+                        this.drag_start.touches[0].clientX,
+                    event.touches[0].clientY -
+                        this.drag_start.touches[0].clientY
                 );
                 this.drag_start = event;
 
@@ -2331,7 +2393,9 @@ export class SDFGRenderer {
         // Mark hovered and highlighted elements.
         this.do_for_visible_elements(
             (type: any, e: any, obj: any) => {
-                const intersected = obj.intersect(this.mousepos!.x, this.mousepos!.y, 0, 0);
+                const intersected = obj.intersect(
+                    this.mousepos!.x, this.mousepos!.y, 0, 0
+                );
 
                 // Highlight all edges of the memlet tree
                 if (intersected && obj instanceof Edge &&
@@ -2811,10 +2875,52 @@ export class SDFGRenderer {
     }
 
     public on_selection_changed(): void {
-        if (this.selected_elements.length > 0 && this.filter_btn)
-            this.filter_btn.className = 'button';
-        else if (this.filter_btn)
-            this.filter_btn.className = 'button hidden';
+        if (this.localViewBtn) {
+            if (this.isLocalViewViable())
+                this.localViewBtn.className = 'button';
+            else
+                this.localViewBtn.className = 'button hidden';
+        }
+
+        if (this.filter_btn) {
+            if (this.selected_elements.length > 0)
+                this.filter_btn.className = 'button';
+            else
+                this.filter_btn.className = 'button hidden';
+        }
+    }
+
+    private isLocalViewViable(): boolean {
+        if (this.selected_elements.length > 0) {
+            if (this.selected_elements.length === 1 &&
+                this.selected_elements[0] instanceof State)
+                return true;
+
+            // Multiple elements are selected. The local view is only a viable
+            // option if all selected elements are inside the same state. If a
+            // state is selected alongside other elements, all elements must be
+            // inside that state.
+            let parentStateId = null;
+            for (const elem of this.selected_elements) {
+                if (elem instanceof State) {
+                    if (parentStateId === null)
+                        parentStateId = elem.id;
+                    else if (parentStateId !== elem.id)
+                        return false;
+                } else if (elem instanceof Connector || elem instanceof Edge) {
+                    continue;
+                } else {
+                    if (elem.parent_id === null)
+                        return false;
+                    else if (parentStateId === null)
+                        parentStateId = elem.parent_id;
+                    else if (parentStateId !== elem.parent_id)
+                        return false;
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
     public deselect(): void {
@@ -2825,14 +2931,60 @@ export class SDFGRenderer {
         this.on_selection_changed();
     }
 
+    public exitLocalView(): void {
+        reload_file(this.sdfv_instance);
+    }
+
+    public async localViewSelection(): Promise<void> {
+        if (!this.graph)
+            return;
+
+        // Transition to the local view by first cutting out the selection.
+        try {
+            this.cutout_selection();
+            const lRenderer =
+                new LViewRenderer(this.sdfv_instance, this.container);
+            const lGraph = await LViewParser.parseGraph(this.graph, lRenderer);
+            if (lGraph) {
+                LViewLayouter.layoutGraph(lGraph);
+                lRenderer.graph = lGraph;
+
+                // Set a button to exit the local view again.
+                const exitBtn = document.createElement('button');
+                exitBtn.className = 'button';
+                exitBtn.innerHTML = '<i class="material-icons">close</i>';
+                exitBtn.style.paddingBottom = '0px';
+                exitBtn.style.userSelect = 'none';
+                exitBtn.style.position = 'absolute';
+                exitBtn.style.top = '10px';
+                exitBtn.style.left = '10px';
+                exitBtn.title = 'Exit local view';
+                exitBtn.onclick = () => {
+                    this.exitLocalView();
+                    this.container.removeChild(exitBtn);
+                };
+                this.container.appendChild(exitBtn);
+
+                this.sdfv_instance.setLocalViewRenderer(lRenderer);
+            }
+        } catch (e) {
+            if (e instanceof LViewGraphParseError) {
+                showErrorModal(e.message);
+            } else {
+                throw e;
+            }
+        }
+    }
+
     public cutout_selection(): void {
-        /*
-        Rule set for creating a cutout subgraph:
-          * Edges are selected according to the subgraph nodes - all edges between subgraph nodes are preserved.
-          * In any element that contains other elements (state, nested SDFG, scopes), the full contents are used.
-          * If more than one element is selected from different contexts (two nodes from two states), the parents
-            will be preserved.
-        */
+        /* Rule set for creating a cutout subgraph:
+         * Edges are selected according to the subgraph nodes - all edges
+         * between subgraph nodes are preserved.
+         * In any element that contains other elements (state, nested SDFG,
+         * scopes), the full contents are used.
+         * If more than one element is selected from different contexts (two
+         * nodes from two states), the parents will be preserved.
+         */
         // Collect nodes and states
         const sdfgs: Set<number> = new Set<number>();
         const sdfg_list: { [key: string]: JsonSDFG } = {};
@@ -2847,7 +2999,9 @@ export class SDFGRenderer {
             sdfgs.add(sdfg_id);
             let state_id: number = -1;
             if (elem.parent_id !== null) {
-                const state_uid: string = JSON.stringify([sdfg_id, elem.parent_id]);
+                const state_uid: string = JSON.stringify(
+                    [sdfg_id, elem.parent_id]
+                );
                 if (state_uid in nodes)
                     nodes[state_uid].push(elem.id);
                 else
@@ -2879,14 +3033,16 @@ export class SDFGRenderer {
         if (root_sdfg_id !== null) {
             const root_sdfg = sdfg_list[root_sdfg_id];
 
-            // For every participating state, filter out irrelevant nodes and memlets
+            // For every participating state, filter out irrelevant nodes and
+            // memlets.
             for (const nkey of Object.keys(nodes)) {
                 const [sdfg_id, state_id] = JSON.parse(nkey);
                 const sdfg = sdfg_list[sdfg_id];
                 delete_sdfg_nodes(sdfg, state_id, nodes[nkey], true);
             }
 
-            // For every participating SDFG, filter out irrelevant states and interstate edges
+            // For every participating SDFG, filter out irrelevant states and
+            // interstate edges.
             for (const sdfg_id of Object.keys(states)) {
                 const sdfg = sdfg_list[sdfg_id];
                 delete_sdfg_states(sdfg, states[sdfg_id], true);
@@ -3283,6 +3439,9 @@ function relayout_state(
                 y: topleft.y + SDFV.LINEHEIGHT
             });
         }
+        // Write back layout information
+        node.attributes.layout.x = gnode.x;
+        node.attributes.layout.y = gnode.y;
         // Connector management 
         const SPACING = SDFV.LINEHEIGHT;
         const iconn_length = (SDFV.LINEHEIGHT + SPACING) * Object.keys(

@@ -1,31 +1,29 @@
-// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { parse_sdfg, stringify_sdfg } from './utils/sdfg/json_serializer';
+import $ from 'jquery';
 import { mean, median } from 'mathjs';
-import { SDFGRenderer } from './renderer/renderer';
-import { htmlSanitize } from './utils/sanitization';
-import {
-    Edge,
-    SDFG,
-    SDFGElement,
-    SDFGNode,
-    State,
-    AccessNode,
-    NestedSDFG,
-} from './renderer/renderer_elements';
-import {
-    RuntimeMicroSecondsOverlay
-} from './overlays/runtime_micro_seconds_overlay';
 import {
     DagreSDFG,
     GenericSdfgOverlay,
     JsonSDFG,
     Point2D,
     sdfg_property_to_string,
-    traverse_sdfg_scopes,
+    traverse_sdfg_scopes
 } from './index';
-import $ from 'jquery';
+import { LViewRenderer } from './local_view/lview_renderer';
+import {
+    RuntimeMicroSecondsOverlay
+} from './overlays/runtime_micro_seconds_overlay';
 import { OverlayManager } from './overlay_manager';
+import { SDFGRenderer } from './renderer/renderer';
+import {
+    AccessNode, Edge, NestedSDFG, SDFG,
+    SDFGElement,
+    SDFGNode,
+    State
+} from './renderer/renderer_elements';
+import { htmlSanitize } from './utils/sanitization';
+import { parse_sdfg, stringify_sdfg } from './utils/sdfg/json_serializer';
 
 let fr: FileReader;
 let file: File | null = null;
@@ -49,18 +47,35 @@ export class SDFV {
     public static DEFAULT_MAX_FONTSIZE: number = 50;
     public static DEFAULT_FAR_FONT_MULTIPLIER: number = 16;
 
-    private renderer: SDFGRenderer | null = null;
+    protected renderer: SDFGRenderer | null = null;
+    protected localViewRenderer: LViewRenderer | null = null;
 
     public constructor() {
         return;
     }
 
     public set_renderer(renderer: SDFGRenderer | null): void {
+        if (renderer) {
+            this.localViewRenderer?.destroy();
+            this.localViewRenderer = null;
+        }
         this.renderer = renderer;
+    }
+
+    public setLocalViewRenderer(localViewRenderer: LViewRenderer | null): void {
+        if (localViewRenderer) {
+            this.renderer?.destroy();
+            this.renderer = null;
+        }
+        this.localViewRenderer = localViewRenderer;
     }
 
     public get_renderer(): SDFGRenderer | null {
         return this.renderer;
+    }
+
+    public getLocalViewRenderer(): LViewRenderer | null {
+        return this.localViewRenderer;
     }
 
     public init_menu(): void {
@@ -230,6 +245,8 @@ export class SDFV {
                 case 'layout':
                 case 'sdfg':
                 case '_arrays':
+                case 'orig_sdfg':
+                case 'transformation_hist':
                 case 'position':
                     continue;
                 default:
@@ -283,6 +300,14 @@ export class SDFV {
 
     public start_find_in_graph(): void {
         start_find_in_graph(this);
+    }
+
+    public disable_menu_close(): void {
+        $('#menuclose').hide();
+    }
+
+    public enable_menu_close(): void {
+        $('#menuclose').show();
     }
 
 }
@@ -404,7 +429,7 @@ function start_find_in_graph(sdfv: SDFV): void {
         }, 1);
 }
 
-function reload_file(sdfv: SDFV): void {
+export function reload_file(sdfv: SDFV): void {
     if (!file)
         return;
     fr = new FileReader();
@@ -466,7 +491,8 @@ function get_minmax(arr: number[]): [number, number] {
 }
 
 export function instrumentation_report_read_complete(
-    sdfv: SDFV, report: any, renderer: SDFGRenderer | null = null
+    sdfv: SDFV, report: { traceEvents: any[] },
+    renderer: SDFGRenderer | null = null
 ): void {
     const runtime_map: { [uuids: string]: number[] } = {};
     const summarized_map: { [uuids: string]: { [key: string]: number } } = {};

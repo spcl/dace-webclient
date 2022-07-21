@@ -1,4 +1,4 @@
-// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { SDFV } from '../sdfv';
 import {
@@ -1920,20 +1920,6 @@ export function ptLineDistance(
     const res = dy * p.x - dx * p.y + line2.x * line1.y - line2.y * line1.x;
 
     return Math.abs(res) / Math.sqrt(dy * dy + dx * dx);
-}
-
-/**
- * Get the color on a green-red temperature scale based on a fractional value.
- * @param {Number} val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
- * @returns            HSL color string
- */
-export function getTempColor(val: number): string {
-    if (val < 0)
-        val = 0;
-    if (val > 1)
-        val = 1;
-    const hue = ((1 - val) * 120).toString(10);
-    return 'hsl(' + hue + ',100%,50%)';
 }
 
 export const SDFGElements: { [name: string]: typeof SDFGElement } = {

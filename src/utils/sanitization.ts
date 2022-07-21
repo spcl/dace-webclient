@@ -1,4 +1,4 @@
-// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 export function escapeHTML(s: string): string {
     const escapeCharacters: Map<string, string> = new Map([

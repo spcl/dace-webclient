@@ -1,4 +1,4 @@
-// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Edge, EntryNode, SDFGElement, SDFGNode } from './renderer_elements';
 import { lerpMatrix } from '../utils/lerp_matrix';
@@ -197,12 +197,12 @@ export class CanvasManager {
         this.clearDrawables();
     }
 
-    public addDrawable(obj: any): void {
+    public addDrawable(obj: unknown): void {
         this.drawables.push(obj);
         this.indices.push({ 'c': CanvasManager.counter(), 'd': obj });
     }
 
-    public removeDrawable(drawable: any): void {
+    public removeDrawable(drawable: unknown): void {
         this.drawables = this.drawables.filter(x => x != drawable);
     }
 

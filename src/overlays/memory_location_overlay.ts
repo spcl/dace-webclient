@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { DagreSDFG, Point2D, SimpleRect } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
@@ -11,7 +13,7 @@ import { KELLY_COLORS } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 // Available data storage types in the SDFG.
-enum StorageType {
+export enum StorageType {
     // Scope-default storage location
     Default = 'Default',
     // Local data on registers, stack, or equivalent memory
@@ -137,7 +139,7 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
         this.renderer.draw_async();
     }
 
-    private recursiveFindScopeSchedule(
+    public static recursiveFindScopeSchedule(
         node: any, parentId?: number, sdfg?: any
     ): ScheduleType | undefined {
         let scopeNode;
@@ -169,39 +171,50 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
         return undefined;
     }
 
-    public shadeNode(node: AccessNode, ctx: CanvasRenderingContext2D): void {
+    public static getStorageType(node: AccessNode): {
+        type: StorageType,
+        originalType: StorageType | null,
+    } {
         const sdfgArray = node.sdfg.attributes._arrays[node.attributes().data];
 
         let storageType = sdfgArray?.attributes?.storage;
-        let originalType: string | null = null;
+        let originalType: StorageType | null = null;
         if (storageType) {
             if (storageType === StorageType.Default) {
-                const schedule = this.recursiveFindScopeSchedule(node);
+                const schedule =
+                    MemoryLocationOverlay.recursiveFindScopeSchedule(node);
                 const derivedStorageType = SCOPEDEFAULT_STORAGE.get(schedule);
                 if (derivedStorageType) {
                     originalType = storageType;
                     storageType = derivedStorageType;
                 }
             }
-
-            const mousepos = this.renderer.get_mousepos();
-            if (mousepos && node.intersect(mousepos.x, mousepos.y)) {
-                this.renderer.set_tooltip(() => {
-                    const ttContainer = this.renderer.get_tooltip_container();
-                    if (ttContainer) {
-                        if (originalType)
-                            ttContainer.innerHTML = 'Location: ' +
-                                originalType + ' &rarr; ' + storageType;
-                        else
-                            ttContainer.innerHTML = 'Location: ' + storageType;
-                    }
-                });
-            }
-
-            const color = STYPE_COLOR.get(storageType)?.toString(16);
-            if (color)
-                node.shade(this.renderer, ctx, '#' + color);
         }
+        return {
+            type: storageType,
+            originalType: originalType,
+        };
+    }
+
+    public shadeNode(node: AccessNode, ctx: CanvasRenderingContext2D): void {
+        const storageType = MemoryLocationOverlay.getStorageType(node);
+        const mousepos = this.renderer.get_mousepos();
+        if (mousepos && node.intersect(mousepos.x, mousepos.y)) {
+            this.renderer.set_tooltip(() => {
+                const ttContainer = this.renderer.get_tooltip_container();
+                if (ttContainer) {
+                    if (storageType.originalType)
+                        ttContainer.innerHTML = 'Location: ' +
+                            storageType.originalType + ' &rarr; ' + storageType;
+                    else
+                        ttContainer.innerHTML = 'Location: ' + storageType;
+                }
+            });
+        }
+
+        const color = STYPE_COLOR.get(storageType.type)?.toString(16);
+        if (color)
+            node.shade(this.renderer, ctx, '#' + color);
     }
 
     public recursivelyShadeSdfg(

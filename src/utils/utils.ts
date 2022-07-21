@@ -1,4 +1,4 @@
-// Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
     MapExit,
@@ -8,6 +8,9 @@ import {
     State
 } from '../renderer/renderer_elements';
 import { Point2D } from '..';
+import { rgb2hex } from '@pixi/utils';
+
+declare const SDFGRenderer: any;
 
 // From: https://eleanormaclure.files.wordpress.com/2011/03/colour-coding.pdf,
 // Via: https://stackoverflow.com/a/4382138/3547036
@@ -178,4 +181,92 @@ export function get_element_uuid(element: SDFGElement): string {
         undefined_val + '/' +
         undefined_val
     );
+}
+
+export function hsl2rgb(h: number, s: number, l: number): number[] {
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number, k = (n + h / 30) % 12): number => {
+        return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    };
+    return [f(0), f(8), f(4)];
+}
+
+function tempColor(badness: number): [number, number, number] {
+    if (Number.isNaN(badness))
+        badness = 0;
+
+    if (badness < 0)
+        badness = 0;
+    else if (badness > 1)
+        badness = 1;
+
+    // The hue of the green-red spectrum must lie between 0 and 120, so we map
+    // the 'badness' to that interval (inverted, since green=120 hue and 
+    // red=0 hue).
+    const maxHue = 120;
+    let saturation = 1.0;
+    let lightness = 0.75;
+    try {
+        saturation = parseFloat(
+            SDFGRenderer.getCssProperty('--overlay-color-saturation')
+        );
+        lightness = parseFloat(
+            SDFGRenderer.getCssProperty('--overlay-color-lightness')
+        );
+    } catch (_ignored) {
+        // Ignored.
+    }
+    return [(1 - badness) * maxHue, saturation, lightness];
+}
+
+/**
+ * Get the color on a green-red temperature scale based on a fractional value.
+ * @param {Number} val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
+ * @returns            HSL color string
+ */
+export function getTempColorHslString(badness: number): string {
+    const col = tempColor(badness);
+    return 'hsl(' + col[0] + ',' + (col[1] * 100) + '%,' + (col[2] * 100) +
+        '%)';
+}
+
+/**
+ * Get the color on a green-red temperature scale based on a fractional value.
+ * @param {Number} val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
+ * @returns            Hex color number
+ */
+export function getTempColorHEX(badness: number): number {
+    return rgb2hex(hsl2rgb(...tempColor(badness)));
+}
+
+export function showErrorModal(message: string, title: string = 'Error'): void {
+    const errModalBg = $('<div>', {
+        class: 'sdfv_modal_background',
+    }).appendTo(document.body);
+    const modal = $('<div>', {
+        class: 'sdfv_modal',
+    }).appendTo(errModalBg);
+    const header = $('<div>', {
+        class: 'sdfv_modal_title_bar',
+    }).appendTo(modal);
+    $('<span>', {
+        class: 'sdfv_modal_title',
+        text: title,
+    }).appendTo(header);
+    $('<div>', {
+        class: 'modal_close',
+        html: '<i class="material-icons">close</i>',
+        click: () => errModalBg.remove(),
+    }).appendTo(header);
+
+    const contentBox = $('<div>', {
+        class: 'sdfv_modal_content_box',
+    }).appendTo(modal);
+    const content = $('<div>', {
+        class: 'sdfv_modal_content',
+    }).appendTo(contentBox);
+    $('<span>', {
+        text: message,
+    }).appendTo(content);
+    errModalBg.show();
 }

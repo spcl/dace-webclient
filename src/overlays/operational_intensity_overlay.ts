@@ -1,12 +1,15 @@
+// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
-    Edge, getTempColor, NestedSDFG,
+    Edge,
+    NestedSDFG,
     SDFGElement,
     SDFGNode
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { get_element_uuid } from '../utils/utils';
+import { getTempColorHslString, get_element_uuid } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 // Some global functions and variables which are only accessible within VSCode:
@@ -227,7 +230,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
             return;
 
         // Calculate the severity color.
-        const color = getTempColor(this.get_severity_value(opint));
+        const color = getTempColorHslString(this.get_severity_value(opint));
 
         node.shade(this.renderer, ctx, color);
     }
