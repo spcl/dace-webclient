@@ -32,7 +32,6 @@ export class DataContainer {
     constructor(
         public readonly name: string,
         public readonly dim: DataDimension[],
-        public readonly inverse: boolean = false,
         public readonly elementSize: number = 1,
         public readonly startOffset: number = 0,
         public readonly alignment: number = 0,
@@ -44,31 +43,17 @@ export class DataContainer {
         } else {
             const squaredDims = this.dim.slice();
             if (squaredDims.length > 1) {
-                if (inverse) {
-                    for (let i = 1; i < squaredDims.length; i++)
-                        squaredDims[i] = new DataDimension(
-                            '(' + squaredDims[i].name + ')*(' +
-                            squaredDims[i - 1].name + ')',
-                            squaredDims[i].value * squaredDims[i - 1].value
-                        );
-                } else {
-                    for (let i = squaredDims.length - 2; i >= 0; i--)
-                        squaredDims[i] = new DataDimension(
-                            '(' + squaredDims[i].name + ')*(' +
-                            squaredDims[i + 1].name + ')',
-                            squaredDims[i].value * squaredDims[i + 1].value
-                        );
-                }
+                for (let i = squaredDims.length - 2; i >= 0; i--)
+                    squaredDims[i] = new DataDimension(
+                        '(' + squaredDims[i].name + ')*(' +
+                        squaredDims[i + 1].name + ')',
+                        squaredDims[i].value * squaredDims[i + 1].value
+                    );
             }
 
             if (squaredDims.length > 1) {
-                if (inverse)
-                    squaredDims.reverse();
                 this.strides = squaredDims.slice(1);
-                if (inverse)
-                    this.strides.unshift(new DataDimension('1', 1));
-                else
-                    this.strides.push(new DataDimension('1', 1));
+                this.strides.push(new DataDimension('1', 1));
             } else {
                 this.strides = [
                     new DataDimension('1', 1),

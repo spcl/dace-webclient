@@ -732,32 +732,17 @@ export class MemoryNode extends Node {
                     continue;
 
                 for (let j = 0; j < this.dataContainer.strides.length; j++) {
-                    const stride = this.dataContainer.inverse ?
-                        this.dataContainer.strides[
-                            this.dataContainer.strides.length - (j + 1)
-                        ] : this.dataContainer.strides[j];
+                    const stride = this.dataContainer.strides[j];
                     const dimIdx = Math.floor(remIdx / stride.value);
                     
                     remIdx = remIdx % stride.value;
                     
-                    if (!this.dataContainer.inverse &&
-                        dimIdx >= this.dataContainer.dim[j].value) {
+                    if (dimIdx >= this.dataContainer.dim[j].value) {
                         invalid = true;
                         break;
                     }
 
-                    if (this.dataContainer.inverse &&
-                        dimIdx >= this.dataContainer.dim[
-                            this.dataContainer.dim.length - (j + 1)
-                        ].value) {
-                        invalid = true;
-                        break;
-                    }
-
-                    if (this.dataContainer.inverse)
-                        reconstructedIdx.unshift(dimIdx);
-                    else
-                        reconstructedIdx.push(dimIdx);
+                    reconstructedIdx.push(dimIdx);
                 }
                 
                 if (!invalid) {

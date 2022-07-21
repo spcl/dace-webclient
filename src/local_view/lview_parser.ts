@@ -155,7 +155,6 @@ export class LViewParser {
                 container = new DataContainer(
                     name,
                     dimensions,
-                    false, // TODO
                     8, // TODO
                     sdfgContainer.attributes.start_offset,
                     sdfgContainer.attributes.alignment,
