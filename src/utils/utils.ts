@@ -238,3 +238,35 @@ export function getTempColorHslString(badness: number): string {
 export function getTempColorHEX(badness: number): number {
     return rgb2hex(hsl2rgb(...tempColor(badness)));
 }
+
+export function showErrorModal(message: string, title: string = 'Error'): void {
+    const errModalBg = $('<div>', {
+        class: 'sdfv_modal_background',
+    }).appendTo(document.body);
+    const modal = $('<div>', {
+        class: 'sdfv_modal',
+    }).appendTo(errModalBg);
+    const header = $('<div>', {
+        class: 'sdfv_modal_title_bar',
+    }).appendTo(modal);
+    $('<span>', {
+        class: 'sdfv_modal_title',
+        text: title,
+    }).appendTo(header);
+    $('<div>', {
+        class: 'modal_close',
+        html: '<i class="material-icons">close</i>',
+        click: () => errModalBg.remove(),
+    }).appendTo(header);
+
+    const contentBox = $('<div>', {
+        class: 'sdfv_modal_content_box',
+    }).appendTo(modal);
+    const content = $('<div>', {
+        class: 'sdfv_modal_content',
+    }).appendTo(contentBox);
+    $('<span>', {
+        text: message,
+    }).appendTo(content);
+    errModalBg.show();
+}

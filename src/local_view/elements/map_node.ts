@@ -6,6 +6,7 @@ import { evaluate as mathEvaluate } from 'mathjs';
 import { Text } from 'pixi.js';
 import { SDFGRenderer } from '../../renderer/renderer';
 import { AccessStack } from '../../utils/collections';
+import { showErrorModal } from '../../utils/utils';
 import { Graph } from '../graph/graph';
 import { Button } from '../gui/button';
 import { Slider } from '../gui/slider';
@@ -685,8 +686,18 @@ export class MapNode extends Node {
                     vals.push(i);
                 rangeValuesMap.push([range.itvar, vals]);
             } else {
-                // TODO: Handle the case where at least one of the ranges canot
-                // be evaluated.
+                let errMsg = `Failed to get accesses for the scope: {`;
+                let sep = '';
+                for (const [k, v] of scope) {
+                    errMsg += sep + k + ': ' + v.toString();
+                    sep = ', ';
+                }
+                errMsg + '}. The access range [' +
+                    range.start.toString() + ':' +
+                    range.end.toString() + ':' +
+                    range.step.toString() + '] cannot be evaluated under ' +
+                    'the given scope.';
+                showErrorModal(errMsg);
             }
         }
 

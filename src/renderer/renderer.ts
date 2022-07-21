@@ -36,7 +36,7 @@ import {
     memlet_tree_complete,
     traverse_sdfg_scopes,
 } from '../utils/sdfg/traversal';
-import { deepCopy, intersectRect } from '../utils/utils';
+import { deepCopy, intersectRect, showErrorModal } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
 import {
     AccessNode, Connector, draw_sdfg, Edge, EntryNode, NestedSDFG, offset_sdfg,
@@ -2969,37 +2969,7 @@ export class SDFGRenderer {
             }
         } catch (e) {
             if (e instanceof LViewGraphParseError) {
-                const errModalBg = $('<div>', {
-                    class: 'sdfv_modal_background',
-                }).appendTo(document.body);
-                const modal = $('<div>', {
-                    class: 'sdfv_modal',
-                }).appendTo(errModalBg);
-                const header = $('<div>', {
-                    class: 'sdfv_modal_title_bar',
-                }).appendTo(modal);
-                $('<span>', {
-                    class: 'sdfv_modal_title',
-                    text: 'Error',
-                }).appendTo(header);
-                $('<div>', {
-                    class: 'modal_close',
-                    html: '<i class="material-icons">close</i>',
-                    click: () => {
-                        errModalBg.remove();
-                    },
-                }).appendTo(header);
-
-                const contentBox = $('<div>', {
-                    class: 'sdfv_modal_content_box',
-                }).appendTo(modal);
-                const content = $('<div>', {
-                    class: 'sdfv_modal_content',
-                }).appendTo(contentBox);
-                $('<span>', {
-                    text: e.message,
-                }).appendTo(content);
-                errModalBg.show();
+                showErrorModal(e.message);
             } else {
                 throw e;
             }
