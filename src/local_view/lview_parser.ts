@@ -12,6 +12,7 @@ import {
     State,
     Tasklet,
 } from '../renderer/renderer_elements';
+import { sdfg_property_to_string, sdfg_range_elem_to_string } from '../utils/sdfg/display';
 import {
     AccessMode,
     DataContainer,
@@ -215,11 +216,6 @@ export class LViewParser {
                     index: accessIdx,
                 };
             } else {
-                // TODO: How should we handle this? We can't necessarily
-                // derive the exact access order for this type of
-                // access if there is no exact subset. Typically this
-                // will be a range and we could only give an upper
-                // bound.
                 throw new LViewGraphParseError(
                     'This subgraph cannot be statically analyzed for data ' +
                     'access patterns due to data dependent executions.'
@@ -279,16 +275,9 @@ export class LViewParser {
 
         if (src?.attributes().lview_node && dst?.attributes().lview_node &&
             edge) {
-            let text = edge.attributes().data;
-            let sep = '[';
-            for (const rng of edge.attributes().subset.ranges) {
-                text += sep +
-                    (rng.start != rng.end ?
-                        rng.start + ':' + rng.end : rng.start) +
-                    (rng.step != '1' ? ':' + rng.step : '');
-                sep = ',';
-            }
-            text += ']';
+            const text = edge.attributes().data + sdfg_property_to_string(
+                edge.attributes().subset
+            );
             const elem = new MemoryMovementEdge(
                 text, graph, edge.points,
                 src.attributes().lview_node,

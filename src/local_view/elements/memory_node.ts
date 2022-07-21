@@ -436,7 +436,7 @@ class MemoryTile extends Graphics {
 
             this.lineStyle(DEFAULT_LINE_STYLE);
         } else if (this.memoryNode.reuseDistanceOverlayActive) {
-            
+            // TODO: Improve using OOP.
             if (this.stackDistancesFlattened.length > 0) {
                 let v;
                 let keys;

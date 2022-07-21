@@ -347,6 +347,7 @@ pre.code code {
   --local-view-edge-width: 1;
   --local-view-edge-arrowhead-length: 16;
   --local-view-edge-fontsize: 20;
+  --local-view-edge-show-label: false;
   --local-view-edge-overlay-width: 10;
   --local-view-edge-overlay-arrowhead-length: 30;
   --local-view-edge-overlay-fontsize: 20;

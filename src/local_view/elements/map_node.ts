@@ -9,6 +9,7 @@ import { AccessStack } from '../../utils/collections';
 import { Graph } from '../graph/graph';
 import { Button } from '../gui/button';
 import { Slider } from '../gui/slider';
+import { LViewGraphParseError } from '../lview_parser';
 import { LViewRenderer } from '../lview_renderer';
 import { AccessMap, ConcreteDataAccess, DataContainer } from './data_container';
 import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from './element';
@@ -43,7 +44,6 @@ export class MapNode extends Node {
     private playbackInterval: NodeJS.Timeout | null = null;
     private playbackPlaying: boolean = false;
 
-    // TODO: Don't cache this.
     private extScope: Map<string, number> = new Map();
 
     private headerHeight: number = 80;
@@ -284,8 +284,6 @@ export class MapNode extends Node {
     }
 
     private onSlidersUpdated(): void {
-        // TODO: We shouldn't save / cache extScope, but get it from the parent
-        //  instead to make sure it's up-to-date.
         const scope = new Map<string, number>([...this.extScope.entries()]);
 
         for (let i = 0; i < this.ranges.length; i++) {
@@ -321,8 +319,13 @@ export class MapNode extends Node {
             typeof(nRange.step) === 'string')
             return;
 
-        // TODO: Allow inverse traversal (negative step) -> adapt end cond..
-        for (let i = nRange.start; i <= nRange.end; i += nRange.step) {
+        if (nRange.step === 0)
+            throw new LViewGraphParseError(
+                'This graph cannot be simulated due to a map step of 0'
+            );
+        const cond = nRange.step > 0 ?
+            (i: number) => i <= nRange.end : (i: number) => i >= nRange.end;
+        for (let i = nRange.start; cond(i); i += nRange.step) {
             if (newNRanges.length > 0) {
                 this.recursiveSimulate(
                     new Map([...scope.entries(), [nRange.itvar, i]]),
@@ -612,7 +615,6 @@ export class MapNode extends Node {
         const idxMap = new AccessMap<(number | undefined)[]>();
 
         if (updateParameters) {
-            // TODO: should we clear here? Maybe other times is better.
             this.extScope.clear();
 
             for (const scopeVal of scope) {

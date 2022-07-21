@@ -33,7 +33,7 @@ export class MemoryMovementEdge extends Edge {
         src.outEdges.push(this);
         dst.inEdges.push(this);
 
-        this.gfxText = new Text(this.text ? this.text : '', DEFAULT_TEXT_STYLE);
+        this.gfxText = new Text(this.text ?? '', DEFAULT_TEXT_STYLE);
         this.gfxText.renderable = false;
         this.addChild(this.gfxText);
     }
@@ -180,7 +180,9 @@ export class MemoryMovementEdge extends Edge {
             }
             text = vol.toString() + ' ' + unitString;
         } else {
-            text = '';
+            text = SDFGRenderer.getCssProperty(
+                '--local-view-edge-show-label'
+            ).toLowerCase() === 'true' ? this.text : '';
 
             try {
                 lineWidth = parseInt(SDFGRenderer.getCssProperty(
