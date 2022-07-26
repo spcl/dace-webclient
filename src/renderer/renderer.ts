@@ -644,15 +644,11 @@ export class SDFGRenderer {
                     };
                 } else {
                     add_btn.onclick = () => {
-                        if (!this.dace_daemon_connected) {
-                            this.emit_event('warn_no_daemon', null);
-                        } else {
-                            this.mouse_mode = 'add';
-                            this.add_type = add_btn.getAttribute('type');
-                            this.add_mode_lib = null;
-                            this.add_edge_start = null;
-                            this.update_toggle_buttons();
-                        }
+                        this.mouse_mode = 'add';
+                        this.add_type = add_btn.getAttribute('type');
+                        this.add_mode_lib = null;
+                        this.add_edge_start = null;
+                        this.update_toggle_buttons();
                     };
                 }
             }
