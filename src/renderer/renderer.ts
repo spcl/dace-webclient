@@ -148,6 +148,7 @@ export class SDFGRenderer {
     protected shift_key_movement: boolean = false;
     protected add_position: Point2D | null = null;
     protected add_edge_start: any = null;
+    protected add_edge_start_conn: Connector | null = null;
 
     // Information window fields.
     protected error_popover_container: HTMLElement | null = null;
@@ -638,6 +639,7 @@ export class SDFGRenderer {
                             this.mouse_mode = 'add';
                             this.add_type = SDFGElementType.LibraryNode;
                             this.add_edge_start = null;
+                            this.add_edge_start_conn = null;
                             this.update_toggle_buttons();
                         };
                         this.emit_event(
@@ -654,6 +656,7 @@ export class SDFGRenderer {
                             <SDFGElementType> add_btn.getAttribute('type');
                         this.add_mode_lib = null;
                         this.add_edge_start = null;
+                        this.add_edge_start_conn = null;
                         this.update_toggle_buttons();
                     };
                 }
@@ -703,6 +706,7 @@ export class SDFGRenderer {
                 this.add_type = null;
                 this.add_mode_lib = null;
                 this.add_edge_start = null;
+                this.add_edge_start_conn = null;
                 this.update_toggle_buttons();
             };
 
@@ -720,6 +724,7 @@ export class SDFGRenderer {
                 this.add_type = null;
                 this.add_mode_lib = null;
                 this.add_edge_start = null;
+                this.add_edge_start_conn = null;
                 this.shift_key_movement = (
                     shift_click === undefined ? false : shift_click
                 );
@@ -741,6 +746,7 @@ export class SDFGRenderer {
                 this.add_type = null;
                 this.add_mode_lib = null;
                 this.add_edge_start = null;
+                this.add_edge_start_conn = null;
                 this.ctrl_key_selection = (
                     ctrl_click === undefined ? false : ctrl_click
                 );
@@ -2020,6 +2026,7 @@ export class SDFGRenderer {
             clicked_edges.length + clicked_interstate_edges.length +
             clicked_connectors.length;
         let foreground_elem = null, foreground_surface = -1;
+        let foreground_connector = null;
 
         // Find the top-most element under the mouse cursor (i.e. the one with
         // the smallest dimensions).
@@ -2039,10 +2046,19 @@ export class SDFGRenderer {
             }
         }
 
+        for (const c of clicked_connectors) {
+            const s = c.obj.width * c.obj.height;
+            if (foreground_surface < 0 || s < foreground_surface) {
+                foreground_surface = s;
+                foreground_connector = c.obj;
+            }
+        }
+
         return {
             total_elements,
             elements,
             foreground_elem,
+            foreground_connector,
         };
     }
 
@@ -2347,6 +2363,7 @@ export class SDFGRenderer {
         const elements = elements_under_cursor.elements;
         const total_elements = elements_under_cursor.total_elements;
         const foreground_elem = elements_under_cursor.foreground_elem;
+        const foreground_connector = elements_under_cursor.foreground_connector;
 
         if (this.mouse_mode == 'add') {
             const el = this.mouse_follow_element;
@@ -2463,9 +2480,11 @@ export class SDFGRenderer {
 
         // If adding an edge, mark/highlight the first/from element, if it has
         // already been selected.
-        if (this.mouse_mode === 'add' && this.add_type === 'Edge' &&
-            this.add_edge_start) {
-            this.add_edge_start.highlighted = true;
+        if (this.mouse_mode === 'add' && this.add_type === 'Edge') {
+            if (this.add_edge_start)
+                this.add_edge_start.highlighted = true;
+            if (this.add_edge_start_conn)
+                this.add_edge_start_conn.highlighted = true;
         }
 
         if (evtype === 'mousemove') {
@@ -2580,10 +2599,17 @@ export class SDFGRenderer {
                                         ),
                                         lib: null,
                                         edgeA: get_uuid_graph_element(start),
+                                        edgeAConn: this.add_edge_start_conn ?
+                                            this.add_edge_start_conn.data.name :
+                                            null,
+                                        conn: foreground_connector ?
+                                            foreground_connector.data.name :
+                                            null,
                                     }
                                 );
                             } else {
                                 this.add_edge_start = foreground_elem;
+                                this.add_edge_start_conn = foreground_connector;
                                 this.update_toggle_buttons();
                             }
                         } else if (this.add_type ===
