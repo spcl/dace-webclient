@@ -56,13 +56,18 @@ type SDFGElementGroup = 'states' | 'nodes' | 'edges' | 'isedges';
 // If type is explicitly set, dagre typecheck fails with integer node ids
 export type SDFGListType = any[];//{ [key: number]: DagreSDFG };
 
+export enum SDFGRendererEvent {
+    ADD_ELEMENT = 'ADD_ELEMENT',
+    QUERY_LIBNODE = 'QUERY_LIBNODE',
+}
+
 function check_valid_add_position(
     type: SDFGElementType | null,
     foreground_elem: SDFGElement | undefined | null, lib: any, _mousepos: any
 ): boolean {
     if (type !== null) {
         switch (type) {
-            case SDFGElementType.NestedSDFG:
+            case SDFGElementType.SDFGState:
                 return (foreground_elem instanceof NestedSDFG ||
                     foreground_elem === null);
             case SDFGElementType.Edge:
@@ -636,7 +641,7 @@ export class SDFGRenderer {
                             this.update_toggle_buttons();
                         };
                         this.emit_event(
-                            'libnode_select',
+                            SDFGRendererEvent.QUERY_LIBNODE,
                             {
                                 callback: libnode_callback,
                             }
@@ -872,14 +877,14 @@ export class SDFGRenderer {
             this.zoom_to_view();
 
         const svgs: { [key: string]: string } = {};
-        svgs['Map'] =
+        svgs['MapEntry'] =
             `<svg width="8rem" height="2rem" viewBox="0 0 800 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <line x1="10" x2="190" y1="190" y2="10"/>
                 <line x1="190" x2="600" y1="10" y2="10"/>
                 <line x1="600" x2="790" y1="10" y2="190"/>
                 <line x1="790" x2="10" y1="190" y2="190"/>
             </svg>`;
-        svgs['Consume'] =
+        svgs['ConsumeEntry'] =
             `<svg width="8rem" height="2rem" viewBox="0 0 800 200" stroke="black" stroke-width="10" stroke-dasharray="60,25" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <line x1="10"x2="190" y1="190" y2="10"/>
                 <line x1="190" x2="600" y1="10" y2="10"/>
@@ -2567,12 +2572,13 @@ export class SDFGRenderer {
                                 const start = this.add_edge_start;
                                 this.add_edge_start = undefined;
                                 this.emit_event(
-                                    'add_graph_node',
+                                    SDFGRendererEvent.ADD_ELEMENT,
                                     {
                                         type: this.add_type,
                                         parent: get_uuid_graph_element(
                                             foreground_elem
                                         ),
+                                        lib: null,
                                         edgeA: get_uuid_graph_element(start),
                                     }
                                 );
@@ -2584,32 +2590,35 @@ export class SDFGRenderer {
                             SDFGElementType.LibraryNode) {
                             this.add_position = this.mousepos;
                             this.emit_event(
-                                'add_graph_node',
+                                SDFGRendererEvent.ADD_ELEMENT,
                                 {
-                                    type:
-                                        this.add_type + '|' + this.add_mode_lib,
+                                    type: this.add_type,
                                     parent: get_uuid_graph_element(
                                         foreground_elem
                                     ),
+                                    lib: this.add_mode_lib,
                                     edgeA: null,
                                 }
                             );
                         } else {
                             this.add_position = this.mousepos;
                             this.emit_event(
-                                'add_graph_node',
+                                SDFGRendererEvent.ADD_ELEMENT,
                                 {
                                     type: this.add_type ? this.add_type : '',
                                     parent: get_uuid_graph_element(
                                         foreground_elem
                                     ),
+                                    lib: null,
                                     edgeA: null,
                                 }
                             );
                         }
 
-                        if (!event.ctrlKey && !(this.add_type === 'Edge' &&
-                            this.add_edge_start)) {
+                        if (!event.ctrlKey && !(
+                                this.add_type === SDFGElementType.Edge &&
+                                this.add_edge_start
+                            )) {
                             // Cancel add mode.
                             if (this.panmode_btn?.onclick)
                                 this.panmode_btn.onclick(event);
