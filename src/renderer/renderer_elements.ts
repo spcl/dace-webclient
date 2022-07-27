@@ -18,6 +18,23 @@ import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
 import { SDFGRenderer } from './renderer';
 
+export enum SDFGElementType {
+    Edge = 'Edge',
+    MultiConnectorEdge = 'MultiConnectorEdge',
+    SDFGState = 'SDFGState',
+    AccessNode = 'AccessNode',
+    Tasklet = 'Tasklet',
+    LibraryNode = 'LibraryNode',
+    NestedSDFG = 'NestedSDFG',
+    MapEntry = 'MapEntry',
+    MapExit = 'MapExit',
+    ConsumeEntry = 'ConsumeEntry',
+    ConsumeExit = 'ConsumeExit',
+    PipelineEntry = 'PipelineEntry',
+    PipelineExit = 'PipelineExit',
+    Reduce = 'Reduce',
+}
+
 export class SDFGElement {
 
     public in_connectors: Connector[] = [];
@@ -1676,7 +1693,7 @@ export function offset_state(
             c.y += offset.y;
         });
 
-        if (node.data.node.type === 'NestedSDFG')
+        if (node.data.node.type === SDFGElementType.NestedSDFG)
             offset_sdfg(
                 node.data.node.attributes.sdfg, node.data.graph, offset
             );
