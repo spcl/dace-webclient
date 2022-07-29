@@ -7,6 +7,7 @@ import {
     Edge,
     EntryNode,
     ExitNode,
+    SDFGElementType,
     SDFGNode,
 } from '../../renderer/renderer_elements';
 import {
@@ -230,54 +231,61 @@ export function memlet_tree_nested(
     function src(e: JsonSDFGEdge): JsonSDFGNode {
         return state.nodes[parseInt(e.src)];
     }
+
     function dst(e: JsonSDFGEdge): JsonSDFGNode {
         return state.nodes[parseInt(e.dst)];
     }
+
     function isview(node: JsonSDFGNode) {
-        if (node.type == 'AccessNode') {
+        if (node.type === SDFGElementType.AccessNode) {
             const nodedesc = sdfg.attributes._arrays[node.attributes.data];
             return (nodedesc && nodedesc.type === 'View');
         }
         return false;
     }
 
-    // Determine direction
-    let propagate_forward = false, propagate_backward = false;
+    // Determine propagation direction.
+    let propagate_forward = false;
+    let propagate_backward = false;
     if ((edge.src_connector && src(edge).type.endsWith('Entry')) ||
         (edge.dst_connector && dst(edge).type.endsWith('Entry') &&
             edge.dst_connector.startsWith('IN_')) ||
-        dst(edge).type == 'NestedSDFG' ||
+        dst(edge).type === SDFGElementType.NestedSDFG ||
         isview(dst(edge)))
         propagate_forward = true;
     if ((edge.src_connector && src(edge).type.endsWith('Exit')) ||
         (edge.dst_connector && dst(edge).type.endsWith('Exit')) ||
-        src(edge).type == 'NestedSDFG' ||
+        src(edge).type === SDFGElementType.NestedSDFG ||
         isview(src(edge)))
         propagate_backward = true;
 
     result.push(edge);
 
-    // If either both are false (no scopes involved), we 
-    // return only the current edge as a degenerate tree
-    if (propagate_forward == propagate_backward && propagate_backward === false)
+    // If no scope is involved we return only the edge as a degenerate tree.
+    if (!propagate_forward && !propagate_backward)
         return result;
 
-    // Descend recursively
+    // Descend recursively.
+    const added_children = new Set<JsonSDFGEdge>();
     function add_children(edge: JsonSDFGEdge) {
+        if (added_children.has(edge))
+            return;
+        added_children.add(edge);
+
         const children: JsonSDFGEdge[] = [];
 
         if (propagate_forward) {
             const next_node = dst(edge);
 
-            // Descend into nested SDFG
-            if (next_node.type == 'NestedSDFG') {
+            // Descend into nested SDFG.
+            if (next_node.type === SDFGElementType.NestedSDFG) {
                 const name = edge.dst_connector;
                 const nested_sdfg = next_node.attributes.sdfg;
 
                 nested_sdfg.nodes.forEach((nstate: any) => {
                     nstate.edges.forEach((e: any) => {
                         const node = nstate.nodes[e.src];
-                        if (node.type == 'AccessNode' &&
+                        if (node.type === SDFGElementType.AccessNode &&
                             node.attributes.data === name) {
                             result = result.concat(
                                 memlet_tree_nested(
@@ -291,45 +299,43 @@ export function memlet_tree_nested(
 
             if (isview(next_node)) {
                 state.edges.forEach((e: JsonSDFGEdge) => {
-                    if (parseInt(e.src) == next_node.id) {
+                    if (parseInt(e.src) === next_node.id) {
                         children.push(e);
-                        if (!e.attributes.data.attributes.shortcut) {
+                        if (!e.attributes.data.attributes.shortcut)
                             result.push(e);
-                        }
                     }
                 });
             } else {
-                if (!(next_node.type.endsWith('Entry')) ||
-                    !edge.dst_connector ||
-                    !edge.dst_connector.startsWith('IN_'))
+                if (!next_node.type.endsWith('Entry') ||
+                    !edge.dst_connector?.startsWith('IN_'))
                     return;
                 if (next_node.attributes.is_collapsed)
                     return;
                 const conn = edge.dst_connector.substring(3);
                 state.edges.forEach((e: JsonSDFGEdge) => {
-                    if (parseInt(e.src) == next_node.id &&
-                        e.src_connector == 'OUT_' + conn) {
+                    if (parseInt(e.src) === next_node.id &&
+                        e.src_connector === 'OUT_' + conn) {
                         children.push(e);
-                        if (!e.attributes.data.attributes.shortcut) {
+                        if (!e.attributes.data.attributes.shortcut)
                             result.push(e);
-                        }
                     }
                 });
             }
         }
+
         if (propagate_backward) {
             const next_node = src(edge);
 
-            // Descend into nested SDFG
-            if (next_node.type == 'NestedSDFG') {
+            // Descend into nested SDFG.
+            if (next_node.type === SDFGElementType.NestedSDFG) {
                 const name = edge.src_connector;
                 const nested_sdfg = next_node.attributes.sdfg;
 
                 nested_sdfg.nodes.forEach((nstate: JsonSDFGState) => {
                     nstate.edges.forEach((e: JsonSDFGEdge) => {
                         const node = nstate.nodes[parseInt(e.dst)];
-                        if (node.type == 'AccessNode' &&
-                            node.attributes.data == name) {
+                        if (node.type === SDFGElementType.AccessNode &&
+                            node.attributes.data === name) {
                             result = result.concat(
                                 memlet_tree_nested(
                                     nested_sdfg, nstate, e, visited_edges
@@ -342,7 +348,7 @@ export function memlet_tree_nested(
 
             if (isview(next_node)) {
                 state.edges.forEach((e: JsonSDFGEdge) => {
-                    if (parseInt(e.dst) == next_node.id) {
+                    if (parseInt(e.dst) === next_node.id) {
                         children.push(e);
                         result.push(e);
                     }
@@ -353,8 +359,8 @@ export function memlet_tree_nested(
 
                 const conn = edge.src_connector.substring(4);
                 state.edges.forEach((e: JsonSDFGEdge) => {
-                    if (parseInt(e.dst) == next_node.id &&
-                        e.dst_connector == 'IN_' + conn) {
+                    if (parseInt(e.dst) === next_node.id &&
+                        e.dst_connector === 'IN_' + conn) {
                         children.push(e);
                         result.push(e);
                     }
@@ -366,7 +372,7 @@ export function memlet_tree_nested(
             add_children(child);
     }
 
-    // Start from current edge
+    // Descend starting from the current edge.
     add_children(edge);
 
     return result;
@@ -391,7 +397,7 @@ export function memlet_tree_recursive(root_sdfg: JsonSDFG): any[] {
         });
 
         state.nodes.forEach((n: JsonSDFGNode) => {
-            if (n.type == 'NestedSDFG') {
+            if (n.type == SDFGElementType.NestedSDFG) {
                 const t = memlet_tree_recursive(n.attributes.sdfg);
                 trees = trees.concat(t);
             }

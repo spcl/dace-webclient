@@ -1,6 +1,6 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { Edge, EntryNode, SDFGElement, SDFGNode } from './renderer_elements';
+import { Edge, EntryNode, SDFGElement, SDFGElementType, SDFGNode } from './renderer_elements';
 import { lerpMatrix } from '../utils/lerp_matrix';
 import { updateEdgeBoundingBox } from '../utils/bounding_box';
 import {
@@ -535,7 +535,8 @@ export class CanvasManager {
         function move_node_and_connectors(node: SDFGNode) {
             node.x += dx;
             node.y += dy;
-            if (node.data.node && node.data.node.type === 'NestedSDFG')
+            if (node.data.node &&
+                node.data.node.type === SDFGElementType.NestedSDFG)
                 translate_recursive(node.data.graph);
             if (node.in_connectors)
                 node.in_connectors.forEach(c => {
