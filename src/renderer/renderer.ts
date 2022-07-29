@@ -1198,11 +1198,17 @@ export class SDFGRenderer {
 
     // Change translation and scale such that the chosen elements
     // (or entire graph if null) is in view
-    public zoom_to_view(elements: any = null, animate: boolean = true): void {
-        if (!elements || elements.length == 0)
+    public zoom_to_view(
+        elements: any = null, animate: boolean = true, padding?: number
+    ): void {
+        if (!elements || elements.length == 0) {
             elements = this.graph?.nodes().map(x => this.graph?.node(x));
+            padding ??= 0;
+        } else {
+            padding ??= 50; // By default, use a padding of 50.
+        }
 
-        const bb = boundingBox(elements);
+        const bb = boundingBox(elements, padding);
         this.canvas_manager?.set_view(bb, animate);
 
         this.draw_async();
