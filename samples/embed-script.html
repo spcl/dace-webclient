@@ -1,0 +1,37 @@
+<!-- Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved. -->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>SDFG Viewer Example: Embedding with a script tag</title>
+
+    <!--
+    Necessary imports
+    -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="/dist/sdfv.js"></script>
+    <link href="/sdfv.css" rel="stylesheet">
+</head>
+
+<body>
+
+    <h1>Example</h1>
+    <p>
+        This is an example of an embedded SDFG using a direct use of a script tag. As opposed to iframes, this type of
+        embedding needs the SDFG contents directly, but allows control over the script objects and resizing. Notice that
+        if more than one SDFG is embedded, a unique content div ID must be given.
+    </p>
+
+    <div id="contents_1"
+        style="width: 1024px; height: 768px; position: relative; resize: both; overflow: auto; border: 1px solid;">
+    </div>
+    <script>
+        var sdfg_1 = "{\"attributes\": {\"symbols\": []}}"; // Your SDFG goes here
+        var sdfv_1 = new SDFV();
+        var renderer_1 = new SDFGRenderer(sdfv_1, parse_sdfg(sdfg_1), document.getElementById('contents_1'));
+    </script>
+
+</body>
+
+</html>

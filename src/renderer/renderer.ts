@@ -172,7 +172,9 @@ export class SDFGRenderer {
         user_transform: DOMMatrix | null = null,
         public debug_draw = false,
         background: string | null = null,
-        mode_buttons: any = null
+        mode_buttons: any = null,
+        toolbar: boolean = true,
+        minimap: boolean | null = null
     ) {
         sdfv_instance.enable_menu_close();
         sdfv_instance.close_menu();
@@ -191,7 +193,7 @@ export class SDFGRenderer {
                 this.in_vscode = true;
         } catch (ex) { }
 
-        this.init_elements(user_transform, background, mode_buttons);
+        this.init_elements(user_transform, background, mode_buttons, toolbar, minimap);
 
         this.set_sdfg(sdfg, false);
 
@@ -366,7 +368,9 @@ export class SDFGRenderer {
     public init_elements(
         user_transform: DOMMatrix | null,
         background: string | null,
-        mode_buttons: ModeButtons | undefined | null
+        mode_buttons: ModeButtons | undefined | null,
+        toolbar: boolean,
+        minimap: boolean | null
     ): void {
 
         this.canvas = document.createElement('canvas');
@@ -377,8 +381,8 @@ export class SDFGRenderer {
             this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
 
-        if (typeof MINIMAP_ENABLED !== 'undefined' &&
-            MINIMAP_ENABLED === false) {
+        if (minimap === false || (typeof MINIMAP_ENABLED !== 'undefined' &&
+            MINIMAP_ENABLED === false)) {
             this.minimap_canvas = null;
         } else {
             this.minimap_canvas = document.createElement('canvas');
@@ -420,396 +424,398 @@ export class SDFGRenderer {
         this.container.appendChild(this.interaction_info_box);
 
         // Add buttons
-        this.toolbar = document.createElement('div');
-        this.toolbar.style.position = 'absolute';
-        this.toolbar.style.top = '10px';
-        this.toolbar.style.left = '10px';
-        let d;
+        if (toolbar) {
+            this.toolbar = document.createElement('div');
+            this.toolbar.style.position = 'absolute';
+            this.toolbar.style.top = '10px';
+            this.toolbar.style.left = '10px';
+            let d;
 
-        // Menu bar
-        try {
-            ContextMenu;
-            const menu_button = document.createElement('button');
-            menu_button.className = 'button';
-            menu_button.innerHTML = '<i class="material-icons">menu</i>';
-            menu_button.style.paddingBottom = '0px';
-            menu_button.style.userSelect = 'none';
-            menu_button.onclick = () => {
-                if (this.menu && this.menu.visible()) {
-                    this.menu.destroy();
-                    return;
-                }
-                const rect = menu_button.getBoundingClientRect();
-                const cmenu = new ContextMenu();
-                if (!this.in_vscode) {
-                    cmenu.addOption(
-                        'Save SDFG as...', (_x: any) => this.save_sdfg()
-                    );
-                }
-                cmenu.addOption(
-                    'Save view as PNG', (_x: any) => this.save_as_png()
-                );
-                if (this.has_pdf()) {
-                    cmenu.addOption(
-                        'Save view as PDF', (_x: any) => this.save_as_pdf()
-                    );
-                    cmenu.addOption(
-                        'Save all as PDF', (_x: any) => this.save_as_pdf(true)
-                    );
-                }
-                cmenu.addCheckableOption(
-                    'Inclusive ranges',
-                    this.inclusive_ranges,
-                    (_x: any, checked: boolean) => {
-                        this.inclusive_ranges = checked;
+            // Menu bar
+            try {
+                ContextMenu;
+                const menu_button = document.createElement('button');
+                menu_button.className = 'button';
+                menu_button.innerHTML = '<i class="material-icons">menu</i>';
+                menu_button.style.paddingBottom = '0px';
+                menu_button.style.userSelect = 'none';
+                menu_button.onclick = () => {
+                    if (this.menu && this.menu.visible()) {
+                        this.menu.destroy();
+                        return;
                     }
-                );
-                cmenu.addCheckableOption(
-                    'Adaptive content hiding',
-                    (this.ctx as any).lod,
-                    (_x: any, checked: boolean) => {
-                        (this.ctx as any).lod = checked;
+                    const rect = menu_button.getBoundingClientRect();
+                    const cmenu = new ContextMenu();
+                    if (!this.in_vscode) {
+                        cmenu.addOption(
+                            'Save SDFG as...', (_x: any) => this.save_sdfg()
+                        );
                     }
-                );
-                if (this.in_vscode) {
+                    cmenu.addOption(
+                        'Save view as PNG', (_x: any) => this.save_as_png()
+                    );
+                    if (this.has_pdf()) {
+                        cmenu.addOption(
+                            'Save view as PDF', (_x: any) => this.save_as_pdf()
+                        );
+                        cmenu.addOption(
+                            'Save all as PDF', (_x: any) => this.save_as_pdf(true)
+                        );
+                    }
                     cmenu.addCheckableOption(
-                        'Show Logical Groups',
-                        this.overlay_manager ?
-                            this.overlay_manager.is_overlay_active(
-                                LogicalGroupOverlay
-                            ) : false,
-                        (x: any, checked: boolean) => {
-                            if (checked)
-                                this.overlay_manager?.register_overlay(
-                                    LogicalGroupOverlay
-                                );
-                            else
-                                this.overlay_manager?.deregister_overlay(
-                                    LogicalGroupOverlay
-                                );
-                            this.draw_async();
-                            this.emit_event(
-                                'active_overlays_changed', null
-                            );
+                        'Inclusive ranges',
+                        this.inclusive_ranges,
+                        (_x: any, checked: boolean) => {
+                            this.inclusive_ranges = checked;
                         }
                     );
-                } else {
-                    cmenu.addOption(
-                        'Overlays',
-                        () => {
-                            if (
-                                this.overlays_menu &&
-                                this.overlays_menu.visible()
-                            ) {
-                                this.overlays_menu.destroy();
-                                return;
-                            }
-                            const rect =
-                                cmenu.get_cmenu_elem()?.getBoundingClientRect();
-                            const overlays_cmenu = new ContextMenu();
-                            overlays_cmenu.addCheckableOption(
-                                'Memory volume analysis',
-                                this.overlay_manager ?
-                                    this.overlay_manager.is_overlay_active(
-                                        MemoryVolumeOverlay
-                                    ) : false,
-                                (x: any, checked: boolean) => {
-                                    if (checked)
-                                        this.overlay_manager?.register_overlay(
-                                            MemoryVolumeOverlay
-                                        );
-                                    else
-                                        this.overlay_manager?.deregister_overlay(
-                                            MemoryVolumeOverlay
-                                        );
-                                    this.draw_async();
-                                    this.emit_event(
-                                        'active_overlays_changed', null
-                                    );
-                                }
-                            );
-                            overlays_cmenu.addCheckableOption(
-                                'Storage locations',
-                                this.overlay_manager ?
-                                    this.overlay_manager.is_overlay_active(
-                                        MemoryLocationOverlay
-                                    ) : false,
-                                (x: any, checked: boolean) => {
-                                    if (checked)
-                                        this.overlay_manager?.register_overlay(
-                                            MemoryLocationOverlay
-                                        );
-                                    else
-                                        this.overlay_manager?.deregister_overlay(
-                                            MemoryLocationOverlay
-                                        );
-                                    this.draw_async();
-                                    this.emit_event(
-                                        'active_overlays_changed', null
-                                    );
-                                }
-                            );
-                            overlays_cmenu.addCheckableOption(
-                                'Logical groups',
-                                this.overlay_manager ?
-                                    this.overlay_manager.is_overlay_active(
+                    cmenu.addCheckableOption(
+                        'Adaptive content hiding',
+                        (this.ctx as any).lod,
+                        (_x: any, checked: boolean) => {
+                            (this.ctx as any).lod = checked;
+                        }
+                    );
+                    if (this.in_vscode) {
+                        cmenu.addCheckableOption(
+                            'Show Logical Groups',
+                            this.overlay_manager ?
+                                this.overlay_manager.is_overlay_active(
+                                    LogicalGroupOverlay
+                                ) : false,
+                            (x: any, checked: boolean) => {
+                                if (checked)
+                                    this.overlay_manager?.register_overlay(
                                         LogicalGroupOverlay
-                                    ) : false,
-                                (x: any, checked: boolean) => {
-                                    if (checked)
-                                        this.overlay_manager?.register_overlay(
-                                            LogicalGroupOverlay
-                                        );
-                                    else
-                                        this.overlay_manager?.deregister_overlay(
-                                            LogicalGroupOverlay
-                                        );
-                                    this.draw_async();
-                                    this.emit_event(
-                                        'active_overlays_changed', null
                                     );
+                                else
+                                    this.overlay_manager?.deregister_overlay(
+                                        LogicalGroupOverlay
+                                    );
+                                this.draw_async();
+                                this.emit_event(
+                                    'active_overlays_changed', null
+                                );
+                            }
+                        );
+                    } else {
+                        cmenu.addOption(
+                            'Overlays',
+                            () => {
+                                if (
+                                    this.overlays_menu &&
+                                    this.overlays_menu.visible()
+                                ) {
+                                    this.overlays_menu.destroy();
+                                    return;
                                 }
-                            );
-                            this.overlays_menu = overlays_cmenu;
-                            this.overlays_menu.show(rect?.left, rect?.top);
+                                const rect =
+                                    cmenu.get_cmenu_elem()?.getBoundingClientRect();
+                                const overlays_cmenu = new ContextMenu();
+                                overlays_cmenu.addCheckableOption(
+                                    'Memory volume analysis',
+                                    this.overlay_manager ?
+                                        this.overlay_manager.is_overlay_active(
+                                            MemoryVolumeOverlay
+                                        ) : false,
+                                    (x: any, checked: boolean) => {
+                                        if (checked)
+                                            this.overlay_manager?.register_overlay(
+                                                MemoryVolumeOverlay
+                                            );
+                                        else
+                                            this.overlay_manager?.deregister_overlay(
+                                                MemoryVolumeOverlay
+                                            );
+                                        this.draw_async();
+                                        this.emit_event(
+                                            'active_overlays_changed', null
+                                        );
+                                    }
+                                );
+                                overlays_cmenu.addCheckableOption(
+                                    'Storage locations',
+                                    this.overlay_manager ?
+                                        this.overlay_manager.is_overlay_active(
+                                            MemoryLocationOverlay
+                                        ) : false,
+                                    (x: any, checked: boolean) => {
+                                        if (checked)
+                                            this.overlay_manager?.register_overlay(
+                                                MemoryLocationOverlay
+                                            );
+                                        else
+                                            this.overlay_manager?.deregister_overlay(
+                                                MemoryLocationOverlay
+                                            );
+                                        this.draw_async();
+                                        this.emit_event(
+                                            'active_overlays_changed', null
+                                        );
+                                    }
+                                );
+                                overlays_cmenu.addCheckableOption(
+                                    'Logical groups',
+                                    this.overlay_manager ?
+                                        this.overlay_manager.is_overlay_active(
+                                            LogicalGroupOverlay
+                                        ) : false,
+                                    (x: any, checked: boolean) => {
+                                        if (checked)
+                                            this.overlay_manager?.register_overlay(
+                                                LogicalGroupOverlay
+                                            );
+                                        else
+                                            this.overlay_manager?.deregister_overlay(
+                                                LogicalGroupOverlay
+                                            );
+                                        this.draw_async();
+                                        this.emit_event(
+                                            'active_overlays_changed', null
+                                        );
+                                    }
+                                );
+                                this.overlays_menu = overlays_cmenu;
+                                this.overlays_menu.show(rect?.left, rect?.top);
+                            }
+                        );
+                    }
+                    cmenu.addCheckableOption(
+                        'Hide Access Nodes',
+                        this.omit_access_nodes,
+                        (_: any, checked: boolean) => {
+                            this.omit_access_nodes = checked;
+                            this.relayout();
+                            this.draw_async();
                         }
                     );
-                }
-                cmenu.addCheckableOption(
-                    'Hide Access Nodes',
-                    this.omit_access_nodes,
-                    (_: any, checked: boolean) => {
-                        this.omit_access_nodes = checked;
-                        this.relayout();
-                        this.draw_async();
-                    }
-                );
-                cmenu.addOption(
-                    'Reset positions', () => this.reset_positions()
-                );
-                this.menu = cmenu;
-                this.menu.show(rect.left, rect.bottom);
-            };
-            menu_button.title = 'Menu';
-            this.toolbar.appendChild(menu_button);
-        } catch (ex) { }
+                    cmenu.addOption(
+                        'Reset positions', () => this.reset_positions()
+                    );
+                    this.menu = cmenu;
+                    this.menu.show(rect.left, rect.bottom);
+                };
+                menu_button.title = 'Menu';
+                this.toolbar.appendChild(menu_button);
+            } catch (ex) { }
 
-        // Zoom to fit
-        d = document.createElement('button');
-        d.className = 'button';
-        d.innerHTML = '<i class="material-icons">filter_center_focus</i>';
-        d.style.paddingBottom = '0px';
-        d.style.userSelect = 'none';
-        d.onclick = () => this.zoom_to_view();
-        d.title = 'Zoom to fit SDFG';
-        this.toolbar.appendChild(d);
+            // Zoom to fit
+            d = document.createElement('button');
+            d.className = 'button';
+            d.innerHTML = '<i class="material-icons">filter_center_focus</i>';
+            d.style.paddingBottom = '0px';
+            d.style.userSelect = 'none';
+            d.onclick = () => this.zoom_to_view();
+            d.title = 'Zoom to fit SDFG';
+            this.toolbar.appendChild(d);
 
-        // Collapse all
-        d = document.createElement('button');
-        d.className = 'button';
-        d.innerHTML = '<i class="material-icons">unfold_less</i>';
-        d.style.paddingBottom = '0px';
-        d.style.userSelect = 'none';
-        d.onclick = () => this.collapse_all();
-        d.title = 'Collapse all elements';
-        this.toolbar.appendChild(d);
+            // Collapse all
+            d = document.createElement('button');
+            d.className = 'button';
+            d.innerHTML = '<i class="material-icons">unfold_less</i>';
+            d.style.paddingBottom = '0px';
+            d.style.userSelect = 'none';
+            d.onclick = () => this.collapse_all();
+            d.title = 'Collapse all elements';
+            this.toolbar.appendChild(d);
 
-        // Expand all
-        d = document.createElement('button');
-        d.className = 'button';
-        d.innerHTML = '<i class="material-icons">unfold_more</i>';
-        d.style.paddingBottom = '0px';
-        d.style.userSelect = 'none';
-        d.onclick = () => this.expand_all();
-        d.title = 'Expand all elements';
-        this.toolbar.appendChild(d);
+            // Expand all
+            d = document.createElement('button');
+            d.className = 'button';
+            d.innerHTML = '<i class="material-icons">unfold_more</i>';
+            d.style.paddingBottom = '0px';
+            d.style.userSelect = 'none';
+            d.onclick = () => this.expand_all();
+            d.title = 'Expand all elements';
+            this.toolbar.appendChild(d);
 
-        if (mode_buttons) {
-            // If we get the "external" mode buttons we are in vscode and do
-            // not need to create them.
-            this.panmode_btn = mode_buttons.pan;
-            this.movemode_btn = mode_buttons.move;
-            this.selectmode_btn = mode_buttons.select;
-            this.addmode_btns = mode_buttons.add_btns;
-            for (const add_btn of this.addmode_btns) {
-                if (add_btn.getAttribute('type') ===
-                    SDFGElementType.LibraryNode) {
-                    add_btn.onclick = () => {
-                        const libnode_callback = () => {
+            if (mode_buttons) {
+                // If we get the "external" mode buttons we are in vscode and do
+                // not need to create them.
+                this.panmode_btn = mode_buttons.pan;
+                this.movemode_btn = mode_buttons.move;
+                this.selectmode_btn = mode_buttons.select;
+                this.addmode_btns = mode_buttons.add_btns;
+                for (const add_btn of this.addmode_btns) {
+                    if (add_btn.getAttribute('type') ===
+                        SDFGElementType.LibraryNode) {
+                        add_btn.onclick = () => {
+                            const libnode_callback = () => {
+                                this.mouse_mode = 'add';
+                                this.add_type = SDFGElementType.LibraryNode;
+                                this.add_edge_start = null;
+                                this.add_edge_start_conn = null;
+                                this.update_toggle_buttons();
+                            };
+                            this.emit_event(
+                                SDFGRendererEvent.QUERY_LIBNODE,
+                                {
+                                    callback: libnode_callback,
+                                }
+                            );
+                        };
+                    } else {
+                        add_btn.onclick = () => {
                             this.mouse_mode = 'add';
-                            this.add_type = SDFGElementType.LibraryNode;
+                            this.add_type =
+                                <SDFGElementType> add_btn.getAttribute('type');
+                            this.add_mode_lib = null;
                             this.add_edge_start = null;
                             this.add_edge_start_conn = null;
                             this.update_toggle_buttons();
                         };
-                        this.emit_event(
-                            SDFGRendererEvent.QUERY_LIBNODE,
-                            {
-                                callback: libnode_callback,
-                            }
-                        );
-                    };
-                } else {
-                    add_btn.onclick = () => {
-                        this.mouse_mode = 'add';
-                        this.add_type =
-                            <SDFGElementType> add_btn.getAttribute('type');
-                        this.add_mode_lib = null;
-                        this.add_edge_start = null;
-                        this.add_edge_start_conn = null;
-                        this.update_toggle_buttons();
-                    };
+                    }
                 }
+                this.mode_selected_bg_color = '#22A4FE';
+            } else {
+                // Mode buttons are empty in standalone SDFV
+                this.addmode_btns = [];
+
+                // Create pan mode button
+                const pan_mode_btn = document.createElement('button');
+                pan_mode_btn.className = 'button';
+                pan_mode_btn.innerHTML = '<i class="material-icons">pan_tool</i>';
+                pan_mode_btn.style.paddingBottom = '0px';
+                pan_mode_btn.style.userSelect = 'none';
+                pan_mode_btn.style.background = this.mode_selected_bg_color;
+                pan_mode_btn.title = 'Pan mode';
+                this.panmode_btn = pan_mode_btn;
+                this.toolbar.appendChild(pan_mode_btn);
+
+                // Create move mode button
+                const move_mode_btn = document.createElement('button');
+                move_mode_btn.className = 'button';
+                move_mode_btn.innerHTML = '<i class="material-icons">open_with</i>';
+                move_mode_btn.style.paddingBottom = '0px';
+                move_mode_btn.style.userSelect = 'none';
+                move_mode_btn.title = 'Object moving mode';
+                this.movemode_btn = move_mode_btn;
+                this.toolbar.appendChild(move_mode_btn);
+
+                // Create select mode button
+                const box_select_btn = document.createElement('button');
+                box_select_btn.className = 'button';
+                box_select_btn.innerHTML =
+                    '<i class="material-icons">border_style</i>';
+                box_select_btn.style.paddingBottom = '0px';
+                box_select_btn.style.userSelect = 'none';
+                box_select_btn.title = 'Select mode';
+                this.selectmode_btn = box_select_btn;
+                this.toolbar.appendChild(box_select_btn);
             }
-            this.mode_selected_bg_color = '#22A4FE';
-        } else {
-            // Mode buttons are empty in standalone SDFV
-            this.addmode_btns = [];
 
-            // Create pan mode button
-            const pan_mode_btn = document.createElement('button');
-            pan_mode_btn.className = 'button';
-            pan_mode_btn.innerHTML = '<i class="material-icons">pan_tool</i>';
-            pan_mode_btn.style.paddingBottom = '0px';
-            pan_mode_btn.style.userSelect = 'none';
-            pan_mode_btn.style.background = this.mode_selected_bg_color;
-            pan_mode_btn.title = 'Pan mode';
-            this.panmode_btn = pan_mode_btn;
-            this.toolbar.appendChild(pan_mode_btn);
-
-            // Create move mode button
-            const move_mode_btn = document.createElement('button');
-            move_mode_btn.className = 'button';
-            move_mode_btn.innerHTML = '<i class="material-icons">open_with</i>';
-            move_mode_btn.style.paddingBottom = '0px';
-            move_mode_btn.style.userSelect = 'none';
-            move_mode_btn.title = 'Object moving mode';
-            this.movemode_btn = move_mode_btn;
-            this.toolbar.appendChild(move_mode_btn);
-
-            // Create select mode button
-            const box_select_btn = document.createElement('button');
-            box_select_btn.className = 'button';
-            box_select_btn.innerHTML =
-                '<i class="material-icons">border_style</i>';
-            box_select_btn.style.paddingBottom = '0px';
-            box_select_btn.style.userSelect = 'none';
-            box_select_btn.title = 'Select mode';
-            this.selectmode_btn = box_select_btn;
-            this.toolbar.appendChild(box_select_btn);
-        }
-
-        // Enter pan mode
-        if (this.panmode_btn)
-            this.panmode_btn.onclick = () => {
-                this.mouse_mode = 'pan';
-                this.add_type = null;
-                this.add_mode_lib = null;
-                this.add_edge_start = null;
-                this.add_edge_start_conn = null;
-                this.update_toggle_buttons();
-            };
-
-        // Enter object moving mode
-        if (this.movemode_btn) {
-            this.movemode_btn.onclick = (
-                _: MouseEvent, shift_click: boolean | undefined = undefined
-            ): void => {
-                // shift_click is false if shift key has been released and
-                // undefined if it has been a normal mouse click
-                if (this.shift_key_movement && shift_click === false)
+            // Enter pan mode
+            if (this.panmode_btn)
+                this.panmode_btn.onclick = () => {
                     this.mouse_mode = 'pan';
-                else
-                    this.mouse_mode = 'move';
-                this.add_type = null;
-                this.add_mode_lib = null;
-                this.add_edge_start = null;
-                this.add_edge_start_conn = null;
-                this.shift_key_movement = (
-                    shift_click === undefined ? false : shift_click
-                );
-                this.update_toggle_buttons();
-            };
-        }
+                    this.add_type = null;
+                    this.add_mode_lib = null;
+                    this.add_edge_start = null;
+                    this.add_edge_start_conn = null;
+                    this.update_toggle_buttons();
+                };
 
-        // Enter box selection mode
-        if (this.selectmode_btn)
-            this.selectmode_btn.onclick = (
-                _: MouseEvent, ctrl_click: boolean | undefined = undefined
-            ): void => {
-                // ctrl_click is false if ctrl key has been released and
-                // undefined if it has been a normal mouse click
-                if (this.ctrl_key_selection && ctrl_click === false)
-                    this.mouse_mode = 'pan';
-                else
-                    this.mouse_mode = 'select';
-                this.add_type = null;
-                this.add_mode_lib = null;
-                this.add_edge_start = null;
-                this.add_edge_start_conn = null;
-                this.ctrl_key_selection = (
-                    ctrl_click === undefined ? false : ctrl_click
-                );
-                this.update_toggle_buttons();
-            };
+            // Enter object moving mode
+            if (this.movemode_btn) {
+                this.movemode_btn.onclick = (
+                    _: MouseEvent, shift_click: boolean | undefined = undefined
+                ): void => {
+                    // shift_click is false if shift key has been released and
+                    // undefined if it has been a normal mouse click
+                    if (this.shift_key_movement && shift_click === false)
+                        this.mouse_mode = 'pan';
+                    else
+                        this.mouse_mode = 'move';
+                    this.add_type = null;
+                    this.add_mode_lib = null;
+                    this.add_edge_start = null;
+                    this.add_edge_start_conn = null;
+                    this.shift_key_movement = (
+                        shift_click === undefined ? false : shift_click
+                    );
+                    this.update_toggle_buttons();
+                };
+            }
 
-        // React to ctrl and shift key presses
-        document.addEventListener('keydown', (e) => this.on_key_event(e));
-        document.addEventListener('keyup', (e) => this.on_key_event(e));
-        document.addEventListener("visibilitychange", () => {
-            this.clear_key_events();
-        });
+            // Enter box selection mode
+            if (this.selectmode_btn)
+                this.selectmode_btn.onclick = (
+                    _: MouseEvent, ctrl_click: boolean | undefined = undefined
+                ): void => {
+                    // ctrl_click is false if ctrl key has been released and
+                    // undefined if it has been a normal mouse click
+                    if (this.ctrl_key_selection && ctrl_click === false)
+                        this.mouse_mode = 'pan';
+                    else
+                        this.mouse_mode = 'select';
+                    this.add_type = null;
+                    this.add_mode_lib = null;
+                    this.add_edge_start = null;
+                    this.add_edge_start_conn = null;
+                    this.ctrl_key_selection = (
+                        ctrl_click === undefined ? false : ctrl_click
+                    );
+                    this.update_toggle_buttons();
+                };
 
-        // Filter graph to selection
-        d = document.createElement('button');
-        d.className = 'button hidden';
-        d.innerHTML = '<i class="material-icons">content_cut</i>';
-        d.style.paddingBottom = '0px';
-        d.style.userSelect = 'none';
-        d.onclick = () => this.cutout_selection();
-        d.title = 'Filter selection (cutout)';
-        this.filter_btn = d;
-        this.toolbar.appendChild(d);
+            // React to ctrl and shift key presses
+            document.addEventListener('keydown', (e) => this.on_key_event(e));
+            document.addEventListener('keyup', (e) => this.on_key_event(e));
+            document.addEventListener("visibilitychange", () => {
+                this.clear_key_events();
+            });
 
-        // Transition to local view with selection
-        d = document.createElement('button');
-        d.id = 'enter-local-view-button';
-        d.className = 'button hidden';
-        d.innerHTML = '<i class="material-icons">memory</i>';
-        d.style.paddingBottom = '0px';
-        d.style.userSelect = 'none';
-        d.onclick = () => this.localViewSelection();
-        d.title = 'Inspect access patterns (local view)';
-        this.localViewBtn = d;
-        this.toolbar.appendChild(d);
+            // Filter graph to selection
+            d = document.createElement('button');
+            d.className = 'button hidden';
+            d.innerHTML = '<i class="material-icons">content_cut</i>';
+            d.style.paddingBottom = '0px';
+            d.style.userSelect = 'none';
+            d.onclick = () => this.cutout_selection();
+            d.title = 'Filter selection (cutout)';
+            this.filter_btn = d;
+            this.toolbar.appendChild(d);
 
-        // Exit previewing mode
-        if (this.in_vscode) {
-            const exit_preview_btn = document.createElement('button');
-            exit_preview_btn.id = 'exit-preview-button';
-            exit_preview_btn.className = 'button hidden';
-            exit_preview_btn.innerHTML = '<i class="material-icons">close</i>';
-            exit_preview_btn.style.paddingBottom = '0px';
-            exit_preview_btn.style.userSelect = 'none';
-            exit_preview_btn.onclick = () => {
+            // Transition to local view with selection
+            d = document.createElement('button');
+            d.id = 'enter-local-view-button';
+            d.className = 'button hidden';
+            d.innerHTML = '<i class="material-icons">memory</i>';
+            d.style.paddingBottom = '0px';
+            d.style.userSelect = 'none';
+            d.onclick = () => this.localViewSelection();
+            d.title = 'Inspect access patterns (local view)';
+            this.localViewBtn = d;
+            this.toolbar.appendChild(d);
+
+            // Exit previewing mode
+            if (this.in_vscode) {
+                const exit_preview_btn = document.createElement('button');
+                exit_preview_btn.id = 'exit-preview-button';
                 exit_preview_btn.className = 'button hidden';
-                this.emit_event('exit_preview', null);
-                if (vscode) {
-                    vscode.postMessage({
-                        type: 'sdfv.get_current_sdfg',
-                        preventRefreshes: true,
-                    });
-                    vscode.postMessage({
-                        type: 'transformation_history.refresh',
-                        resetActive: true,
-                    });
-                }
-            };
-            exit_preview_btn.title = 'Exit preview';
-            this.toolbar.appendChild(exit_preview_btn);
-        }
+                exit_preview_btn.innerHTML = '<i class="material-icons">close</i>';
+                exit_preview_btn.style.paddingBottom = '0px';
+                exit_preview_btn.style.userSelect = 'none';
+                exit_preview_btn.onclick = () => {
+                    exit_preview_btn.className = 'button hidden';
+                    this.emit_event('exit_preview', null);
+                    if (vscode) {
+                        vscode.postMessage({
+                            type: 'sdfv.get_current_sdfg',
+                            preventRefreshes: true,
+                        });
+                        vscode.postMessage({
+                            type: 'transformation_history.refresh',
+                            resetActive: true,
+                        });
+                    }
+                };
+                exit_preview_btn.title = 'Exit preview';
+                this.toolbar.appendChild(exit_preview_btn);
+            }
 
-        this.container.append(this.toolbar);
+            this.container.append(this.toolbar);
+        }
         // End of buttons
 
         // Tooltip HTML container
@@ -865,6 +871,11 @@ export class SDFGRenderer {
             this.draw_async();
         });
         observer.observe(this.container, { attributes: true });
+        const resizeObserver = new ResizeObserver(() => {
+            this.onresize();
+            this.draw_async();
+        });
+        resizeObserver.observe(this.container);
 
         // Set inherited properties
         if (background)
