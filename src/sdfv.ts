@@ -8,6 +8,7 @@ import {
     JsonSDFG,
     Point2D,
     sdfg_property_to_string,
+    showErrorModal,
     traverse_sdfg_scopes
 } from './index';
 import { LViewRenderer } from './local_view/lview_renderer';
@@ -578,12 +579,12 @@ function load_sdfg_from_url(sdfv: SDFV, url: string, toolbar: boolean, minimap: 
             sdfv.get_renderer()?.destroy();
             init_sdfv(sdfg, null, false, null, toolbar, minimap);
         } else {
-            alert('Failed to load SDFG from URL');
+            showErrorModal('Failed to load SDFG from URL');
             init_sdfv(null, null, false, null, toolbar, minimap);
         }
     };
     request.onerror = () => {
-        alert('Failed to load SDFG from URL: ' + request.status);
+        showErrorModal('Failed to load SDFG from URL. Error code: ' + request.status);
         init_sdfv(null, null, false, null, toolbar, minimap);
     };
     request.open(
