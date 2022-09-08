@@ -9,6 +9,7 @@ import {
 } from '../renderer/renderer_elements';
 import { Point2D } from '..';
 import { rgb2hex } from '@pixi/utils';
+import $ from 'jquery';
 
 declare const SDFGRenderer: any;
 

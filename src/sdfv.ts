@@ -8,6 +8,7 @@ import {
     JsonSDFG,
     Point2D,
     sdfg_property_to_string,
+    showErrorModal,
     traverse_sdfg_scopes
 } from './index';
 import { LViewRenderer } from './local_view/lview_renderer';
@@ -316,7 +317,9 @@ function init_sdfv(
     sdfg: any,
     user_transform: DOMMatrix | null = null,
     debug_draw: boolean = false,
-    existing_sdfv: SDFV | null = null
+    existing_sdfv: SDFV | null = null,
+    toolbar: boolean = true,
+    minimap: boolean | null = null
 ): SDFV {
     let sdfv: SDFV;
     if (existing_sdfv)
@@ -408,7 +411,7 @@ function init_sdfv(
         if (container)
             sdfv.set_renderer(new SDFGRenderer(
                 sdfv, sdfg, container, mouse_event, user_transform, debug_draw,
-                null, mode_buttons
+                null, mode_buttons, toolbar, minimap
             ));
     }
 
@@ -567,22 +570,22 @@ function getParameterByName(name: string): string | null {
     return decodeURIComponent(results[2].replace(/\+/g, ' '));
 }
 
-function load_sdfg_from_url(sdfv: SDFV, url: string): void {
+function load_sdfg_from_url(sdfv: SDFV, url: string, toolbar: boolean, minimap: boolean | null): void {
     const request = new XMLHttpRequest();
     request.responseType = 'text'; // Will be parsed as JSON by parse_sdfg
     request.onload = () => {
         if (request.status == 200) {
             const sdfg = parse_sdfg(request.response);
             sdfv.get_renderer()?.destroy();
-            init_sdfv(sdfg);
+            init_sdfv(sdfg, null, false, null, toolbar, minimap);
         } else {
-            alert('Failed to load SDFG from URL');
-            init_sdfv(null);
+            showErrorModal('Failed to load SDFG from URL');
+            init_sdfv(null, null, false, null, toolbar, minimap);
         }
     };
     request.onerror = () => {
-        alert('Failed to load SDFG from URL: ' + request.status);
-        init_sdfv(null);
+        showErrorModal('Failed to load SDFG from URL. Error code: ' + request.status);
+        init_sdfv(null, null, false, null, toolbar, minimap);
     };
     request.open(
         'GET', url + ((/\?/).test(url) ? '&' : '?') + (new Date()).getTime(),
@@ -798,18 +801,42 @@ export function mouse_event(
     return false;
 }
 
+function get_setting(name: string, def: any): any {
+    if (document.currentScript?.hasAttribute(name)) {
+        const attr = document.currentScript?.getAttribute(name);
+        if (attr)
+            return attr;
+    }
+
+    const param = getParameterByName(name);
+    if (param)
+        return param;
+
+    return def;
+}
+
 $(() => {
     let sdfv = new SDFV();
+
+    // Settings
+    const is_embedded = document.getElementById('embedded');
+    const toolbar = get_setting('toolbar', is_embedded ? false : true);
+    const minimap = get_setting('minimap', is_embedded ? false : null);
 
     if (document.currentScript?.hasAttribute('data-sdfg-json')) {
         const sdfg_string =
             document.currentScript?.getAttribute('data-sdfg-json');
         if (sdfg_string)
-            sdfv = init_sdfv(parse_sdfg(sdfg_string), null, false, sdfv);
+            sdfv = init_sdfv(parse_sdfg(sdfg_string), null, false, sdfv, toolbar, minimap);
+    } else if (document.currentScript?.hasAttribute('data-url')) {
+        const url =
+            document.currentScript?.getAttribute('data-url');
+        if (url)
+            load_sdfg_from_url(sdfv, url, toolbar, minimap);
     } else {
         const url = getParameterByName('url');
         if (url)
-            load_sdfg_from_url(sdfv, url);
+            load_sdfg_from_url(sdfv, url, toolbar, minimap);
         else
             sdfv = init_sdfv(null, null, false, sdfv);
     }
@@ -832,7 +859,7 @@ declare global {
         // Exported functions
         parse_sdfg: (sdfg_json: string) => JsonSDFG;
         stringify_sdfg: (sdfg: JsonSDFG) => string;
-        init_sdfv: (sdfg: JsonSDFG, user_transform?: DOMMatrix | null, debug_draw?: boolean, existing_sdfv?: SDFV | null) => SDFV;
+        init_sdfv: (sdfg: JsonSDFG, user_transform?: DOMMatrix | null, debug_draw?: boolean, existing_sdfv?: SDFV | null, toolbar?: boolean, minimap?: boolean | null) => SDFV;
     }
 }
 
