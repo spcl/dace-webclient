@@ -1205,10 +1205,19 @@ export class SDFGRenderer {
             elements = this.graph?.nodes().map(x => this.graph?.node(x));
             padding ??= 0;
         } else {
-            padding ??= 50; // By default, use a padding of 50.
+            // Use a padding equal to 20 percent of the viewport size, if not
+            // overridden with a different percentage.
+            padding ??= 10;
         }
 
-        const bb = boundingBox(elements, padding);
+        let paddingAbs = 0;
+        if (padding > 0 && this.canvas)
+            paddingAbs = Math.min(
+                (this.canvas.width / 100) * padding,
+                (this.canvas.height / 100) * padding
+            );
+
+        const bb = boundingBox(elements, paddingAbs);
         this.canvas_manager?.set_view(bb, animate);
 
         this.draw_async();
