@@ -24,7 +24,9 @@ export function calculateBoundingBox(g: DagreSDFG): DOMRect {
     return bb;
 }
 
-export function boundingBox(elements: SDFGElement[]): DOMRect {
+export function boundingBox(
+    elements: SDFGElement[], padding: number = 0
+): DOMRect {
     const bb: {
         x1: number | null,
         x2: number | null,
@@ -54,10 +56,10 @@ export function boundingBox(elements: SDFGElement[]): DOMRect {
     });
 
     const ret_bb = new DOMRect(
-        bb.x1 ? bb.x1 : 0,
-        bb.y1 ? bb.y1 : 0,
-        (bb.x2 ? bb.x2 : 0) - (bb.x1 ? bb.x1 : 0),
-        (bb.y2 ? bb.y2 : 0) - (bb.y1 ? bb.y1 : 0)
+        (bb.x1 ? bb.x1 : 0) - padding,
+        (bb.y1 ? bb.y1 : 0) - padding,
+        ((bb.x2 ? bb.x2 : 0) - (bb.x1 ? bb.x1 : 0)) + 2 * padding,
+        ((bb.y2 ? bb.y2 : 0) - (bb.y1 ? bb.y1 : 0)) + 2 * padding
     );
 
     return ret_bb;
