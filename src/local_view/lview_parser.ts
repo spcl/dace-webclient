@@ -40,7 +40,7 @@ export class LViewParser {
         if (typeof symbol === 'number')
             result = symbol;
         else
-            result = evaluate(symbol, symbolMap);
+            result = evaluate(symbol.replaceAll('**', '^'), symbolMap);
         return result;
     }
 
