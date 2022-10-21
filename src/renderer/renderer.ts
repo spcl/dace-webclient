@@ -3008,7 +3008,7 @@ export class SDFGRenderer {
 
         // Transition to the local view by first cutting out the selection.
         try {
-            this.cutout_selection();
+            this.cutout_selection(true);
             const lRenderer =
                 new LViewRenderer(this.sdfv_instance, this.container);
             const lGraph = await LViewParser.parseGraph(this.graph, lRenderer);
@@ -3043,7 +3043,7 @@ export class SDFGRenderer {
         }
     }
 
-    public cutout_selection(): void {
+    public cutout_selection(_suppressSave: boolean = false): void {
         /* Rule set for creating a cutout subgraph:
          * Edges are selected according to the subgraph nodes - all edges
          * between subgraph nodes are preserved.
