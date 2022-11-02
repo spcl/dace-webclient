@@ -59,6 +59,13 @@ export type SDFGListType = any[];//{ [key: number]: DagreSDFG };
 export enum SDFGRendererEvent {
     ADD_ELEMENT = 'ADD_ELEMENT',
     QUERY_LIBNODE = 'QUERY_LIBNODE',
+    EXIT_PREVIEW = 'EXIT_PREVIEW',
+    COLLAPSE_STATE_CHANGED = 'COLLAPSE_STATE_CHANGED',
+    ELEMENT_POSITION_CHANGED = 'ELEMENT_POSITION_CHANGED',
+    SELECTION_CHANGED = 'SELECTION_CHANGED',
+    SYMBOL_DEFINITION_CHANGED = 'SYMBOL_DEFINITION_CHANGED',
+    ACTIVE_OVERLAYS_CHANGED = 'ACTIVE_OVERLAYS_CHANGED',
+    BACKEND_DATA_REQUESTED = 'BACKEND_DATA_REQUESTED',
 }
 
 function check_valid_add_position(
@@ -494,7 +501,8 @@ export class SDFGRenderer {
                                     );
                                 this.draw_async();
                                 this.emit_event(
-                                    'active_overlays_changed', null
+                                    SDFGRendererEvent.ACTIVE_OVERLAYS_CHANGED,
+                                    null
                                 );
                             }
                         );
@@ -529,7 +537,8 @@ export class SDFGRenderer {
                                             );
                                         this.draw_async();
                                         this.emit_event(
-                                            'active_overlays_changed', null
+                                            SDFGRendererEvent.ACTIVE_OVERLAYS_CHANGED,
+                                            null
                                         );
                                     }
                                 );
@@ -550,7 +559,8 @@ export class SDFGRenderer {
                                             );
                                         this.draw_async();
                                         this.emit_event(
-                                            'active_overlays_changed', null
+                                            SDFGRendererEvent.ACTIVE_OVERLAYS_CHANGED,
+                                            null
                                         );
                                     }
                                 );
@@ -571,7 +581,8 @@ export class SDFGRenderer {
                                             );
                                         this.draw_async();
                                         this.emit_event(
-                                            'active_overlays_changed', null
+                                            SDFGRendererEvent.ACTIVE_OVERLAYS_CHANGED,
+                                            null
                                         );
                                     }
                                 );
@@ -798,17 +809,7 @@ export class SDFGRenderer {
                 exit_preview_btn.style.userSelect = 'none';
                 exit_preview_btn.onclick = () => {
                     exit_preview_btn.className = 'button hidden';
-                    this.emit_event('exit_preview', null);
-                    if (vscode) {
-                        vscode.postMessage({
-                            type: 'sdfv.get_current_sdfg',
-                            preventRefreshes: true,
-                        });
-                        vscode.postMessage({
-                            type: 'transformation_history.refresh',
-                            resetActive: true,
-                        });
-                    }
+                    this.emit_event(SDFGRendererEvent.EXIT_PREVIEW, null);
                 };
                 exit_preview_btn.title = 'Exit preview';
                 this.toolbar.appendChild(exit_preview_btn);
@@ -1243,7 +1244,7 @@ export class SDFGRenderer {
             }
         );
 
-        this.emit_event('collapse_state_changed', {
+        this.emit_event(SDFGRendererEvent.COLLAPSE_STATE_CHANGED, {
             collapsed: true,
             all: true,
         });
@@ -1261,7 +1262,7 @@ export class SDFGRenderer {
             }
         );
 
-        this.emit_event('collapse_state_changed', {
+        this.emit_event(SDFGRendererEvent.COLLAPSE_STATE_CHANGED, {
             collapsed: false,
             all: true,
         });
@@ -1277,7 +1278,7 @@ export class SDFGRenderer {
             }
         );
 
-        this.emit_event('position_changed', {
+        this.emit_event(SDFGRendererEvent.ELEMENT_POSITION_CHANGED, {
             type: 'reset',
         });
 
@@ -2540,7 +2541,7 @@ export class SDFGRenderer {
                 sdfg_elem.attributes.is_collapsed =
                     !sdfg_elem.attributes.is_collapsed;
 
-                this.emit_event('collapse_state_changed', null);
+                this.emit_event(SDFGRendererEvent.COLLAPSE_STATE_CHANGED, null);
 
                 // Re-layout SDFG
                 this.relayout();
@@ -2603,9 +2604,11 @@ export class SDFGRenderer {
                 }
 
                 if (this.mouse_mode === 'move')
-                    this.emit_event('position_changed', {
-                        type: 'manual_move'
-                    });
+                    this.emit_event(SDFGRendererEvent.ELEMENT_POSITION_CHANGED,
+                        {
+                            type: 'manual_move'
+                        }
+                    );
             } else {
                 if (this.mouse_mode === 'add') {
                     if (check_valid_add_position(
@@ -2816,9 +2819,11 @@ export class SDFGRenderer {
                 this.draw_async();
 
                 if (element_moved)
-                    this.emit_event('position_changed', {
-                        type: 'manual_move'
-                    });
+                    this.emit_event(SDFGRendererEvent.ELEMENT_POSITION_CHANGED,
+                        {
+                            type: 'manual_move'
+                        }
+                    );
 
             } else if (this.mouse_mode == 'add') {
                 // Cancel add mode
@@ -2855,7 +2860,7 @@ export class SDFGRenderer {
 
         if (element_focus_changed)
             this.emit_event(
-                'renderer_selection_changed',
+                SDFGRendererEvent.SELECTION_CHANGED,
                 {
                     multi_selection_changed: multi_selection_changed,
                 }
