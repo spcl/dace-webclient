@@ -1,6 +1,12 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import $ from 'jquery';
+
+import 'material-icons/iconfont/material-icons.css';
+
+import 'bootstrap';
+import 'bootstrap/dist/css/bootstrap.min.css';
+
 import { mean, median } from 'mathjs';
 import {
     DagreSDFG,
@@ -365,7 +371,8 @@ function init_sdfv(
                     );
             }, 1);
     });
-    $('#advsearch-btn').on('click', () => {
+    $('#advsearch-btn').on('click', (e) => {
+        e.preventDefault();
         const renderer = sdfv.get_renderer();
         if (renderer)
             setTimeout(() => {
@@ -378,6 +385,7 @@ function init_sdfv(
                     );
                 }
             }, 1);
+        return false;
     });
     $('#search').on('keydown', (e: any) => {
         if (e.key == 'Enter' || e.which == 13) {

@@ -17,6 +17,7 @@ import {
 import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
 import { SDFGRenderer } from './renderer';
+import { SDFVSettings } from '../utils/sdfv_settings';
 
 export enum SDFGElementType {
     Edge = 'Edge',
@@ -262,7 +263,8 @@ export class State extends SDFGElement {
         );
 
         if (visible_rect && visible_rect.x <= topleft.x &&
-            visible_rect.y <= topleft.y + SDFV.LINEHEIGHT)
+            visible_rect.y <= topleft.y + SDFV.LINEHEIGHT &&
+            SDFVSettings.showStateNames)
             ctx.fillText(this.label(), topleft.x, topleft.y + SDFV.LINEHEIGHT);
 
         // If this state is selected or hovered
@@ -846,6 +848,17 @@ export class AccessNode extends SDFGNode {
         );
     }
 
+    public label(): string {
+        const name = this.data.node.attributes.data;
+        let lbl = name;
+        if (SDFVSettings.showDataDescriptorSizes) {
+            const nodedesc = this.sdfg.attributes._arrays[name];
+            if (nodedesc && nodedesc.attributes.shape)
+                lbl = ' ' + sdfg_property_to_string(nodedesc.attributes.shape);
+        }
+        return lbl;
+    }
+
     public shade(
         _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
         alpha: number = 0.4
@@ -945,16 +958,17 @@ export class ScopeNode extends SDFGNode {
             SDFV.SCOPE_LOD
         );
 
-        drawAdaptiveText(
-            ctx, renderer, '', this.schedule_label(), this.x, this.y,
-            this.width, this.height,
-            SDFV.SCOPE_LOD, SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
-            SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true,
-            TextVAlign.BOTTOM, TextHAlign.RIGHT, {
-            bottom: 2.0,
-            right: this.height,
-        }
-        );
+        if (SDFVSettings.showMapSchedules)
+            drawAdaptiveText(
+                ctx, renderer, '', this.schedule_label(), this.x, this.y,
+                this.width, this.height,
+                SDFV.SCOPE_LOD, SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
+                SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true,
+                TextVAlign.BOTTOM, TextHAlign.RIGHT, {
+                    bottom: 2.0,
+                    right: this.height,
+                }
+            );
     }
 
     public shade(

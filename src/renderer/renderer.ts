@@ -1,12 +1,17 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
+import $ from 'jquery';
+
 import dagre from 'dagre';
 import {
     DagreSDFG,
+    GenericSdfgOverlay,
     JsonSDFG,
     JsonSDFGEdge,
     JsonSDFGNode,
     JsonSDFGState,
+    MemoryLocationOverlay,
+    MemoryVolumeOverlay,
     ModeButtons,
     Point2D,
     SDFVTooltipFunc,
@@ -17,8 +22,6 @@ import { LViewLayouter } from '../local_view/lview_layouter';
 import { LViewGraphParseError, LViewParser } from '../local_view/lview_parser';
 import { LViewRenderer } from '../local_view/lview_renderer';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
-import { MemoryLocationOverlay } from '../overlays/memory_location_overlay';
-import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
 import { OverlayManager } from '../overlay_manager';
 import { reload_file, SDFV } from '../sdfv';
 import {
@@ -34,7 +37,7 @@ import {
 } from '../utils/sdfg/sdfg_utils';
 import {
     memlet_tree_complete,
-    traverse_sdfg_scopes,
+    traverse_sdfg_scopes
 } from '../utils/sdfg/traversal';
 import { deepCopy, intersectRect, showErrorModal } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
@@ -42,6 +45,8 @@ import {
     AccessNode, Connector, draw_sdfg, Edge, EntryNode, NestedSDFG, offset_sdfg,
     offset_state, SDFGElement, SDFGElements, SDFGElementType, SDFGNode, State
 } from './renderer_elements';
+import { sdfg_property_to_string } from '../utils/sdfg/display';
+import { SDFVSettings } from '../utils/sdfv_settings';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -116,12 +121,12 @@ export class SDFGRenderer {
 
     // Toolbar related fields.
     protected menu: ContextMenu | null = null;
-    protected toolbar: HTMLElement | null = null;
+    protected toolbar: JQuery<HTMLElement> | null = null;
     protected panmode_btn: HTMLElement | null = null;
     protected movemode_btn: HTMLElement | null = null;
     protected selectmode_btn: HTMLElement | null = null;
-    protected filter_btn: HTMLElement | null = null;
-    protected localViewBtn: HTMLElement | null = null;
+    protected cutoutBtn: JQuery<HTMLElement> | null = null;
+    protected localViewBtn: JQuery<HTMLElement> | null = null;
     protected addmode_btns: HTMLElement[] = [];
     protected add_type: SDFGElementType | null = null;
     protected add_mode_lib: string | null = null;
@@ -133,10 +138,6 @@ export class SDFGRenderer {
     // Memlet-Tree related fields.
     protected all_memlet_trees_sdfg: Set<any>[] = [];
     protected all_memlet_trees: Set<any>[] = [];
-
-    // View options.
-    protected inclusive_ranges: boolean = false;
-    protected omit_access_nodes: boolean = false;
 
     // Mouse-related fields.
     // Mouse mode - pan, move, select.
@@ -218,7 +219,7 @@ export class SDFGRenderer {
             if (this.minimap_canvas)
                 this.container.removeChild(this.minimap_canvas);
             if (this.toolbar)
-                this.container.removeChild(this.toolbar);
+                this.container.removeChild(this.toolbar[0]);
             if (this.tooltip_container)
                 this.container.removeChild(this.tooltip_container);
             if (this.interaction_info_box)
@@ -262,8 +263,8 @@ export class SDFGRenderer {
 
     public view_settings(): any {
         return {
-            inclusive_ranges: this.inclusive_ranges,
-            omit_access_nodes: this.omit_access_nodes,
+            inclusive_ranges: SDFVSettings.inclusiveRanges,
+            omit_access_nodes: !SDFVSettings.showAccessNodes,
         };
     }
 
@@ -280,17 +281,17 @@ export class SDFGRenderer {
         if (this.panmode_btn) {
             this.panmode_btn.style.paddingBottom = '0px';
             this.panmode_btn.style.userSelect = 'none';
-            this.panmode_btn.style.background = '';
+            this.panmode_btn.classList.remove('selected');
         }
         if (this.movemode_btn) {
             this.movemode_btn.style.paddingBottom = '0px';
             this.movemode_btn.style.userSelect = 'none';
-            this.movemode_btn.style.background = '';
+            this.movemode_btn.classList.remove('selected');
         }
         if (this.selectmode_btn) {
             this.selectmode_btn.style.paddingBottom = '0px';
             this.selectmode_btn.style.userSelect = 'none';
-            this.selectmode_btn.style.background = '';
+            this.selectmode_btn.classList.remove('selected');
         }
 
         this.mouse_follow_element.innerHTML = null;
@@ -299,20 +300,19 @@ export class SDFGRenderer {
             const btn_type = add_btn.getAttribute('type');
             if (btn_type === this.add_type && this.add_type) {
                 add_btn.style.userSelect = 'none';
-                add_btn.style.background = this.mode_selected_bg_color;
+                add_btn.classList.add('selected');
                 this.mouse_follow_element.innerHTML =
                     this.mouse_follow_svgs[this.add_type];
             } else {
                 add_btn.style.userSelect = 'none';
-                add_btn.style.background = '';
+                add_btn.classList.remove('selected');
             }
         }
 
         switch (this.mouse_mode) {
             case 'move':
                 if (this.movemode_btn)
-                    this.movemode_btn.style.background =
-                        this.mode_selected_bg_color;
+                    this.movemode_btn.classList.add('selected');
                 if (this.interaction_info_box)
                     this.interaction_info_box.style.display = 'block';
                 if (this.interaction_info_text)
@@ -322,8 +322,7 @@ export class SDFGRenderer {
                 break;
             case 'select':
                 if (this.selectmode_btn)
-                    this.selectmode_btn.style.background =
-                        this.mode_selected_bg_color;
+                    this.selectmode_btn.classList.add('selected');
                 if (this.interaction_info_box)
                     this.interaction_info_box.style.display = 'block';
                 if (this.interaction_info_text) {
@@ -365,8 +364,7 @@ export class SDFGRenderer {
             case 'pan':
             default:
                 if (this.panmode_btn)
-                    this.panmode_btn.style.background =
-                        this.mode_selected_bg_color;
+                    this.panmode_btn.classList.add('selected');
                 break;
         }
     }
@@ -430,215 +428,161 @@ export class SDFGRenderer {
         this.interaction_info_box.appendChild(this.interaction_info_text);
         this.container.appendChild(this.interaction_info_box);
 
-        // Add buttons
         if (toolbar) {
-            this.toolbar = document.createElement('div');
-            this.toolbar.style.position = 'absolute';
-            this.toolbar.style.top = '10px';
-            this.toolbar.style.left = '10px';
-            let d;
+            // Construct the toolbar.
+            this.toolbar = $('<div>', {
+                css: {
+                    position: 'absolute',
+                    top: '10px',
+                    left: '10px',
+                }
+            });
+            this.container.appendChild(this.toolbar[0]);
 
-            // Menu bar
-            try {
-                ContextMenu;
-                const menu_button = document.createElement('button');
-                menu_button.className = 'button';
-                menu_button.innerHTML = '<i class="material-icons">menu</i>';
-                menu_button.style.paddingBottom = '0px';
-                menu_button.style.userSelect = 'none';
-                menu_button.onclick = () => {
-                    if (this.menu && this.menu.visible()) {
-                        this.menu.destroy();
-                        return;
-                    }
-                    const rect = menu_button.getBoundingClientRect();
-                    const cmenu = new ContextMenu();
-                    if (!this.in_vscode) {
-                        cmenu.addOption(
-                            'Save SDFG as...', (_x: any) => this.save_sdfg()
-                        );
-                    }
-                    cmenu.addOption(
-                        'Save view as PNG', (_x: any) => this.save_as_png()
-                    );
-                    if (this.has_pdf()) {
-                        cmenu.addOption(
-                            'Save view as PDF', (_x: any) => this.save_as_pdf()
-                        );
-                        cmenu.addOption(
-                            'Save all as PDF', (_x: any) => this.save_as_pdf(true)
-                        );
-                    }
-                    cmenu.addCheckableOption(
-                        'Inclusive ranges',
-                        this.inclusive_ranges,
-                        (_x: any, checked: boolean) => {
-                            this.inclusive_ranges = checked;
-                        }
-                    );
-                    cmenu.addCheckableOption(
-                        'Adaptive content hiding',
-                        (this.ctx as any).lod,
-                        (_x: any, checked: boolean) => {
-                            (this.ctx as any).lod = checked;
-                        }
-                    );
-                    if (this.in_vscode) {
-                        cmenu.addCheckableOption(
-                            'Show Logical Groups',
-                            this.overlay_manager ?
-                                this.overlay_manager.is_overlay_active(
-                                    LogicalGroupOverlay
-                                ) : false,
-                            (x: any, checked: boolean) => {
-                                if (checked)
-                                    this.overlay_manager?.register_overlay(
-                                        LogicalGroupOverlay
-                                    );
-                                else
-                                    this.overlay_manager?.deregister_overlay(
-                                        LogicalGroupOverlay
-                                    );
-                                this.draw_async();
-                                this.emit_event(
-                                    SDFGRendererEvent.ACTIVE_OVERLAYS_CHANGED,
-                                    null
-                                );
-                            }
-                        );
-                    } else {
-                        cmenu.addOption(
-                            'Overlays',
-                            () => {
-                                if (
-                                    this.overlays_menu &&
-                                    this.overlays_menu.visible()
-                                ) {
-                                    this.overlays_menu.destroy();
-                                    return;
-                                }
-                                const rect =
-                                    cmenu.get_cmenu_elem()?.getBoundingClientRect();
-                                const overlays_cmenu = new ContextMenu();
-                                overlays_cmenu.addCheckableOption(
-                                    'Memory volume analysis',
-                                    this.overlay_manager ?
-                                        this.overlay_manager.is_overlay_active(
-                                            MemoryVolumeOverlay
-                                        ) : false,
-                                    (x: any, checked: boolean) => {
-                                        if (checked)
-                                            this.overlay_manager?.register_overlay(
-                                                MemoryVolumeOverlay
-                                            );
-                                        else
-                                            this.overlay_manager?.deregister_overlay(
-                                                MemoryVolumeOverlay
-                                            );
-                                        this.draw_async();
-                                        this.emit_event(
-                                            SDFGRendererEvent.ACTIVE_OVERLAYS_CHANGED,
-                                            null
-                                        );
-                                    }
-                                );
-                                overlays_cmenu.addCheckableOption(
-                                    'Storage locations',
-                                    this.overlay_manager ?
-                                        this.overlay_manager.is_overlay_active(
-                                            MemoryLocationOverlay
-                                        ) : false,
-                                    (x: any, checked: boolean) => {
-                                        if (checked)
-                                            this.overlay_manager?.register_overlay(
-                                                MemoryLocationOverlay
-                                            );
-                                        else
-                                            this.overlay_manager?.deregister_overlay(
-                                                MemoryLocationOverlay
-                                            );
-                                        this.draw_async();
-                                        this.emit_event(
-                                            SDFGRendererEvent.ACTIVE_OVERLAYS_CHANGED,
-                                            null
-                                        );
-                                    }
-                                );
-                                overlays_cmenu.addCheckableOption(
-                                    'Logical groups',
-                                    this.overlay_manager ?
-                                        this.overlay_manager.is_overlay_active(
-                                            LogicalGroupOverlay
-                                        ) : false,
-                                    (x: any, checked: boolean) => {
-                                        if (checked)
-                                            this.overlay_manager?.register_overlay(
-                                                LogicalGroupOverlay
-                                            );
-                                        else
-                                            this.overlay_manager?.deregister_overlay(
-                                                LogicalGroupOverlay
-                                            );
-                                        this.draw_async();
-                                        this.emit_event(
-                                            SDFGRendererEvent.ACTIVE_OVERLAYS_CHANGED,
-                                            null
-                                        );
-                                    }
-                                );
-                                this.overlays_menu = overlays_cmenu;
-                                this.overlays_menu.show(rect?.left, rect?.top);
-                            }
-                        );
-                    }
-                    cmenu.addCheckableOption(
-                        'Hide Access Nodes',
-                        this.omit_access_nodes,
-                        (_: any, checked: boolean) => {
-                            this.omit_access_nodes = checked;
-                            this.relayout();
-                            this.draw_async();
-                        }
-                    );
-                    cmenu.addOption(
-                        'Reset positions', () => this.reset_positions()
-                    );
-                    this.menu = cmenu;
-                    this.menu.show(rect.left, rect.bottom);
-                };
-                menu_button.title = 'Menu';
-                this.toolbar.appendChild(menu_button);
-            } catch (ex) { }
+            // Construct menu.
+            const menuDropdown = $('<div>', {
+                class: 'dropdown',
+            });
+            $('<button>', {
+                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                html: '<i class="material-icons">menu</i>',
+                title: 'Menu',
+                'data-bs-toggle': 'dropdown',
+            }).appendTo(menuDropdown);
+            const menu = $('<ul>', {
+                class: 'dropdown-menu',
+            }).appendTo(menuDropdown);
+            $('<div>', {
+                class: 'btn-group',
+            }).appendTo(this.toolbar).append(menuDropdown);
 
-            // Zoom to fit
-            d = document.createElement('button');
-            d.className = 'button';
-            d.innerHTML = '<i class="material-icons">filter_center_focus</i>';
-            d.style.paddingBottom = '0px';
-            d.style.userSelect = 'none';
-            d.onclick = () => this.zoom_to_view();
-            d.title = 'Zoom to fit SDFG';
-            this.toolbar.appendChild(d);
+            $('<li>').appendTo(menu).append($('<span>', {
+                class: 'dropdown-item',
+                text: 'Save SDFG',
+                click: () => this.save_sdfg(),
+            }));
+            $('<li>').appendTo(menu).append($('<span>', {
+                class: 'dropdown-item',
+                text: 'Save view as PNG',
+                click: () => this.save_as_png(),
+            }));
+            if (this.has_pdf()) {
+                $('<li>').appendTo(menu).append($('<span>', {
+                    class: 'dropdown-item',
+                    text: 'Save view as PDF',
+                    click: () => this.save_as_pdf(false),
+                }));
+                $('<li>').appendTo(menu).append($('<span>', {
+                    class: 'dropdown-item',
+                    text: 'Save SDFG as PDF',
+                    click: () => this.save_as_pdf(true),
+                }));
+            }
 
-            // Collapse all
-            d = document.createElement('button');
-            d.className = 'button';
-            d.innerHTML = '<i class="material-icons">unfold_less</i>';
-            d.style.paddingBottom = '0px';
-            d.style.userSelect = 'none';
-            d.onclick = () => this.collapse_all();
-            d.title = 'Collapse all elements';
-            this.toolbar.appendChild(d);
+            $('<li>').appendTo(menu).append($('<hr>', {
+                class: 'dropdown-divider',
+            }));
 
-            // Expand all
-            d = document.createElement('button');
-            d.className = 'button';
-            d.innerHTML = '<i class="material-icons">unfold_more</i>';
-            d.style.paddingBottom = '0px';
-            d.style.userSelect = 'none';
-            d.onclick = () => this.expand_all();
-            d.title = 'Expand all elements';
-            this.toolbar.appendChild(d);
+            $('<li>').appendTo(menu).append($('<span>', {
+                class: 'dropdown-item',
+                text: 'Reset positions',
+                click: () => this.reset_positions(),
+            }));
+
+            // SDFV Options.
+            $('<button>', {
+                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                html: '<i class="material-icons">settings</i>',
+                title: 'Settings',
+                click: () => {
+                    SDFVSettings.getInstance().show(this);
+                },
+            }).appendTo(this.toolbar);
+
+            // Overlays menu.
+            const overlayDropdown = $('<div>', {
+                class: 'dropdown',
+            });
+            $('<button>', {
+                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                html: '<i class="material-icons">saved_search</i>',
+                title: 'Overlays',
+                'data-bs-toggle': 'dropdown',
+                'data-bs-auto-close': 'outside',
+            }).appendTo(overlayDropdown);
+            const overlayMenu = $('<ul>', {
+                class: 'dropdown-menu',
+                css: {
+                    'min-width': '200px',
+                },
+            }).appendTo(overlayDropdown);
+            $('<div>', {
+                class: 'btn-group',
+            }).appendTo(this.toolbar).append(overlayDropdown);
+
+            const addOverlayToMenu = (
+                txt: string, ol: typeof GenericSdfgOverlay
+            ) => {
+                const olItem = $('<li>', {
+                    css: {
+                        'padding-left': '.7rem',
+                    },
+                }).appendTo(overlayMenu);
+                const olContainer = $('<div>', {
+                    class: 'form-check form-switch',
+                }).appendTo(olItem);
+                const olInput = $('<input>', {
+                    class: 'form-check-input',
+                    type: 'checkbox',
+                    change: () => {
+                        if (olInput.prop('checked'))
+                            this.overlay_manager?.register_overlay(ol);
+                        else
+                            this.overlay_manager?.deregister_overlay(ol);
+                    },
+                }).appendTo(olContainer);
+                $('<label>', {
+                    class: 'form-check-label',
+                    text: txt,
+                }).appendTo(olContainer);
+            };
+
+            addOverlayToMenu('Logical groups', LogicalGroupOverlay);
+            addOverlayToMenu('Storage locations', MemoryLocationOverlay);
+            if (!this.in_vscode)
+                addOverlayToMenu(
+                    'Logical data movement volume', MemoryVolumeOverlay
+                );
+
+            // Zoom to fit.
+            $('<button>', {
+                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                html: '<i class="material-icons">filter_center_focus</i>',
+                title: 'Zoom to fit SDFG',
+                click: () => {
+                    this.zoom_to_view();
+                },
+            }).appendTo(this.toolbar);
+
+            // Collapse all.
+            $('<button>', {
+                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                html: '<i class="material-icons">unfold_less</i>',
+                title: 'Collapse all elements',
+                click: () => {
+                    this.collapse_all();
+                },
+            }).appendTo(this.toolbar);
+
+            // Expand all.
+            $('<button>', {
+                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                html: '<i class="material-icons">unfold_more</i>',
+                title: 'Expand all elements',
+                click: () => {
+                    this.expand_all();
+                },
+            }).appendTo(this.toolbar);
 
             if (mode_buttons) {
                 // If we get the "external" mode buttons we are in vscode and do
@@ -679,40 +623,29 @@ export class SDFGRenderer {
                 }
                 this.mode_selected_bg_color = '#22A4FE';
             } else {
-                // Mode buttons are empty in standalone SDFV
+                // Mode buttons are empty in standalone SDFV.
                 this.addmode_btns = [];
 
-                // Create pan mode button
-                const pan_mode_btn = document.createElement('button');
-                pan_mode_btn.className = 'button';
-                pan_mode_btn.innerHTML = '<i class="material-icons">pan_tool</i>';
-                pan_mode_btn.style.paddingBottom = '0px';
-                pan_mode_btn.style.userSelect = 'none';
-                pan_mode_btn.style.background = this.mode_selected_bg_color;
-                pan_mode_btn.title = 'Pan mode';
-                this.panmode_btn = pan_mode_btn;
-                this.toolbar.appendChild(pan_mode_btn);
+                // Enter pan mode.
+                this.panmode_btn = $('<button>', {
+                    class: 'btn btn-light btn-sdfv-light btn-sdfv selected',
+                    html: '<i class="material-icons">pan_tool</i>',
+                    title: 'Pan mode',
+                }).appendTo(this.toolbar)[0];
 
-                // Create move mode button
-                const move_mode_btn = document.createElement('button');
-                move_mode_btn.className = 'button';
-                move_mode_btn.innerHTML = '<i class="material-icons">open_with</i>';
-                move_mode_btn.style.paddingBottom = '0px';
-                move_mode_btn.style.userSelect = 'none';
-                move_mode_btn.title = 'Object moving mode';
-                this.movemode_btn = move_mode_btn;
-                this.toolbar.appendChild(move_mode_btn);
+                // Enter move mode.
+                this.movemode_btn = $('<button>', {
+                    class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                    html: '<i class="material-icons">open_with</i>',
+                    title: 'Object moving mode',
+                }).appendTo(this.toolbar)[0];
 
-                // Create select mode button
-                const box_select_btn = document.createElement('button');
-                box_select_btn.className = 'button';
-                box_select_btn.innerHTML =
-                    '<i class="material-icons">border_style</i>';
-                box_select_btn.style.paddingBottom = '0px';
-                box_select_btn.style.userSelect = 'none';
-                box_select_btn.title = 'Select mode';
-                this.selectmode_btn = box_select_btn;
-                this.toolbar.appendChild(box_select_btn);
+                // Enter box select mode.
+                this.selectmode_btn = $('<button>', {
+                    class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                    html: '<i class="material-icons">border_style</i>',
+                    title: 'Select mode',
+                }).appendTo(this.toolbar)[0];
             }
 
             // Enter pan mode
@@ -772,52 +705,46 @@ export class SDFGRenderer {
             // React to ctrl and shift key presses
             document.addEventListener('keydown', (e) => this.on_key_event(e));
             document.addEventListener('keyup', (e) => this.on_key_event(e));
-            document.addEventListener("visibilitychange", () => {
+            document.addEventListener('visibilitychange', () => {
                 this.clear_key_events();
             });
 
-            // Filter graph to selection
-            d = document.createElement('button');
-            d.className = 'button hidden';
-            d.innerHTML = '<i class="material-icons">content_cut</i>';
-            d.style.paddingBottom = '0px';
-            d.style.userSelect = 'none';
-            d.onclick = () => this.cutout_selection();
-            d.title = 'Filter selection (cutout)';
-            this.filter_btn = d;
-            this.toolbar.appendChild(d);
+            // Filter graph to selection (visual cutout).
+            this.cutoutBtn = $('<button>', {
+                class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
+                html: '<i class="material-icons">content_cut</i>',
+                title: 'Filter selection (cutout)',
+                click: () => {
+                    this.cutout_selection();
+                },
+            }).appendTo(this.toolbar);
+            this.cutoutBtn.hide();
 
-            // Transition to local view with selection
-            d = document.createElement('button');
-            d.id = 'enter-local-view-button';
-            d.className = 'button hidden';
-            d.innerHTML = '<i class="material-icons">memory</i>';
-            d.style.paddingBottom = '0px';
-            d.style.userSelect = 'none';
-            d.onclick = () => this.localViewSelection();
-            d.title = 'Inspect access patterns (local view)';
-            this.localViewBtn = d;
-            this.toolbar.appendChild(d);
+            // Transition to local view with selection.
+            this.localViewBtn = $('<button>', {
+                class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
+                html: '<i class="material-icons">memory</i>',
+                title: 'Inspect access patterns (local view)',
+                click: () => {
+                    this.localViewSelection();
+                },
+            }).appendTo(this.toolbar);
+            this.localViewBtn.hide();
 
-            // Exit previewing mode
+            // Exit previewing mode.
             if (this.in_vscode) {
-                const exit_preview_btn = document.createElement('button');
-                exit_preview_btn.id = 'exit-preview-button';
-                exit_preview_btn.className = 'button hidden';
-                exit_preview_btn.innerHTML = '<i class="material-icons">close</i>';
-                exit_preview_btn.style.paddingBottom = '0px';
-                exit_preview_btn.style.userSelect = 'none';
-                exit_preview_btn.onclick = () => {
-                    exit_preview_btn.className = 'button hidden';
-                    this.emit_event(SDFGRendererEvent.EXIT_PREVIEW, null);
-                };
-                exit_preview_btn.title = 'Exit preview';
-                this.toolbar.appendChild(exit_preview_btn);
+                const exitPreviewBtn = $('<button>', {
+                    class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
+                    html: '<i class="material-icons">close</i>',
+                    title: 'Exit preview',
+                    click: () => {
+                        exitPreviewBtn.hide();
+                        this.emit_event(SDFGRendererEvent.EXIT_PREVIEW, null);
+                    },
+                }).appendTo(this.toolbar);
+                exitPreviewBtn.hide();
             }
-
-            this.container.append(this.toolbar);
         }
-        // End of buttons
 
         // Tooltip HTML container
         this.tooltip_container = document.createElement('div');
@@ -1101,7 +1028,7 @@ export class SDFGRenderer {
         this.sdfg_list = {};
         this.graph = relayout_sdfg(
             this.ctx, this.sdfg, this.sdfg_list,
-            this.state_parent_list, this.omit_access_nodes
+            this.state_parent_list, !SDFVSettings.showAccessNodes
         );
         this.onresize();
 
@@ -2878,7 +2805,7 @@ export class SDFGRenderer {
     }
 
     public get_inclusive_ranges(): boolean {
-        return this.inclusive_ranges;
+        return SDFVSettings.inclusiveRanges;
     }
 
     public get_canvas(): HTMLCanvasElement | null {
@@ -2954,16 +2881,16 @@ export class SDFGRenderer {
     public on_selection_changed(): void {
         if (this.localViewBtn) {
             if (this.isLocalViewViable())
-                this.localViewBtn.className = 'button';
+                this.localViewBtn.show();
             else
-                this.localViewBtn.className = 'button hidden';
+                this.localViewBtn.hide();
         }
 
-        if (this.filter_btn) {
+        if (this.cutoutBtn) {
             if (this.selected_elements.length > 0)
-                this.filter_btn.className = 'button';
+                this.cutoutBtn.show();
             else
-                this.filter_btn.className = 'button hidden';
+                this.cutoutBtn.hide();
         }
     }
 
@@ -3134,9 +3061,26 @@ export class SDFGRenderer {
 
 
 function calculateNodeSize(
-    _sdfg_state: any, node: any, ctx: CanvasRenderingContext2D
+    sdfg: JsonSDFG, node: any, ctx: CanvasRenderingContext2D
 ): { width: number, height: number } {
-    const labelsize = ctx.measureText(node.label).width;
+    let label;
+    switch (node.type) {
+        case SDFGElementType.AccessNode:
+            label = node.label;
+            if (SDFVSettings.showDataDescriptorSizes) {
+                const nodedesc = sdfg.attributes._arrays[label];
+                if (nodedesc && nodedesc.attributes.shape)
+                    label = ' ' + sdfg_property_to_string(
+                        nodedesc.attributes.shape
+                    );
+            }
+            break;
+        default:
+            label = node.label;
+            break;
+    }
+
+    const labelsize = ctx.measureText(label).width;
     const inconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
         node.attributes.layout.in_connectors
     ).length - SDFV.LINEHEIGHT;
@@ -3335,7 +3279,7 @@ function relayout_state(
             node.attributes.layout.out_connectors =
                 node.attributes.out_connectors;
 
-        const nodesize = calculateNodeSize(sdfg_state, node, ctx);
+        const nodesize = calculateNodeSize(sdfg, node, ctx);
         node.attributes.layout.width = nodesize.width;
         node.attributes.layout.height = nodesize.height;
         node.attributes.layout.label = node.label;
