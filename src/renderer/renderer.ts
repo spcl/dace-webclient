@@ -1659,9 +1659,9 @@ export class SDFGRenderer {
                     else if (error.edge_id !== undefined)
                         el_id = error.edge_id;
                 }
+                const sdfg_id = error.sdfg_id ?? 0;
                 const offending_element = find_graph_element_by_uuid(
-                    this.graph,
-                    error.sdfg_id + '/' + state_id + '/' + el_id + '/-1'
+                    this.graph, sdfg_id + '/' + state_id + '/' + el_id + '/-1'
                 );
                 if (offending_element) {
                     if (offending_element.element)
