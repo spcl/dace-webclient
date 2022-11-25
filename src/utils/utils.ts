@@ -74,11 +74,10 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
     const element = document.createElement(type);
     if (id !== '')
         element.id = id;
-    if (classList !== [])
-        classList.forEach(class_name => {
-            if (!element.classList.contains(class_name))
-                element.classList.add(class_name);
-        });
+    for (const class_name of classList) {
+        if (!element.classList.contains(class_name))
+            element.classList.add(class_name);
+    }
     if (parent)
         parent.appendChild(element);
     return element;
@@ -91,8 +90,8 @@ export function assignIfNotExists<T, E>(
     obj: T, other: E
 ): T & Omit<E, keyof T> {
     const o = obj as any;
-    for (const [key, val] of Object.entries(other)) {
-        if (!(key in obj)) o[key] = val;
+    for (const [key, val] of Object.entries(other as any)) {
+        if (!(key in (obj as any))) o[key] = val;
     }
     return o;
 }

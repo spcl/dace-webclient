@@ -1644,35 +1644,40 @@ export class SDFGRenderer {
         }
 
         if (this.sdfg.error && this.graph) {
-            const error = this.sdfg.error;
+            // If the popover is already shown, skip this to save on compute.
+            if (this.error_popover_container?.style.display !== 'block') {
+                const error = this.sdfg.error;
 
-            let state_id = -1;
-            let el_id = -1;
-            if (error.isedge_id !== undefined) {
-                el_id = error.isedge_id;
-            } else if (error.state_id !== undefined) {
-                state_id = error.state_id;
-                if (error.node_id !== undefined)
-                    el_id = error.node_id;
-                else if (error.edge_id !== undefined)
-                    el_id = error.edge_id;
-            } else {
-                return;
-            }
-            const offending_element = find_graph_element_by_uuid(
-                this.graph, error.sdfg_id + '/' + state_id + '/' + el_id + '/-1'
-            );
-            if (offending_element) {
-                this.zoom_to_view([offending_element.element]);
-
-                if (this.error_popover_container) {
-                    this.error_popover_container.style.display = 'block';
-                    this.error_popover_container.style.bottom = '5%';
-                    this.error_popover_container.style.left = '5%';
+                let state_id = -1;
+                let el_id = -1;
+                if (error.isedge_id !== undefined) {
+                    el_id = error.isedge_id;
+                } else if (error.state_id !== undefined) {
+                    state_id = error.state_id;
+                    if (error.node_id !== undefined)
+                        el_id = error.node_id;
+                    else if (error.edge_id !== undefined)
+                        el_id = error.edge_id;
                 }
+                const offending_element = find_graph_element_by_uuid(
+                    this.graph,
+                    error.sdfg_id + '/' + state_id + '/' + el_id + '/-1'
+                );
+                if (offending_element) {
+                    if (offending_element.element)
+                        this.zoom_to_view([offending_element.element]);
+                    else
+                        this.zoom_to_view([]);
 
-                if (this.error_popover_text && error.message)
-                    this.error_popover_text.innerText = error.message;
+                    if (this.error_popover_container) {
+                        this.error_popover_container.style.display = 'block';
+                        this.error_popover_container.style.bottom = '5%';
+                        this.error_popover_container.style.left = '5%';
+                    }
+
+                    if (this.error_popover_text && error.message)
+                        this.error_popover_text.innerText = error.message;
+                }
             }
         } else {
             if (this.error_popover_container)
