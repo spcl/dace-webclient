@@ -2,13 +2,10 @@
 
 import { createElement } from './utils/utils';
 import { MathNode, parse } from 'mathjs';
-import { SDFGRenderer } from './renderer/renderer';
+import { SDFGRenderer, SDFGRendererEvent } from './renderer/renderer';
 import { Point2D, SymbolMap } from './index';
 import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
 import { SDFGElement } from './renderer/renderer_elements';
-
-// Some global functions and variables which are only accessible within VSCode:
-declare const vscode: any;
 
 export class SymbolResolver {
 
@@ -93,12 +90,12 @@ export class SymbolResolver {
                 symbol,
                 mapping,
                 () => {
-                    if (this.renderer.get_in_vscode())
-                        vscode.postMessage({
-                            type: 'analysis.define_symbol',
+                    this.renderer.emit_event(
+                        SDFGRendererEvent.SYMBOL_DEFINITION_CHANGED, {
                             symbol: symbol,
                             definition: mapping[symbol],
-                        });
+                        }
+                    );
                     if (callback !== undefined)
                         callback();
                     this.prompt_define_symbol(mapping, callback);

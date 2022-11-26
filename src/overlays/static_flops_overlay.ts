@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
-import { SDFGRenderer } from '../renderer/renderer';
+import { SDFGRenderer, SDFGRendererEvent } from '../renderer/renderer';
 import {
     Edge,
     NestedSDFG,
@@ -12,9 +12,6 @@ import { SDFV } from '../sdfv';
 import { getTempColorHslString, get_element_uuid } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
-// Some global functions and variables which are only accessible within VSCode:
-declare const vscode: any;
-
 export class StaticFlopsOverlay extends GenericSdfgOverlay {
 
     public static type: OverlayType = OverlayType.NODE;
@@ -24,11 +21,10 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
 
-        if (this.renderer.get_in_vscode()) {
-            vscode.postMessage({
-                type: 'dace.get_flops',
-            });
-        }
+        this.renderer.emit_event(SDFGRendererEvent.BACKEND_DATA_REQUESTED, {
+            type: 'flops',
+            overlay: 'StaticFlopsOverlay',
+        });
     }
 
     public clear_cached_flops_values(): void {

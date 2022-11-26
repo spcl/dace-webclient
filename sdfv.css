@@ -19,6 +19,51 @@ body {
   clear: both;
 }
 
+.dropdown-item {
+  user-select: none;
+}
+
+.btn-sdfv {
+  padding: .4rem .4rem 0 .4rem !important;
+  margin-right: .2rem;
+}
+
+.btn-sdfv.selected {
+  background-color: var(--bs-gray-400) !important;
+}
+
+.btn-sdfv > span {
+  margin: 0;
+}
+
+.btn-sdfv-light {
+  color: var(--bs-dark) !important;
+  background-color: var(--bs-gray-200) !important;
+  border-color: var(--bs-gray-400) !important;
+}
+
+.btn-sdfv-light:hover {
+  color: var(--bs-dark) !important;
+  background-color: var(--bs-gray-400) !important;
+  border-color: var(--bs-gray-400) !important;
+}
+
+#header-container {
+  padding-left: 0;
+}
+
+#header-container .row {
+  margin-bottom: .3rem;
+}
+
+#advsearch {
+  min-width: 300px;
+  min-height: 200px;
+  width: 550px;
+  height: 330px;
+  resize: both;
+}
+
 #contents {
   position: relative;
   resize: both;
