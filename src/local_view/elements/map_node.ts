@@ -42,7 +42,7 @@ export class MapNode extends Node {
         ConcreteDataAccess[]
     ][];
     private playbackTicker: number = 0;
-    private playbackInterval: NodeJS.Timeout | null = null;
+    private playbackInterval: number | null = null;
     private playbackPlaying: boolean = false;
 
     private extScope: Map<string, number> = new Map();
@@ -477,12 +477,12 @@ export class MapNode extends Node {
         const playbackSpeed = parseInt(playbackSpeedInputVal);
 
         this.playbackPlaying = true;
-        this.playbackInterval = setInterval(() => {
+        this.playbackInterval = window.setInterval(() => {
             if (this.playbackPlaying) {
                 this.playbackTickFunction();
             } else {
                 if (this.playbackInterval)
-                    clearInterval(this.playbackInterval);
+                    window.clearInterval(this.playbackInterval);
                 this.playbackInterval = null;
             }
         }, 1000 / playbackSpeed);
@@ -527,7 +527,7 @@ export class MapNode extends Node {
         } else {
             this.playbackTicker = 0;
             if (this.playbackInterval) {
-                clearInterval(this.playbackInterval);
+                window.clearInterval(this.playbackInterval);
                 this.playbackInterval = null;
             }
 

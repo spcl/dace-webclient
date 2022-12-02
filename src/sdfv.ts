@@ -219,6 +219,7 @@ export class SDFV {
             if (is_collapsed)
                 return false;
 
+            return true;
         }, (_node: SDFGNode, _parent: DagreSDFG) => {
             // After scope ends, pop ourselves as the current element 
             // and add to parent
@@ -681,7 +682,7 @@ function recursive_find_graph(
     graph: DagreSDFG, sdfg_id: number
 ): DagreSDFG | undefined {
     let found = undefined;
-    graph.nodes().forEach(n_id => {
+    for (const n_id of graph.nodes()) {
         const n = graph.node(n_id);
         if (n && n.sdfg.sdfg_list_id === sdfg_id) {
             found = graph;
@@ -691,18 +692,18 @@ function recursive_find_graph(
             if (found)
                 return found;
         }
-    });
+    }
     return found;
 }
 
 function find_state(graph: DagreSDFG, state_id: number): State | undefined {
     let state = undefined;
-    graph.nodes().forEach(s_id => {
+    for (const s_id of graph.nodes()) {
         if (Number(s_id) === state_id) {
             state = graph.node(s_id);
             return state;
         }
-    });
+    }
     return state;
 }
 

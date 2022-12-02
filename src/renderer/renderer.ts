@@ -711,6 +711,7 @@ export class SDFGRenderer {
 
             // Filter graph to selection (visual cutout).
             this.cutoutBtn = $('<button>', {
+                id: 'cutout-button',
                 class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
                 html: '<i class="material-icons">content_cut</i>',
                 title: 'Filter selection (cutout)',
@@ -718,10 +719,11 @@ export class SDFGRenderer {
                     this.cutout_selection();
                 },
             }).appendTo(this.toolbar);
-            this.cutoutBtn.hide();
+            this.cutoutBtn.addClass('hidden');
 
             // Transition to local view with selection.
             this.localViewBtn = $('<button>', {
+                id: 'local-view-button',
                 class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
                 html: '<i class="material-icons">memory</i>',
                 title: 'Inspect access patterns (local view)',
@@ -729,20 +731,21 @@ export class SDFGRenderer {
                     this.localViewSelection();
                 },
             }).appendTo(this.toolbar);
-            this.localViewBtn.hide();
+            this.localViewBtn.addClass('hidden');
 
             // Exit previewing mode.
             if (this.in_vscode) {
                 const exitPreviewBtn = $('<button>', {
+                    id: 'exit-preview-button',
                     class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
                     html: '<i class="material-icons">close</i>',
-                    title: 'Exit preview',
+                    title: 'Exit previewyyy',
                     click: () => {
-                        exitPreviewBtn.hide();
+                        exitPreviewBtn.addClass('hidden');
                         this.emit_event(SDFGRendererEvent.EXIT_PREVIEW, null);
                     },
                 }).appendTo(this.toolbar);
-                exitPreviewBtn.hide();
+                exitPreviewBtn.addClass('hidden');
             }
         }
 
@@ -2881,16 +2884,16 @@ export class SDFGRenderer {
     public on_selection_changed(): void {
         if (this.localViewBtn) {
             if (this.isLocalViewViable())
-                this.localViewBtn.show();
+                this.localViewBtn.removeClass('hidden');
             else
-                this.localViewBtn.hide();
+                this.localViewBtn.addClass('hidden');
         }
 
         if (this.cutoutBtn) {
             if (this.selected_elements.length > 0)
-                this.cutoutBtn.show();
+                this.cutoutBtn.removeClass('hidden');
             else
-                this.cutoutBtn.hide();
+                this.cutoutBtn.addClass('hidden');
         }
     }
 
