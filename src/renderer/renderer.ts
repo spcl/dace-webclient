@@ -739,7 +739,7 @@ export class SDFGRenderer {
                     id: 'exit-preview-button',
                     class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
                     html: '<i class="material-icons">close</i>',
-                    title: 'Exit previewyyy',
+                    title: 'Exit preview',
                     click: () => {
                         exitPreviewBtn.addClass('hidden');
                         this.emit_event(SDFGRendererEvent.EXIT_PREVIEW, null);
