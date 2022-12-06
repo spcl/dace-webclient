@@ -5,6 +5,7 @@ import { MathNode, parse } from 'mathjs';
 import { SDFGRenderer, SDFGRendererEvent } from './renderer/renderer';
 import { Point2D, SymbolMap } from './index';
 import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
+import { LogicalGroupOverlay } from './overlays/logical_group_overlay';
 import { SDFGElement } from './renderer/renderer_elements';
 
 export class SymbolResolver {
@@ -175,7 +176,7 @@ export class SymbolResolver {
             'input', 'symbol_input', ['sdfv_modal_input_text'],
             this.popup_dialogue._content
         );
-        
+
         function set_val(): void {
             if (popup_dialogue._map && popup_dialogue._symbol) {
                 const val = popup_dialogue._input.value;
@@ -261,6 +262,15 @@ export class OverlayManager {
             return !(overlay instanceof type);
         });
         this.renderer.draw_async();
+    }
+
+    public deregisterAll(except?: (typeof GenericSdfgOverlay)[]): void {
+        for (const ol of this.overlays) {
+            // Do not deregister the overlays given in the "except" list.
+            if (except && except.includes(ol.olClass))
+                continue;
+            this.deregister_overlay(ol.olClass);
+        }
     }
 
     public is_overlay_active(type: typeof GenericSdfgOverlay): boolean {

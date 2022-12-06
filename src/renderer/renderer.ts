@@ -500,59 +500,60 @@ export class SDFGRenderer {
             }).appendTo(this.toolbar);
 
             // Overlays menu.
-            const overlayDropdown = $('<div>', {
-                class: 'dropdown',
-            });
-            $('<button>', {
-                class: 'btn btn-light btn-sdfv-light btn-sdfv',
-                html: '<i class="material-icons">saved_search</i>',
-                title: 'Overlays',
-                'data-bs-toggle': 'dropdown',
-                'data-bs-auto-close': 'outside',
-            }).appendTo(overlayDropdown);
-            const overlayMenu = $('<ul>', {
-                class: 'dropdown-menu',
-                css: {
-                    'min-width': '200px',
-                },
-            }).appendTo(overlayDropdown);
-            $('<div>', {
-                class: 'btn-group',
-            }).appendTo(this.toolbar).append(overlayDropdown);
-
-            const addOverlayToMenu = (
-                txt: string, ol: typeof GenericSdfgOverlay
-            ) => {
-                const olItem = $('<li>', {
+            if (!this.in_vscode) {
+                const overlayDropdown = $('<div>', {
+                    class: 'dropdown',
+                });
+                $('<button>', {
+                    class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                    html: '<i class="material-icons">saved_search</i>',
+                    title: 'Overlays',
+                    'data-bs-toggle': 'dropdown',
+                    'data-bs-auto-close': 'outside',
+                }).appendTo(overlayDropdown);
+                const overlayMenu = $('<ul>', {
+                    class: 'dropdown-menu',
                     css: {
-                        'padding-left': '.7rem',
+                        'min-width': '200px',
                     },
-                }).appendTo(overlayMenu);
-                const olContainer = $('<div>', {
-                    class: 'form-check form-switch',
-                }).appendTo(olItem);
-                const olInput = $('<input>', {
-                    class: 'form-check-input',
-                    type: 'checkbox',
-                    change: () => {
-                        if (olInput.prop('checked'))
-                            this.overlay_manager?.register_overlay(ol);
-                        else
-                            this.overlay_manager?.deregister_overlay(ol);
-                    },
-                }).appendTo(olContainer);
-                $('<label>', {
-                    class: 'form-check-label',
-                    text: txt,
-                }).appendTo(olContainer);
-            };
+                }).appendTo(overlayDropdown);
+                $('<div>', {
+                    class: 'btn-group',
+                }).appendTo(this.toolbar).append(overlayDropdown);
 
-            addOverlayToMenu('Logical groups', LogicalGroupOverlay);
-            addOverlayToMenu('Storage locations', MemoryLocationOverlay);
-            if (!this.in_vscode)
+                const addOverlayToMenu = (
+                    txt: string, ol: typeof GenericSdfgOverlay
+                ) => {
+                    const olItem = $('<li>', {
+                        css: {
+                            'padding-left': '.7rem',
+                        },
+                    }).appendTo(overlayMenu);
+                    const olContainer = $('<div>', {
+                        class: 'form-check form-switch',
+                    }).appendTo(olItem);
+                    const olInput = $('<input>', {
+                        class: 'form-check-input',
+                        type: 'checkbox',
+                        change: () => {
+                            if (olInput.prop('checked'))
+                                this.overlay_manager?.register_overlay(ol);
+                            else
+                                this.overlay_manager?.deregister_overlay(ol);
+                        },
+                    }).appendTo(olContainer);
+                    $('<label>', {
+                        class: 'form-check-label',
+                        text: txt,
+                    }).appendTo(olContainer);
+                };
+
+                addOverlayToMenu('Logical groups', LogicalGroupOverlay);
+                addOverlayToMenu('Storage locations', MemoryLocationOverlay);
                 addOverlayToMenu(
                     'Logical data movement volume', MemoryVolumeOverlay
                 );
+            }
 
             // Zoom to fit.
             $('<button>', {
@@ -860,7 +861,7 @@ export class SDFGRenderer {
                 <line x1="320" x2="80" y1="40" y2="40"/>
                 <line x1="80" x2="40" y1="40" y2="80"/>
                 <line x1="40" x2="40" y1="80" y2="120"/>
-                
+
                 <line x1="10" x2="70" y1="130" y2="190"/>
                 <line x1="70" x2="330" y1="190" y2="190"/>
                 <line x1="330" x2="390" y1="190" y2="130"/>
@@ -3474,7 +3475,7 @@ function relayout_state(
         // Write back layout information
         node.attributes.layout.x = gnode.x;
         node.attributes.layout.y = gnode.y;
-        // Connector management 
+        // Connector management
         const SPACING = SDFV.LINEHEIGHT;
         const iconn_length = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
             node.attributes.layout.in_connectors

@@ -14,7 +14,8 @@ import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class StaticFlopsOverlay extends GenericSdfgOverlay {
 
-    public static type: OverlayType = OverlayType.NODE;
+    public static readonly type: OverlayType = OverlayType.NODE;
+    public readonly olClass: typeof GenericSdfgOverlay = StaticFlopsOverlay;
 
     private flops_map: { [uuids: string]: any } = {};
 
