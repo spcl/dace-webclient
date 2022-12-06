@@ -158,7 +158,6 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
                             'FLOPS: ' + flops_string + ' (' + flops + ')'
                         );
                 });
-
             else
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();

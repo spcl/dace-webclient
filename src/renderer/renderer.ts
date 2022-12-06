@@ -217,7 +217,9 @@ export class SDFGRenderer extends EventEmitter {
                 this.in_vscode = true;
         } catch (ex) { }
 
-        this.init_elements(user_transform, background, mode_buttons, toolbar, minimap);
+        this.init_elements(
+            user_transform, background, mode_buttons, toolbar, minimap
+        );
 
         this.set_sdfg(sdfg, false);
 
@@ -2786,7 +2788,7 @@ export class SDFGRenderer extends EventEmitter {
             this.draw_async();
 
         if (element_focus_changed)
-            this.emit('selection_changed', true);
+            this.emit('selection_changed', multi_selection_changed);
 
         if (selection_changed || multi_selection_changed)
             this.on_selection_changed();

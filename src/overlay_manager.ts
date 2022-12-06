@@ -34,6 +34,13 @@ export class SymbolResolver {
         this.init_overlay_popup_dialogue();
     }
 
+    public removeStaleSymbols(): void {
+        const toKeep: SymbolMap = {};
+        for (const sym in this.renderer.get_sdfg().attributes.symbols)
+            toKeep[sym] = this.symbol_value_map[sym];
+        this.symbol_value_map = toKeep;
+    }
+
     public symbol_value_changed(
         symbol: string, value: number | undefined
     ): void {
