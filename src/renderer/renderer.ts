@@ -47,6 +47,7 @@ import {
 } from './renderer_elements';
 import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { SDFVSettings } from '../utils/sdfv_settings';
+import EventEmitter from 'events';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -60,18 +61,6 @@ declare const MINIMAP_ENABLED: boolean | undefined;
 type SDFGElementGroup = 'states' | 'nodes' | 'edges' | 'isedges';
 // If type is explicitly set, dagre typecheck fails with integer node ids
 export type SDFGListType = any[];//{ [key: number]: DagreSDFG };
-
-export enum SDFGRendererEvent {
-    ADD_ELEMENT = 'ADD_ELEMENT',
-    QUERY_LIBNODE = 'QUERY_LIBNODE',
-    EXIT_PREVIEW = 'EXIT_PREVIEW',
-    COLLAPSE_STATE_CHANGED = 'COLLAPSE_STATE_CHANGED',
-    ELEMENT_POSITION_CHANGED = 'ELEMENT_POSITION_CHANGED',
-    SELECTION_CHANGED = 'SELECTION_CHANGED',
-    SYMBOL_DEFINITION_CHANGED = 'SYMBOL_DEFINITION_CHANGED',
-    ACTIVE_OVERLAYS_CHANGED = 'ACTIVE_OVERLAYS_CHANGED',
-    BACKEND_DATA_REQUESTED = 'BACKEND_DATA_REQUESTED',
-}
 
 function check_valid_add_position(
     type: SDFGElementType | null,
@@ -94,7 +83,35 @@ function check_valid_add_position(
     return false;
 }
 
-export class SDFGRenderer {
+export interface SDFGRendererEvent {
+    'add_element': (
+        type: SDFGElementType, parentUUID: string, lib?: string,
+        edgeStartUUID?: string, edgeStartConn?: string, edgeDstConn?: string
+    ) => void;
+    'query_libnode': (callback: CallableFunction) => void;
+    'exit_preview': () => void;
+    'collapse_state_changed': (collapsed?: boolean, all?: boolean) => void;
+    'element_position_changed': (type?: string) => void;
+    'graph_edited': () => void;
+    'selection_changed': (multiSelectionChanged: boolean) => void;
+    'symbol_definition_changed': (symbol: string, definition?: number) => void;
+    'active_overlays_changed': () => void;
+    'backend_data_requested': (type: string, overlay: string) => void;
+}
+
+export interface SDFGRenderer {
+
+    on<U extends keyof SDFGRendererEvent>(
+        event: U, listener: SDFGRendererEvent[U]
+    ): this;
+
+    emit<U extends keyof SDFGRendererEvent>(
+        event: U, ...args: Parameters<SDFGRendererEvent[U]>
+    ): boolean;
+
+}
+
+export class SDFGRenderer extends EventEmitter {
 
     protected sdfg_list: any = {};
     protected graph: DagreSDFG | null = null;
@@ -169,9 +186,6 @@ export class SDFGRenderer {
     // Selection related fields.
     protected selected_elements: SDFGElement[] = [];
 
-    protected ext_event_handlers: ((type: string, data: any | null) => any)[] =
-        [];
-
     public constructor(
         protected sdfv_instance: SDFV,
         protected sdfg: JsonSDFG,
@@ -184,6 +198,8 @@ export class SDFGRenderer {
         toolbar: boolean = true,
         minimap: boolean | null = null
     ) {
+        super();
+
         sdfv_instance.enable_menu_close();
         sdfv_instance.close_menu();
 
@@ -208,6 +224,13 @@ export class SDFGRenderer {
         this.all_memlet_trees_sdfg = memlet_tree_complete(this.sdfg);
 
         this.update_fast_memlet_lookup();
+
+        this.on('collapse_state_changed', () => {
+            this.emit('graph_edited');
+        });
+        this.on('element_position_changed', () => {
+            this.emit('graph_edited');
+        });
     }
 
     public destroy(): void {
@@ -603,12 +626,7 @@ export class SDFGRenderer {
                                 this.add_edge_start_conn = null;
                                 this.update_toggle_buttons();
                             };
-                            this.emit_event(
-                                SDFGRendererEvent.QUERY_LIBNODE,
-                                {
-                                    callback: libnode_callback,
-                                }
-                            );
+                            this.emit('query_libnode', libnode_callback);
                         };
                     } else {
                         add_btn.onclick = () => {
@@ -743,7 +761,7 @@ export class SDFGRenderer {
                     title: 'Exit preview',
                     click: () => {
                         exitPreviewBtn.addClass('hidden');
-                        this.emit_event(SDFGRendererEvent.EXIT_PREVIEW, null);
+                        this.emit('exit_preview');
                     },
                 }).appendTo(this.toolbar);
                 exitPreviewBtn.addClass('hidden');
@@ -928,11 +946,6 @@ export class SDFGRenderer {
     public draw_async(): void {
         this.clearCssPropertyCache();
         this.canvas_manager?.draw_async();
-    }
-
-    public emit_event(type: string, data: any | null): void {
-        for (const handler of this.ext_event_handlers)
-            handler(type, data);
     }
 
     public set_sdfg(new_sdfg: JsonSDFG, layout: boolean = true): void {
@@ -1175,10 +1188,7 @@ export class SDFGRenderer {
             }
         );
 
-        this.emit_event(SDFGRendererEvent.COLLAPSE_STATE_CHANGED, {
-            collapsed: true,
-            all: true,
-        });
+        this.emit('collapse_state_changed', true, true);
 
         this.relayout();
         this.draw_async();
@@ -1193,10 +1203,7 @@ export class SDFGRenderer {
             }
         );
 
-        this.emit_event(SDFGRendererEvent.COLLAPSE_STATE_CHANGED, {
-            collapsed: false,
-            all: true,
-        });
+        this.emit('collapse_state_changed', false, true);
 
         this.relayout();
         this.draw_async();
@@ -1209,9 +1216,7 @@ export class SDFGRenderer {
             }
         );
 
-        this.emit_event(SDFGRendererEvent.ELEMENT_POSITION_CHANGED, {
-            type: 'reset',
-        });
+        this.emit('element_position_changed', 'reset');
 
         this.relayout();
         this.draw_async();
@@ -2477,7 +2482,7 @@ export class SDFGRenderer {
                 sdfg_elem.attributes.is_collapsed =
                     !sdfg_elem.attributes.is_collapsed;
 
-                this.emit_event(SDFGRendererEvent.COLLAPSE_STATE_CHANGED, null);
+                this.emit('collapse_state_changed')
 
                 // Re-layout SDFG
                 this.relayout();
@@ -2539,12 +2544,9 @@ export class SDFGRenderer {
                     multi_selection_changed = true;
                 }
 
-                if (this.mouse_mode === 'move')
-                    this.emit_event(SDFGRendererEvent.ELEMENT_POSITION_CHANGED,
-                        {
-                            type: 'manual_move'
-                        }
-                    );
+                if (this.mouse_mode === 'move') {
+                    this.emit('element_position_changed', 'manual_move');
+                }
             } else {
                 if (this.mouse_mode === 'add') {
                     if (check_valid_add_position(
@@ -2555,22 +2557,20 @@ export class SDFGRenderer {
                             if (this.add_edge_start) {
                                 const start = this.add_edge_start;
                                 this.add_edge_start = undefined;
-                                this.emit_event(
-                                    SDFGRendererEvent.ADD_ELEMENT,
-                                    {
-                                        type: this.add_type,
-                                        parent: get_uuid_graph_element(
-                                            foreground_elem
-                                        ),
-                                        lib: null,
-                                        edgeA: get_uuid_graph_element(start),
-                                        edgeAConn: this.add_edge_start_conn ?
-                                            this.add_edge_start_conn.data.name :
-                                            null,
-                                        conn: foreground_connector ?
-                                            foreground_connector.data.name :
-                                            null,
-                                    }
+                                this.emit(
+                                    'add_element',
+                                    this.add_type,
+                                    get_uuid_graph_element(
+                                        foreground_elem
+                                    ),
+                                    undefined,
+                                    get_uuid_graph_element(start),
+                                    this.add_edge_start_conn ?
+                                        this.add_edge_start_conn.data.name :
+                                        undefined,
+                                    foreground_connector ?
+                                        foreground_connector.data.name :
+                                        undefined
                                 );
                             } else {
                                 this.add_edge_start = foreground_elem;
@@ -2580,30 +2580,24 @@ export class SDFGRenderer {
                         } else if (this.add_type ===
                             SDFGElementType.LibraryNode) {
                             this.add_position = this.mousepos;
-                            this.emit_event(
-                                SDFGRendererEvent.ADD_ELEMENT,
-                                {
-                                    type: this.add_type,
-                                    parent: get_uuid_graph_element(
-                                        foreground_elem
-                                    ),
-                                    lib: this.add_mode_lib,
-                                    edgeA: null,
-                                }
+                            this.emit(
+                                'add_element',
+                                this.add_type,
+                                get_uuid_graph_element(
+                                    foreground_elem
+                                ),
+                                this.add_mode_lib || undefined
                             );
                         } else {
                             this.add_position = this.mousepos;
-                            this.emit_event(
-                                SDFGRendererEvent.ADD_ELEMENT,
-                                {
-                                    type: this.add_type ? this.add_type : '',
-                                    parent: get_uuid_graph_element(
+                            if (this.add_type)
+                                this.emit(
+                                    'add_element',
+                                    this.add_type,
+                                    get_uuid_graph_element(
                                         foreground_elem
-                                    ),
-                                    lib: null,
-                                    edgeA: null,
-                                }
-                            );
+                                    )
+                                );
                         }
 
                         if (!event.ctrlKey && !(
@@ -2754,12 +2748,9 @@ export class SDFGRenderer {
 
                 this.draw_async();
 
-                if (element_moved)
-                    this.emit_event(SDFGRendererEvent.ELEMENT_POSITION_CHANGED,
-                        {
-                            type: 'manual_move'
-                        }
-                    );
+                if (element_moved) {
+                    this.emit('element_position_changed', 'manual_move');
+                }
 
             } else if (this.mouse_mode == 'add') {
                 // Cancel add mode
@@ -2795,12 +2786,7 @@ export class SDFGRenderer {
             this.draw_async();
 
         if (element_focus_changed)
-            this.emit_event(
-                SDFGRendererEvent.SELECTION_CHANGED,
-                {
-                    multi_selection_changed: multi_selection_changed,
-                }
-            );
+            this.emit('selection_changed', true);
 
         if (selection_changed || multi_selection_changed)
             this.on_selection_changed();
@@ -2874,12 +2860,6 @@ export class SDFGRenderer {
 
     public set_bgcolor(bgcolor: string): void {
         this.bgcolor = bgcolor;
-    }
-
-    public register_ext_event_handler(
-        handler: (type: string, data: any) => any
-    ): void {
-        this.ext_event_handlers.push(handler);
     }
 
     public on_selection_changed(): void {

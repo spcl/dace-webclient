@@ -1505,7 +1505,7 @@ export class LibraryNode extends SDFGNode {
 
 /**
  * Batched drawing of graph edges, given a specific default color.
- * 
+ *
  * Speed up edge drawing by batching together all 'standard' edges into one
  * beginPath/stroke call pair. Edges are considered to be 'standard', if they're
  * not hovered, highlighted, or selected, and do not contain a conflict
@@ -1513,7 +1513,7 @@ export class LibraryNode extends SDFGNode {
  * loop that handles them in the traditional manner. That is computationally
  * cheap because the number of these edges should always be relatively low.
  * Arrow-heads are drawn separately, but only the ones that are in frame.
- * 
+ *
  * @param renderer     An SDFG renderer instance.
  * @param graph        Graph for which to draw eges.
  * @param ctx          Canvas context.

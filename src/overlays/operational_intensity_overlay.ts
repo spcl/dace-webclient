@@ -23,10 +23,9 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
 
-        this.renderer.emit_event(SDFGRendererEvent.BACKEND_DATA_REQUESTED, {
-            type: 'flops',
-            overlay: 'OperationalIntensityOverlay',
-        });
+        this.renderer.emit(
+            'backend_data_requested', 'flops', 'OperationalIntensityOverlay'
+        );
     }
 
     public clear_cached_values(): void {

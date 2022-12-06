@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
-import { SDFGRenderer, SDFGRendererEvent } from '../renderer/renderer';
+import { SDFGRenderer } from '../renderer/renderer';
 import {
     Edge,
     NestedSDFG,
@@ -22,10 +22,9 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
 
-        this.renderer.emit_event(SDFGRendererEvent.BACKEND_DATA_REQUESTED, {
-            type: 'flops',
-            overlay: 'StaticFlopsOverlay',
-        });
+        this.renderer.emit(
+            'backend_data_requested', 'flops', 'StaticFlopsOverlay'
+        );
     }
 
     public clear_cached_flops_values(): void {

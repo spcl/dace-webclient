@@ -1,12 +1,11 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { createElement } from './utils/utils';
 import { MathNode, parse } from 'mathjs';
-import { SDFGRenderer, SDFGRendererEvent } from './renderer/renderer';
 import { Point2D, SymbolMap } from './index';
 import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
-import { LogicalGroupOverlay } from './overlays/logical_group_overlay';
+import { SDFGRenderer, SDFGRendererEvent } from './renderer/renderer';
 import { SDFGElement } from './renderer/renderer_elements';
+import { createElement } from './utils/utils';
 
 export class SymbolResolver {
 
@@ -91,11 +90,8 @@ export class SymbolResolver {
                 symbol,
                 mapping,
                 () => {
-                    this.renderer.emit_event(
-                        SDFGRendererEvent.SYMBOL_DEFINITION_CHANGED, {
-                            symbol: symbol,
-                            definition: mapping[symbol],
-                        }
+                    this.renderer.emit(
+                        'symbol_definition_changed', symbol, mapping[symbol]
                     );
                     if (callback !== undefined)
                         callback();
