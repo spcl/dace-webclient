@@ -733,40 +733,46 @@ export class SDFGRenderer extends EventEmitter {
             // Filter graph to selection (visual cutout).
             this.cutoutBtn = $('<button>', {
                 id: 'cutout-button',
-                class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
+                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                css: {
+                    'display': 'none',
+                },
                 html: '<i class="material-icons">content_cut</i>',
                 title: 'Filter selection (cutout)',
                 click: () => {
                     this.cutout_selection();
                 },
             }).appendTo(this.toolbar);
-            this.cutoutBtn.addClass('hidden');
 
             // Transition to local view with selection.
             this.localViewBtn = $('<button>', {
                 id: 'local-view-button',
-                class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
+                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                css: {
+                    'display': 'none',
+                },
                 html: '<i class="material-icons">memory</i>',
                 title: 'Inspect access patterns (local view)',
                 click: () => {
                     this.localViewSelection();
                 },
             }).appendTo(this.toolbar);
-            this.localViewBtn.addClass('hidden');
 
             // Exit previewing mode.
             if (this.in_vscode) {
                 const exitPreviewBtn = $('<button>', {
                     id: 'exit-preview-button',
-                    class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
+                    class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                    css: {
+                        'display': 'none',
+                    },
                     html: '<i class="material-icons">close</i>',
                     title: 'Exit preview',
                     click: () => {
-                        exitPreviewBtn.addClass('hidden');
+                        exitPreviewBtn.hide();
                         this.emit('exit_preview');
                     },
                 }).appendTo(this.toolbar);
-                exitPreviewBtn.addClass('hidden');
             }
         }
 
@@ -2869,16 +2875,16 @@ export class SDFGRenderer extends EventEmitter {
     public on_selection_changed(): void {
         if (this.localViewBtn) {
             if (this.isLocalViewViable())
-                this.localViewBtn.removeClass('hidden');
+                this.localViewBtn.show();
             else
-                this.localViewBtn.addClass('hidden');
+                this.localViewBtn.hide();
         }
 
         if (this.cutoutBtn) {
             if (this.selected_elements.length > 0)
-                this.cutoutBtn.removeClass('hidden');
+                this.cutoutBtn.show();
             else
-                this.cutoutBtn.addClass('hidden');
+                this.cutoutBtn.hide();
         }
     }
 
