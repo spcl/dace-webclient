@@ -2072,9 +2072,9 @@ export class SDFGRenderer extends EventEmitter {
             // retains original IDs.
             this.selected_elements.sort((a, b) => (b.id - a.id));
             for (const e of this.selected_elements) {
-                if (e instanceof Connector)
+                if (e instanceof Connector) {
                     continue;
-                else if (e instanceof Edge) {
+                } else if (e instanceof Edge) {
                     if (e.parent_id == null)
                         e.sdfg.edges = e.sdfg.edges.filter(
                             (_, ind: number) => ind != e.id
@@ -2085,13 +2085,15 @@ export class SDFGRenderer extends EventEmitter {
                             (_, ind: number) => ind != e.id
                         );
                     }
-                } else if (e instanceof State)
+                } else if (e instanceof State) {
                     delete_sdfg_states(e.sdfg, [e.id]);
-                else
+                } else {
                     delete_sdfg_nodes(e.sdfg, e.parent_id!, [e.id]);
+                }
             }
             this.deselect();
-            this.set_sdfg(this.sdfg); // Reset and relayout
+            this.set_sdfg(this.sdfg);
+            this.emit('graph_edited');
         }
 
         // Ctrl + Shift Accelerators temporarily disabled due to a bug with

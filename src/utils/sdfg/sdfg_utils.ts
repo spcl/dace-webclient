@@ -298,7 +298,9 @@ export function delete_positioning_info(elem: any): void {
 }
 
 
-export function find_root_sdfg(sdfgs: Iterable<number>, sdfg_tree: { [key: number]: number }): number | null {
+export function find_root_sdfg(
+    sdfgs: Iterable<number>, sdfg_tree: { [key: number]: number }
+): number | null {
     const make_sdfg_path = (sdfg: number, array: Array<number>) => {
         array.push(sdfg);
         if (sdfg in sdfg_tree) {
@@ -313,17 +315,23 @@ export function find_root_sdfg(sdfgs: Iterable<number>, sdfg_tree: { [key: numbe
         if (common_sdfgs === null)
             common_sdfgs = path;
         else
-            common_sdfgs = [...common_sdfgs].filter((x: number) => path.includes(x));
+            common_sdfgs = [...common_sdfgs].filter(
+                (x: number) => path.includes(x)
+            );
     }
-    // Return the first one (greatest common denominator)
+    // Return the first one (greatest common denominator).
     if (common_sdfgs && common_sdfgs.length > 0)
         return common_sdfgs[0];
-    // No root SDFG found
+
+    // No root SDFG found.
     return null;
 }
 
 // In-place delete of SDFG state nodes.
-export function delete_sdfg_nodes(sdfg: JsonSDFG, state_id: number, nodes: Array<number>, delete_others = false): void {
+export function delete_sdfg_nodes(
+    sdfg: JsonSDFG, state_id: number, nodes: Array<number>,
+    delete_others = false
+): void {
     const state: JsonSDFGState = sdfg.nodes[state_id];
     nodes.sort((a, b) => (a - b));
     const mapping: { [key: string]: string } = { '-1': '-1' };
@@ -335,10 +343,11 @@ export function delete_sdfg_nodes(sdfg: JsonSDFG, state_id: number, nodes: Array
         predicate = (ind: number) => !nodes.includes(ind);
 
     state.nodes = state.nodes.filter((_v, ind: number) => predicate(ind));
-    state.edges = state.edges.filter((e: JsonSDFGEdge) => (predicate(parseInt(e.src)) &&
-        predicate(parseInt(e.dst))));
+    state.edges = state.edges.filter((e: JsonSDFGEdge) => (
+            predicate(parseInt(e.src)) && predicate(parseInt(e.dst))
+    ));
 
-    // Remap node and edge indices
+    // Remap node and edge indices.
     state.nodes.forEach((n: JsonSDFGNode, index: number) => {
         mapping[n.id] = index.toString();
         n.id = index;
@@ -347,7 +356,8 @@ export function delete_sdfg_nodes(sdfg: JsonSDFG, state_id: number, nodes: Array
         e.src = mapping[e.src];
         e.dst = mapping[e.dst];
     });
-    // Remap scope dictionaries
+
+    // Remap scope dictionaries.
     state.nodes.forEach((n: JsonSDFGNode) => {
         if (n.scope_entry !== null)
             n.scope_entry = mapping[n.scope_entry];
@@ -357,14 +367,18 @@ export function delete_sdfg_nodes(sdfg: JsonSDFG, state_id: number, nodes: Array
     const new_scope_dict: any = {};
     for (const sdkey of Object.keys(state.scope_dict)) {
         const old_scope = state.scope_dict[sdkey];
-        const new_scope = old_scope.filter((v: any) => mapping[v] !== '-1').map((v: any) => mapping[v]);
+        const new_scope = old_scope.filter((v: any) => mapping[v] !== '-1').map(
+            (v: any) => mapping[v]
+        );
         if ((sdkey === '-1') || (sdkey in mapping && mapping[sdkey] !== '-1'))
             new_scope_dict[mapping[sdkey]] = new_scope;
     }
     state.scope_dict = new_scope_dict;
 }
 
-export function delete_sdfg_states(sdfg: JsonSDFG, states: Array<number>, delete_others = false): void {
+export function delete_sdfg_states(
+    sdfg: JsonSDFG, states: Array<number>, delete_others = false
+): void {
     states.sort((a, b) => (a - b));
     let predicate: CallableFunction;
     if (delete_others)
@@ -373,10 +387,11 @@ export function delete_sdfg_states(sdfg: JsonSDFG, states: Array<number>, delete
         predicate = (ind: number) => !states.includes(ind);
 
     sdfg.nodes = sdfg.nodes.filter((_v, ind: number) => predicate(ind));
-    sdfg.edges = sdfg.edges.filter((e: JsonSDFGEdge) => (predicate(parseInt(e.src)) &&
-        predicate(parseInt(e.dst))));
+    sdfg.edges = sdfg.edges.filter((e: JsonSDFGEdge) => (
+        predicate(parseInt(e.src)) && predicate(parseInt(e.dst))
+    ));
 
-    // Remap node and edge indices
+    // Remap node and edge indices.
     const mapping: { [key: string]: string } = {};
     sdfg.nodes.forEach((n: JsonSDFGState, index: number) => {
         mapping[n.id] = index.toString();

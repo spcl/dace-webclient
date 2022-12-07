@@ -132,6 +132,16 @@ export class GenericSdfgOverlay {
 
 export abstract class RuntimeReportOverlay extends GenericSdfgOverlay {
 
+    protected abstract criterium: string;
+
     public abstract clearRuntimeData(): void;
+
+    public set_criterium(criterium: string): void {
+        this.criterium = criterium;
+    }
+
+    public get_criterium(): string {
+        return this.criterium;
+    }
 
 }
