@@ -14,17 +14,18 @@ import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class OperationalIntensityOverlay extends GenericSdfgOverlay {
 
-    public static type: OverlayType = OverlayType.NODE;
+    public static readonly type: OverlayType = OverlayType.NODE;
+    public readonly olClass: typeof GenericSdfgOverlay =
+        OperationalIntensityOverlay;
 
     private flops_map: { [uuids: string]: any } = {};
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
 
-        this.renderer.emit_event(SDFGRendererEvent.BACKEND_DATA_REQUESTED, {
-            type: 'flops',
-            overlay: 'OperationalIntensityOverlay',
-        });
+        this.renderer.emit(
+            'backend_data_requested', 'flops', 'OperationalIntensityOverlay'
+        );
     }
 
     public clear_cached_values(): void {

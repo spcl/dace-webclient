@@ -16,7 +16,8 @@ export enum OverlayType {
 
 export class GenericSdfgOverlay {
 
-    public static type: OverlayType = OverlayType.BOTH;
+    public static readonly type: OverlayType = OverlayType.BOTH;
+    public readonly olClass: typeof GenericSdfgOverlay = GenericSdfgOverlay;
 
     protected symbol_resolver: SymbolResolver;
     protected vscode: any;
@@ -125,6 +126,22 @@ export class GenericSdfgOverlay {
             severity = 1;
 
         return severity;
+    }
+
+}
+
+export abstract class RuntimeReportOverlay extends GenericSdfgOverlay {
+
+    protected abstract criterium: string;
+
+    public abstract clearRuntimeData(): void;
+
+    public set_criterium(criterium: string): void {
+        this.criterium = criterium;
+    }
+
+    public get_criterium(): string {
+        return this.criterium;
     }
 
 }

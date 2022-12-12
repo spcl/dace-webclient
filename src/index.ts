@@ -26,7 +26,7 @@ export * from './overlay_manager';
 export * from './sdfv';
 
 export type SymbolMap = {
-    [symbol: string]: number | string | undefined,
+    [symbol: string]: number | undefined,
 };
 
 export type DagreSDFG = dagre.graphlib.Graph<SDFGElement>;

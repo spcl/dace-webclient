@@ -47,6 +47,7 @@ import {
 } from './renderer_elements';
 import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { SDFVSettings } from '../utils/sdfv_settings';
+import EventEmitter from 'events';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -60,18 +61,6 @@ declare const MINIMAP_ENABLED: boolean | undefined;
 type SDFGElementGroup = 'states' | 'nodes' | 'edges' | 'isedges';
 // If type is explicitly set, dagre typecheck fails with integer node ids
 export type SDFGListType = any[];//{ [key: number]: DagreSDFG };
-
-export enum SDFGRendererEvent {
-    ADD_ELEMENT = 'ADD_ELEMENT',
-    QUERY_LIBNODE = 'QUERY_LIBNODE',
-    EXIT_PREVIEW = 'EXIT_PREVIEW',
-    COLLAPSE_STATE_CHANGED = 'COLLAPSE_STATE_CHANGED',
-    ELEMENT_POSITION_CHANGED = 'ELEMENT_POSITION_CHANGED',
-    SELECTION_CHANGED = 'SELECTION_CHANGED',
-    SYMBOL_DEFINITION_CHANGED = 'SYMBOL_DEFINITION_CHANGED',
-    ACTIVE_OVERLAYS_CHANGED = 'ACTIVE_OVERLAYS_CHANGED',
-    BACKEND_DATA_REQUESTED = 'BACKEND_DATA_REQUESTED',
-}
 
 function check_valid_add_position(
     type: SDFGElementType | null,
@@ -94,7 +83,35 @@ function check_valid_add_position(
     return false;
 }
 
-export class SDFGRenderer {
+export interface SDFGRendererEvent {
+    'add_element': (
+        type: SDFGElementType, parentUUID: string, lib?: string,
+        edgeStartUUID?: string, edgeStartConn?: string, edgeDstConn?: string
+    ) => void;
+    'query_libnode': (callback: CallableFunction) => void;
+    'exit_preview': () => void;
+    'collapse_state_changed': (collapsed?: boolean, all?: boolean) => void;
+    'element_position_changed': (type?: string) => void;
+    'graph_edited': () => void;
+    'selection_changed': (multiSelectionChanged: boolean) => void;
+    'symbol_definition_changed': (symbol: string, definition?: number) => void;
+    'active_overlays_changed': () => void;
+    'backend_data_requested': (type: string, overlay: string) => void;
+}
+
+export interface SDFGRenderer {
+
+    on<U extends keyof SDFGRendererEvent>(
+        event: U, listener: SDFGRendererEvent[U]
+    ): this;
+
+    emit<U extends keyof SDFGRendererEvent>(
+        event: U, ...args: Parameters<SDFGRendererEvent[U]>
+    ): boolean;
+
+}
+
+export class SDFGRenderer extends EventEmitter {
 
     protected sdfg_list: any = {};
     protected graph: DagreSDFG | null = null;
@@ -169,9 +186,6 @@ export class SDFGRenderer {
     // Selection related fields.
     protected selected_elements: SDFGElement[] = [];
 
-    protected ext_event_handlers: ((type: string, data: any | null) => any)[] =
-        [];
-
     public constructor(
         protected sdfv_instance: SDFV,
         protected sdfg: JsonSDFG,
@@ -184,6 +198,8 @@ export class SDFGRenderer {
         toolbar: boolean = true,
         minimap: boolean | null = null
     ) {
+        super();
+
         sdfv_instance.enable_menu_close();
         sdfv_instance.close_menu();
 
@@ -201,13 +217,22 @@ export class SDFGRenderer {
                 this.in_vscode = true;
         } catch (ex) { }
 
-        this.init_elements(user_transform, background, mode_buttons, toolbar, minimap);
+        this.init_elements(
+            user_transform, background, mode_buttons, toolbar, minimap
+        );
 
         this.set_sdfg(sdfg, false);
 
         this.all_memlet_trees_sdfg = memlet_tree_complete(this.sdfg);
 
         this.update_fast_memlet_lookup();
+
+        this.on('collapse_state_changed', () => {
+            this.emit('graph_edited');
+        });
+        this.on('element_position_changed', () => {
+            this.emit('graph_edited');
+        });
     }
 
     public destroy(): void {
@@ -500,59 +525,60 @@ export class SDFGRenderer {
             }).appendTo(this.toolbar);
 
             // Overlays menu.
-            const overlayDropdown = $('<div>', {
-                class: 'dropdown',
-            });
-            $('<button>', {
-                class: 'btn btn-light btn-sdfv-light btn-sdfv',
-                html: '<i class="material-icons">saved_search</i>',
-                title: 'Overlays',
-                'data-bs-toggle': 'dropdown',
-                'data-bs-auto-close': 'outside',
-            }).appendTo(overlayDropdown);
-            const overlayMenu = $('<ul>', {
-                class: 'dropdown-menu',
-                css: {
-                    'min-width': '200px',
-                },
-            }).appendTo(overlayDropdown);
-            $('<div>', {
-                class: 'btn-group',
-            }).appendTo(this.toolbar).append(overlayDropdown);
-
-            const addOverlayToMenu = (
-                txt: string, ol: typeof GenericSdfgOverlay
-            ) => {
-                const olItem = $('<li>', {
+            if (!this.in_vscode) {
+                const overlayDropdown = $('<div>', {
+                    class: 'dropdown',
+                });
+                $('<button>', {
+                    class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                    html: '<i class="material-icons">saved_search</i>',
+                    title: 'Overlays',
+                    'data-bs-toggle': 'dropdown',
+                    'data-bs-auto-close': 'outside',
+                }).appendTo(overlayDropdown);
+                const overlayMenu = $('<ul>', {
+                    class: 'dropdown-menu',
                     css: {
-                        'padding-left': '.7rem',
+                        'min-width': '200px',
                     },
-                }).appendTo(overlayMenu);
-                const olContainer = $('<div>', {
-                    class: 'form-check form-switch',
-                }).appendTo(olItem);
-                const olInput = $('<input>', {
-                    class: 'form-check-input',
-                    type: 'checkbox',
-                    change: () => {
-                        if (olInput.prop('checked'))
-                            this.overlay_manager?.register_overlay(ol);
-                        else
-                            this.overlay_manager?.deregister_overlay(ol);
-                    },
-                }).appendTo(olContainer);
-                $('<label>', {
-                    class: 'form-check-label',
-                    text: txt,
-                }).appendTo(olContainer);
-            };
+                }).appendTo(overlayDropdown);
+                $('<div>', {
+                    class: 'btn-group',
+                }).appendTo(this.toolbar).append(overlayDropdown);
 
-            addOverlayToMenu('Logical groups', LogicalGroupOverlay);
-            addOverlayToMenu('Storage locations', MemoryLocationOverlay);
-            if (!this.in_vscode)
+                const addOverlayToMenu = (
+                    txt: string, ol: typeof GenericSdfgOverlay
+                ) => {
+                    const olItem = $('<li>', {
+                        css: {
+                            'padding-left': '.7rem',
+                        },
+                    }).appendTo(overlayMenu);
+                    const olContainer = $('<div>', {
+                        class: 'form-check form-switch',
+                    }).appendTo(olItem);
+                    const olInput = $('<input>', {
+                        class: 'form-check-input',
+                        type: 'checkbox',
+                        change: () => {
+                            if (olInput.prop('checked'))
+                                this.overlay_manager?.register_overlay(ol);
+                            else
+                                this.overlay_manager?.deregister_overlay(ol);
+                        },
+                    }).appendTo(olContainer);
+                    $('<label>', {
+                        class: 'form-check-label',
+                        text: txt,
+                    }).appendTo(olContainer);
+                };
+
+                addOverlayToMenu('Logical groups', LogicalGroupOverlay);
+                addOverlayToMenu('Storage locations', MemoryLocationOverlay);
                 addOverlayToMenu(
                     'Logical data movement volume', MemoryVolumeOverlay
                 );
+            }
 
             // Zoom to fit.
             $('<button>', {
@@ -602,12 +628,7 @@ export class SDFGRenderer {
                                 this.add_edge_start_conn = null;
                                 this.update_toggle_buttons();
                             };
-                            this.emit_event(
-                                SDFGRendererEvent.QUERY_LIBNODE,
-                                {
-                                    callback: libnode_callback,
-                                }
-                            );
+                            this.emit('query_libnode', libnode_callback);
                         };
                     } else {
                         add_btn.onclick = () => {
@@ -711,38 +732,47 @@ export class SDFGRenderer {
 
             // Filter graph to selection (visual cutout).
             this.cutoutBtn = $('<button>', {
-                class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
+                id: 'cutout-button',
+                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                css: {
+                    'display': 'none',
+                },
                 html: '<i class="material-icons">content_cut</i>',
                 title: 'Filter selection (cutout)',
                 click: () => {
                     this.cutout_selection();
                 },
             }).appendTo(this.toolbar);
-            this.cutoutBtn.hide();
 
             // Transition to local view with selection.
             this.localViewBtn = $('<button>', {
-                class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
+                id: 'local-view-button',
+                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                css: {
+                    'display': 'none',
+                },
                 html: '<i class="material-icons">memory</i>',
                 title: 'Inspect access patterns (local view)',
                 click: () => {
                     this.localViewSelection();
                 },
             }).appendTo(this.toolbar);
-            this.localViewBtn.hide();
 
             // Exit previewing mode.
             if (this.in_vscode) {
                 const exitPreviewBtn = $('<button>', {
-                    class: 'btn btn-light btn-sdfv-light btn-sdfv hidden',
+                    id: 'exit-preview-button',
+                    class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                    css: {
+                        'display': 'none',
+                    },
                     html: '<i class="material-icons">close</i>',
                     title: 'Exit preview',
                     click: () => {
                         exitPreviewBtn.hide();
-                        this.emit_event(SDFGRendererEvent.EXIT_PREVIEW, null);
+                        this.emit('exit_preview');
                     },
                 }).appendTo(this.toolbar);
-                exitPreviewBtn.hide();
             }
         }
 
@@ -857,7 +887,7 @@ export class SDFGRenderer {
                 <line x1="320" x2="80" y1="40" y2="40"/>
                 <line x1="80" x2="40" y1="40" y2="80"/>
                 <line x1="40" x2="40" y1="80" y2="120"/>
-                
+
                 <line x1="10" x2="70" y1="130" y2="190"/>
                 <line x1="70" x2="330" y1="190" y2="190"/>
                 <line x1="330" x2="390" y1="190" y2="130"/>
@@ -924,11 +954,6 @@ export class SDFGRenderer {
     public draw_async(): void {
         this.clearCssPropertyCache();
         this.canvas_manager?.draw_async();
-    }
-
-    public emit_event(type: string, data: any | null): void {
-        for (const handler of this.ext_event_handlers)
-            handler(type, data);
     }
 
     public set_sdfg(new_sdfg: JsonSDFG, layout: boolean = true): void {
@@ -1171,10 +1196,7 @@ export class SDFGRenderer {
             }
         );
 
-        this.emit_event(SDFGRendererEvent.COLLAPSE_STATE_CHANGED, {
-            collapsed: true,
-            all: true,
-        });
+        this.emit('collapse_state_changed', true, true);
 
         this.relayout();
         this.draw_async();
@@ -1189,10 +1211,7 @@ export class SDFGRenderer {
             }
         );
 
-        this.emit_event(SDFGRendererEvent.COLLAPSE_STATE_CHANGED, {
-            collapsed: false,
-            all: true,
-        });
+        this.emit('collapse_state_changed', false, true);
 
         this.relayout();
         this.draw_async();
@@ -1205,9 +1224,7 @@ export class SDFGRenderer {
             }
         );
 
-        this.emit_event(SDFGRendererEvent.ELEMENT_POSITION_CHANGED, {
-            type: 'reset',
-        });
+        this.emit('element_position_changed', 'reset');
 
         this.relayout();
         this.draw_async();
@@ -2061,9 +2078,9 @@ export class SDFGRenderer {
             // retains original IDs.
             this.selected_elements.sort((a, b) => (b.id - a.id));
             for (const e of this.selected_elements) {
-                if (e instanceof Connector)
+                if (e instanceof Connector) {
                     continue;
-                else if (e instanceof Edge) {
+                } else if (e instanceof Edge) {
                     if (e.parent_id == null)
                         e.sdfg.edges = e.sdfg.edges.filter(
                             (_, ind: number) => ind != e.id
@@ -2074,13 +2091,15 @@ export class SDFGRenderer {
                             (_, ind: number) => ind != e.id
                         );
                     }
-                } else if (e instanceof State)
+                } else if (e instanceof State) {
                     delete_sdfg_states(e.sdfg, [e.id]);
-                else
+                } else {
                     delete_sdfg_nodes(e.sdfg, e.parent_id!, [e.id]);
+                }
             }
             this.deselect();
-            this.set_sdfg(this.sdfg); // Reset and relayout
+            this.set_sdfg(this.sdfg);
+            this.emit('graph_edited');
         }
 
         // Ctrl + Shift Accelerators temporarily disabled due to a bug with
@@ -2473,7 +2492,7 @@ export class SDFGRenderer {
                 sdfg_elem.attributes.is_collapsed =
                     !sdfg_elem.attributes.is_collapsed;
 
-                this.emit_event(SDFGRendererEvent.COLLAPSE_STATE_CHANGED, null);
+                this.emit('collapse_state_changed')
 
                 // Re-layout SDFG
                 this.relayout();
@@ -2535,12 +2554,9 @@ export class SDFGRenderer {
                     multi_selection_changed = true;
                 }
 
-                if (this.mouse_mode === 'move')
-                    this.emit_event(SDFGRendererEvent.ELEMENT_POSITION_CHANGED,
-                        {
-                            type: 'manual_move'
-                        }
-                    );
+                if (this.mouse_mode === 'move') {
+                    this.emit('element_position_changed', 'manual_move');
+                }
             } else {
                 if (this.mouse_mode === 'add') {
                     if (check_valid_add_position(
@@ -2551,22 +2567,20 @@ export class SDFGRenderer {
                             if (this.add_edge_start) {
                                 const start = this.add_edge_start;
                                 this.add_edge_start = undefined;
-                                this.emit_event(
-                                    SDFGRendererEvent.ADD_ELEMENT,
-                                    {
-                                        type: this.add_type,
-                                        parent: get_uuid_graph_element(
-                                            foreground_elem
-                                        ),
-                                        lib: null,
-                                        edgeA: get_uuid_graph_element(start),
-                                        edgeAConn: this.add_edge_start_conn ?
-                                            this.add_edge_start_conn.data.name :
-                                            null,
-                                        conn: foreground_connector ?
-                                            foreground_connector.data.name :
-                                            null,
-                                    }
+                                this.emit(
+                                    'add_element',
+                                    this.add_type,
+                                    get_uuid_graph_element(
+                                        foreground_elem
+                                    ),
+                                    undefined,
+                                    get_uuid_graph_element(start),
+                                    this.add_edge_start_conn ?
+                                        this.add_edge_start_conn.data.name :
+                                        undefined,
+                                    foreground_connector ?
+                                        foreground_connector.data.name :
+                                        undefined
                                 );
                             } else {
                                 this.add_edge_start = foreground_elem;
@@ -2576,30 +2590,24 @@ export class SDFGRenderer {
                         } else if (this.add_type ===
                             SDFGElementType.LibraryNode) {
                             this.add_position = this.mousepos;
-                            this.emit_event(
-                                SDFGRendererEvent.ADD_ELEMENT,
-                                {
-                                    type: this.add_type,
-                                    parent: get_uuid_graph_element(
-                                        foreground_elem
-                                    ),
-                                    lib: this.add_mode_lib,
-                                    edgeA: null,
-                                }
+                            this.emit(
+                                'add_element',
+                                this.add_type,
+                                get_uuid_graph_element(
+                                    foreground_elem
+                                ),
+                                this.add_mode_lib || undefined
                             );
                         } else {
                             this.add_position = this.mousepos;
-                            this.emit_event(
-                                SDFGRendererEvent.ADD_ELEMENT,
-                                {
-                                    type: this.add_type ? this.add_type : '',
-                                    parent: get_uuid_graph_element(
+                            if (this.add_type)
+                                this.emit(
+                                    'add_element',
+                                    this.add_type,
+                                    get_uuid_graph_element(
                                         foreground_elem
-                                    ),
-                                    lib: null,
-                                    edgeA: null,
-                                }
-                            );
+                                    )
+                                );
                         }
 
                         if (!event.ctrlKey && !(
@@ -2750,12 +2758,9 @@ export class SDFGRenderer {
 
                 this.draw_async();
 
-                if (element_moved)
-                    this.emit_event(SDFGRendererEvent.ELEMENT_POSITION_CHANGED,
-                        {
-                            type: 'manual_move'
-                        }
-                    );
+                if (element_moved) {
+                    this.emit('element_position_changed', 'manual_move');
+                }
 
             } else if (this.mouse_mode == 'add') {
                 // Cancel add mode
@@ -2791,12 +2796,7 @@ export class SDFGRenderer {
             this.draw_async();
 
         if (element_focus_changed)
-            this.emit_event(
-                SDFGRendererEvent.SELECTION_CHANGED,
-                {
-                    multi_selection_changed: multi_selection_changed,
-                }
-            );
+            this.emit('selection_changed', multi_selection_changed);
 
         if (selection_changed || multi_selection_changed)
             this.on_selection_changed();
@@ -2870,12 +2870,6 @@ export class SDFGRenderer {
 
     public set_bgcolor(bgcolor: string): void {
         this.bgcolor = bgcolor;
-    }
-
-    public register_ext_event_handler(
-        handler: (type: string, data: any) => any
-    ): void {
-        this.ext_event_handlers.push(handler);
     }
 
     public on_selection_changed(): void {
@@ -3471,7 +3465,7 @@ function relayout_state(
         // Write back layout information
         node.attributes.layout.x = gnode.x;
         node.attributes.layout.y = gnode.y;
-        // Connector management 
+        // Connector management
         const SPACING = SDFV.LINEHEIGHT;
         const iconn_length = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
             node.attributes.layout.in_connectors

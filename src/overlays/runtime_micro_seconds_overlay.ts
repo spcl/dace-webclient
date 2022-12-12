@@ -6,14 +6,20 @@ import { SDFGRenderer } from '../renderer/renderer';
 import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
 import { getTempColorHslString, get_element_uuid } from '../utils/utils';
-import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
+import {
+    GenericSdfgOverlay,
+    OverlayType,
+    RuntimeReportOverlay
+} from './generic_sdfg_overlay';
 
 
-export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
+export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
 
-    public static type: OverlayType = OverlayType.NODE;
+    public static readonly type: OverlayType = OverlayType.NODE;
+    public readonly olClass: typeof GenericSdfgOverlay =
+        RuntimeMicroSecondsOverlay;
 
-    private criterium: string = 'mean';
+    protected criterium: string = 'mean';
     private runtime_map: { [uuids: string]: any } = {}
 
     public constructor(renderer: SDFGRenderer) {
@@ -169,12 +175,9 @@ export class RuntimeMicroSecondsOverlay extends GenericSdfgOverlay {
         this.runtime_map = runtime_map;
     }
 
-    public set_criterium(criterium: string): void {
-        this.criterium = criterium;
-    }
-
-    public get_criterium(): string {
-        return this.criterium;
+    public clearRuntimeData(): void {
+        this.set_runtime_map({});
+        this.refresh();
     }
 
 }

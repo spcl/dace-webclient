@@ -29,7 +29,7 @@ body {
 }
 
 .btn-sdfv.selected {
-  background-color: var(--bs-gray-400) !important;
+  background-color: var(--bs-gray-400);
 }
 
 .btn-sdfv > span {
@@ -37,15 +37,15 @@ body {
 }
 
 .btn-sdfv-light {
-  color: var(--bs-dark) !important;
-  background-color: var(--bs-gray-200) !important;
-  border-color: var(--bs-gray-400) !important;
+  color: var(--bs-dark);
+  background-color: var(--bs-gray-200);
+  border-color: var(--bs-gray-400);
 }
 
 .btn-sdfv-light:hover {
-  color: var(--bs-dark) !important;
-  background-color: var(--bs-gray-400) !important;
-  border-color: var(--bs-gray-400) !important;
+  color: var(--bs-dark);
+  background-color: var(--bs-gray-400);
+  border-color: var(--bs-gray-400);
 }
 
 #header-container {

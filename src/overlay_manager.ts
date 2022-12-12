@@ -1,11 +1,11 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { createElement } from './utils/utils';
 import { MathNode, parse } from 'mathjs';
-import { SDFGRenderer, SDFGRendererEvent } from './renderer/renderer';
 import { Point2D, SymbolMap } from './index';
 import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
+import { SDFGRenderer, SDFGRendererEvent } from './renderer/renderer';
 import { SDFGElement } from './renderer/renderer_elements';
+import { createElement } from './utils/utils';
 
 export class SymbolResolver {
 
@@ -32,6 +32,13 @@ export class SymbolResolver {
         });
 
         this.init_overlay_popup_dialogue();
+    }
+
+    public removeStaleSymbols(): void {
+        const toKeep: SymbolMap = {};
+        for (const sym in this.renderer.get_sdfg().attributes.symbols)
+            toKeep[sym] = this.symbol_value_map[sym];
+        this.symbol_value_map = toKeep;
     }
 
     public symbol_value_changed(
@@ -90,11 +97,8 @@ export class SymbolResolver {
                 symbol,
                 mapping,
                 () => {
-                    this.renderer.emit_event(
-                        SDFGRendererEvent.SYMBOL_DEFINITION_CHANGED, {
-                            symbol: symbol,
-                            definition: mapping[symbol],
-                        }
+                    this.renderer.emit(
+                        'symbol_definition_changed', symbol, mapping[symbol]
                     );
                     if (callback !== undefined)
                         callback();
@@ -175,7 +179,7 @@ export class SymbolResolver {
             'input', 'symbol_input', ['sdfv_modal_input_text'],
             this.popup_dialogue._content
         );
-        
+
         function set_val(): void {
             if (popup_dialogue._map && popup_dialogue._symbol) {
                 const val = popup_dialogue._input.value;
@@ -261,6 +265,15 @@ export class OverlayManager {
             return !(overlay instanceof type);
         });
         this.renderer.draw_async();
+    }
+
+    public deregisterAll(except?: (typeof GenericSdfgOverlay)[]): void {
+        for (const ol of this.overlays) {
+            // Do not deregister the overlays given in the "except" list.
+            if (except && except.includes(ol.olClass))
+                continue;
+            this.deregister_overlay(ol.olClass);
+        }
     }
 
     public is_overlay_active(type: typeof GenericSdfgOverlay): boolean {

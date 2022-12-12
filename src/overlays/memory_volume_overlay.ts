@@ -15,7 +15,8 @@ import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
-    public static type: OverlayType = OverlayType.EDGE;
+    public static readonly type: OverlayType = OverlayType.EDGE;
+    public readonly olClass: typeof GenericSdfgOverlay = MemoryVolumeOverlay;
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);

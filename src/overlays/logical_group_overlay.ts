@@ -20,7 +20,8 @@ export type LogicalGroup = {
 
 export class LogicalGroupOverlay extends GenericSdfgOverlay {
 
-    public static type: OverlayType = OverlayType.NODE;
+    public static readonly type: OverlayType = OverlayType.NODE;
+    public readonly olClass: typeof GenericSdfgOverlay = LogicalGroupOverlay;
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);

@@ -7,7 +7,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SDFV: SDFG Viewer</title>
-    <link rel="stylesheet" type="text/css" href="./sdfv.css">
 
     <script src="./external_lib/pdfkit.standalone.js"></script>
     <script src="./external_lib/blob-stream.js"></script>
@@ -15,6 +14,7 @@
 
     <script defer src="./dist/sdfv.js"></script>
 
+    <link rel="stylesheet" type="text/css" href="./sdfv.css">
 </head>
 
 <body>
@@ -49,7 +49,8 @@
                 </button>
             </div>
             <div class="col-auto">
-                <input type="file" accept=".json" id="instrumentation-report-file-input" class="hidden">
+                <input type="file" accept=".json" id="instrumentation-report-file-input"
+                       style="display: none;">
                 <button id="load-instrumentation-report-btn"
                     class="btn btn-sm btn-light btn-sdfv-light"
                     onclick="document.getElementById('instrumentation-report-file-input').click();">

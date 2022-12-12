@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
-import { SDFGRenderer, SDFGRendererEvent } from '../renderer/renderer';
+import { SDFGRenderer } from '../renderer/renderer';
 import {
     Edge,
     NestedSDFG,
@@ -14,17 +14,17 @@ import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class StaticFlopsOverlay extends GenericSdfgOverlay {
 
-    public static type: OverlayType = OverlayType.NODE;
+    public static readonly type: OverlayType = OverlayType.NODE;
+    public readonly olClass: typeof GenericSdfgOverlay = StaticFlopsOverlay;
 
     private flops_map: { [uuids: string]: any } = {};
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
 
-        this.renderer.emit_event(SDFGRendererEvent.BACKEND_DATA_REQUESTED, {
-            type: 'flops',
-            overlay: 'StaticFlopsOverlay',
-        });
+        this.renderer.emit(
+            'backend_data_requested', 'flops', 'StaticFlopsOverlay'
+        );
     }
 
     public clear_cached_flops_values(): void {
@@ -158,7 +158,6 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
                             'FLOPS: ' + flops_string + ' (' + flops + ')'
                         );
                 });
-
             else
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
