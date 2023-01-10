@@ -1,9 +1,9 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { MathNode, parse } from 'mathjs';
+import { MathNode, parse, SymbolNode } from 'mathjs';
 import { Point2D, SymbolMap } from './index';
 import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
-import { SDFGRenderer, SDFGRendererEvent } from './renderer/renderer';
+import { SDFGRenderer } from './renderer/renderer';
 import { SDFGElement } from './renderer/renderer_elements';
 import { createElement } from './utils/utils';
 
@@ -116,12 +116,15 @@ export class SymbolResolver {
         ) => {
             switch (node.type) {
                 case 'SymbolNode':
-                    if (node.name && node.name in mapping &&
-                        mapping[node.name] === undefined &&
-                        !this.symbols_to_define.includes(node.name)) {
-                        // This is an undefined symbol.
-                        // Ask for it to be defined.
-                        this.symbols_to_define.push(node.name);
+                    {
+                        const symnode = node as SymbolNode;
+                        if (symnode.name && symnode.name in mapping &&
+                            mapping[symnode.name] === undefined &&
+                            !this.symbols_to_define.includes(symnode.name)) {
+                            // This is an undefined symbol.
+                            // Ask for it to be defined.
+                            this.symbols_to_define.push(symnode.name);
+                        }
                     }
                     break;
                 case 'OperatorNode':

@@ -2492,7 +2492,7 @@ export class SDFGRenderer extends EventEmitter {
                 sdfg_elem.attributes.is_collapsed =
                     !sdfg_elem.attributes.is_collapsed;
 
-                this.emit('collapse_state_changed')
+                this.emit('collapse_state_changed');
 
                 // Re-layout SDFG
                 this.relayout();
