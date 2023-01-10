@@ -19,7 +19,7 @@ object-assign
   */
 
 /*!
- * @kurkle/color v0.2.1
+ * @kurkle/color v0.3.1
  * https://github.com/kurkle/color#readme
  * (c) 2022 Jukka Kurkela
  * Released under the MIT License
@@ -138,21 +138,21 @@ object-assign
  */
 
 /*!
- * Chart.js v3.9.1
+ * Chart.js v4.1.2
  * https://www.chartjs.org
- * (c) 2022 Chart.js Contributors
+ * (c) 2023 Chart.js Contributors
  * Released under the MIT License
  */
 
 /*!
- * Sizzle CSS Selector Engine v2.3.6
+ * Sizzle CSS Selector Engine v2.3.9
  * https://sizzlejs.com/
  *
  * Copyright JS Foundation and other contributors
  * Released under the MIT license
  * https://js.foundation/
  *
- * Date: 2021-02-16
+ * Date: 2022-12-19
  */
 
 /*!
@@ -170,7 +170,7 @@ object-assign
  */
 
 /*!
- * jQuery JavaScript Library v3.6.1
+ * jQuery JavaScript Library v3.6.3
  * https://jquery.com/
  *
  * Includes Sizzle.js
@@ -180,7 +180,7 @@ object-assign
  * Released under the MIT license
  * https://jquery.org/license
  *
- * Date: 2022-08-26T17:52Z
+ * Date: 2022-12-20T21:28Z
  */
 
 /*!
@@ -189,13 +189,6 @@ object-assign
  *
  * pixi.js is licensed under the MIT License.
  * http://www.opensource.org/licenses/mit-license
- */
-
-/*!
-* chartjs-plugin-annotation v1.4.0
-* https://www.chartjs.org/chartjs-plugin-annotation/index
- * (c) 2022 chartjs-plugin-annotation Contributors
- * Released under the MIT License
  */
 
 /*! *****************************************************************************
