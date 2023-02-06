@@ -910,6 +910,8 @@ export class ScopeNode extends SDFGNode {
         'GPU_ThreadBlock_Dynamic': 'Block-Dyn',
         'GPU_Persistent': 'GPU-P',
         'FPGA_Device': 'FPGA',
+        'Snitch': 'Snitch',
+        'Snitch_Multicore': 'Snitch MC',
     };
 
     public draw(
