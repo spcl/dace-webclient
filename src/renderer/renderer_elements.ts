@@ -1012,6 +1012,10 @@ export class ScopeNode extends SDFGNode {
         } catch (_err) {
         }
 
+        // If this isn't a pre-defined schedule, show the raw name.
+        if (!label)
+            label = attrs.schedule;
+
         return label;
     }
 
