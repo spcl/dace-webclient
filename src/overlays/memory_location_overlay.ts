@@ -50,6 +50,8 @@ enum ScheduleType {
     MPI = 'MPI',
     // OpenMP
     CPU_Multicore = 'CPU_Multicore',
+    // OpenMP, exactly one task per thread
+    CPU_Multicore_Singleton = 'CPU_Multicore_Singleton',
     // Unrolled code
     Unrolled = 'Unrolled',
     // Arm SVE
@@ -77,6 +79,7 @@ const SCOPEDEFAULT_STORAGE =
         [ScheduleType.Sequential, StorageType.Register],
         [ScheduleType.MPI, StorageType.CPU_Heap],
         [ScheduleType.CPU_Multicore, StorageType.Register],
+        [ScheduleType.CPU_Multicore_Singleton, StorageType.Register],
         [ScheduleType.GPU_Default, StorageType.GPU_Global],
         [ScheduleType.GPU_Persistent, StorageType.GPU_Global],
         [ScheduleType.GPU_Device, StorageType.GPU_Shared],
@@ -95,6 +98,7 @@ const SCOPEDEFAULT_SCHEDULE =
         [ScheduleType.Sequential, ScheduleType.Sequential],
         [ScheduleType.MPI, ScheduleType.CPU_Multicore],
         [ScheduleType.CPU_Multicore, ScheduleType.Sequential],
+        [ScheduleType.CPU_Multicore_Singleton, ScheduleType.Sequential],
         [ScheduleType.Unrolled, ScheduleType.CPU_Multicore],
         [ScheduleType.GPU_Default, ScheduleType.GPU_Device],
         [ScheduleType.GPU_Persistent, ScheduleType.GPU_Device],

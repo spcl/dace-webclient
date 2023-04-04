@@ -902,6 +902,7 @@ export class ScopeNode extends SDFGNode {
         'Sequential': 'Seq',
         'MPI': 'MPI',
         'CPU_Multicore': 'OMP',
+        'CPU_Multicore_Singleton': 'OMP Singleton',
         'Unrolled': 'Unroll',
         'SVE_Map': 'SVE',
         'GPU_Default': 'GPU',
