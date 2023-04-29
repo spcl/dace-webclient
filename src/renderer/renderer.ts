@@ -3101,9 +3101,11 @@ function calculateNodeSize(
             size.width += size.height;
             break;
         case SDFGElementType.MapEntry:
+        case SDFGElementType.ForLoopEntry:
         case SDFGElementType.ConsumeEntry:
         case SDFGElementType.PipelineEntry:
         case SDFGElementType.MapExit:
+        case SDFGElementType.ForLoopExit:
         case SDFGElementType.ConsumeExit:
         case SDFGElementType.PipelineExit:
             size.width += 2.0 * size.height;

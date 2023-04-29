@@ -29,6 +29,8 @@ export enum SDFGElementType {
     NestedSDFG = 'NestedSDFG',
     MapEntry = 'MapEntry',
     MapExit = 'MapExit',
+    ForLoopEntry = 'ForLoopEntry',
+    ForLoopExit = 'ForLoopExit',
     ConsumeEntry = 'ConsumeEntry',
     ConsumeExit = 'ConsumeExit',
     PipelineEntry = 'PipelineEntry',
