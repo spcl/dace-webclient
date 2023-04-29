@@ -1139,6 +1139,22 @@ export class MapExit extends ExitNode {
 
 }
 
+export class ForLoopEntry extends EntryNode {
+
+    public stroketype(ctx: CanvasRenderingContext2D): void {
+        ctx.setLineDash([1, 0]);
+    }
+
+}
+
+export class ForLoopExit extends ExitNode {
+
+    public stroketype(ctx: CanvasRenderingContext2D): void {
+        ctx.setLineDash([1, 0]);
+    }
+
+}
+
 export class ConsumeEntry extends EntryNode {
 
     public stroketype(ctx: CanvasRenderingContext2D): void {
@@ -1966,6 +1982,8 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     ExitNode,
     MapEntry,
     MapExit,
+    ForLoopEntry,
+    ForLoopExit,
     ConsumeEntry,
     ConsumeExit,
     Tasklet,

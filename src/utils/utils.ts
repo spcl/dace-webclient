@@ -2,6 +2,7 @@
 
 import {
     MapExit,
+    ForLoopExit,
     NestedSDFG,
     SDFGElement,
     SDFGNode,
@@ -160,6 +161,15 @@ export function get_element_uuid(element: SDFGElement): string {
         );
     } else if (element instanceof MapExit) {
         // For MapExit nodes, we want to get the uuid of the corresponding
+        // entry node instead.
+        return (
+            element.sdfg.sdfg_list_id + '/' +
+            element.parent_id + '/' +
+            element.data.node.scope_entry + '/' +
+            undefined_val
+        );
+    } else if (element instanceof ForLoopExit) {
+        // For ForLoopExit nodes, we want to get the uuid of the corresponding
         // entry node instead.
         return (
             element.sdfg.sdfg_list_id + '/' +

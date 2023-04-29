@@ -859,6 +859,13 @@ export class SDFGRenderer extends EventEmitter {
                 <line x1="600" x2="790" y1="10" y2="190"/>
                 <line x1="790" x2="10" y1="190" y2="190"/>
             </svg>`;
+        svgs['ForLoopEntry'] =
+            `<svg width="8rem" height="2rem" viewBox="0 0 800 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                <line x1="10" x2="190" y1="190" y2="10"/>
+                <line x1="190" x2="600" y1="10" y2="10"/>
+                <line x1="600" x2="790" y1="10" y2="190"/>
+                <line x1="790" x2="10" y1="190" y2="190"/>
+            </svg>`;
         svgs['ConsumeEntry'] =
             `<svg width="8rem" height="2rem" viewBox="0 0 800 200" stroke="black" stroke-width="10" stroke-dasharray="60,25" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <line x1="10"x2="190" y1="190" y2="10"/>
