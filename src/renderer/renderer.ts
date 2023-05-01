@@ -48,6 +48,7 @@ import {
 import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { SDFVSettings } from '../utils/sdfv_settings';
 import EventEmitter from 'events';
+import { SMLayouter } from '../layouter/state_machine/sm_layouter';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -965,7 +966,7 @@ export class SDFGRenderer extends EventEmitter {
         }
 
         // Update info box
-        if (this.selected_elements.length == 1) {
+        if (this.selected_elements.length === 1) {
             const uuid = get_uuid_graph_element(this.selected_elements[0]);
             if (this.graph)
                 this.sdfv_instance.fill_info(
@@ -1165,7 +1166,7 @@ export class SDFGRenderer extends EventEmitter {
     public zoom_to_view(
         elements: any = null, animate: boolean = true, padding?: number
     ): void {
-        if (!elements || elements.length == 0) {
+        if (!elements || elements.length === 0) {
             elements = this.graph?.nodes().map(x => this.graph?.node(x));
             padding ??= 0;
         } else {
@@ -2081,14 +2082,14 @@ export class SDFGRenderer extends EventEmitter {
                 if (e instanceof Connector) {
                     continue;
                 } else if (e instanceof Edge) {
-                    if (e.parent_id == null)
+                    if (e.parent_id === null)
                         e.sdfg.edges = e.sdfg.edges.filter(
-                            (_, ind: number) => ind != e.id
+                            (_, ind: number) => ind !== e.id
                         );
                     else {
                         const state: JsonSDFGState = e.sdfg.nodes[e.parent_id];
                         state.edges = state.edges.filter(
-                            (_, ind: number) => ind != e.id
+                            (_, ind: number) => ind !== e.id
                         );
                     }
                 } else if (e instanceof State) {
@@ -2145,7 +2146,7 @@ export class SDFGRenderer extends EventEmitter {
             this.drag_start = null;
             this.last_dragged_element = null;
         } else if (evtype === 'touchend') {
-            if (event.touches.length == 0)
+            if (event.touches.length === 0)
                 this.drag_start = null;
             else
                 this.drag_start = event;
@@ -2269,10 +2270,10 @@ export class SDFGRenderer extends EventEmitter {
                     return true; // Don't stop propagation
             }
         } else if (evtype === 'touchmove') {
-            if (this.drag_start.touches.length != event.touches.length) {
+            if (this.drag_start.touches.length !== event.touches.length) {
                 // Different number of touches, ignore and reset drag_start
                 this.drag_start = event;
-            } else if (event.touches.length == 1) { // Move/drag
+            } else if (event.touches.length === 1) { // Move/drag
                 this.canvas_manager?.translate(
                     event.touches[0].clientX -
                         this.drag_start.touches[0].clientX,
@@ -2285,7 +2286,7 @@ export class SDFGRenderer extends EventEmitter {
                 dirty = true;
                 this.draw_async();
                 return false;
-            } else if (event.touches.length == 2) {
+            } else if (event.touches.length === 2) {
                 // Find relative distance between two touches before and after.
                 // Then, center and zoom to their midpoint.
                 const touch1 = this.drag_start.touches[0];
@@ -2343,7 +2344,7 @@ export class SDFGRenderer extends EventEmitter {
         const foreground_elem = elements_under_cursor.foreground_elem;
         const foreground_connector = elements_under_cursor.foreground_connector;
 
-        if (this.mouse_mode == 'add') {
+        if (this.mouse_mode === 'add') {
             const el = this.mouse_follow_element;
             if (check_valid_add_position(
                 (this.add_type ? this.add_type : null),
@@ -2404,10 +2405,10 @@ export class SDFGRenderer extends EventEmitter {
 
                 // Highlight all edges of the memlet tree
                 if (intersected && obj instanceof Edge &&
-                    obj.parent_id != null) {
+                    obj.parent_id !== null) {
                     const tree = this.get_nested_memlet_tree(obj);
                     tree.forEach(te => {
-                        if (te != obj && te !== undefined) {
+                        if (te !== obj && te !== undefined) {
                             te.highlighted = true;
                         }
                     });
@@ -2675,7 +2676,7 @@ export class SDFGRenderer extends EventEmitter {
         });
 
         if (evtype === 'contextmenu') {
-            if (this.mouse_mode == 'move') {
+            if (this.mouse_mode === 'move') {
                 let elements_to_reset = [foreground_elem];
                 if (this.selected_elements.includes(foreground_elem))
                     elements_to_reset = this.selected_elements;
@@ -2762,7 +2763,7 @@ export class SDFGRenderer extends EventEmitter {
                     this.emit('element_position_changed', 'manual_move');
                 }
 
-            } else if (this.mouse_mode == 'add') {
+            } else if (this.mouse_mode === 'add') {
                 // Cancel add mode
                 if (this.panmode_btn?.onclick)
                     this.panmode_btn?.onclick(event);
@@ -3166,6 +3167,7 @@ function relayout_sdfg(
     });
 
     dagre.layout(g);
+    SMLayouter.layoutDagreCompat(g);
 
     // Annotate the sdfg with its layout info
     sdfg.nodes.forEach((state: any) => {
@@ -3250,7 +3252,7 @@ function relayout_state(
     const hidden_nodes = new Map();
 
     function layout_node(node: any) {
-        if (omit_access_nodes && node.type == SDFGElementType.AccessNode) {
+        if (omit_access_nodes && node.type === SDFGElementType.AccessNode) {
             // add access node to hidden nodes; source and destinations will be
             // set later
             hidden_nodes.set(
@@ -3411,9 +3413,10 @@ function relayout_state(
                 const edges = g.outEdges(redirected_e.src);
                 if (edges) {
                     for (const oe of edges) {
-                        if (oe.w == e.dst && oe.name &&
-                            sdfg_state.edges[parseInt(oe.name)].dst_connector ==
-                            e.dst_connector
+                        if (oe.w === e.dst && oe.name &&
+                            sdfg_state.edges[
+                                parseInt(oe.name)
+                            ].dst_connector === e.dst_connector
                         ) {
                             return;
                         }
@@ -3512,7 +3515,7 @@ function relayout_state(
             let cindex = -1;
             for (let i = 0; i < src_node.out_connectors.length; i++) {
                 if (
-                    src_node.out_connectors[i].data.name == edge.src_connector
+                    src_node.out_connectors[i].data.name === edge.src_connector
                 ) {
                     cindex = i;
                     break;
@@ -3528,7 +3531,8 @@ function relayout_state(
             const dst_node: SDFGNode = g.node(edge.dst);
             let cindex = -1;
             for (let i = 0; i < dst_node.in_connectors.length; i++) {
-                if (dst_node.in_connectors[i].data.name == edge.dst_connector) {
+                const c = dst_node.in_connectors[i];
+                if (c.data.name === edge.dst_connector) {
                     cindex = i;
                     break;
                 }
@@ -3548,7 +3552,8 @@ function relayout_state(
         if (dst_conn !== null)
             gedge.points[n] = intersectRect(dst_conn, gedge.points[0]);
 
-        if (gedge.points.length == 3 && gedge.points[0].x == gedge.points[n].x)
+        if (gedge.points.length === 3 &&
+            gedge.points[0].x === gedge.points[n].x)
             gedge.points = [gedge.points[0], gedge.points[n]];
 
         const bb = calculateEdgeBoundingBox(gedge);
