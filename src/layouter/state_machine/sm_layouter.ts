@@ -1,10 +1,13 @@
 import { DagreSDFG } from '../..';
+import * as dagre from 'dagre';
 import { allBackedges } from '../graphlib/algorithms/cycles';
 import {
     dominatorTree,
     immediateDominators,
 } from '../graphlib/algorithms/dominance';
 import { DiGraph } from '../graphlib/di_graph';
+
+const dagreOrder = require('dagre/lib/order');
 
 const ARTIFICIAL_START = '__smlayouter_artifical_start';
 const ARTIFICIAL_END = '__smlayouter_artifical_end';
@@ -18,9 +21,20 @@ enum ScopeType {
     LOOP_INVERTED,
 }
 
+export interface SMLayouterNode {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+}
+
+export interface SMLayouterEdge {
+    points: { x: number, y: number }[];
+}
+
 export class SMLayouter {
 
-    private readonly graph: DiGraph<unknown, unknown>;
+    private readonly graph: DiGraph<SMLayouterNode, SMLayouterEdge>;
     private readonly startNode: string;
     private readonly endNode: string;
     private readonly iDoms: Map<string, string>;
@@ -36,13 +50,12 @@ export class SMLayouter {
         string, Set<[string, string]>
     >;
     private readonly backedgesCombined: Set<[string, string]>;
-    private readonly rankDict: Map<number, Set<string>>;
+    private readonly rankDict: Map<number, string[]>;
     private readonly orderDict: Map<string, number>;
     private readonly nodeRanks: Map<string, number>;
-    private readonly dummyNodes: Set<string>;
-    public readonly layout: Map<string, { x: number, y: number }>;
+    private readonly dummyChains: Set<[SMLayouterEdge, string[]]>;
 
-    public constructor(g: DiGraph<unknown, unknown>) {
+    public constructor(g: DiGraph<SMLayouterNode, SMLayouterEdge>) {
         this.graph = g;
 
         // Preparation phase.
@@ -58,7 +71,7 @@ export class SMLayouter {
             this.startNode = ARTIFICIAL_START;
             this.graph.addNode(this.startNode);
             for (const s of sources)
-                this.graph.addEdge(this.startNode, s);
+                this.graph.addEdge(this.startNode, s, { points: [] });
         } else if (sources.length === 0) {
             throw new Error('State machine has no sources.');
         } else {
@@ -73,7 +86,7 @@ export class SMLayouter {
             this.endNode = ARTIFICIAL_END;
             this.graph.addNode(this.endNode);
             for (const s of sinks)
-                this.graph.addEdge(s, this.endNode);
+                this.graph.addEdge(s, this.endNode, { points: [] });
         } else if (sinks.length === 0) {
             throw new Error('State machine has no sinks.');
         } else {
@@ -113,25 +126,17 @@ export class SMLayouter {
         this.rankDict = new Map();
         this.nodeRanks = new Map();
         this.orderDict = new Map();
-        this.dummyNodes = new Set();
-        this.layout = new Map();
+        this.dummyChains = new Set();
     }
 
     public static layoutDagreCompat(dagreGraph: DagreSDFG): void {
-        const g = new DiGraph();
+        const g = new DiGraph<SMLayouterNode, SMLayouterEdge>();
         for (const stateId of dagreGraph.nodes())
             g.addNode(stateId, dagreGraph.node(stateId));
         for (const edge of dagreGraph.edges())
             g.addEdge(edge.v, edge.w, dagreGraph.edge(edge));
 
-        const layout = SMLayouter.layout(g);
-
-        // Translate the obtained layout to the dagre graph.
-        for (const stateId of dagreGraph.nodes()) {
-            const pos = layout.get(stateId);
-            dagreGraph.node(stateId).x = pos!.x;
-            dagreGraph.node(stateId).y = pos!.y;
-        }
+        SMLayouter.layout(g);
     }
 
     public doLayout(): void {
@@ -139,14 +144,12 @@ export class SMLayouter {
         this.normalizeEdges();
         this.permute();
         this.assignPositions();
+        this.denormalizeEdges();
     }
 
-    private static layout(
-        g: DiGraph<unknown, unknown>
-    ): Map<string, { x: number, y: number }> {
+    private static layout(g: DiGraph<SMLayouterNode, SMLayouterEdge>): void {
         const instance = new SMLayouter(g);
         instance.doLayout();
-        return instance.layout;
     }
 
     private assignInitialRanks(): void {
@@ -333,8 +336,8 @@ export class SMLayouter {
         for (const k of rankings.keys()) {
             const v = rankings.get(k)!;
             if (!this.rankDict.has(v))
-                this.rankDict.set(v, new Set());
-            this.rankDict.get(v)!.add(k);
+                this.rankDict.set(v, []);
+            this.rankDict.get(v)!.push(k);
             this.nodeRanks.set(k, v);
         }
     }
@@ -342,7 +345,7 @@ export class SMLayouter {
     private contractRanks(): void {
         const origRanks = Array.from(this.rankDict.keys());
         origRanks.sort();
-        const contractedRanks = new Map<number, Set<string>>();
+        const contractedRanks = new Map<number, string[]>();
         let i = 0;
         for (const r of origRanks) {
             contractedRanks.set(i, this.rankDict.get(r)!);
@@ -378,55 +381,186 @@ export class SMLayouter {
             // edges to normalize the edge.
             let eSrc = src;
             let eDst = null;
+            const dummyChain: string[] = [];
+            const origEdge = this.graph.edge(src, dst)!;
             for (let i = srcRank + 1; i < dstRank; i++) {
                 const dummyNode = `__smlayouter_dummy_${nDummyNode}`;
                 eDst = dummyNode;
                 nDummyNode++;
-                this.graph.addNode(dummyNode);
-                this.dummyNodes.add(dummyNode);
-                this.graph.addEdge(eSrc, eDst);
+                this.graph.addNode(dummyNode, {
+                    width: 0,
+                    height: 0,
+                    x: 0,
+                    y: 0,
+                });
+                dummyChain.push(dummyNode);
+                this.nodeRanks.set(dummyNode, i);
+                if (!this.rankDict.has(i))
+                    this.rankDict.set(i, []);
+                this.rankDict.get(i)!.push(dummyNode);
+                this.graph.addEdge(eSrc, eDst, { points: [] });
                 eSrc = dummyNode;
             }
             eDst = dst;
-            this.graph.addEdge(eSrc, eDst);
+            this.graph.addEdge(eSrc, eDst, { points: [] });
+            this.dummyChains.add([origEdge, dummyChain]);
+            this.graph.removeEdge(src, dst);
         }
     }
 
-    private permute(): void {
+    private denormalizeEdges(): void {
+        for (const [oEdge, dummyChain] of this.dummyChains) {
+            if (dummyChain.length < 1)
+                continue;
+
+            let chainSrc = null;
+            let chainDst = null;
+            const points = [];
+            for (const dummyNode of dummyChain) {
+                const rank = this.nodeRanks.get(dummyNode)!;
+                this.rankDict.set(rank, this.rankDict.get(rank)!.filter(
+                    (v) => v !== dummyNode
+                ));
+                this.nodeRanks.delete(dummyNode);
+                const pred = this.graph.predecessors(dummyNode)[0];
+                if (chainSrc === null)
+                    chainSrc = pred;
+                const succ = this.graph.successors(dummyNode)[0];
+                chainDst = succ;
+                const node = this.graph.get(dummyNode)!;
+                points.push({ x: node.x, y: node.y });
+            }
+
+            const sn = this.graph.get(chainSrc!)!;
+            const dn = this.graph.get(chainDst!)!;
+            oEdge.points = [
+                { x: sn.x, y: sn.y + (sn.height / 2) },
+                ...points,
+                { x: dn.x, y: dn.y - (dn.height / 2) },
+            ];
+            this.graph.addEdge(chainSrc!, chainDst!, oEdge);
+
+            for (const dummyNode of dummyChain)
+                this.graph.removeNode(dummyNode);
+        }
+        this.dummyChains.clear();
+    }
+
+    /*
+    private countCrossings(orderDict: Map<string, number>): number {
+        let nCrossings = 0;
+        if (this.rankDict.size < 2)
+            return nCrossings;
+
+        for (let i = 1; i < this.rankDict.size; i++) {
+            const firstRank = this.rankDict.get(i - 1)!;
+            const secondRank = this.rankDict.get(i)!;
+
+            // Count the number of crossings between the two ranks.
+        }
+        return nCrossings;
+    }
+    */
+
+    private permute(maxIter: number = 4): void {
+        // TODO: replace this so we do not need to use dagre for this.
+        const dagreGraph = new dagre.graphlib.Graph({
+            directed: true,
+            multigraph: false,
+            compound: false,
+        });
+        for (const node of this.graph.nodesIter()) {
+            const rank = this.nodeRanks.get(node)!;
+            dagreGraph.setNode(node, { rank: rank });
+        }
+        for (const edge of this.graph.edgesIter()) {
+            const src = edge[0];
+            const dst = edge[1];
+            dagreGraph.setEdge(src, dst, { weight: 0 });
+        }
+
+        dagreOrder(dagreGraph);
+
+        console.log(dagreGraph);
+
+        /*
+        // Initialize the order numbers for all nodes to -1.
+        const orderDict = new Map<string, number>();
         for (const node of this.graph.nodesIter())
-            this.orderDict.set(node, 0);
+            orderDict.set(node, -1);
+
+        // Perform initial ordering by performing a DFS from the start node.
+        // Each node is assigned the lowest (>= 0) order number that is not
+        // already taken for any given rank as it is visited.
+        const visited = new Set<string>();
+        const q: string[] = [this.startNode];
+        const rankMaxOrder = new Map<number, number>();
+        while (q.length > 0) {
+            const node = q.shift()!;
+            if (visited.has(node))
+                continue;
+
+            // Find the lowest order number that is not already taken.
+            const rank = this.nodeRanks.get(node)!;
+            let order;
+            if (!rankMaxOrder.has(rank))
+                order = 0;
+            else
+                order = rankMaxOrder.get(rank)! + 1;
+            orderDict.set(node, order);
+            rankMaxOrder.set(rank, order);
+            visited.add(node);
+
+            for (const s of this.graph.successorsIter(node))
+                q.push(s);
+        }
+
+        // Attempt to reduce the number of edge crossings.
+        let bestNCrossings = Infinity;
+        for (let i = 0, lastBest = 0; lastBest < maxIter; i++, lastBest++) {
+        }
+        */
     }
 
     private assignPositions(): void {
-        let yPos = 0;
+        let lastY = 0;
+        let lastHeight = 0;
         for (const rank of this.rankDict.keys()) {
             const rankNodes = this.rankDict.get(rank)!;
-            let xPos = 0;
-            let maxHeight = 0;
+            let thisHeight = 0;
             for (const nodeId of rankNodes) {
-                this.layout.set(nodeId, { x: xPos, y: yPos });
-                const node = this.graph.get(nodeId);
-                console.log(nodeId);
-                console.log(node);
-                if (node && (node as any).width)
-                    xPos += ((node as any).width + NODE_SPACING);
-                else
-                    xPos++;
-
-                if (node && (node as any).height)
-                    maxHeight = Math.max(maxHeight, (node as any).height);
+                const node = this.graph.get(nodeId)!;
+                thisHeight = Math.max(thisHeight, node.height);
             }
 
-            yPos += (maxHeight + LAYER_SPACING);
+            const thisY = (
+                lastY + (lastHeight / 2) + LAYER_SPACING + (thisHeight / 2)
+            );
+            lastY = thisY;
+            lastHeight = thisHeight;
+
+            let lastX = 0;
+            let lastWidth = 0;
+            for (const nodeId of rankNodes) {
+                const node = this.graph.get(nodeId)!;
+                const thisX = (
+                    lastX + (lastWidth / 2) + NODE_SPACING + (node.width / 2)
+                );
+                lastX = thisX;
+                lastWidth = node.width;
+                node.x = thisX;
+                node.y = thisY;
+            }
         }
 
-        // Assign everything else to the initial rank.
-        let xPos = 0;
-        for (const v of this.graph.nodesIter()) {
-            if (!this.layout.has(v)) {
-                this.layout.set(v, { x: xPos, y: 0 });
-                xPos++;
-            }
+        for (const edge of this.graph.edgesIter()) {
+            const edgeData = this.graph.edge(edge[0], edge[1])!;
+            const src = this.graph.get(edge[0])!;
+            const dst = this.graph.get(edge[1])!;
+            edgeData.points = [
+                { x: src.x, y: src.y + (src.height / 2) },
+                { x: dst.x, y: dst.y - (dst.height / 2) },
+            ];
         }
     }
 
