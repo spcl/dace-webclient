@@ -37,6 +37,9 @@ export class SMLayouter {
     >;
     private readonly backedgesCombined: Set<[string, string]>;
     private readonly rankDict: Map<number, Set<string>>;
+    private readonly orderDict: Map<string, number>;
+    private readonly nodeRanks: Map<string, number>;
+    private readonly dummyNodes: Set<string>;
     public readonly layout: Map<string, { x: number, y: number }>;
 
     public constructor(g: DiGraph<unknown, unknown>) {
@@ -108,6 +111,9 @@ export class SMLayouter {
         }
 
         this.rankDict = new Map();
+        this.nodeRanks = new Map();
+        this.orderDict = new Map();
+        this.dummyNodes = new Set();
         this.layout = new Map();
     }
 
@@ -130,6 +136,7 @@ export class SMLayouter {
 
     public doLayout(): void {
         this.doRanking();
+        this.normalizeEdges();
         this.permute();
         this.assignPositions();
     }
@@ -321,11 +328,14 @@ export class SMLayouter {
             }
         }
 
+        this.rankDict.clear();
+        this.nodeRanks.clear();
         for (const k of rankings.keys()) {
             const v = rankings.get(k)!;
             if (!this.rankDict.has(v))
                 this.rankDict.set(v, new Set());
             this.rankDict.get(v)!.add(k);
+            this.nodeRanks.set(k, v);
         }
     }
 
@@ -339,8 +349,12 @@ export class SMLayouter {
             i++;
         }
         this.rankDict.clear();
-        for (const k of contractedRanks.keys())
+        this.nodeRanks.clear();
+        for (const k of contractedRanks.keys()) {
             this.rankDict.set(k, contractedRanks.get(k)!);
+            for (const v of contractedRanks.get(k)!)
+                this.nodeRanks.set(v, k);
+        }
     }
 
     private doRanking(): void {
@@ -348,9 +362,39 @@ export class SMLayouter {
         this.contractRanks();
     }
 
+    private normalizeEdges(): void {
+        let nDummyNode = 0;
+        for (const edge of this.graph.edgesIter()) {
+            const src = edge[0];
+            const dst = edge[1];
+            const srcRank = this.nodeRanks.get(src)!;
+            const dstRank = this.nodeRanks.get(dst)!;
+
+            // If the edge spans only one rank, nothing needs to be done.
+            if (srcRank === dstRank - 1)
+                continue;
+
+            // If the edge spans more than one rank, insert dummy nodes and
+            // edges to normalize the edge.
+            let eSrc = src;
+            let eDst = null;
+            for (let i = srcRank + 1; i < dstRank; i++) {
+                const dummyNode = `__smlayouter_dummy_${nDummyNode}`;
+                eDst = dummyNode;
+                nDummyNode++;
+                this.graph.addNode(dummyNode);
+                this.dummyNodes.add(dummyNode);
+                this.graph.addEdge(eSrc, eDst);
+                eSrc = dummyNode;
+            }
+            eDst = dst;
+            this.graph.addEdge(eSrc, eDst);
+        }
+    }
+
     private permute(): void {
-        // TODO: Implement.
-        return;
+        for (const node of this.graph.nodesIter())
+            this.orderDict.set(node, 0);
     }
 
     private assignPositions(): void {
