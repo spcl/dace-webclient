@@ -429,9 +429,8 @@ export class CanvasManager {
 
             let el_h_margin = el.height / 2;
             let el_w_margin = el.width / 2;
-            if (el instanceof Edge) {
+            if (el instanceof Edge)
                 el_h_margin = el_w_margin = 0;
-            }
             const min_x = parent_left_border + el_w_margin;
             const min_y = parent_top_border + el_h_margin;
             const max_x = parent_right_border - el_w_margin;
@@ -612,7 +611,7 @@ export class CanvasManager {
                 position.scope_dy += dy;
             }
         }
-        
+
         if (el.data.state && !el.data.state.attributes.is_collapsed) {
             // We're moving a state, move all its contained elements
             const graph = el.data.graph;

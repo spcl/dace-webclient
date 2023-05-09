@@ -24,7 +24,7 @@ import {
 import { OverlayManager } from './overlay_manager';
 import { SDFGRenderer } from './renderer/renderer';
 import {
-    AccessNode, Edge, NestedSDFG, SDFG,
+    AccessNode, Edge, Memlet, NestedSDFG, SDFG,
     SDFGElement,
     SDFGNode,
     State
@@ -221,7 +221,7 @@ export class SDFV {
 
             return true;
         }, (_node: SDFGNode, _parent: DagreSDFG) => {
-            // After scope ends, pop ourselves as the current element 
+            // After scope ends, pop ourselves as the current element
             // and add to parent
             const elem = stack.pop();
             if (elem)
@@ -237,8 +237,7 @@ export class SDFV {
             return;
 
         let html = '';
-        if (elem instanceof Edge && elem.data.type === 'Memlet' &&
-            elem.parent_id && elem.id) {
+        if (elem instanceof Memlet && elem.parent_id && elem.id) {
             const sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
             html += '<h4>Connectors: ' + sdfg_edge.src_connector + ' &rarr; ' +
                 sdfg_edge.dst_connector + '</h4>';

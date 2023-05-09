@@ -482,7 +482,7 @@ export class SDFGNode extends SDFGElement {
 
 }
 
-export class Edge extends SDFGElement {
+export abstract class Edge extends SDFGElement {
 
     public points: any[] = [];
     public src_connector: any;
@@ -491,6 +491,118 @@ export class Edge extends SDFGElement {
     public get_points(): any[] {
         return this.points;
     }
+
+    protected drawArrow(
+        ctx: CanvasRenderingContext2D, p1: Point2D, p2: Point2D, size: number,
+        offset: number = 0, padding: number = 0
+    ): void {
+        // Rotate the context to point along the path
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const rot = Math.atan2(dy, dx);
+        ctx.translate(p2.x, p2.y);
+        ctx.rotate(rot);
+
+        // arrowhead
+        ctx.beginPath();
+        ctx.moveTo(0 + padding + offset, 0);
+        ctx.lineTo(((-2 * size) - padding) - offset, -(size + padding));
+        ctx.lineTo(((-2 * size) - padding) - offset, (size + padding));
+        ctx.closePath();
+        ctx.fill();
+
+        // Restore context
+        ctx.rotate(-rot);
+        ctx.translate(-p2.x, -p2.y);
+    }
+
+    public abstract create_arrow_line(ctx: CanvasRenderingContext2D): void;
+
+    public debug_draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
+    ): void {
+        if (renderer.debug_draw) {
+            // Print the center and bounding box in debug mode.
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 1, 0, 2 * Math.PI, false);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+            ctx.strokeStyle = 'red';
+            ctx.stroke();
+            ctx.strokeRect(
+                this.x - (this.width / 2.0), this.y - (this.height / 2.0),
+                this.width, this.height
+            );
+
+            // Print the points
+            for (const p of this.points)
+                ctx.strokeRect(p.x - 2, p.y - 2, 4, 4);
+        }
+    }
+
+    public shade(
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
+    ): void {
+        ctx.beginPath();
+        this.create_arrow_line(ctx);
+
+        // Save current style properties.
+        const orig_stroke_style = ctx.strokeStyle;
+        const orig_fill_style = ctx.fillStyle;
+        const orig_line_cap = ctx.lineCap;
+        const orig_line_width = ctx.lineWidth;
+        const orig_alpha = ctx.globalAlpha;
+
+        ctx.globalAlpha = alpha;
+        ctx.lineWidth = orig_line_width + 4;
+        ctx.fillStyle = color;
+        ctx.strokeStyle = color;
+        ctx.lineCap = 'butt';
+
+        ctx.stroke();
+
+        if (this.points.length < 2)
+            return;
+        this.drawArrow(ctx, this.points[this.points.length - 2],
+            this.points[this.points.length - 1], 3, 0, 4);
+
+        // Restore previous stroke style, width, and opacity.
+        ctx.strokeStyle = orig_stroke_style;
+        ctx.fillStyle = orig_fill_style;
+        ctx.lineCap = orig_line_cap;
+        ctx.lineWidth = orig_line_width;
+        ctx.globalAlpha = orig_alpha;
+    }
+
+    public set_layout(): void {
+        // NOTE: Setting this.width/height will disrupt dagre in self-edges
+    }
+
+    public intersect(
+        x: number, y: number, w: number = 0, h: number = 0
+    ): boolean {
+        // First, check bounding box
+        if (!super.intersect(x, y, w, h))
+            return false;
+
+        // Then (if point), check distance from line
+        if (w === 0 || h === 0) {
+            for (let i = 0; i < this.points.length - 1; i++) {
+                const dist = ptLineDistance(
+                    { x: x, y: y }, this.points[i], this.points[i + 1]
+                );
+                if (dist <= 5.0)
+                    return true;
+            }
+            return false;
+        }
+        return true;
+    }
+
+}
+
+export class Memlet extends Edge {
 
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
         ctx.moveTo(this.points[0].x, this.points[0].y);
@@ -518,18 +630,12 @@ export class Edge extends SDFGElement {
         ctx.beginPath();
         this.create_arrow_line(ctx);
 
-        let style = this.strokeStyle(renderer);
         if (this.hovered)
             renderer.set_tooltip((c) => this.tooltip(c, renderer));
-        // Interstate edge
-        if (this.parent_id == null &&
-            style === this.getCssProperty(renderer, '--color-default')) {
-            style = this.getCssProperty(renderer, '--interstate-edge-color');
-        }
-        ctx.fillStyle = ctx.strokeStyle = style;
+        ctx.fillStyle = ctx.strokeStyle = this.strokeStyle(renderer);
 
         // CR edges have dashed lines
-        if (this.parent_id != null && this.data.attributes.wcr != null)
+        if (this.data.attributes.wcr !== null)
             ctx.setLineDash([2, 2]);
         else
             ctx.setLineDash([1, 0]);
@@ -550,45 +656,10 @@ export class Edge extends SDFGElement {
                 );
         }
 
-        drawArrow(
+        this.drawArrow(
             ctx, this.points[this.points.length - 2],
             this.points[this.points.length - 1], 3
         );
-    }
-
-    public shade(
-        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.4
-    ): void {
-        ctx.beginPath();
-        this.create_arrow_line(ctx);
-
-        // Save current style properties.
-        const orig_stroke_style = ctx.strokeStyle;
-        const orig_fill_style = ctx.fillStyle;
-        const orig_line_cap = ctx.lineCap;
-        const orig_line_width = ctx.lineWidth;
-        const orig_alpha = ctx.globalAlpha;
-
-        ctx.globalAlpha = alpha;
-        ctx.lineWidth = orig_line_width + 4;
-        ctx.fillStyle = color;
-        ctx.strokeStyle = color;
-        ctx.lineCap = 'butt';
-
-        ctx.stroke();
-
-        if (this.points.length < 2)
-            return;
-        drawArrow(ctx, this.points[this.points.length - 2],
-            this.points[this.points.length - 1], 3, 0, 4);
-
-        // Restore previous stroke style, width, and opacity.
-        ctx.strokeStyle = orig_stroke_style;
-        ctx.fillStyle = orig_fill_style;
-        ctx.lineCap = orig_line_cap;
-        ctx.lineWidth = orig_line_width;
-        ctx.globalAlpha = orig_alpha;
     }
 
     public tooltip(
@@ -598,86 +669,146 @@ export class Edge extends SDFGElement {
             return;
 
         super.tooltip(container);
+
         const dsettings = renderer.view_settings();
         const attr = this.attributes();
-        // Memlet
-        if (attr.subset !== undefined) {
-            if (attr.subset === null) {  // Empty memlet
-                container.style.display = 'none';
-                return;
-            }
-            let contents = attr.data;
-            contents += sdfg_property_to_string(attr.subset, dsettings);
 
-            if (attr.other_subset)
-                contents += ' -> ' + sdfg_property_to_string(
-                    attr.other_subset, dsettings
-                );
-
-            if (attr.wcr)
-                contents += '<br /><b>CR: ' + sdfg_property_to_string(
-                    attr.wcr, dsettings
-                ) + '</b>';
-
-            let num_accesses = null;
-            if (attr.volume)
-                num_accesses = sdfg_property_to_string(attr.volume, dsettings);
-            else
-                num_accesses = sdfg_property_to_string(
-                    attr.num_accesses, dsettings
-                );
-
-            if (attr.dynamic) {
-                if (num_accesses == '0' || num_accesses == '-1')
-                    num_accesses = '<b>Dynamic (unbounded)</b>';
-                else
-                    num_accesses = '<b>Dynamic</b> (up to ' +
-                        num_accesses + ')';
-            } else if (num_accesses == '-1') {
-                num_accesses = '<b>Dynamic (unbounded)</b>';
-            }
-
-            contents += '<br /><font style="font-size: 14px">Volume: ' +
-                num_accesses + '</font>';
-            container.innerHTML = contents;
-        } else {  // Interstate edge
-            container.classList.add('sdfvtooltip--interstate-edge');
-            container.innerText = this.label();
-            if (!this.label())
-                container.style.display = 'none';
+        if (attr.subset === null) {  // Empty memlet
+            container.style.display = 'none';
+            return;
         }
-    }
 
-    public set_layout(): void {
-        // NOTE: Setting this.width/height will disrupt dagre in self-edges
+        let contents = attr.data;
+        contents += sdfg_property_to_string(attr.subset, dsettings);
+
+        if (attr.other_subset)
+            contents += ' -> ' + sdfg_property_to_string(
+                attr.other_subset, dsettings
+            );
+
+        if (attr.wcr)
+            contents += '<br /><b>CR: ' + sdfg_property_to_string(
+                attr.wcr, dsettings
+            ) + '</b>';
+
+        let num_accesses = null;
+        if (attr.volume)
+            num_accesses = sdfg_property_to_string(attr.volume, dsettings);
+        else
+            num_accesses = sdfg_property_to_string(
+                attr.num_accesses, dsettings
+            );
+
+        if (attr.dynamic) {
+            if (num_accesses === '0' || num_accesses === '-1')
+                num_accesses = '<b>Dynamic (unbounded)</b>';
+            else
+                num_accesses = '<b>Dynamic</b> (up to ' +
+                    num_accesses + ')';
+        } else if (num_accesses === '-1') {
+            num_accesses = '<b>Dynamic (unbounded)</b>';
+        }
+
+        contents += '<br /><font style="font-size: 14px">Volume: ' +
+            num_accesses + '</font>';
+        container.innerHTML = contents;
     }
 
     public label(): string {
-        // Memlet
-        if (this.data.attributes.subset !== undefined)
-            return '';
-        return super.label();
+        return '';
     }
 
-    public intersect(
-        x: number, y: number, w: number = 0, h: number = 0
-    ): boolean {
-        // First, check bounding box
-        if (!super.intersect(x, y, w, h))
-            return false;
+}
 
-        // Then (if point), check distance from line
-        if (w == 0 || h == 0) {
-            for (let i = 0; i < this.points.length - 1; i++) {
-                const dist = ptLineDistance(
-                    { x: x, y: y }, this.points[i], this.points[i + 1]
-                );
-                if (dist <= 5.0)
-                    return true;
-            }
-            return false;
+export class InterstateEdge extends Edge {
+
+    public create_arrow_line(ctx: CanvasRenderingContext2D): void {
+        ctx.moveTo(this.points[0].x, this.points[0].y);
+        let lastX = this.points[0].x;
+        let lastY = this.points[0].y;
+        let i;
+        for (i = 1; i < this.points.length; i++) {
+            const intermediateY = (lastY + this.points[i].y) / 2.0;
+            ctx.bezierCurveTo(
+                lastX, intermediateY,
+                this.points[i].x, intermediateY,
+                this.points[i].x, this.points[i].y
+            );
+            lastX = this.points[i].x;
+            lastY = this.points[i].y;
         }
-        return true;
+    }
+
+    protected drawArrow(
+        ctx: CanvasRenderingContext2D, p1: Point2D, p2: Point2D, size: number,
+        offset: number = 0, padding: number = 0
+    ): void {
+        // Rotate the context to point along the path
+        const dx = 0;
+        const dy = p2.y - p1.y;
+        const rot = Math.atan2(dy, dx);
+        ctx.translate(p2.x, p2.y);
+        ctx.rotate(rot);
+
+        // arrowhead
+        ctx.beginPath();
+        ctx.moveTo(0 + padding + offset, 0);
+        ctx.lineTo(((-2 * size) - padding) - offset, -(size + padding));
+        ctx.lineTo(((-2 * size) - padding) - offset, (size + padding));
+        ctx.closePath();
+        ctx.fill();
+
+        // Restore context
+        ctx.rotate(-rot);
+        ctx.translate(-p2.x, -p2.y);
+    }
+
+    public draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        _mousepos: Point2D
+    ): void {
+        ctx.beginPath();
+        this.create_arrow_line(ctx);
+
+        let style = this.strokeStyle(renderer);
+        if (this.hovered)
+            renderer.set_tooltip((c) => this.tooltip(c, renderer));
+
+        // Interstate edge
+        if (style === this.getCssProperty(renderer, '--color-default'))
+            style = this.getCssProperty(renderer, '--interstate-edge-color');
+        ctx.fillStyle = ctx.strokeStyle = style;
+        ctx.setLineDash([1, 0]);
+        ctx.stroke();
+
+        if (this.points.length < 2)
+            return;
+
+        // Show anchor points for moving
+        if (this.selected && renderer.get_mouse_mode() === 'move') {
+            let i;
+            for (i = 1; i < this.points.length - 1; i++)
+                ctx.strokeRect(
+                    this.points[i].x - 5, this.points[i].y - 5, 8, 8
+                );
+        }
+
+        this.drawArrow(
+            ctx, this.points[this.points.length - 2],
+            this.points[this.points.length - 1], 3
+        );
+    }
+
+    public tooltip(
+        container: HTMLElement, renderer: SDFGRenderer | undefined = undefined
+    ): void {
+        if (!renderer)
+            return;
+        super.tooltip(container);
+        container.classList.add('sdfvtooltip--interstate-edge');
+        container.innerText = this.label();
+        if (!this.label())
+            container.style.display = 'none';
     }
 
 }
@@ -1535,7 +1666,7 @@ function batched_draw_edges(
     const arrowEdges: any[] = [];
     ctx.beginPath();
     graph.edges().forEach((e: any) => {
-        const edge = graph.edge(e);
+        const edge: Edge = (graph.edge(e) as Edge);
         if ((ctx as any).lod && visible_rect && !edge.intersect(
             visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h
         ))
@@ -1567,7 +1698,7 @@ function batched_draw_edges(
     ctx.stroke();
 
     arrowEdges.forEach(e => {
-        drawArrow(
+        e.drawArrow(
             ctx, e.points[e.points.length - 2], e.points[e.points.length - 1], 3
         );
     });
@@ -1575,6 +1706,13 @@ function batched_draw_edges(
     deferredEdges.forEach(e => {
         e.draw(renderer, ctx, mousepos);
     });
+
+    if (renderer.debug_draw) {
+        for (const e of graph.edges()) {
+            const edge: Edge = (graph.edge(e) as Edge);
+            edge.debug_draw(renderer, ctx);
+        }
+    }
 }
 
 // Draw an entire SDFG
@@ -1899,31 +2037,6 @@ export function drawEllipse(
     ctx.bezierCurveTo(xm - ox, ye, x, ym + oy, x, ym);
 }
 
-export function drawArrow(
-    ctx: CanvasRenderingContext2D, p1: Point2D, p2: Point2D, size: number,
-    offset: number = 0, padding: number = 0
-): void {
-    // Rotate the context to point along the path
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    const rot = Math.atan2(dy, dx);
-    ctx.translate(p2.x, p2.y);
-    ctx.rotate(rot);
-
-    // arrowhead
-    ctx.beginPath();
-    ctx.moveTo(0 + padding + offset, 0);
-    ctx.lineTo(((-2 * size) - padding) - offset, -(size + padding));
-    ctx.lineTo(((-2 * size) - padding) - offset, (size + padding));
-    ctx.closePath();
-    ctx.fill();
-
-    // Restore context
-    ctx.rotate(-rot);
-    ctx.translate(-p2.x, -p2.y);
-
-}
-
 export function drawTrapezoid(
     ctx: CanvasRenderingContext2D, topleft: Point2D, node: SDFGNode,
     inverted: boolean = false
@@ -1964,7 +2077,8 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     SDFG,
     State,
     SDFGNode,
-    Edge,
+    InterstateEdge,
+    Memlet,
     Connector,
     AccessNode,
     ScopeNode,

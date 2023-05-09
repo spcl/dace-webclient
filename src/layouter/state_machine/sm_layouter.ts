@@ -51,6 +51,7 @@ export class SMLayouter {
     >;
     private readonly backedgesCombined: Set<[string, string]>;
     private readonly rankDict: Map<number, string[]>;
+    private readonly rankHeights: Map<number, number>;
     private readonly orderDict: Map<string, number>;
     private readonly nodeRanks: Map<string, number>;
     private readonly dummyChains: Set<[SMLayouterEdge, string[]]>;
@@ -124,6 +125,7 @@ export class SMLayouter {
         }
 
         this.rankDict = new Map();
+        this.rankHeights = new Map();
         this.nodeRanks = new Map();
         this.orderDict = new Map();
         this.dummyChains = new Set();
@@ -332,6 +334,7 @@ export class SMLayouter {
         }
 
         this.rankDict.clear();
+        this.rankHeights.clear();
         this.nodeRanks.clear();
         for (const k of rankings.keys()) {
             const v = rankings.get(k)!;
@@ -346,15 +349,19 @@ export class SMLayouter {
         const origRanks = Array.from(this.rankDict.keys());
         origRanks.sort();
         const contractedRanks = new Map<number, string[]>();
+        const contractedRankHeights = new Map<number, number>();
         let i = 0;
         for (const r of origRanks) {
             contractedRanks.set(i, this.rankDict.get(r)!);
+            contractedRankHeights.set(i, this.rankHeights.get(r) ?? 0);
             i++;
         }
         this.rankDict.clear();
+        this.rankHeights.clear();
         this.nodeRanks.clear();
         for (const k of contractedRanks.keys()) {
             this.rankDict.set(k, contractedRanks.get(k)!);
+            this.rankHeights.set(k, contractedRankHeights.get(k)!);
             for (const v of contractedRanks.get(k)!)
                 this.nodeRanks.set(v, k);
         }
@@ -428,7 +435,13 @@ export class SMLayouter {
                 const succ = this.graph.successors(dummyNode)[0];
                 chainDst = succ;
                 const node = this.graph.get(dummyNode)!;
-                points.push({ x: node.x, y: node.y });
+                const rankHeight = this.rankHeights.get(rank) ?? 0;
+                if (rankHeight > 0) {
+                    points.push({ x: node.x, y: node.y - (rankHeight / 2) });
+                    points.push({ x: node.x, y: node.y + (rankHeight / 2) });
+                } else {
+                    points.push({ x: node.x, y: node.y });
+                }
             }
 
             const sn = this.graph.get(chainSrc!)!;
@@ -532,6 +545,7 @@ export class SMLayouter {
                 const node = this.graph.get(nodeId)!;
                 thisHeight = Math.max(thisHeight, node.height);
             }
+            this.rankHeights.set(rank, thisHeight);
 
             const thisY = (
                 lastY + (lastHeight / 2) + LAYER_SPACING + (thisHeight / 2)

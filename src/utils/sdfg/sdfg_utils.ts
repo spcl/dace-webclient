@@ -236,7 +236,7 @@ export function initialize_positioning_info(elem: any): any {
 /**
  * Sets the positioning information on a given element. Replaces old
  * positioning information.
- * 
+ *
  * @param {SDFGElement} elem    The element that receives new positioning info
  * @param {*} position          The positioning information
  */

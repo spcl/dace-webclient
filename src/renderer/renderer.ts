@@ -42,7 +42,7 @@ import {
 import { deepCopy, intersectRect, showErrorModal } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
 import {
-    AccessNode, Connector, draw_sdfg, Edge, EntryNode, NestedSDFG, offset_sdfg,
+    AccessNode, Connector, draw_sdfg, Edge, EntryNode, InterstateEdge, Memlet, NestedSDFG, offset_sdfg,
     offset_state, SDFGElement, SDFGElements, SDFGElementType, SDFGNode, State
 } from './renderer_elements';
 import { sdfg_property_to_string } from '../utils/sdfg/display';
@@ -3163,7 +3163,9 @@ function relayout_sdfg(
     });
 
     sdfg.edges.forEach((edge: any, id: number) => {
-        g.setEdge(edge.src, edge.dst, new Edge(edge.attributes.data, id, sdfg));
+        g.setEdge(edge.src, edge.dst, new InterstateEdge(
+            edge.attributes.data, id, sdfg)
+        );
     });
 
     dagre.layout(g);
@@ -3378,10 +3380,14 @@ function relayout_state(
     }
 
     sdfg_state.edges.forEach((edge: any, id: any) => {
-        if (add_edge_info_if_hidden(edge)) return;
+        if (add_edge_info_if_hidden(edge))
+            return;
         edge = check_and_redirect_edge(edge, drawn_nodes, sdfg_state);
-        if (!edge) return;
-        const e = new Edge(edge.attributes.data, id, sdfg, sdfg_state.id);
+
+        if (!edge)
+            return;
+
+        const e = new Memlet(edge.attributes.data, id, sdfg, sdfg_state.id);
         edge.attributes.data.edge = e;
         (e as any).src_connector = edge.src_connector;
         (e as any).dst_connector = edge.dst_connector;
@@ -3428,7 +3434,7 @@ function relayout_state(
 
                 // add redirected shortcut edge to graph
                 const edge_id = sdfg_state.edges.length - 1;
-                const shortcut_edge = new Edge(
+                const shortcut_edge = new Memlet(
                     deepCopy(redirected_e.attributes.data), edge_id, sdfg,
                     sdfg_state.id
                 );
