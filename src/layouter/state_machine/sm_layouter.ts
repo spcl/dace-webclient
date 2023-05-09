@@ -494,7 +494,16 @@ export class SMLayouter {
 
         dagreOrder(dagreGraph);
 
-        console.log(dagreGraph);
+        // Sort based on the order assigned by dagre.
+        for (const rank of this.rankDict.keys()) {
+            const nodes = this.rankDict.get(rank)!;
+            nodes.sort((a, b) => {
+                const aOrder = (dagreGraph.node(a) as any).order;
+                const bOrder = (dagreGraph.node(b) as any).order;
+                return aOrder - bOrder;
+            });
+            this.rankDict.set(rank, nodes);
+        }
 
         /*
         // Initialize the order numbers for all nodes to -1.
