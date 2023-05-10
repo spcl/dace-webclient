@@ -451,21 +451,89 @@ export class SMLayouter {
     }
 
     private routeBackEdges(routedEdges: Set<SMLayouterEdge>): void {
-        // Create a back-edge 'lane' on the very left of the layout where
-        // all back-edges are routed upwards.
+        // Create a set of back-edge 'lanes' on the very left of the layout
+        // where all back-edges are routed upwards.
+
+        const backedges: {
+            distance: number,
+            srcRank: number,
+            dstRank: number,
+            edge: [string, string],
+        }[] = [];
         for (const be of this.backedgesCombined) {
             const edgeData = this.graph.edge(be[0], be[1])!;
             if (routedEdges.has(edgeData))
                 continue;
-            const src = this.graph.get(be[0])!;
-            const dst = this.graph.get(be[1])!;
-            edgeData.points = [
-                { x: src.x - (src.width / 2), y: src.y },
-                { x: src.x - ((src.width / 2) + NODE_SPACING), y: src.y },
-                { x: dst.x - ((dst.width / 2) + NODE_SPACING), y: dst.y },
-                { x: dst.x - (dst.width / 2), y: dst.y },
-            ];
-            routedEdges.add(edgeData);
+
+            const dstRank = this.nodeRanks.get(be[1])!;
+            const srcRank = this.nodeRanks.get(be[0])!;
+            const distance = Math.abs(dstRank - srcRank);
+            backedges.push({
+                distance: distance,
+                srcRank: srcRank,
+                dstRank: dstRank,
+                edge: be,
+            });
+        }
+
+        // Sort backedges by increasing destination (i.e. 'upper' rank).
+        backedges.sort((a, b) => {
+            return a.dstRank - b.dstRank;
+        });
+
+        const lanes: {
+            minRank: number,
+            maxRank: number,
+            edges: [string, string][],
+        }[] = [];
+        for (const be of backedges) {
+            if (lanes.length === 0) {
+                lanes.push({
+                    minRank: be.dstRank,
+                    maxRank: be.srcRank,
+                    edges: [be.edge],
+                });
+            } else {
+                let foundLane = false;
+                for (const lane of lanes) {
+                    const low = Math.max(be.dstRank, lane.minRank);
+                    const high = Math.min(be.srcRank, lane.maxRank);
+                    if (low > high) {
+                        lane.edges.push(be.edge);
+                        lane.minRank = Math.min(be.dstRank, lane.minRank);
+                        lane.maxRank = Math.max(be.srcRank, lane.maxRank);
+                        foundLane = true;
+                        break;
+                    }
+                }
+
+                if (!foundLane) {
+                    lanes.push({
+                        minRank: be.dstRank,
+                        maxRank: be.srcRank,
+                        edges: [be.edge],
+                    });
+                }
+            }
+        }
+
+        let i = 0;
+        for (const lane of lanes) {
+            i++;
+            for (const edge of lane.edges) {
+                const edgeData = this.graph.edge(edge[0], edge[1])!;
+                const src = this.graph.get(edge[0])!;
+                const dst = this.graph.get(edge[1])!;
+                const baseX = src.x - (src.width / 2);
+                const offset = i * NODE_SPACING;
+                edgeData.points = [
+                    { x: baseX, y: src.y },
+                    { x: baseX - offset, y: src.y },
+                    { x: baseX - offset, y: dst.y },
+                    { x: baseX, y: dst.y },
+                ];
+                routedEdges.add(edgeData);
+            }
         }
     }
 
