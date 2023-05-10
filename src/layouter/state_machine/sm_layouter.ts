@@ -26,6 +26,7 @@ export interface SMLayouterNode {
     height: number;
     x: number;
     y: number;
+    order?: number;
 }
 
 export interface SMLayouterEdge {
@@ -52,7 +53,6 @@ export class SMLayouter {
     private readonly backedgesCombined: Set<[string, string]>;
     private readonly rankDict: Map<number, string[]>;
     private readonly rankHeights: Map<number, number>;
-    private readonly orderDict: Map<string, number>;
     private readonly nodeRanks: Map<string, number>;
     private readonly dummyChains: Set<[SMLayouterEdge, string[]]>;
 
@@ -127,7 +127,6 @@ export class SMLayouter {
         this.rankDict = new Map();
         this.rankHeights = new Map();
         this.nodeRanks = new Map();
-        this.orderDict = new Map();
         this.dummyChains = new Set();
     }
 
@@ -145,13 +144,32 @@ export class SMLayouter {
         this.doRanking();
         this.normalizeEdges();
         this.permute();
-        this.assignPositions();
-        this.denormalizeEdges();
+        const routedEdges = this.assignPositions();
+        const denormalizedEdges = this.denormalizeEdges();
+        for (const edge of denormalizedEdges)
+            routedEdges.add(edge);
+        this.routeBackEdges(routedEdges);
+
+        this.checkUnroutedEdges(routedEdges);
     }
 
     private static layout(g: DiGraph<SMLayouterNode, SMLayouterEdge>): void {
         const instance = new SMLayouter(g);
         instance.doLayout();
+    }
+
+    private checkUnroutedEdges(routedEdges: Set<SMLayouterEdge>): void {
+        const unrouted = new Set<SMLayouterEdge>();
+        for (const edge of this.graph.edgesIter()) {
+            const edgeData = this.graph.edge(edge[0], edge[1])!;
+            if (!routedEdges.has(edgeData))
+                unrouted.add(edgeData);
+        }
+        if (unrouted.size > 0)
+            console.warn(
+                'The following edges were not routed:',
+                unrouted
+            );
     }
 
     private assignInitialRanks(): void {
@@ -164,6 +182,7 @@ export class SMLayouter {
         while (q.length > 0) {
             const [node, rank] = q.shift()!;
             if (visited.has(node)) {
+                continue;
                 // Assign the rank for the current node (passed along in the
                 // queue).
                 if (rankings.has(node))
@@ -178,6 +197,7 @@ export class SMLayouter {
 
                 // If a node has multiple predecessors, only process it if all
                 // incoming edges (minus backedges) have been processed.
+                /*
                 let defer = false;
                 for (const s of this.graph.predecessorsIter(node)) {
                     if (!visited.has(s)) {
@@ -207,6 +227,7 @@ export class SMLayouter {
                     q.push([node, rank]);
                     continue;
                 }
+                */
 
                 // Assign the rank for the current node (passed along in the
                 // queue).
@@ -346,8 +367,9 @@ export class SMLayouter {
     }
 
     private contractRanks(): void {
-        const origRanks = Array.from(this.rankDict.keys());
-        origRanks.sort();
+        const origRanks = Array.from(this.rankDict.keys()).sort((a, b) => {
+            return a - b;
+        });
         const contractedRanks = new Map<number, string[]>();
         const contractedRankHeights = new Map<number, number>();
         let i = 0;
@@ -384,6 +406,10 @@ export class SMLayouter {
             if (srcRank === dstRank - 1)
                 continue;
 
+            // We also don't want to handle back edges here.
+            if (srcRank > dstRank)
+                continue;
+
             // If the edge spans more than one rank, insert dummy nodes and
             // edges to normalize the edge.
             let eSrc = src;
@@ -415,7 +441,9 @@ export class SMLayouter {
         }
     }
 
-    private denormalizeEdges(): void {
+    private denormalizeEdges(): Set<SMLayouterEdge> {
+        const routedEdges = new Set<SMLayouterEdge>();
+
         for (const [oEdge, dummyChain] of this.dummyChains) {
             if (dummyChain.length < 1)
                 continue;
@@ -455,27 +483,34 @@ export class SMLayouter {
 
             for (const dummyNode of dummyChain)
                 this.graph.removeNode(dummyNode);
+
+            routedEdges.add(oEdge);
         }
         this.dummyChains.clear();
+
+        return routedEdges;
     }
 
-    /*
-    private countCrossings(orderDict: Map<string, number>): number {
-        let nCrossings = 0;
-        if (this.rankDict.size < 2)
-            return nCrossings;
-
-        for (let i = 1; i < this.rankDict.size; i++) {
-            const firstRank = this.rankDict.get(i - 1)!;
-            const secondRank = this.rankDict.get(i)!;
-
-            // Count the number of crossings between the two ranks.
+    private routeBackEdges(routedEdges: Set<SMLayouterEdge>): void {
+        // Create a back-edge 'lane' on the very left of the layout where
+        // all back-edges are routed upwards.
+        for (const be of this.backedgesCombined) {
+            const edgeData = this.graph.edge(be[0], be[1])!;
+            if (routedEdges.has(edgeData))
+                continue;
+            const src = this.graph.get(be[0])!;
+            const dst = this.graph.get(be[1])!;
+            edgeData.points = [
+                { x: src.x - (src.width / 2), y: src.y },
+                { x: src.x - ((src.width / 2) + NODE_SPACING), y: src.y },
+                { x: dst.x - ((dst.width / 2) + NODE_SPACING), y: dst.y },
+                { x: dst.x - (dst.width / 2), y: dst.y },
+            ];
+            routedEdges.add(edgeData);
         }
-        return nCrossings;
     }
-    */
 
-    private permute(maxIter: number = 4): void {
+    private permute(): void {
         // TODO: replace this so we do not need to use dagre for this.
         const dagreGraph = new dagre.graphlib.Graph({
             directed: true,
@@ -494,60 +529,33 @@ export class SMLayouter {
 
         dagreOrder(dagreGraph);
 
+        dagreGraph.nodes().forEach((node) => {
+            this.graph.get(node)!.order = (dagreGraph.node(node) as any).order;
+        });
+
         // Sort based on the order assigned by dagre.
         for (const rank of this.rankDict.keys()) {
             const nodes = this.rankDict.get(rank)!;
             nodes.sort((a, b) => {
-                const aOrder = (dagreGraph.node(a) as any).order;
-                const bOrder = (dagreGraph.node(b) as any).order;
+                const aOrder = this.graph.get(a)?.order;
+                const bOrder = this.graph.get(b)?.order;
+                if (aOrder === undefined || bOrder === undefined)
+                    return 0;
                 return aOrder - bOrder;
             });
             this.rankDict.set(rank, nodes);
         }
-
-        /*
-        // Initialize the order numbers for all nodes to -1.
-        const orderDict = new Map<string, number>();
-        for (const node of this.graph.nodesIter())
-            orderDict.set(node, -1);
-
-        // Perform initial ordering by performing a DFS from the start node.
-        // Each node is assigned the lowest (>= 0) order number that is not
-        // already taken for any given rank as it is visited.
-        const visited = new Set<string>();
-        const q: string[] = [this.startNode];
-        const rankMaxOrder = new Map<number, number>();
-        while (q.length > 0) {
-            const node = q.shift()!;
-            if (visited.has(node))
-                continue;
-
-            // Find the lowest order number that is not already taken.
-            const rank = this.nodeRanks.get(node)!;
-            let order;
-            if (!rankMaxOrder.has(rank))
-                order = 0;
-            else
-                order = rankMaxOrder.get(rank)! + 1;
-            orderDict.set(node, order);
-            rankMaxOrder.set(rank, order);
-            visited.add(node);
-
-            for (const s of this.graph.successorsIter(node))
-                q.push(s);
-        }
-
-        // Attempt to reduce the number of edge crossings.
-        let bestNCrossings = Infinity;
-        for (let i = 0, lastBest = 0; lastBest < maxIter; i++, lastBest++) {
-        }
-        */
     }
 
-    private assignPositions(): void {
+    private assignPositions(): Set<SMLayouterEdge> {
+        const routedEdges = new Set<SMLayouterEdge>();
+
         let lastY = 0;
         let lastHeight = 0;
-        for (const rank of this.rankDict.keys()) {
+        const sortedRanks = Array.from(this.rankDict.keys()).sort((a, b) => {
+            return a - b;
+        });
+        for (const rank of sortedRanks) {
             const rankNodes = this.rankDict.get(rank)!;
             let thisHeight = 0;
             for (const nodeId of rankNodes) {
@@ -577,6 +585,13 @@ export class SMLayouter {
         }
 
         for (const edge of this.graph.edgesIter()) {
+            // Here we don't want to route backedges, they are handled
+            // separately.
+            const srcRank = this.nodeRanks.get(edge[0])!;
+            const dstRank = this.nodeRanks.get(edge[1])!;
+            if (srcRank > dstRank)
+                continue;
+
             const edgeData = this.graph.edge(edge[0], edge[1])!;
             const src = this.graph.get(edge[0])!;
             const dst = this.graph.get(edge[1])!;
@@ -584,7 +599,10 @@ export class SMLayouter {
                 { x: src.x, y: src.y + (src.height / 2) },
                 { x: dst.x, y: dst.y - (dst.height / 2) },
             ];
+            routedEdges.add(edgeData);
         }
+
+        return routedEdges;
     }
 
 }
