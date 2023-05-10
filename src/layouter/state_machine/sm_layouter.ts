@@ -156,6 +156,10 @@ export class SMLayouter {
     private static layout(g: DiGraph<SMLayouterNode, SMLayouterEdge>): void {
         const instance = new SMLayouter(g);
         instance.doLayout();
+        if (instance.startNode === ARTIFICIAL_START)
+            g.removeNode(ARTIFICIAL_START);
+        if (instance.endNode === ARTIFICIAL_END)
+            g.removeNode(ARTIFICIAL_END);
     }
 
     private checkUnroutedEdges(routedEdges: Set<SMLayouterEdge>): void {
@@ -181,53 +185,8 @@ export class SMLayouter {
 
         while (q.length > 0) {
             const [node, rank] = q.shift()!;
-            if (visited.has(node)) {
-                continue;
-                // Assign the rank for the current node (passed along in the
-                // queue).
-                if (rankings.has(node))
-                    rankings.set(node, Math.max(rankings.get(node)!, rank));
-                else
-                    rankings.set(node, rank);
-            } else {
+            if (!visited.has(node)) {
                 const backedges = this.backedgesDstDict.get(node) ?? new Set();
-                const eclipsedBackedges = this.eclipsedBackedgesDstDict.get(
-                    node
-                ) ?? new Set();
-
-                // If a node has multiple predecessors, only process it if all
-                // incoming edges (minus backedges) have been processed.
-                /*
-                let defer = false;
-                for (const s of this.graph.predecessorsIter(node)) {
-                    if (!visited.has(s)) {
-                        let beSrc = false;
-                        for (const be of backedges) {
-                            if (be[0] === s) {
-                                beSrc = true;
-                                break;
-                            }
-                        }
-
-                        for (const be of eclipsedBackedges) {
-                            if (be[0] === s) {
-                                beSrc = true;
-                                break;
-                            }
-                        }
-
-                        if (!beSrc) {
-                            defer = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (defer) {
-                    q.push([node, rank]);
-                    continue;
-                }
-                */
 
                 // Assign the rank for the current node (passed along in the
                 // queue).
