@@ -496,6 +496,16 @@ export abstract class Edge extends SDFGElement {
         return this.points;
     }
 
+    public setViewToSource(renderer: SDFGRenderer): void {
+        const tPoint = this.points[0];
+        renderer.moveViewTo(tPoint.x, tPoint.y);
+    }
+
+    public setViewToDestination(renderer: SDFGRenderer): void {
+        const tPoint = this.points[this.points.length - 1];
+        renderer.moveViewTo(tPoint.x, tPoint.y);
+    }
+
     protected drawArrow(
         ctx: CanvasRenderingContext2D, p1: Point2D, p2: Point2D, size: number,
         offset: number = 0, padding: number = 0

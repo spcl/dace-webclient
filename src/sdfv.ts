@@ -232,17 +232,45 @@ export class SDFV {
     }
 
     public fill_info(elem: SDFGElement): void {
-        const contents = this.sidebar_get_contents();
-        if (!contents)
+        const contentsRaw = this.sidebar_get_contents();
+        if (!contentsRaw)
             return;
+        const contents = $(contentsRaw);
+        contents.html('');
 
-        let html = '';
         if (elem instanceof Memlet && elem.parent_id && elem.id) {
             const sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
-            html += '<h4>Connectors: ' + sdfg_edge.src_connector + ' &rarr; ' +
-                sdfg_edge.dst_connector + '</h4>';
+            contents.append($('<h4>', {
+                html: 'Connectors: ' + sdfg_edge.src_connector + ' &rarr; ' +
+                    sdfg_edge.dst_connector,
+            }));
         }
-        html += '<hr />';
+        contents.append($('<hr>'));
+
+        if (elem instanceof Edge) {
+            const btnContainer = $('<div>', {
+                class: 'd-flex',
+            });
+            btnContainer.append($('<button>', {
+                text: 'Jump to start',
+                class: 'btn btn-sm btn-light btn-sdfv-light',
+                css: {
+                    'margin-right': '10px',
+                },
+                click: () => {
+                    elem.setViewToSource(this.get_renderer()!);
+                },
+            }));
+            btnContainer.append($('<button>', {
+                text: 'Jump to end',
+                class: 'btn btn-sm btn-light btn-sdfv-light',
+                click: () => {
+                    elem.setViewToDestination(this.get_renderer()!);
+                },
+            }));
+            contents.append(btnContainer);
+            contents.append($('<br>'));
+        }
 
         for (const attr of Object.entries(elem.attributes())) {
             if (attr[0].startsWith('_meta_'))
@@ -257,10 +285,15 @@ export class SDFV {
                 case 'position':
                     continue;
                 default:
-                    html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
-                    html += sdfg_property_to_string(
-                        attr[1], this.renderer?.view_settings()
-                    ) + '<br />';
+                    contents.append($('<b>', {
+                        html: attr[0] + ':&nbsp;&nbsp;',
+                    }));
+                    contents.append($('<span>', {
+                        html: sdfg_property_to_string(
+                            attr[1], this.renderer?.view_settings()
+                        ),
+                    }));
+                    contents.append($('<br>'));
                     break;
             }
         }
@@ -268,22 +301,33 @@ export class SDFV {
         // If access node, add array information too
         if (elem instanceof AccessNode) {
             const sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
-            html += '<br /><h4>' + sdfg_array.type + ' properties:</h4>';
+            contents.append($('<br>'));
+            contents.append($('<h4>', {
+                text: sdfg_array.type + ' properties:',
+            }));
             for (const attr of Object.entries(sdfg_array.attributes)) {
                 if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
                     attr[0].startsWith('_meta_'))
                     continue;
-                html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
-                html += sdfg_property_to_string(
-                    attr[1], this.renderer?.view_settings()
-                ) + '<br />';
+                contents.append($('<b>', {
+                    html: attr[0] + ':&nbsp;&nbsp;',
+                }));
+                contents.append($('<span>', {
+                    html: sdfg_property_to_string(
+                        attr[1], this.renderer?.view_settings()
+                    ),
+                }));
+                contents.append($('<br>'));
             }
         }
 
         // If nested SDFG, add SDFG information too
         if (elem instanceof NestedSDFG) {
             const sdfg_sdfg = elem.attributes().sdfg;
-            html += '<br /><h4>SDFG properties:</h4>';
+            contents.append($('<br>'));
+            contents.append($('<h4>', {
+                text: 'SDFG properties:',
+            }));
             for (const attr of Object.entries(sdfg_sdfg.attributes)) {
                 if (attr[0].startsWith('_meta_'))
                     continue;
@@ -293,16 +337,19 @@ export class SDFV {
                     case 'sdfg':
                         continue;
                     default:
-                        html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
-                        html += sdfg_property_to_string(
-                            attr[1], this.renderer?.view_settings()
-                        ) + '<br />';
+                        contents.append($('<b>', {
+                            html: attr[0] + ':&nbsp;&nbsp;',
+                        }));
+                        contents.append($('<span>', {
+                            html: sdfg_property_to_string(
+                                attr[1], this.renderer?.view_settings()
+                            ),
+                        }));
+                        contents.append($('<br>'));
                         break;
                 }
             }
         }
-
-        contents.innerHTML = html;
     }
 
     public start_find_in_graph(): void {
@@ -784,9 +831,6 @@ export function mouse_event(
 ): boolean {
     // If the click ends a pan, we don't want to open the sidebar.
     if (evtype === 'click' && !ends_pan) {
-        const menu = renderer.get_menu();
-        if (menu)
-            menu.destroy();
         let element;
         if (selected_elements.length === 0)
             element = new SDFG(renderer.get_sdfg());

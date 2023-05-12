@@ -105,7 +105,7 @@ body {
   animation: animateright 0.4s;
 }
 
-#sidebar button {
+#sidebar #menuclose {
   cursor: pointer;
   width: 100%;
   display: block;
@@ -117,7 +117,7 @@ body {
   outline: 0;
 }
 
-#sidebar button:hover {
+#sidebar #menuclose:hover {
   background-color: #ccc;
 }
 

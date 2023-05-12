@@ -18,7 +18,6 @@ export * from './utils/sdfg/sdfg_parser';
 export * from './utils/sdfg/sdfg_utils';
 export * from './utils/sdfg/traversal';
 export * from './utils/bounding_box';
-export * from './utils/context_menu';
 export * from './utils/lerp_matrix';
 export * from './utils/sanitization';
 export * from './utils/utils';

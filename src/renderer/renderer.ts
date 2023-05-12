@@ -29,7 +29,6 @@ import {
     calculateBoundingBox,
     calculateEdgeBoundingBox
 } from '../utils/bounding_box';
-import { ContextMenu } from '../utils/context_menu';
 import {
     check_and_redirect_edge, delete_positioning_info, delete_sdfg_nodes,
     delete_sdfg_states, find_exit_for_entry, find_graph_element_by_uuid,
@@ -138,7 +137,6 @@ export class SDFGRenderer extends EventEmitter {
     protected static cssProps: { [key: string]: string } = {};
 
     // Toolbar related fields.
-    protected menu: ContextMenu | null = null;
     protected toolbar: JQuery<HTMLElement> | null = null;
     protected panmode_btn: HTMLElement | null = null;
     protected movemode_btn: HTMLElement | null = null;
@@ -238,7 +236,6 @@ export class SDFGRenderer extends EventEmitter {
 
     public destroy(): void {
         try {
-            this.menu?.destroy();
             this.canvas_manager?.destroy();
             if (this.canvas)
                 this.container.removeChild(this.canvas);
@@ -1403,14 +1400,7 @@ export class SDFGRenderer extends EventEmitter {
             y: (graphBoundingBox.height / 2) + targetCenterOffset.y,
         };
 
-        // Move to the target position.
-        const targetRect = new DOMRect(
-            targetPos.x - (this.visible_rect.w / 2),
-            targetPos.y - (this.visible_rect.h / 2),
-            this.visible_rect.w, this.visible_rect.h
-        );
-        this.canvas_manager?.set_view(targetRect, true);
-        this.draw_async();
+        this.moveViewTo(targetPos.x, targetPos.y);
     }
 
     private draw_minimap(): void {
@@ -1628,6 +1618,17 @@ export class SDFGRenderer extends EventEmitter {
             if (this.error_popover_container)
                 this.error_popover_container.style.display = 'none';
         }
+    }
+
+    public moveViewTo(x: number, y: number): void {
+        if (!this.visible_rect)
+            return;
+        const targetRect = new DOMRect(
+            x - (this.visible_rect.w / 2), y - (this.visible_rect.h / 2),
+            this.visible_rect.w, this.visible_rect.h
+        );
+        this.canvas_manager?.set_view(targetRect, true);
+        this.draw_async();
     }
 
     public visible_elements(): {
@@ -2835,10 +2836,6 @@ export class SDFGRenderer extends EventEmitter {
 
     public get_bgcolor(): string {
         return (this.bgcolor ? this.bgcolor : '');
-    }
-
-    public get_menu(): ContextMenu | null {
-        return this.menu;
     }
 
     public get_sdfg(): JsonSDFG {
