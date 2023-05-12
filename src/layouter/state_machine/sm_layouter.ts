@@ -14,6 +14,8 @@ const ARTIFICIAL_END = '__smlayouter_artifical_end';
 
 const LAYER_SPACING = 50;
 const NODE_SPACING = 50;
+const BACKEDGE_SPACING = 20;
+const SKIP_EDGES_CENTER_OFFSET = 50; // Given in percent.
 
 enum ScopeType {
     BRANCH,
@@ -419,6 +421,7 @@ export class SMLayouter {
 
     private denormalizeEdges(): Set<SMLayouterEdge> {
         const routedEdges = new Set<SMLayouterEdge>();
+        const skipEdges = new Set<SMLayouterEdge>();
 
         for (const [oEdge, dummyChain] of this.dummyChains) {
             if (dummyChain.length < 1)
@@ -450,8 +453,9 @@ export class SMLayouter {
 
             const sn = this.graph.get(chainSrc!)!;
             const dn = this.graph.get(chainDst!)!;
+            const sourceX = sn.x + (sn.width / 200) * SKIP_EDGES_CENTER_OFFSET;
             oEdge.points = [
-                { x: sn.x, y: sn.y + (sn.height / 2) },
+                { x: sourceX, y: sn.y + (sn.height / 2) },
                 ...points,
                 { x: dn.x, y: dn.y - (dn.height / 2) },
             ];
@@ -460,9 +464,24 @@ export class SMLayouter {
             for (const dummyNode of dummyChain)
                 this.graph.removeNode(dummyNode);
 
-            routedEdges.add(oEdge);
+            skipEdges.add(oEdge);
         }
         this.dummyChains.clear();
+
+        // Straighten all skip edges out.
+        for (const edge of skipEdges) {
+            const points = edge.points;
+            if (points.length <= 2)
+                continue;
+
+            let maxX = 0;
+            for (let i = 1; i < points.length - 1; i++)
+                maxX = Math.max(maxX, points[i].x);
+            for (let i = 1; i < points.length - 1; i++)
+                points[i].x = maxX;
+
+            routedEdges.add(edge);
+        }
 
         return routedEdges;
     }
@@ -586,8 +605,6 @@ export class SMLayouter {
         // -------------------------------------------
         // Route the backedges based on their lane.
         // -------------------------------------------
-        console.log(lanes);
-        console.log(maxDepth);
         for (let i = maxDepth; i >= 0; i--) {
             const lane = lanes.get(i)!;
             const laneNr = (maxDepth - i) + 1;
@@ -596,7 +613,7 @@ export class SMLayouter {
                 const src = this.graph.get(be.edge[0])!;
                 const dst = this.graph.get(be.edge[1])!;
                 const baseX = src.x - (src.width / 2);
-                const offset = laneNr * NODE_SPACING;
+                const offset = laneNr * BACKEDGE_SPACING;
                 edgeData.points = [
                     { x: baseX, y: src.y },
                     { x: baseX - offset, y: src.y },
@@ -622,7 +639,7 @@ export class SMLayouter {
         for (const edge of this.graph.edgesIter()) {
             const src = edge[0];
             const dst = edge[1];
-            dagreGraph.setEdge(src, dst, { weight: 0 });
+            dagreGraph.setEdge(src, dst, { weight: 1 });
         }
 
         dagreOrder(dagreGraph);
