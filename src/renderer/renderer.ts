@@ -3168,8 +3168,10 @@ function relayout_sdfg(
         );
     });
 
-    dagre.layout(g);
-    SMLayouter.layoutDagreCompat(g);
+    if (SDFVSettings.useVerticalStateMachineLayout)
+        SMLayouter.layoutDagreCompat(g);
+    else
+        dagre.layout(g);
 
     // Annotate the sdfg with its layout info
     sdfg.nodes.forEach((state: any) => {

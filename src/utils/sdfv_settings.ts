@@ -28,6 +28,7 @@ export class SDFVSettings {
     private _showDataDescriptorSizes: boolean = false;
     private _adaptiveContentHiding: boolean = true;
     private _inclusiveRanges: boolean = false;
+    private _useVerticalStateMachineLayout: boolean = true;
 
     private addToggle(
         root: JQuery<HTMLElement>, label: string, valueKey: string,
@@ -86,6 +87,10 @@ export class SDFVSettings {
             }
         );
         this.addToggle(root, 'Use inclusive ranges', '_inclusiveRanges', true);
+        this.addToggle(
+            root, 'Use vertical state machine layout',
+            '_useVerticalStateMachineLayout', true
+        );
     }
 
     private constructModal(): JQuery<HTMLElement> {
@@ -162,7 +167,7 @@ export class SDFVSettings {
         if (!this.modal)
             this.show();
         else
-            this.modal.toggle();    
+            this.modal.toggle();
     }
 
     public static get showAccessNodes(): boolean {
@@ -187,6 +192,10 @@ export class SDFVSettings {
 
     public static get showDataDescriptorSizes(): boolean {
         return this.getInstance()._showDataDescriptorSizes;
+    }
+
+    public static get useVerticalStateMachineLayout(): boolean {
+        return this.getInstance()._useVerticalStateMachineLayout;
     }
 
 }

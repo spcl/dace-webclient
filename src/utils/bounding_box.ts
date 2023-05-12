@@ -20,6 +20,15 @@ export function calculateBoundingBox(g: DagreSDFG): DOMRect {
         if (y > bb.height)
             bb.height = y;
     });
+    g.edges().forEach((e) => {
+        const points = g.edge(e).points;
+        points.forEach((p) => {
+            if (p.x > bb.width)
+                bb.width = p.x;
+            if (p.y > bb.height)
+                bb.height = p.y;
+        });
+    });
 
     return bb;
 }
