@@ -21,6 +21,23 @@ enum ScopeType {
     LOOP_INVERTED,
 }
 
+type BackedgeT = {
+    distance: number,
+    srcRank: number,
+    dstRank: number,
+    edge: [string, string],
+    children: BackedgeT[],
+    depth?: number,
+    root?: BackedgeT,
+    maxDepth?: number,
+};
+
+type BackedgeEventT = {
+    rank: number,
+    type: 'src' | 'dst',
+    edge: BackedgeT,
+};
+
 export interface SMLayouterNode {
     width: number;
     height: number;
@@ -451,15 +468,10 @@ export class SMLayouter {
     }
 
     private routeBackEdges(routedEdges: Set<SMLayouterEdge>): void {
-        // Create a set of back-edge 'lanes' on the very left of the layout
-        // where all back-edges are routed upwards.
-
-        const backedges: {
-            distance: number,
-            srcRank: number,
-            dstRank: number,
-            edge: [string, string],
-        }[] = [];
+        // -------------------------------------------
+        // Determine the scopes for backedges.
+        // -------------------------------------------
+        const backedgeEvents: BackedgeEventT[] = [];
         for (const be of this.backedgesCombined) {
             const edgeData = this.graph.edge(be[0], be[1])!;
             if (routedEdges.has(edgeData))
@@ -468,64 +480,123 @@ export class SMLayouter {
             const dstRank = this.nodeRanks.get(be[1])!;
             const srcRank = this.nodeRanks.get(be[0])!;
             const distance = Math.abs(dstRank - srcRank);
-            backedges.push({
+            const backedge: BackedgeT = {
                 distance: distance,
                 srcRank: srcRank,
                 dstRank: dstRank,
                 edge: be,
+                children: [],
+                depth: 0,
+                maxDepth: 0,
+            };
+            backedgeEvents.push({
+                rank: dstRank,
+                type: 'dst',
+                edge: backedge,
+            });
+            backedgeEvents.push({
+                rank: srcRank,
+                type: 'src',
+                edge: backedge,
             });
         }
-
-        // Sort backedges by increasing destination (i.e. 'upper' rank).
-        backedges.sort((a, b) => {
-            return a.dstRank - b.dstRank;
+        backedgeEvents.sort((a, b) => {
+            return a.rank - b.rank;
         });
 
-        const lanes: {
-            minRank: number,
-            maxRank: number,
-            edges: [string, string][],
-        }[] = [];
-        for (const be of backedges) {
-            if (lanes.length === 0) {
-                lanes.push({
-                    minRank: be.dstRank,
-                    maxRank: be.srcRank,
-                    edges: [be.edge],
-                });
-            } else {
-                let foundLane = false;
-                for (const lane of lanes) {
-                    const low = Math.max(be.dstRank, lane.minRank);
-                    const high = Math.min(be.srcRank, lane.maxRank);
-                    if (low > high) {
-                        lane.edges.push(be.edge);
-                        lane.minRank = Math.min(be.dstRank, lane.minRank);
-                        lane.maxRank = Math.max(be.srcRank, lane.maxRank);
-                        foundLane = true;
-                        break;
+        let maxDepth = 0;
+        const openBackedges: BackedgeT[] = [];
+        const handledBackedges = new Set<BackedgeT>();
+        const topLevelBackedges = new Set<BackedgeT>();
+        for (const event of backedgeEvents) {
+            if (event.type === 'dst') {
+                // This is the 'upper' end of the backedge.
+                if (openBackedges.length === 0) {
+                    // No other backedge is currently open.
+                    openBackedges.push(event.edge);
+                } else {
+                    const lastOpenBE = openBackedges[openBackedges.length - 1];
+                    if (lastOpenBE.srcRank >= event.edge.srcRank) {
+                        // The currently open backedge fully encapsulates the
+                        // new backedge. We can add it as a child.
+                        lastOpenBE.children.push(event.edge);
+                        event.edge.root = lastOpenBE.root ?? lastOpenBE;
+
+                        event.edge.depth = lastOpenBE.depth! + 1;
+                        maxDepth = Math.max(maxDepth, event.edge.depth);
+                        event.edge.root!.maxDepth = Math.max(
+                            event.edge.root!.maxDepth ?? 0, event.edge.depth!
+                        );
+
+                        handledBackedges.add(event.edge);
+                        openBackedges.push(event.edge);
+                    } else {
+                        openBackedges.pop();
+                        openBackedges.push(event.edge);
+                        handledBackedges.add(lastOpenBE);
+                        topLevelBackedges.add(lastOpenBE);
                     }
                 }
+            } else {
+                // This is the 'lower' end of a backedge.
 
-                if (!foundLane) {
-                    lanes.push({
-                        minRank: be.dstRank,
-                        maxRank: be.srcRank,
-                        edges: [be.edge],
-                    });
+                // If this backedge is the last opened backedge, it must be
+                // removed from the stack.
+                if (openBackedges.length > 0) {
+                    const lastOpenBE = openBackedges[openBackedges.length - 1];
+                    if (lastOpenBE === event.edge)
+                        openBackedges.pop();
                 }
+
+                if (!handledBackedges.has(event.edge))
+                    topLevelBackedges.add(event.edge);
             }
         }
 
-        let i = 0;
-        for (const lane of lanes) {
-            i++;
-            for (const edge of lane.edges) {
-                const edgeData = this.graph.edge(edge[0], edge[1])!;
-                const src = this.graph.get(edge[0])!;
-                const dst = this.graph.get(edge[1])!;
+        // -------------------------------------------
+        // Assign each backedge to the lane it belongs to.
+        // -------------------------------------------
+
+        // Construct the necessary number of lanes.
+        const lanes = new Map<number, BackedgeT[]>();
+        for (let i = 0; i < maxDepth + 1; i++)
+            lanes.set(i, []);
+
+        const recursiveFlipDepths = (be: BackedgeT, maxD: number) => {
+            be.depth = maxD - be.depth!;
+            for (const child of be.children)
+                recursiveFlipDepths(child, maxD);
+        };
+        for (const be of topLevelBackedges)
+            recursiveFlipDepths(be, be.maxDepth ?? 0);
+
+        const recursiveAssignLanes = (be: BackedgeT) => {
+            lanes.get(maxDepth - be.depth!)!.push(be);
+            for (const child of be.children)
+                recursiveAssignLanes(child);
+        };
+        for (const be of topLevelBackedges)
+            recursiveAssignLanes(be);
+
+        // -------------------------------------------
+        // Bubble up through the lanes based on conflicts.
+        // -------------------------------------------
+        // TODO: implement.
+
+        // -------------------------------------------
+        // Route the backedges based on their lane.
+        // -------------------------------------------
+        console.log(lanes);
+        console.log(maxDepth);
+        for (let i = maxDepth; i >= 0; i--) {
+            const lane = lanes.get(i)!;
+            const laneNr = (maxDepth - i) + 1;
+            for (const be of lane) {
+                const edgeData = this.graph.edge(be.edge[0], be.edge[1])!;
+                const src = this.graph.get(be.edge[0])!;
+                const dst = this.graph.get(be.edge[1])!;
                 const baseX = src.x - (src.width / 2);
-                const offset = i * NODE_SPACING;
+                const offset = laneNr * NODE_SPACING;
                 edgeData.points = [
                     { x: baseX, y: src.y },
                     { x: baseX - offset, y: src.y },
