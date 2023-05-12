@@ -28,7 +28,7 @@ export class SDFVSettings {
     private _showDataDescriptorSizes: boolean = false;
     private _adaptiveContentHiding: boolean = true;
     private _inclusiveRanges: boolean = false;
-    private _useVerticalStateMachineLayout: boolean = true;
+    private _useVerticalStateMachineLayout: boolean = false;
 
     private addToggle(
         root: JQuery<HTMLElement>, label: string, valueKey: string,
