@@ -56,7 +56,6 @@ declare const canvas2pdf: any;
 
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any | null;
-declare const MINIMAP_ENABLED: boolean | undefined;
 
 type SDFGElementGroup = 'states' | 'nodes' | 'edges' | 'isedges';
 // If type is explicitly set, dagre typecheck fails with integer node ids
@@ -97,6 +96,9 @@ export interface SDFGRendererEvent {
     'symbol_definition_changed': (symbol: string, definition?: number) => void;
     'active_overlays_changed': () => void;
     'backend_data_requested': (type: string, overlay: string) => void;
+    'settings_changed': (
+        settings: Record<string, string | boolean | number>
+    ) => void;
 }
 
 export interface SDFGRenderer {
@@ -193,9 +195,7 @@ export class SDFGRenderer extends EventEmitter {
         user_transform: DOMMatrix | null = null,
         public debug_draw = false,
         background: string | null = null,
-        mode_buttons: any = null,
-        toolbar: boolean = true,
-        minimap: boolean | null = null
+        mode_buttons: any = null
     ) {
         super();
 
@@ -216,9 +216,7 @@ export class SDFGRenderer extends EventEmitter {
                 this.in_vscode = true;
         } catch (ex) { }
 
-        this.init_elements(
-            user_transform, background, mode_buttons, toolbar, minimap
-        );
+        this.init_elements(user_transform, background, mode_buttons);
 
         this.set_sdfg(sdfg, false);
 
@@ -231,6 +229,9 @@ export class SDFGRenderer extends EventEmitter {
         });
         this.on('element_position_changed', () => {
             this.emit('graph_edited');
+        });
+        this.on('selection_changed', () => {
+            this.on_selection_changed();
         });
     }
 
@@ -396,9 +397,7 @@ export class SDFGRenderer extends EventEmitter {
     public init_elements(
         user_transform: DOMMatrix | null,
         background: string | null,
-        mode_buttons: ModeButtons | undefined | null,
-        toolbar: boolean,
-        minimap: boolean | null
+        mode_buttons: ModeButtons | undefined | null
     ): void {
 
         this.canvas = document.createElement('canvas');
@@ -409,16 +408,10 @@ export class SDFGRenderer extends EventEmitter {
             this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
 
-        if (minimap === false || (typeof MINIMAP_ENABLED !== 'undefined' &&
-            MINIMAP_ENABLED === false)) {
-            this.minimap_canvas = null;
-        } else {
-            this.minimap_canvas = document.createElement('canvas');
-            this.minimap_canvas.id = 'minimap';
-            this.minimap_canvas.classList.add('sdfg_canvas');
-            this.minimap_canvas.style.backgroundColor = 'white';
-            this.container.append(this.minimap_canvas);
-        }
+        if (SDFVSettings.minimap)
+            this.enableMinimap();
+        else
+            this.disableMinimap();
 
         if (this.debug_draw) {
             this.dbg_info_box = document.createElement('div');
@@ -451,7 +444,7 @@ export class SDFGRenderer extends EventEmitter {
         this.interaction_info_box.appendChild(this.interaction_info_text);
         this.container.appendChild(this.interaction_info_box);
 
-        if (toolbar) {
+        if (SDFVSettings.toolbar) {
             // Construct the toolbar.
             this.toolbar = $('<div>', {
                 css: {
@@ -1462,6 +1455,20 @@ export class SDFGRenderer extends EventEmitter {
                 this.visible_rect.w, this.visible_rect.h
             );
         }
+    }
+
+    public disableMinimap(): void {
+        this.minimap_canvas?.remove();
+        this.minimap_canvas = null;
+        this.minimap_ctx = null;
+    }
+
+    public enableMinimap(): void {
+        this.minimap_canvas = document.createElement('canvas');
+        this.minimap_canvas.id = 'minimap';
+        this.minimap_canvas.classList.add('sdfg_canvas');
+        this.minimap_canvas.style.backgroundColor = 'white';
+        this.container.append(this.minimap_canvas);
     }
 
     // Render SDFG
@@ -2797,11 +2804,8 @@ export class SDFGRenderer extends EventEmitter {
         if (dirty)
             this.draw_async();
 
-        if (element_focus_changed)
+        if (element_focus_changed || selection_changed)
             this.emit('selection_changed', multi_selection_changed);
-
-        if (selection_changed || multi_selection_changed)
-            this.on_selection_changed();
 
         return false;
     }
