@@ -22,7 +22,7 @@ export class SDFVSettings {
     private modal: Modal | null = null;
     private renderer: SDFGRenderer | null = null;
 
-    private settingsDict: Record<string, boolean | string | number> = {
+    private readonly settingsDict: Record<string, boolean | string | number> = {
         // User modifiable settings fields.
         'minimap': true,
         'showAccessNodes': true,
@@ -185,6 +185,10 @@ export class SDFVSettings {
             this.show();
         else
             this.modal.toggle();
+    }
+
+    public static get settingsKeys(): string[] {
+        return Object.keys(SDFVSettings.getInstance().settingsDict);
     }
 
     public static setDefault(setting: string, def: any): void {

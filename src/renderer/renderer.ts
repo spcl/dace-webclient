@@ -804,11 +804,6 @@ export class SDFGRenderer extends EventEmitter {
             return;
         }
 
-        if (this.minimap_canvas)
-            this.minimap_ctx = this.minimap_canvas.getContext('2d');
-        else
-            this.minimap_ctx = null;
-
         // Translation/scaling management
         this.canvas_manager = new CanvasManager(this.ctx, this, this.canvas);
         if (user_transform !== null)
@@ -1010,11 +1005,6 @@ export class SDFGRenderer extends EventEmitter {
                 }
             });
         }
-
-        // Set minimap event handlers.
-        this.minimap_canvas?.addEventListener('click', (ev) => {
-            this.on_minimap_click(ev);
-        });
     }
 
     public onresize(): void {
@@ -1465,9 +1455,13 @@ export class SDFGRenderer extends EventEmitter {
 
     public enableMinimap(): void {
         this.minimap_canvas = document.createElement('canvas');
+        this.minimap_canvas.addEventListener('click', (ev) => {
+            this.on_minimap_click(ev);
+        });
         this.minimap_canvas.id = 'minimap';
         this.minimap_canvas.classList.add('sdfg_canvas');
         this.minimap_canvas.style.backgroundColor = 'white';
+        this.minimap_ctx = this.minimap_canvas.getContext('2d');
         this.container.append(this.minimap_canvas);
     }
 
@@ -1543,7 +1537,6 @@ export class SDFGRenderer extends EventEmitter {
 
     public on_pre_draw(): void {
         this.clear_minimap();
-        return;
     }
 
     public on_post_draw(): void {

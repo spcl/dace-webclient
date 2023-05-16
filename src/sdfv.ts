@@ -858,16 +858,34 @@ export function mouse_event(
     return false;
 }
 
-function settingReadDefault(name: string, def: any): any {
+function parseScriptParamValue(
+    val: string
+): boolean | string | number | null | undefined {
+    if (val === 'true')
+        return true;
+    if (val === 'false')
+        return false;
+    if (val === 'null')
+        return null;
+    if (val === 'undefined')
+        return undefined;
+    if (!isNaN(+val))
+        return +val;
+    return val;
+}
+
+function settingReadDefault(
+    name: string, def: boolean | string | number | null | undefined
+): boolean | string | number | null | undefined {
     if (document.currentScript?.hasAttribute(name)) {
         const attr = document.currentScript?.getAttribute(name);
         if (attr)
-            return attr;
+            return parseScriptParamValue(attr);
     }
 
     const param = getParameterByName(name);
     if (param)
-        return param;
+        return parseScriptParamValue(param);
 
     return def;
 }
@@ -882,13 +900,18 @@ $(() => {
 
     // Set the default settings based on the current script's attributes
     // or URL parameters.
-    const isEmbedded = document.getElementById('embedded');
-    SDFVSettings.setDefault(
-        'toolbar', settingReadDefault('toolbar', isEmbedded ? false : true)
-    );
-    SDFVSettings.setDefault(
-        'minimap', settingReadDefault('minimap', isEmbedded ? false : null)
-    );
+    const isEmbedded = document.getElementById('embedded') !== null;
+    if (isEmbedded) {
+        SDFVSettings.setDefault('toolbar', false);
+        SDFVSettings.setDefault('minimap', false);
+    }
+
+    // Check if any of the remaining settings are provided via the URL.
+    for (const key of SDFVSettings.settingsKeys) {
+        const overrideVal = settingReadDefault(key, undefined);
+        if (overrideVal !== undefined)
+            SDFVSettings.setDefault(key, overrideVal);
+    }
 
     let sdfv = new SDFV();
 
