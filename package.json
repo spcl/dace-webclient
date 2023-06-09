@@ -70,6 +70,7 @@
         "dagre": "^0.8.5",
         "jquery": "^3.6.3",
         "material-icons": "^1.13.1",
+        "material-symbols": "^0.6.0",
         "mathjs": "^11.5.0",
         "patch-package": "^6.5.1",
         "pixi-viewport": "4.24",

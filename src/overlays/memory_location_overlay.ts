@@ -206,9 +206,10 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                 if (ttContainer) {
                     if (storageType.originalType)
                         ttContainer.innerHTML = 'Location: ' +
-                            storageType.originalType + ' &rarr; ' + storageType;
+                            storageType.originalType + ' &rarr; ' +
+                            storageType.type;
                     else
-                        ttContainer.innerHTML = 'Location: ' + storageType;
+                        ttContainer.innerHTML = 'Location: ' + storageType.type;
                 }
             });
         }

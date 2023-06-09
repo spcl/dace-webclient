@@ -32,6 +32,7 @@ export class SDFVSettings {
         'adaptiveContentHiding': true,
         'inclusiveRanges': false,
         'useVerticalStateMachineLayout': false,
+        'useVerticalScrollNavigation': false,
         // Hidden settings fields.
         'toolbar': true,
     };
@@ -104,6 +105,10 @@ export class SDFVSettings {
         this.addToggle(
             root, 'Use vertical state machine layout',
             'useVerticalStateMachineLayout', true
+        );
+        this.addToggle(
+            root, 'Use vertical scroll navigation',
+            'useVerticalScrollNavigation', false
         );
     }
 
@@ -242,6 +247,12 @@ export class SDFVSettings {
     public static get useVerticalStateMachineLayout(): boolean {
         return this.getInstance().settingsDict[
             'useVerticalStateMachineLayout'
+        ] as boolean;
+    }
+
+    public static get useVerticalScrollNavigation(): boolean {
+        return this.getInstance().settingsDict[
+            'useVerticalScrollNavigation'
         ] as boolean;
     }
 

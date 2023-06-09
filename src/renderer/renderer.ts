@@ -574,10 +574,18 @@ export class SDFGRenderer extends EventEmitter {
             // Zoom to fit.
             $('<button>', {
                 class: 'btn btn-light btn-sdfv-light btn-sdfv',
-                html: '<i class="material-icons">filter_center_focus</i>',
+                html: '<i class="material-icons">fit_screen</i>',
                 title: 'Zoom to fit SDFG',
                 click: () => {
                     this.zoom_to_view();
+                },
+            }).appendTo(this.toolbar);
+            $('<button>', {
+                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                html: '<i class="material-symbols-outlined">fit_width</i>',
+                title: 'Zoom to fit width',
+                click: () => {
+                    this.zoomToFitWidth();
                 },
             }).appendTo(this.toolbar);
 
@@ -1164,6 +1172,32 @@ export class SDFGRenderer extends EventEmitter {
 
         const bb = boundingBox(elements, paddingAbs);
         this.canvas_manager?.set_view(bb, animate);
+
+        this.draw_async();
+    }
+
+    public zoomToFitWidth(): void {
+        const allElems: dagre.Node<SDFGElement>[] = [];
+        this.graph?.nodes().forEach((stateId) => {
+            const state = this.graph?.node(stateId);
+            if (state)
+                allElems.push(state);
+        });
+        const bb = boundingBox(allElems, 0);
+
+        const startX = bb.left;
+        const endX = bb.right;
+        let centerY;
+        if (this.visible_rect) {
+            const currStartY = this.visible_rect.y;
+            centerY = currStartY + (this.visible_rect.h / 2);
+        } else {
+            return;
+        }
+
+        const viewBB = new DOMRect(startX, centerY, endX - startX, 1);
+
+        this.canvas_manager?.set_view(viewBB, true);
 
         this.draw_async();
     }
@@ -2323,13 +2357,22 @@ export class SDFGRenderer extends EventEmitter {
                 return false;
             }
         } else if (evtype === 'wheel') {
-            // Get physical x,y coordinates (rather than canvas coordinates)
-            const br = this.canvas?.getBoundingClientRect();
-            const x = event.clientX - (br ? br.x : 0);
-            const y = event.clientY - (br ? br.y : 0);
-            this.canvas_manager?.scale(event.deltaY > 0 ? 0.9 : 1.1, x, y);
-            dirty = true;
-            element_focus_changed = true;
+            if (SDFVSettings.useVerticalScrollNavigation && !event.ctrlKey) {
+                // If vertical scroll navigation is turned on, use this to
+                // move the viewport up and down. If the control key is held
+                // down while scrolling, treat it as a typical zoom operation.
+                this.canvas_manager?.translate(0, -event.deltaY);
+                dirty = true;
+                element_focus_changed = true;
+            } else {
+                // Get physical x,y coordinates (rather than canvas coordinates)
+                const br = this.canvas?.getBoundingClientRect();
+                const x = event.clientX - (br ? br.x : 0);
+                const y = event.clientY - (br ? br.y : 0);
+                this.canvas_manager?.scale(event.deltaY > 0 ? 0.9 : 1.1, x, y);
+                dirty = true;
+                element_focus_changed = true;
+            }
         }
         // End of mouse-move/touch-based events
 
