@@ -227,7 +227,9 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
                             ((ctx as any).lod && ppp >= SDFV.NODE_LOD)) {
                             this.shade_node(node, ctx);
                         } else {
-                            if (node instanceof NestedSDFG) {
+                            if (node instanceof NestedSDFG &&
+                                node.attributes().sdfg &&
+                                node.attributes().sdfg.type !== 'SDFGShell') {
                                 this.recursively_shade_sdfg(
                                     node.data.graph, ctx, ppp, visible_rect
                                 );
