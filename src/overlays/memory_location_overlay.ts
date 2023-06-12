@@ -253,7 +253,9 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                             visibleRect.y, visibleRect.w, visibleRect.h))
                             return;
 
-                        if (node instanceof NestedSDFG) {
+                        if (node instanceof NestedSDFG &&
+                            node.attributes().sdfg &&
+                            node.attributes().sdfg.type !== 'SDFGShell') {
                             this.recursivelyShadeSdfg(
                                 node.data.graph, ctx, ppp, visibleRect
                             );

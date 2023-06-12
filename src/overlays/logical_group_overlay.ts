@@ -122,7 +122,9 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
                             ((ctx as any).lod && ppp >= SDFV.NODE_LOD)) {
                             this.shade_node(node, sdfg_groups, ctx);
                         } else {
-                            if (node instanceof NestedSDFG) {
+                            if (node instanceof NestedSDFG &&
+                                node.attributes().sdfg &&
+                                node.attributes().sdfg.type !== 'SDFGShell') {
                                 this.recursively_shade_sdfg(
                                     node.data.node.attributes.sdfg,
                                     node.data.graph, ctx, ppp, visible_rect

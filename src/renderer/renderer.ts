@@ -3271,7 +3271,8 @@ function relayout_state(
         // Set connectors prior to computing node size
         node.attributes.layout.in_connectors = node.attributes.in_connectors;
         if ('is_collapsed' in node.attributes && node.attributes.is_collapsed &&
-            node.type !== SDFGElementType.NestedSDFG)
+            node.type !== SDFGElementType.NestedSDFG &&
+            node.type !== SDFGElementType.ExternalNestedSDFG)
             node.attributes.layout.out_connectors = find_exit_for_entry(
                 sdfg_state.nodes, node
             )?.attributes.out_connectors;
@@ -3285,15 +3286,26 @@ function relayout_state(
         node.attributes.layout.label = node.label;
 
         // Recursively lay out nested SDFGs
-        if (node.type === SDFGElementType.NestedSDFG) {
-            nested_g = relayout_sdfg(
-                ctx, node.attributes.sdfg, sdfg_list, state_parent_list,
-                omit_access_nodes
-            );
-            const sdfginfo = calculateBoundingBox(nested_g);
-            node.attributes.layout.width = sdfginfo.width + 2 * SDFV.LINEHEIGHT;
-            node.attributes.layout.height =
-                sdfginfo.height + 2 * SDFV.LINEHEIGHT;
+        if (node.type === SDFGElementType.NestedSDFG ||
+            node.type === SDFGElementType.ExternalNestedSDFG) {
+            if (node.attributes.sdfg &&
+                node.attributes.sdfg.type !== 'SDFGShell') {
+                nested_g = relayout_sdfg(
+                    ctx, node.attributes.sdfg, sdfg_list, state_parent_list,
+                    omit_access_nodes
+                );
+                const sdfginfo = calculateBoundingBox(nested_g);
+                node.attributes.layout.width =
+                    sdfginfo.width + 2 * SDFV.LINEHEIGHT;
+                node.attributes.layout.height =
+                    sdfginfo.height + 2 * SDFV.LINEHEIGHT;
+            } else {
+                const emptyNSDFGLabel = 'No SDFG loaded';
+                const textmetrics = ctx.measureText(emptyNSDFGLabel);
+                node.attributes.layout.width =
+                    textmetrics.width + 2 * SDFV.LINEHEIGHT;
+                node.attributes.layout.height = 4 * SDFV.LINEHEIGHT;
+            }
         }
 
         // Dynamically create node type
@@ -3303,7 +3315,9 @@ function relayout_state(
 
         // If it's a nested SDFG, we need to record the node as all of its
         // state's parent node
-        if (node.type === SDFGElementType.NestedSDFG)
+        if ((node.type === SDFGElementType.NestedSDFG ||
+             node.type === SDFGElementType.ExternalNestedSDFG) &&
+            node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell')
             state_parent_list[node.attributes.sdfg.sdfg_list_id] = obj;
 
         // Add input connectors

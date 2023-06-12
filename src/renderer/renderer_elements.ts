@@ -27,6 +27,7 @@ export enum SDFGElementType {
     Tasklet = 'Tasklet',
     LibraryNode = 'LibraryNode',
     NestedSDFG = 'NestedSDFG',
+    ExternalNestedSDFG = 'ExternalNestedSDFG',
     MapEntry = 'MapEntry',
     MapExit = 'MapExit',
     ConsumeEntry = 'ConsumeEntry',
@@ -213,6 +214,9 @@ export class SDFG extends SDFGElement {
         return this.data.attributes.name;
     }
 
+}
+
+export class SDFGShell extends SDFG {
 }
 
 export class State extends SDFGElement {
@@ -1510,17 +1514,31 @@ export class NestedSDFG extends SDFGNode {
                 label, this.x - textmetrics.width / 2.0,
                 this.y + SDFV.LINEHEIGHT / 4.0
             );
-            return;
+        } else {
+            // Draw square around nested SDFG.
+            super.draw(
+                renderer, ctx, mousepos, '--nested-sdfg-foreground-color',
+                '--nested-sdfg-background-color'
+            );
+
+            if (this.attributes().sdfg &&
+                this.attributes().sdfg.type !== 'SDFGShell') {
+                // Draw nested graph.
+                draw_sdfg(renderer, ctx, this.data.graph, mousepos);
+            } else {
+                // Expanded, but no SDFG present or loaded yet.
+                const errColor = this.getCssProperty(
+                    renderer, '--node-missing-background-color'
+                );
+                const label = 'No SDFG loaded';
+                const textmetrics = ctx.measureText(label);
+                ctx.fillStyle = errColor;
+                ctx.fillText(
+                    label, this.x - textmetrics.width / 2.0,
+                    this.y + SDFV.LINEHEIGHT / 4.0
+                );
+            }
         }
-
-        // Draw square around nested SDFG
-        super.draw(
-            renderer, ctx, mousepos, '--nested-sdfg-foreground-color',
-            '--nested-sdfg-background-color'
-        );
-
-        // Draw nested graph
-        draw_sdfg(renderer, ctx, this.data.graph, mousepos);
     }
 
     public shade(
@@ -1576,6 +1594,9 @@ export class NestedSDFG extends SDFGNode {
         return '';
     }
 
+}
+
+export class ExternalNestedSDFG extends NestedSDFG {
 }
 
 export class LibraryNode extends SDFGNode {
@@ -2082,6 +2103,7 @@ export function ptLineDistance(
 export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     SDFGElement,
     SDFG,
+    SDFGShell,
     State,
     SDFGNode,
     InterstateEdge,
@@ -2100,5 +2122,6 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     PipelineEntry,
     PipelineExit,
     NestedSDFG,
+    ExternalNestedSDFG,
     LibraryNode
 };
