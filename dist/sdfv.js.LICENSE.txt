@@ -13,15 +13,15 @@ object-assign
    */
 
 /*!
-  * Bootstrap v5.2.3 (https://getbootstrap.com/)
-  * Copyright 2011-2022 The Bootstrap Authors (https://github.com/twbs/bootstrap/graphs/contributors)
+  * Bootstrap v5.3.0 (https://getbootstrap.com/)
+  * Copyright 2011-2023 The Bootstrap Authors (https://github.com/twbs/bootstrap/graphs/contributors)
   * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
   */
 
 /*!
- * @kurkle/color v0.3.1
+ * @kurkle/color v0.3.2
  * https://github.com/kurkle/color#readme
- * (c) 2022 Jukka Kurkela
+ * (c) 2023 Jukka Kurkela
  * Released under the MIT License
  */
 
@@ -138,21 +138,10 @@ object-assign
  */
 
 /*!
- * Chart.js v4.1.2
+ * Chart.js v4.3.0
  * https://www.chartjs.org
  * (c) 2023 Chart.js Contributors
  * Released under the MIT License
- */
-
-/*!
- * Sizzle CSS Selector Engine v2.3.9
- * https://sizzlejs.com/
- *
- * Copyright JS Foundation and other contributors
- * Released under the MIT license
- * https://js.foundation/
- *
- * Date: 2022-12-19
  */
 
 /*!
@@ -170,17 +159,14 @@ object-assign
  */
 
 /*!
- * jQuery JavaScript Library v3.6.3
+ * jQuery JavaScript Library v3.7.0
  * https://jquery.com/
- *
- * Includes Sizzle.js
- * https://sizzlejs.com/
  *
  * Copyright OpenJS Foundation and other contributors
  * Released under the MIT license
  * https://jquery.org/license
  *
- * Date: 2022-12-20T21:28Z
+ * Date: 2023-05-11T18:29Z
  */
 
 /*!
@@ -189,6 +175,13 @@ object-assign
  *
  * pixi.js is licensed under the MIT License.
  * http://www.opensource.org/licenses/mit-license
+ */
+
+/*!
+* chartjs-plugin-annotation v2.2.1
+* https://www.chartjs.org/chartjs-plugin-annotation/index
+ * (c) 2023 chartjs-plugin-annotation Contributors
+ * Released under the MIT License
  */
 
 /*! *****************************************************************************
@@ -206,13 +199,11 @@ See the Apache Version 2.0 License for specific language governing permissions
 and limitations under the License.
 ***************************************************************************** */
 
-/*! https://mths.be/punycode v1.3.2 by @mathias */
+/*! https://mths.be/punycode v1.4.1 by @mathias */
 
 /*! ieee754. BSD-3-Clause License. Feross Aboukhadijeh <https://feross.org/opensource> */
 
 /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/facebook/regenerator/blob/main/LICENSE */
-
-/*! safe-buffer. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> */
 
 /**
  * @license Complex.js v2.1.1 12/05/2020
