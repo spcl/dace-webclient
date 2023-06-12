@@ -78,7 +78,24 @@ export class SMLayouter {
     public constructor(g: DiGraph<SMLayouterNode, SMLayouterEdge>) {
         this.graph = g;
 
-        // Preparation phase.
+        this.rankDict = new Map();
+        this.rankHeights = new Map();
+        this.nodeRanks = new Map();
+        this.dummyChains = new Set();
+
+        // --------------------------------------------------
+        // - Preparation phase for state machine layouting. -
+        // --------------------------------------------------
+        // This phase constructs the following helper data structures:
+        //  * Inverted graph for post-dominator analysis.
+        //  * Dictionaries for immediate dominators and post-dominators.
+        //  * Complete dominator and post-dominator trees.
+        //  * Dictionaries mapping each node to all nodes dominated and post-
+        //    dominated by it.
+        //  * Collection of all back-edges, including back-edges eclipsed by
+        //    other back-edges in a separate collection.
+        //  * Dictionaries mapping destination nodes of back-edges to the
+        //    corresponding back-edges, to speed up lookups / searches.
         const inverted = this.graph.reversed();
         const sources = this.graph.sources();
         const sinks = this.graph.sinks();
@@ -142,13 +159,14 @@ export class SMLayouter {
                 this.eclipsedBackedgesDstDict.set(be[1], new Set());
             this.eclipsedBackedgesDstDict.get(be[1])!.add(be);
         }
-
-        this.rankDict = new Map();
-        this.rankHeights = new Map();
-        this.nodeRanks = new Map();
-        this.dummyChains = new Set();
     }
 
+    /**
+     * Perform state machine layout for an existing dagre.js layout graph.
+     * This translates the dagre graph into a minimal DiGraph necessary for
+     * performing the layout.
+     * @param {DagreSDFG} dagreGraph Dagre.js graph to perform layouting for.
+     */
     public static layoutDagreCompat(dagreGraph: DagreSDFG): void {
         const g = new DiGraph<SMLayouterNode, SMLayouterEdge>();
         for (const stateId of dagreGraph.nodes())
@@ -159,6 +177,35 @@ export class SMLayouter {
         SMLayouter.layout(g);
     }
 
+    /**
+     * Lay out a graph after the necessary preparation phase has been run.
+     * The preparation phase is run when the layouter object is constructed.
+     * The layout procedure runs in 6 distinct phases:
+     *   1. Perform node ranking:
+     *      Each node is assigned to a rank which corresponds to the vertical
+     *      level it sits on. This ensures the vertical layout constraints.
+     *   2. Normalize edges:
+     *      Each edge spanning more than one vertical rank is split into N parts
+     *      with dummy nodes between each part, where N is the number of ranks
+     *      spanned.
+     *   3. Perform in-rank permutations:
+     *      Permute nodes on the same rank such that the number of edge
+     *      crossings is minimized.
+     *   4. Assign coordinates:
+     *      Use the rankings and in-rank positions to assign concrete
+     *      coordinates for each node and edge.
+     *   5. De-normalize edges:
+     *      Merge any previously normalized (i.e., split) edge back together
+     *      into one edge spanning multiple ranks.
+     *   6. Route back-edges:
+     *      Add a 'lane' to the left of the laid out graph where all back-edges
+     *      are routed upwards in the vertical layout. Ensures that the number
+     *      of crossings is reduced to a minimum.
+     * 
+     * Note: This operates in-place on the layout graph.
+     * @see {@link SMLayouter.doRanking}
+     * @see {@link SMLayouter.normalizeEdges}
+     */
     public doLayout(): void {
         this.doRanking();
         this.normalizeEdges();
@@ -172,7 +219,14 @@ export class SMLayouter {
         this.checkUnroutedEdges(routedEdges);
     }
 
+    /**
+     * Lay out a DiGraph.
+     * @param {DiGraph<SMLayouterNode, SMLayouterEdge>} g Graph to lay out.
+     */
     private static layout(g: DiGraph<SMLayouterNode, SMLayouterEdge>): void {
+        // Construct a layouter instance (runs preparation phase) and perform
+        // the laying out. Clean up afterwards by removing dummy start and end
+        // nodes if they were added.
         const instance = new SMLayouter(g);
         instance.doLayout();
         if (instance.startNode === ARTIFICIAL_START)
@@ -181,6 +235,11 @@ export class SMLayouter {
             g.removeNode(ARTIFICIAL_END);
     }
 
+    /**
+     * Perform a sanity check to ensure all edges have been routed.
+     * Warn if some edges have not been routed.
+     * @param {Set<SMLayouterEdge>} routedEdges Set of already routed edges.
+     */
     private checkUnroutedEdges(routedEdges: Set<SMLayouterEdge>): void {
         const unrouted = new Set<SMLayouterEdge>();
         for (const edge of this.graph.edgesIter()) {
@@ -195,6 +254,11 @@ export class SMLayouter {
             );
     }
 
+    /**
+     * Assign all layout nodes to initial layout ranks.
+     * This may leave certain ranks empty to conservatively ensure vertical
+     * layout constraints are met.
+     */
     private assignInitialRanks(): void {
         const q: [string, number][] = [[this.startNode, 0]];
 
@@ -234,12 +298,12 @@ export class SMLayouter {
                     // corresponding other end of the loop and the loop exit.
                     if (backedges.size > 1)
                         throw new Error('Node has multiple backedges.');
-                    const otherNode = Array.from(backedges)[0][0];
+                    const oNode = Array.from(backedges)[0][0];
                     let exitCandidates = new Set<string>();
                     for (const n of successors)
-                        if (n !== otherNode && !this.allDom.get(n)?.has(otherNode))
+                        if (n !== oNode && !this.allDom.get(n)?.has(oNode))
                             exitCandidates.add(n);
-                    for (const n of this.graph.successorsIter(otherNode))
+                    for (const n of this.graph.successorsIter(oNode))
                         if (n !== node)
                             exitCandidates.add(n);
 
@@ -344,6 +408,9 @@ export class SMLayouter {
         }
     }
 
+    /**
+     * Contract the vertical ranking to ensure no ranks are left empty.
+     */
     private contractRanks(): void {
         const origRanks = Array.from(this.rankDict.keys()).sort((a, b) => {
             return a - b;
@@ -367,11 +434,31 @@ export class SMLayouter {
         }
     }
 
+    /**
+     * Assign each node to a vertical rank.
+     * The vertical ranking is performed according to a set of constraints that
+     * help to enforce a happens-before relationship in flowgraphs:
+     *   1. What dominates must appear before (i.e., higher up and consequently
+     *      on a rank above).
+     *   2. What post-dominates must appear below (i.e., lower down, on ranks
+     *      below).
+     *   3. Ranks are only shared if no concrete happens-before relationship
+     *      can be constructed. In a flowgraph, this implies something happening
+     *      concurrently or an either-or relationship, such as with branching in
+     *      control-flow).
+     */
     private doRanking(): void {
+        // Assign initial ranks, which may result in certain ranks being empty.
         this.assignInitialRanks();
+        // Remove any empty ranks through contracting the ranking.
         this.contractRanks();
     }
 
+    /**
+     * Perform edge normalization by splitting up edges spanning multiple ranks.
+     * Edges spanning N > 1 ranks are split into N sub-edges with dummy nodes
+     * between them.
+     */
     private normalizeEdges(): void {
         let nDummyNode = 0;
         for (const edge of this.graph.edgesIter()) {
@@ -419,6 +506,11 @@ export class SMLayouter {
         }
     }
 
+    /**
+     * De-normalize any previously noramlized edge paths.
+     * This merges normalized edge paths back together into a singular edge.
+     * @returns {Set<SMLayouterEdge>} Set of routed edges after this step.
+     */
     private denormalizeEdges(): Set<SMLayouterEdge> {
         const routedEdges = new Set<SMLayouterEdge>();
         const skipEdges = new Set<SMLayouterEdge>();
@@ -486,6 +578,11 @@ export class SMLayouter {
         return routedEdges;
     }
 
+    /**
+     * Route back-edges upwards in a separate lane to the left of the graph.
+     * @param {Set<SMLayouterEdge>} routedEdges Set of routed edges after this
+     *                                          step.
+     */
     private routeBackEdges(routedEdges: Set<SMLayouterEdge>): void {
         // -------------------------------------------
         // Determine the scopes for backedges.
@@ -625,6 +722,10 @@ export class SMLayouter {
         }
     }
 
+    /**
+     * Perform in-rank permutations to ensure the number of edge crossings is
+     * minimized.
+     */
     private permute(): void {
         // TODO: replace this so we do not need to use dagre for this.
         const dagreGraph = new dagre.graphlib.Graph({
@@ -662,6 +763,13 @@ export class SMLayouter {
         }
     }
 
+    /**
+     * Assign concrete coordinate positions to nodes and edges according to
+     * the nodes' ranks and order within ranks.
+     * This routes all forward edges by inserting intermediate edge points to
+     * make them curve without intersecting other graph elements.
+     * @returns {Set<SMLayouterEdge>} The set of edges that were routed.
+     */
     private assignPositions(): Set<SMLayouterEdge> {
         const routedEdges = new Set<SMLayouterEdge>();
 

@@ -605,6 +605,7 @@ export abstract class Edge extends SDFGElement {
 export class Memlet extends Edge {
 
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
+        // Draw memlet edges with quadratic curves through the arrow points.
         ctx.moveTo(this.points[0].x, this.points[0].y);
         if (this.points.length === 2) {
             // Straight line can be drawn
@@ -723,6 +724,7 @@ export class Memlet extends Edge {
 export class InterstateEdge extends Edge {
 
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
+        // Draw intersate edges with bezier curves through the arrow points.
         ctx.moveTo(this.points[0].x, this.points[0].y);
         let lastX = this.points[0].x;
         let lastY = this.points[0].y;
@@ -743,7 +745,12 @@ export class InterstateEdge extends Edge {
         ctx: CanvasRenderingContext2D, p1: Point2D, p2: Point2D, size: number,
         offset: number = 0, padding: number = 0
     ): void {
-        // Rotate the context to point along the path
+        // Rotate the context to point along the path. This overrides the
+        // default (memlet-style) arrow drawing, because the arrow line is
+        // interpolated differently for interstate edges (using bezier curves
+        // through arrow points rather than quadratic curves). As such, the
+        // angle of the last line segment is different and needs to be
+        // calculated differently.
         const dx = 0;
         const dy = p2.y - p1.y;
         const rot = Math.atan2(dy, dx);
