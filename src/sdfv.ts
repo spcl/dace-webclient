@@ -3,6 +3,7 @@
 import $ from 'jquery';
 
 import 'material-icons/iconfont/material-icons.css';
+import 'material-symbols';
 
 import 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -31,6 +32,9 @@ import {
 } from './renderer/renderer_elements';
 import { htmlSanitize } from './utils/sanitization';
 import { parse_sdfg, stringify_sdfg } from './utils/sdfg/json_serializer';
+import { SDFVSettings } from './utils/sdfv_settings';
+
+declare const vscode: any;
 
 let fr: FileReader;
 let file: File | null = null;
@@ -232,17 +236,45 @@ export class SDFV {
     }
 
     public fill_info(elem: SDFGElement): void {
-        const contents = this.sidebar_get_contents();
-        if (!contents)
+        const contentsRaw = this.sidebar_get_contents();
+        if (!contentsRaw)
             return;
+        const contents = $(contentsRaw);
+        contents.html('');
 
-        let html = '';
         if (elem instanceof Memlet && elem.parent_id && elem.id) {
             const sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
-            html += '<h4>Connectors: ' + sdfg_edge.src_connector + ' &rarr; ' +
-                sdfg_edge.dst_connector + '</h4>';
+            contents.append($('<h4>', {
+                html: 'Connectors: ' + sdfg_edge.src_connector + ' &rarr; ' +
+                    sdfg_edge.dst_connector,
+            }));
         }
-        html += '<hr />';
+        contents.append($('<hr>'));
+
+        if (elem instanceof Edge) {
+            const btnContainer = $('<div>', {
+                class: 'd-flex',
+            });
+            btnContainer.append($('<button>', {
+                text: 'Jump to start',
+                class: 'btn btn-sm btn-light btn-sdfv-light',
+                css: {
+                    'margin-right': '10px',
+                },
+                click: () => {
+                    elem.setViewToSource(this.get_renderer()!);
+                },
+            }));
+            btnContainer.append($('<button>', {
+                text: 'Jump to end',
+                class: 'btn btn-sm btn-light btn-sdfv-light',
+                click: () => {
+                    elem.setViewToDestination(this.get_renderer()!);
+                },
+            }));
+            contents.append(btnContainer);
+            contents.append($('<br>'));
+        }
 
         for (const attr of Object.entries(elem.attributes())) {
             if (attr[0].startsWith('_meta_'))
@@ -257,10 +289,15 @@ export class SDFV {
                 case 'position':
                     continue;
                 default:
-                    html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
-                    html += sdfg_property_to_string(
-                        attr[1], this.renderer?.view_settings()
-                    ) + '<br />';
+                    contents.append($('<b>', {
+                        html: attr[0] + ':&nbsp;&nbsp;',
+                    }));
+                    contents.append($('<span>', {
+                        html: sdfg_property_to_string(
+                            attr[1], this.renderer?.view_settings()
+                        ),
+                    }));
+                    contents.append($('<br>'));
                     break;
             }
         }
@@ -268,22 +305,33 @@ export class SDFV {
         // If access node, add array information too
         if (elem instanceof AccessNode) {
             const sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
-            html += '<br /><h4>' + sdfg_array.type + ' properties:</h4>';
+            contents.append($('<br>'));
+            contents.append($('<h4>', {
+                text: sdfg_array.type + ' properties:',
+            }));
             for (const attr of Object.entries(sdfg_array.attributes)) {
                 if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
                     attr[0].startsWith('_meta_'))
                     continue;
-                html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
-                html += sdfg_property_to_string(
-                    attr[1], this.renderer?.view_settings()
-                ) + '<br />';
+                contents.append($('<b>', {
+                    html: attr[0] + ':&nbsp;&nbsp;',
+                }));
+                contents.append($('<span>', {
+                    html: sdfg_property_to_string(
+                        attr[1], this.renderer?.view_settings()
+                    ),
+                }));
+                contents.append($('<br>'));
             }
         }
 
         // If nested SDFG, add SDFG information too
         if (elem instanceof NestedSDFG) {
             const sdfg_sdfg = elem.attributes().sdfg;
-            html += '<br /><h4>SDFG properties:</h4>';
+            contents.append($('<br>'));
+            contents.append($('<h4>', {
+                text: 'SDFG properties:',
+            }));
             for (const attr of Object.entries(sdfg_sdfg.attributes)) {
                 if (attr[0].startsWith('_meta_'))
                     continue;
@@ -293,16 +341,19 @@ export class SDFV {
                     case 'sdfg':
                         continue;
                     default:
-                        html += '<b>' + attr[0] + '</b>:&nbsp;&nbsp;';
-                        html += sdfg_property_to_string(
-                            attr[1], this.renderer?.view_settings()
-                        ) + '<br />';
+                        contents.append($('<b>', {
+                            html: attr[0] + ':&nbsp;&nbsp;',
+                        }));
+                        contents.append($('<span>', {
+                            html: sdfg_property_to_string(
+                                attr[1], this.renderer?.view_settings()
+                            ),
+                        }));
+                        contents.append($('<br>'));
                         break;
                 }
             }
         }
-
-        contents.innerHTML = html;
     }
 
     public start_find_in_graph(): void {
@@ -323,9 +374,7 @@ function init_sdfv(
     sdfg: any,
     user_transform: DOMMatrix | null = null,
     debug_draw: boolean = false,
-    existing_sdfv: SDFV | null = null,
-    toolbar: boolean = true,
-    minimap: boolean | null = null
+    existing_sdfv: SDFV | null = null
 ): SDFV {
     let sdfv: SDFV;
     if (existing_sdfv)
@@ -388,7 +437,7 @@ function init_sdfv(
         return false;
     });
     $('#search').on('keydown', (e: any) => {
-        if (e.key == 'Enter' || e.which == 13) {
+        if (e.key === 'Enter' || e.which === 13) {
             sdfv.start_find_in_graph();
             e.preventDefault();
         }
@@ -419,7 +468,7 @@ function init_sdfv(
         if (container)
             sdfv.set_renderer(new SDFGRenderer(
                 sdfv, sdfg, container, mouse_event, user_transform, debug_draw,
-                null, mode_buttons, toolbar, minimap
+                null, mode_buttons
             ));
     }
 
@@ -578,22 +627,24 @@ function getParameterByName(name: string): string | null {
     return decodeURIComponent(results[2].replace(/\+/g, ' '));
 }
 
-function load_sdfg_from_url(sdfv: SDFV, url: string, toolbar: boolean, minimap: boolean | null): void {
+function load_sdfg_from_url(sdfv: SDFV, url: string): void {
     const request = new XMLHttpRequest();
     request.responseType = 'text'; // Will be parsed as JSON by parse_sdfg
     request.onload = () => {
-        if (request.status == 200) {
+        if (request.status === 200) {
             const sdfg = parse_sdfg(request.response);
             sdfv.get_renderer()?.destroy();
-            init_sdfv(sdfg, null, false, null, toolbar, minimap);
+            init_sdfv(sdfg, null, false, null);
         } else {
             showErrorModal('Failed to load SDFG from URL');
-            init_sdfv(null, null, false, null, toolbar, minimap);
+            init_sdfv(null, null, false, null);
         }
     };
     request.onerror = () => {
-        showErrorModal('Failed to load SDFG from URL. Error code: ' + request.status);
-        init_sdfv(null, null, false, null, toolbar, minimap);
+        showErrorModal(
+            'Failed to load SDFG from URL. Error code: ' + request.status
+        );
+        init_sdfv(null, null, false, null);
     };
     request.open(
         'GET', url + ((/\?/).test(url) ? '&' : '?') + (new Date()).getTime(),
@@ -668,12 +719,14 @@ export function find_in_graph(
 ): void {
     if (!case_sensitive)
         query = query.toLowerCase();
-    find_in_graph_predicate(sdfv, renderer, sdfg, (graph: DagreSDFG, element: SDFGElement) => {
-        let label = element.label();
-        if (!case_sensitive)
-            label = label.toLowerCase();
-        return label.indexOf(query) !== -1;
-    });
+    find_in_graph_predicate(
+        sdfv, renderer, sdfg, (graph: DagreSDFG, element: SDFGElement) => {
+            let label = element.label();
+            if (!case_sensitive)
+                label = label.toLowerCase();
+            return label.indexOf(query) !== -1;
+        }
+    );
     sdfv.sidebar_set_title('Search Results for "' + query + '"');
 }
 
@@ -784,9 +837,6 @@ export function mouse_event(
 ): boolean {
     // If the click ends a pan, we don't want to open the sidebar.
     if (evtype === 'click' && !ends_pan) {
-        const menu = renderer.get_menu();
-        if (menu)
-            menu.destroy();
         let element;
         if (selected_elements.length === 0)
             element = new SDFG(renderer.get_sdfg());
@@ -809,42 +859,77 @@ export function mouse_event(
     return false;
 }
 
-function get_setting(name: string, def: any): any {
+function parseScriptParamValue(
+    val: string
+): boolean | string | number | null | undefined {
+    if (val === 'true')
+        return true;
+    if (val === 'false')
+        return false;
+    if (val === 'null')
+        return null;
+    if (val === 'undefined')
+        return undefined;
+    if (!isNaN(+val))
+        return +val;
+    return val;
+}
+
+function settingReadDefault(
+    name: string, def: boolean | string | number | null | undefined
+): boolean | string | number | null | undefined {
     if (document.currentScript?.hasAttribute(name)) {
         const attr = document.currentScript?.getAttribute(name);
         if (attr)
-            return attr;
+            return parseScriptParamValue(attr);
     }
 
     const param = getParameterByName(name);
     if (param)
-        return param;
+        return parseScriptParamValue(param);
 
     return def;
 }
 
 $(() => {
-    let sdfv = new SDFV();
+    // Do not run initiailization code if inside of VSCode.
+    try {
+        vscode;
+        if (vscode)
+            return;
+    } catch (_) {}
 
-    // Settings
-    const is_embedded = document.getElementById('embedded');
-    const toolbar = get_setting('toolbar', is_embedded ? false : true);
-    const minimap = get_setting('minimap', is_embedded ? false : null);
+    // Set the default settings based on the current script's attributes
+    // or URL parameters.
+    const isEmbedded = document.getElementById('embedded') !== null;
+    if (isEmbedded) {
+        SDFVSettings.setDefault('toolbar', false);
+        SDFVSettings.setDefault('minimap', false);
+    }
+
+    // Check if any of the remaining settings are provided via the URL.
+    for (const key of SDFVSettings.settingsKeys) {
+        const overrideVal = settingReadDefault(key, undefined);
+        if (overrideVal !== undefined)
+            SDFVSettings.setDefault(key, overrideVal);
+    }
+
+    let sdfv = new SDFV();
 
     if (document.currentScript?.hasAttribute('data-sdfg-json')) {
         const sdfg_string =
             document.currentScript?.getAttribute('data-sdfg-json');
         if (sdfg_string)
-            sdfv = init_sdfv(parse_sdfg(sdfg_string), null, false, sdfv, toolbar, minimap);
+            sdfv = init_sdfv(parse_sdfg(sdfg_string), null, false, sdfv);
     } else if (document.currentScript?.hasAttribute('data-url')) {
         const url =
             document.currentScript?.getAttribute('data-url');
         if (url)
-            load_sdfg_from_url(sdfv, url, toolbar, minimap);
+            load_sdfg_from_url(sdfv, url);
     } else {
         const url = getParameterByName('url');
         if (url)
-            load_sdfg_from_url(sdfv, url, toolbar, minimap);
+            load_sdfg_from_url(sdfv, url);
         else
             sdfv = init_sdfv(null, null, false, sdfv);
     }

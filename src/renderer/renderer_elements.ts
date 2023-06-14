@@ -496,6 +496,16 @@ export abstract class Edge extends SDFGElement {
         return this.points;
     }
 
+    public setViewToSource(renderer: SDFGRenderer): void {
+        const tPoint = this.points[0];
+        renderer.moveViewTo(tPoint.x, tPoint.y);
+    }
+
+    public setViewToDestination(renderer: SDFGRenderer): void {
+        const tPoint = this.points[this.points.length - 1];
+        renderer.moveViewTo(tPoint.x, tPoint.y);
+    }
+
     protected drawArrow(
         ctx: CanvasRenderingContext2D, p1: Point2D, p2: Point2D, size: number,
         offset: number = 0, padding: number = 0
@@ -520,7 +530,24 @@ export abstract class Edge extends SDFGElement {
         ctx.translate(-p2.x, -p2.y);
     }
 
-    public abstract create_arrow_line(ctx: CanvasRenderingContext2D): void;
+    public create_arrow_line(ctx: CanvasRenderingContext2D): void {
+        ctx.moveTo(this.points[0].x, this.points[0].y);
+        if (this.points.length === 2) {
+            // Straight line can be drawn
+            ctx.lineTo(this.points[1].x, this.points[1].y);
+        } else {
+            let i;
+            for (i = 1; i < this.points.length - 2; i++) {
+                const xm = (this.points[i].x + this.points[i + 1].x) / 2.0;
+                const ym = (this.points[i].y + this.points[i + 1].y) / 2.0;
+                ctx.quadraticCurveTo(
+                    this.points[i].x, this.points[i].y, xm, ym
+                );
+            }
+            ctx.quadraticCurveTo(this.points[i].x, this.points[i].y,
+                this.points[i + 1].x, this.points[i + 1].y);
+        }
+    }
 
     public debug_draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
@@ -755,23 +782,28 @@ export class InterstateEdge extends Edge {
         // through arrow points rather than quadratic curves). As such, the
         // angle of the last line segment is different and needs to be
         // calculated differently.
-        const dx = 0;
-        const dy = p2.y - p1.y;
-        const rot = Math.atan2(dy, dx);
-        ctx.translate(p2.x, p2.y);
-        ctx.rotate(rot);
+        if (!SDFVSettings.useVerticalStateMachineLayout) {
+            // This is not used if the 'old-style' layout is used.
+            super.drawArrow(ctx, p1, p2, size, offset, padding);
+        } else {
+            const dx = 0;
+            const dy = p2.y - p1.y;
+            const rot = Math.atan2(dy, dx);
+            ctx.translate(p2.x, p2.y);
+            ctx.rotate(rot);
 
-        // arrowhead
-        ctx.beginPath();
-        ctx.moveTo(0 + padding + offset, 0);
-        ctx.lineTo(((-2 * size) - padding) - offset, -(size + padding));
-        ctx.lineTo(((-2 * size) - padding) - offset, (size + padding));
-        ctx.closePath();
-        ctx.fill();
+            // arrowhead
+            ctx.beginPath();
+            ctx.moveTo(0 + padding + offset, 0);
+            ctx.lineTo(((-2 * size) - padding) - offset, -(size + padding));
+            ctx.lineTo(((-2 * size) - padding) - offset, (size + padding));
+            ctx.closePath();
+            ctx.fill();
 
-        // Restore context
-        ctx.rotate(-rot);
-        ctx.translate(-p2.x, -p2.y);
+            // Restore context
+            ctx.rotate(-rot);
+            ctx.translate(-p2.x, -p2.y);
+        }
     }
 
     public draw(

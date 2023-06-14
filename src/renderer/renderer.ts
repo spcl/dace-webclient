@@ -29,7 +29,6 @@ import {
     calculateBoundingBox,
     calculateEdgeBoundingBox
 } from '../utils/bounding_box';
-import { ContextMenu } from '../utils/context_menu';
 import {
     check_and_redirect_edge, delete_positioning_info, delete_sdfg_nodes,
     delete_sdfg_states, find_exit_for_entry, find_graph_element_by_uuid,
@@ -57,7 +56,6 @@ declare const canvas2pdf: any;
 
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any | null;
-declare const MINIMAP_ENABLED: boolean | undefined;
 
 type SDFGElementGroup = 'states' | 'nodes' | 'edges' | 'isedges';
 // If type is explicitly set, dagre typecheck fails with integer node ids
@@ -98,6 +96,9 @@ export interface SDFGRendererEvent {
     'symbol_definition_changed': (symbol: string, definition?: number) => void;
     'active_overlays_changed': () => void;
     'backend_data_requested': (type: string, overlay: string) => void;
+    'settings_changed': (
+        settings: Record<string, string | boolean | number>
+    ) => void;
 }
 
 export interface SDFGRenderer {
@@ -138,7 +139,6 @@ export class SDFGRenderer extends EventEmitter {
     protected static cssProps: { [key: string]: string } = {};
 
     // Toolbar related fields.
-    protected menu: ContextMenu | null = null;
     protected toolbar: JQuery<HTMLElement> | null = null;
     protected panmode_btn: HTMLElement | null = null;
     protected movemode_btn: HTMLElement | null = null;
@@ -195,9 +195,7 @@ export class SDFGRenderer extends EventEmitter {
         user_transform: DOMMatrix | null = null,
         public debug_draw = false,
         background: string | null = null,
-        mode_buttons: any = null,
-        toolbar: boolean = true,
-        minimap: boolean | null = null
+        mode_buttons: any = null
     ) {
         super();
 
@@ -218,9 +216,7 @@ export class SDFGRenderer extends EventEmitter {
                 this.in_vscode = true;
         } catch (ex) { }
 
-        this.init_elements(
-            user_transform, background, mode_buttons, toolbar, minimap
-        );
+        this.init_elements(user_transform, background, mode_buttons);
 
         this.set_sdfg(sdfg, false);
 
@@ -234,11 +230,13 @@ export class SDFGRenderer extends EventEmitter {
         this.on('element_position_changed', () => {
             this.emit('graph_edited');
         });
+        this.on('selection_changed', () => {
+            this.on_selection_changed();
+        });
     }
 
     public destroy(): void {
         try {
-            this.menu?.destroy();
             this.canvas_manager?.destroy();
             if (this.canvas)
                 this.container.removeChild(this.canvas);
@@ -399,9 +397,7 @@ export class SDFGRenderer extends EventEmitter {
     public init_elements(
         user_transform: DOMMatrix | null,
         background: string | null,
-        mode_buttons: ModeButtons | undefined | null,
-        toolbar: boolean,
-        minimap: boolean | null
+        mode_buttons: ModeButtons | undefined | null
     ): void {
 
         this.canvas = document.createElement('canvas');
@@ -412,16 +408,10 @@ export class SDFGRenderer extends EventEmitter {
             this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
 
-        if (minimap === false || (typeof MINIMAP_ENABLED !== 'undefined' &&
-            MINIMAP_ENABLED === false)) {
-            this.minimap_canvas = null;
-        } else {
-            this.minimap_canvas = document.createElement('canvas');
-            this.minimap_canvas.id = 'minimap';
-            this.minimap_canvas.classList.add('sdfg_canvas');
-            this.minimap_canvas.style.backgroundColor = 'white';
-            this.container.append(this.minimap_canvas);
-        }
+        if (SDFVSettings.minimap)
+            this.enableMinimap();
+        else
+            this.disableMinimap();
 
         if (this.debug_draw) {
             this.dbg_info_box = document.createElement('div');
@@ -454,7 +444,7 @@ export class SDFGRenderer extends EventEmitter {
         this.interaction_info_box.appendChild(this.interaction_info_text);
         this.container.appendChild(this.interaction_info_box);
 
-        if (toolbar) {
+        if (SDFVSettings.toolbar) {
             // Construct the toolbar.
             this.toolbar = $('<div>', {
                 css: {
@@ -584,10 +574,18 @@ export class SDFGRenderer extends EventEmitter {
             // Zoom to fit.
             $('<button>', {
                 class: 'btn btn-light btn-sdfv-light btn-sdfv',
-                html: '<i class="material-icons">filter_center_focus</i>',
+                html: '<i class="material-icons">fit_screen</i>',
                 title: 'Zoom to fit SDFG',
                 click: () => {
                     this.zoom_to_view();
+                },
+            }).appendTo(this.toolbar);
+            $('<button>', {
+                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                html: '<i class="material-symbols-outlined">fit_width</i>',
+                title: 'Zoom to fit width',
+                click: () => {
+                    this.zoomToFitWidth();
                 },
             }).appendTo(this.toolbar);
 
@@ -814,11 +812,6 @@ export class SDFGRenderer extends EventEmitter {
             return;
         }
 
-        if (this.minimap_canvas)
-            this.minimap_ctx = this.minimap_canvas.getContext('2d');
-        else
-            this.minimap_ctx = null;
-
         // Translation/scaling management
         this.canvas_manager = new CanvasManager(this.ctx, this, this.canvas);
         if (user_transform !== null)
@@ -1020,11 +1013,6 @@ export class SDFGRenderer extends EventEmitter {
                 }
             });
         }
-
-        // Set minimap event handlers.
-        this.minimap_canvas?.addEventListener('click', (ev) => {
-            this.on_minimap_click(ev);
-        });
     }
 
     public onresize(): void {
@@ -1184,6 +1172,32 @@ export class SDFGRenderer extends EventEmitter {
 
         const bb = boundingBox(elements, paddingAbs);
         this.canvas_manager?.set_view(bb, animate);
+
+        this.draw_async();
+    }
+
+    public zoomToFitWidth(): void {
+        const allElems: dagre.Node<SDFGElement>[] = [];
+        this.graph?.nodes().forEach((stateId) => {
+            const state = this.graph?.node(stateId);
+            if (state)
+                allElems.push(state);
+        });
+        const bb = boundingBox(allElems, 0);
+
+        const startX = bb.left;
+        const endX = bb.right;
+        let centerY;
+        if (this.visible_rect) {
+            const currStartY = this.visible_rect.y;
+            centerY = currStartY + (this.visible_rect.h / 2);
+        } else {
+            return;
+        }
+
+        const viewBB = new DOMRect(startX, centerY, endX - startX, 1);
+
+        this.canvas_manager?.set_view(viewBB, true);
 
         this.draw_async();
     }
@@ -1403,14 +1417,7 @@ export class SDFGRenderer extends EventEmitter {
             y: (graphBoundingBox.height / 2) + targetCenterOffset.y,
         };
 
-        // Move to the target position.
-        const targetRect = new DOMRect(
-            targetPos.x - (this.visible_rect.w / 2),
-            targetPos.y - (this.visible_rect.h / 2),
-            this.visible_rect.w, this.visible_rect.h
-        );
-        this.canvas_manager?.set_view(targetRect, true);
-        this.draw_async();
+        this.moveViewTo(targetPos.x, targetPos.y);
     }
 
     private draw_minimap(): void {
@@ -1472,6 +1479,24 @@ export class SDFGRenderer extends EventEmitter {
                 this.visible_rect.w, this.visible_rect.h
             );
         }
+    }
+
+    public disableMinimap(): void {
+        this.minimap_canvas?.remove();
+        this.minimap_canvas = null;
+        this.minimap_ctx = null;
+    }
+
+    public enableMinimap(): void {
+        this.minimap_canvas = document.createElement('canvas');
+        this.minimap_canvas.addEventListener('click', (ev) => {
+            this.on_minimap_click(ev);
+        });
+        this.minimap_canvas.id = 'minimap';
+        this.minimap_canvas.classList.add('sdfg_canvas');
+        this.minimap_canvas.style.backgroundColor = 'white';
+        this.minimap_ctx = this.minimap_canvas.getContext('2d');
+        this.container.append(this.minimap_canvas);
     }
 
     // Render SDFG
@@ -1546,7 +1571,6 @@ export class SDFGRenderer extends EventEmitter {
 
     public on_pre_draw(): void {
         this.clear_minimap();
-        return;
     }
 
     public on_post_draw(): void {
@@ -1628,6 +1652,17 @@ export class SDFGRenderer extends EventEmitter {
             if (this.error_popover_container)
                 this.error_popover_container.style.display = 'none';
         }
+    }
+
+    public moveViewTo(x: number, y: number): void {
+        if (!this.visible_rect)
+            return;
+        const targetRect = new DOMRect(
+            x - (this.visible_rect.w / 2), y - (this.visible_rect.h / 2),
+            this.visible_rect.w, this.visible_rect.h
+        );
+        this.canvas_manager?.set_view(targetRect, true);
+        this.draw_async();
     }
 
     public visible_elements(): {
@@ -2322,13 +2357,22 @@ export class SDFGRenderer extends EventEmitter {
                 return false;
             }
         } else if (evtype === 'wheel') {
-            // Get physical x,y coordinates (rather than canvas coordinates)
-            const br = this.canvas?.getBoundingClientRect();
-            const x = event.clientX - (br ? br.x : 0);
-            const y = event.clientY - (br ? br.y : 0);
-            this.canvas_manager?.scale(event.deltaY > 0 ? 0.9 : 1.1, x, y);
-            dirty = true;
-            element_focus_changed = true;
+            if (SDFVSettings.useVerticalScrollNavigation && !event.ctrlKey) {
+                // If vertical scroll navigation is turned on, use this to
+                // move the viewport up and down. If the control key is held
+                // down while scrolling, treat it as a typical zoom operation.
+                this.canvas_manager?.translate(0, -event.deltaY);
+                dirty = true;
+                element_focus_changed = true;
+            } else {
+                // Get physical x,y coordinates (rather than canvas coordinates)
+                const br = this.canvas?.getBoundingClientRect();
+                const x = event.clientX - (br ? br.x : 0);
+                const y = event.clientY - (br ? br.y : 0);
+                this.canvas_manager?.scale(event.deltaY > 0 ? 0.9 : 1.1, x, y);
+                dirty = true;
+                element_focus_changed = true;
+            }
         }
         // End of mouse-move/touch-based events
 
@@ -2796,11 +2840,8 @@ export class SDFGRenderer extends EventEmitter {
         if (dirty)
             this.draw_async();
 
-        if (element_focus_changed)
+        if (element_focus_changed || selection_changed)
             this.emit('selection_changed', multi_selection_changed);
-
-        if (selection_changed || multi_selection_changed)
-            this.on_selection_changed();
 
         return false;
     }
@@ -2835,10 +2876,6 @@ export class SDFGRenderer extends EventEmitter {
 
     public get_bgcolor(): string {
         return (this.bgcolor ? this.bgcolor : '');
-    }
-
-    public get_menu(): ContextMenu | null {
-        return this.menu;
     }
 
     public get_sdfg(): JsonSDFG {

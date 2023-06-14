@@ -22,13 +22,20 @@ export class SDFVSettings {
     private modal: Modal | null = null;
     private renderer: SDFGRenderer | null = null;
 
-    private _showAccessNodes: boolean = true;
-    private _showStateNames: boolean = true;
-    private _showMapSchedules: boolean = true;
-    private _showDataDescriptorSizes: boolean = false;
-    private _adaptiveContentHiding: boolean = true;
-    private _inclusiveRanges: boolean = false;
-    private _useVerticalStateMachineLayout: boolean = false;
+    private readonly settingsDict: Record<string, boolean | string | number> = {
+        // User modifiable settings fields.
+        'minimap': true,
+        'showAccessNodes': true,
+        'showStateNames': true,
+        'showMapSchedules': true,
+        'showDataDescriptorSizes': false,
+        'adaptiveContentHiding': true,
+        'inclusiveRanges': false,
+        'useVerticalStateMachineLayout': false,
+        'useVerticalScrollNavigation': false,
+        // Hidden settings fields.
+        'toolbar': true,
+    };
 
     private addToggle(
         root: JQuery<HTMLElement>, label: string, valueKey: string,
@@ -46,11 +53,11 @@ export class SDFVSettings {
         const input = $('<input>', {
             class: 'form-check-input',
             type: 'checkbox',
-            checked: (this as any)[valueKey],
+            checked: this.settingsDict[valueKey],
             change: () => {
-                (this as any)[valueKey] = input.prop('checked');
+                this.settingsDict[valueKey] = input.prop('checked');
                 if (customCallback)
-                    customCallback((this as any)[valueKey]);
+                    customCallback(this.settingsDict[valueKey]);
                 this.onSettingsChanged(requiresRelayout);
             },
         }).appendTo(checkContainer);
@@ -70,26 +77,38 @@ export class SDFVSettings {
             class: 'row',
         }).appendTo(root).append(viewSettingsTitle);
 
-        this.addToggle(root, 'Show access nodes', '_showAccessNodes', true);
-        this.addToggle(root, 'Show state names', '_showStateNames');
-        this.addToggle(root, 'Show map schedules', '_showMapSchedules');
+        this.addToggle(
+            root, 'Show minimap', 'minimap', false, (value: boolean) => {
+                if (value)
+                    this.renderer?.enableMinimap();
+                else
+                    this.renderer?.disableMinimap();
+            }
+        );
+        this.addToggle(root, 'Show access nodes', 'showAccessNodes', true);
+        this.addToggle(root, 'Show state names', 'showStateNames');
+        this.addToggle(root, 'Show map schedules', 'showMapSchedules');
         this.addToggle(
             root,
             'Show data descriptor sizes on access nodes ' +
                 '(hides data container names)',
-            '_showDataDescriptorSizes', true
+            'showDataDescriptorSizes', true
         );
         this.addToggle(
             root, 'Adaptively hide content when zooming out',
-            '_adaptiveContentHiding', false, (value: boolean) => {
+            'adaptiveContentHiding', false, (value: boolean) => {
                 if (this.renderer)
                     (this.renderer.get_context() as any).lod = value;
             }
         );
-        this.addToggle(root, 'Use inclusive ranges', '_inclusiveRanges', true);
+        this.addToggle(root, 'Use inclusive ranges', 'inclusiveRanges', true);
         this.addToggle(
             root, 'Use vertical state machine layout',
-            '_useVerticalStateMachineLayout', true
+            'useVerticalStateMachineLayout', true
+        );
+        this.addToggle(
+            root, 'Use vertical scroll navigation',
+            'useVerticalScrollNavigation', false
         );
     }
 
@@ -146,6 +165,9 @@ export class SDFVSettings {
         if (relayout)
             this.renderer?.relayout();
         this.renderer?.draw_async();
+
+        if (this.renderer?.get_in_vscode())
+            this.renderer.emit('settings_changed', this.settingsDict);
     }
 
     public show(renderer?: SDFGRenderer): void {
@@ -170,32 +192,68 @@ export class SDFVSettings {
             this.modal.toggle();
     }
 
+    public static get settingsKeys(): string[] {
+        return Object.keys(SDFVSettings.getInstance().settingsDict);
+    }
+
+    public static setDefault(setting: string, def: any): void {
+        SDFVSettings.getInstance().settingsDict[setting] = def;
+    }
+
+    public static get toolbar(): boolean {
+        return SDFVSettings.getInstance().settingsDict['toolbar'] as boolean;
+    }
+
+    public static get minimap(): boolean {
+        return SDFVSettings.getInstance().settingsDict['minimap'] as boolean;
+    }
+
     public static get showAccessNodes(): boolean {
-        return this.getInstance()._showAccessNodes;
+        return SDFVSettings.getInstance().settingsDict[
+            'showAccessNodes'
+        ] as boolean;
     }
 
     public static get inclusiveRanges(): boolean {
-        return this.getInstance()._inclusiveRanges;
+        return SDFVSettings.getInstance().settingsDict[
+            'inclusiveRanges'
+        ] as boolean;
     }
 
     public static get adaptiveContentHiding(): boolean {
-        return this.getInstance()._adaptiveContentHiding;
+        return SDFVSettings.getInstance().settingsDict[
+            'adaptiveContentHiding'
+        ] as boolean;
     }
 
     public static get showStateNames(): boolean {
-        return this.getInstance()._showStateNames;
+        return SDFVSettings.getInstance().settingsDict[
+            'showStateNames'
+        ] as boolean;
     }
 
     public static get showMapSchedules(): boolean {
-        return this.getInstance()._showMapSchedules;
+        return SDFVSettings.getInstance().settingsDict[
+            'showMapSchedules'
+        ] as boolean;
     }
 
     public static get showDataDescriptorSizes(): boolean {
-        return this.getInstance()._showDataDescriptorSizes;
+        return SDFVSettings.getInstance().settingsDict[
+            'showDataDescriptorSizes'
+        ] as boolean;
     }
 
     public static get useVerticalStateMachineLayout(): boolean {
-        return this.getInstance()._useVerticalStateMachineLayout;
+        return this.getInstance().settingsDict[
+            'useVerticalStateMachineLayout'
+        ] as boolean;
+    }
+
+    public static get useVerticalScrollNavigation(): boolean {
+        return this.getInstance().settingsDict[
+            'useVerticalScrollNavigation'
+        ] as boolean;
     }
 
 }
