@@ -96,7 +96,6 @@ export class SMLayouter {
         //    other back-edges in a separate collection.
         //  * Dictionaries mapping destination nodes of back-edges to the
         //    corresponding back-edges, to speed up lookups / searches.
-        const inverted = this.graph.reversed();
         const sources = this.graph.sources();
         const sinks = this.graph.sinks();
 
@@ -106,7 +105,13 @@ export class SMLayouter {
                 'Using an artificial source node for layouting.'
             );
             this.startNode = ARTIFICIAL_START;
-            this.graph.addNode(this.startNode);
+            this.graph.addNode(this.startNode, {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+                order: undefined,
+            });
             for (const s of sources)
                 this.graph.addEdge(this.startNode, s, { points: [] });
         } else if (sources.length === 0) {
@@ -121,7 +126,13 @@ export class SMLayouter {
                 'Using an artificial sink node for layouting.'
             );
             this.endNode = ARTIFICIAL_END;
-            this.graph.addNode(this.endNode);
+            this.graph.addNode(this.endNode, {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+                order: undefined,
+            });
             for (const s of sinks)
                 this.graph.addEdge(s, this.endNode, { points: [] });
         } else if (sinks.length === 0) {
@@ -129,6 +140,8 @@ export class SMLayouter {
         } else {
             this.endNode = sinks[0];
         }
+
+        const inverted = this.graph.reversed();
 
         this.iDoms = immediateDominators(this.graph, this.startNode);
         this.iPostDoms = immediateDominators(inverted, this.endNode);
