@@ -1,6 +1,6 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { log, max, mean, median, min } from 'mathjs';
+import { log, mean, median } from 'mathjs';
 import { Point2D } from '../index';
 import { OverlayManager, SymbolResolver } from '../overlay_manager';
 import { SDFGRenderer } from '../renderer/renderer';
@@ -67,8 +67,8 @@ export class GenericSdfgOverlay {
                         this.heatmap_hist_buckets = [...new Set(values)];
                     } else {
                         this.heatmap_hist_buckets = [];
-                        const minval = min(values);
-                        const maxval = max(values);
+                        const minval = Math.min(...values);
+                        const maxval = Math.max(...values);
                         const step = (maxval - minval) / n;
                         for (let i = 0; i < n; i++)
                             this.heatmap_hist_buckets.push(minval + (i * step));
@@ -78,12 +78,12 @@ export class GenericSdfgOverlay {
                 break;
             case 'linear_interpolation':
                 this.heatmap_scale_center = (
-                    min(values) + max(values)
+                    Math.min(...values) + Math.max(...values)
                 ) / 2;
                 break;
             case 'exponential_interpolation':
                 this.heatmap_scale_center = log(
-                    min(values) * max(values),
+                    Math.min(...values) * Math.max(...values),
                     this.overlay_manager.get_heatmap_scaling_exp_base()
                 );
                 break;
