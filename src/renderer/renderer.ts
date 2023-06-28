@@ -3,6 +3,7 @@
 import $ from 'jquery';
 
 import dagre from 'dagre';
+import EventEmitter from 'events';
 import {
     DagreSDFG,
     GenericSdfgOverlay,
@@ -18,17 +19,19 @@ import {
     SimpleRect,
     stringify_sdfg
 } from '../index';
+import { SMLayouter } from '../layouter/state_machine/sm_layouter';
 import { LViewLayouter } from '../local_view/lview_layouter';
 import { LViewGraphParseError, LViewParser } from '../local_view/lview_parser';
 import { LViewRenderer } from '../local_view/lview_renderer';
-import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
 import { OverlayManager } from '../overlay_manager';
-import { reload_file, SDFV } from '../sdfv';
+import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
+import { SDFV, reload_file } from '../sdfv';
 import {
     boundingBox,
     calculateBoundingBox,
     calculateEdgeBoundingBox
 } from '../utils/bounding_box';
+import { sdfg_property_to_string } from '../utils/sdfg/display';
 import {
     check_and_redirect_edge, delete_positioning_info, delete_sdfg_nodes,
     delete_sdfg_states, find_exit_for_entry, find_graph_element_by_uuid,
@@ -38,16 +41,21 @@ import {
     memlet_tree_complete,
     traverse_sdfg_scopes
 } from '../utils/sdfg/traversal';
+import { SDFVSettings } from '../utils/sdfv_settings';
 import { deepCopy, intersectRect, showErrorModal } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
 import {
-    AccessNode, Connector, draw_sdfg, Edge, EntryNode, InterstateEdge, Memlet, NestedSDFG, offset_sdfg,
-    offset_state, SDFGElement, SDFGElements, SDFGElementType, SDFGNode, State
+    AccessNode, Connector,
+    Edge, EntryNode, InterstateEdge, Memlet, NestedSDFG,
+    SDFGElement,
+    SDFGElementType,
+    SDFGElements,
+    SDFGNode,
+    State,
+    draw_sdfg,
+    offset_sdfg,
+    offset_state
 } from './renderer_elements';
-import { sdfg_property_to_string } from '../utils/sdfg/display';
-import { SDFVSettings } from '../utils/sdfv_settings';
-import EventEmitter from 'events';
-import { SMLayouter } from '../layouter/state_machine/sm_layouter';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -593,9 +601,13 @@ export class SDFGRenderer extends EventEmitter {
             $('<button>', {
                 class: 'btn btn-light btn-sdfv-light btn-sdfv',
                 html: '<i class="material-icons">unfold_less</i>',
-                title: 'Collapse all elements',
-                click: () => {
-                    this.collapse_all();
+                title: 'Collapse next level (Shift+click to collapse all)',
+                click: (e: MouseEvent) => {
+                    if (e.shiftKey) {
+                        this.collapse_all();
+                    } else {
+                        this.collapseNextLevel();
+                    }
                 },
             }).appendTo(this.toolbar);
 
@@ -603,9 +615,13 @@ export class SDFGRenderer extends EventEmitter {
             $('<button>', {
                 class: 'btn btn-light btn-sdfv-light btn-sdfv',
                 html: '<i class="material-icons">unfold_more</i>',
-                title: 'Expand all elements',
-                click: () => {
-                    this.expand_all();
+                title: 'Expand next level (Shift+click to expand all)',
+                click: (e: MouseEvent) => {
+                    if (e.shiftKey) {
+                        this.expand_all();
+                    } else {
+                        this.expandNextLevel();
+                    }
                 },
             }).appendTo(this.toolbar);
 
@@ -1202,6 +1218,63 @@ export class SDFGRenderer extends EventEmitter {
         this.draw_async();
     }
 
+    public collapseNextLevel(): void {
+        if (!this.graph)
+            return;
+
+        function recursiveCollapse(
+            scopeNode: NestedSDFG | EntryNode | State,
+            parent: DagreSDFG
+        ): boolean {
+            if (scopeNode.attributes().is_collapsed)
+                return false;
+            let collapsedSomething = false;
+            const scopeNodes = [];
+            let nParent = parent;
+            if (scopeNode instanceof NestedSDFG) {
+                for (const nid of scopeNode.data.graph.nodes())
+                    scopeNodes.push(scopeNode.data.graph.node(nid));
+                nParent = scopeNode.data.graph;
+            } else if (scopeNode instanceof State) {
+                const scopeNodeIds = scopeNode.data.state.scope_dict[-1];
+                for (const nid of scopeNodeIds)
+                    scopeNodes.push(scopeNode.data.graph.node(nid));
+                nParent = scopeNode.data.graph;
+            } else {
+                const parentState = scopeNode.sdfg.nodes[scopeNode.parent_id!];
+                const scopeNodeIds = parentState.scope_dict[scopeNode.id];
+                for (const nid of scopeNodeIds)
+                    scopeNodes.push(parent.node(nid.toString()));
+            }
+
+            for (const node of scopeNodes) {
+                if (node instanceof NestedSDFG || node instanceof State ||
+                    node instanceof EntryNode) {
+                    const recursiveRes = recursiveCollapse(node, nParent);
+                    collapsedSomething ||= recursiveRes;
+                }
+            }
+
+            if (!collapsedSomething)
+                scopeNode.attributes().is_collapsed = true;
+            return true;
+        }
+
+        let collapsed = false;
+        for (const sId of this.graph.nodes()) {
+            const state = this.graph.node(sId);
+            const res = recursiveCollapse(state, this.graph);
+            collapsed ||= res;
+        }
+
+        if (collapsed) {
+            this.emit('collapse_state_changed', false, true);
+
+            this.relayout();
+            this.draw_async();
+        }
+    }
+
     public collapse_all(): void {
         this.for_all_sdfg_elements(
             (_t: SDFGElementGroup, _d: any, obj: any) => {
@@ -1212,6 +1285,26 @@ export class SDFGRenderer extends EventEmitter {
         );
 
         this.emit('collapse_state_changed', true, true);
+
+        this.relayout();
+        this.draw_async();
+    }
+
+    public expandNextLevel(): void {
+        if (!this.graph)
+            return;
+
+        traverse_sdfg_scopes(
+            this.graph, (node: SDFGNode, _: DagreSDFG) => {
+                if(node.attributes().is_collapsed) {
+                    node.attributes().is_collapsed = false;
+                    return false;
+                }
+                return true;
+            }
+        );
+
+        this.emit('collapse_state_changed', false, true);
 
         this.relayout();
         this.draw_async();
