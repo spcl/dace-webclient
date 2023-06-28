@@ -3,7 +3,7 @@
 import $ from 'jquery';
 
 import 'material-icons/iconfont/material-icons.css';
-import 'material-symbols';
+import 'material-symbols/index.css';
 
 import 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
