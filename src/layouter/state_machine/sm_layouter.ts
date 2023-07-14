@@ -46,6 +46,7 @@ export interface SMLayouterNode {
     x: number;
     y: number;
     order?: number;
+    rank?: number;
 }
 
 export interface SMLayouterEdge {
@@ -72,7 +73,6 @@ export class SMLayouter {
     private readonly backedgesCombined: Set<[string, string]>;
     private readonly rankDict: Map<number, string[]>;
     private readonly rankHeights: Map<number, number>;
-    private readonly nodeRanks: Map<string, number>;
     private readonly dummyChains: Set<[SMLayouterEdge, string[]]>;
 
     public constructor(g: DiGraph<SMLayouterNode, SMLayouterEdge>) {
@@ -80,7 +80,6 @@ export class SMLayouter {
 
         this.rankDict = new Map();
         this.rankHeights = new Map();
-        this.nodeRanks = new Map();
         this.dummyChains = new Set();
 
         // --------------------------------------------------
@@ -316,7 +315,7 @@ export class SMLayouter {
                     for (const n of successors)
                         if (n !== oNode && !this.allDom.get(n)?.has(oNode))
                             exitCandidates.add(n);
-                    for (const n of this.graph.successorsIter(oNode))
+                    for (const n of this.graph.successorsIter(node))
                         if (n !== node)
                             exitCandidates.add(n);
 
@@ -411,13 +410,12 @@ export class SMLayouter {
 
         this.rankDict.clear();
         this.rankHeights.clear();
-        this.nodeRanks.clear();
         for (const k of rankings.keys()) {
             const v = rankings.get(k)!;
             if (!this.rankDict.has(v))
                 this.rankDict.set(v, []);
             this.rankDict.get(v)!.push(k);
-            this.nodeRanks.set(k, v);
+            this.graph.get(k)!.rank = v;
         }
     }
 
@@ -438,12 +436,11 @@ export class SMLayouter {
         }
         this.rankDict.clear();
         this.rankHeights.clear();
-        this.nodeRanks.clear();
         for (const k of contractedRanks.keys()) {
             this.rankDict.set(k, contractedRanks.get(k)!);
             this.rankHeights.set(k, contractedRankHeights.get(k)!);
             for (const v of contractedRanks.get(k)!)
-                this.nodeRanks.set(v, k);
+                this.graph.get(v)!.rank = k;
         }
     }
 
@@ -477,8 +474,8 @@ export class SMLayouter {
         for (const edge of this.graph.edgesIter()) {
             const src = edge[0];
             const dst = edge[1];
-            const srcRank = this.nodeRanks.get(src)!;
-            const dstRank = this.nodeRanks.get(dst)!;
+            const srcRank = this.graph.get(src)!.rank!;
+            const dstRank = this.graph.get(dst)!.rank!;
 
             // If the edge spans only one rank, nothing needs to be done.
             if (srcRank === dstRank - 1)
@@ -503,9 +500,9 @@ export class SMLayouter {
                     height: 0,
                     x: 0,
                     y: 0,
+                    rank: i,
                 });
                 dummyChain.push(dummyNode);
-                this.nodeRanks.set(dummyNode, i);
                 if (!this.rankDict.has(i))
                     this.rankDict.set(i, []);
                 this.rankDict.get(i)!.push(dummyNode);
@@ -536,11 +533,10 @@ export class SMLayouter {
             let chainDst = null;
             const points = [];
             for (const dummyNode of dummyChain) {
-                const rank = this.nodeRanks.get(dummyNode)!;
+                const rank = this.graph.get(dummyNode)!.rank!;
                 this.rankDict.set(rank, this.rankDict.get(rank)!.filter(
                     (v) => v !== dummyNode
                 ));
-                this.nodeRanks.delete(dummyNode);
                 const pred = this.graph.predecessors(dummyNode)[0];
                 if (chainSrc === null)
                     chainSrc = pred;
@@ -606,8 +602,8 @@ export class SMLayouter {
             if (routedEdges.has(edgeData))
                 continue;
 
-            const dstRank = this.nodeRanks.get(be[1])!;
-            const srcRank = this.nodeRanks.get(be[0])!;
+            const dstRank = this.graph.get(be[1])!.rank!;
+            const srcRank = this.graph.get(be[0])!.rank!;
             const distance = Math.abs(dstRank - srcRank);
             const backedge: BackedgeT = {
                 distance: distance,
@@ -747,7 +743,7 @@ export class SMLayouter {
             compound: false,
         });
         for (const node of this.graph.nodesIter()) {
-            const rank = this.nodeRanks.get(node)!;
+            const rank = this.graph.get(node)!.rank!;
             dagreGraph.setNode(node, { rank: rank });
         }
         for (const edge of this.graph.edgesIter()) {
@@ -823,8 +819,8 @@ export class SMLayouter {
         for (const edge of this.graph.edgesIter()) {
             // Here we don't want to route backedges, they are handled
             // separately.
-            const srcRank = this.nodeRanks.get(edge[0])!;
-            const dstRank = this.nodeRanks.get(edge[1])!;
+            const srcRank = this.graph.get(edge[0])!.rank!;
+            const dstRank = this.graph.get(edge[1])!.rank!;
             if (srcRank > dstRank)
                 continue;
 
