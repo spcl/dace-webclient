@@ -117,8 +117,11 @@ export function allBackedges(
     const backedges = new Set<[string, string]>();
     const eclipsedBackedges = new Set<[string, string]>();
 
-    if (start === undefined)
-        start = g.sources()[0];
+    if (start === undefined) {
+        const sources = g.sources();
+        if (sources.length === 1)
+            start = sources[0];
+    }
     if (start === undefined)
         throw new Error('No start node specified and none could be found');
 
@@ -158,13 +161,25 @@ export function allBackedges(
             const removeCycles = new Set<NodeCycle<string>>();
             for (const cycle of cycles) {
                 if (!handledCycles.has(cycle)) {
-                    for (const p of predecessors) {
-                        if (cycle.nodes.has(p)) {
-                            if (!longestCycles.has(p)) {
-                                longestCycles.set(p, cycle);
-                            } else {
-                                if (cycle.length > longestCycles.get(p)!.length)
+                    if (cycle.length == 1) {
+                        const selfCycleNode = Array.from(cycle.nodes)[0];
+                        if (!longestCycles.has(selfCycleNode)) {
+                            longestCycles.set(selfCycleNode, cycle);
+                        } else {
+                            const len = longestCycles.get(selfCycleNode)!.length;
+                            if (cycle.length > len)
+                                longestCycles.set(selfCycleNode, cycle);
+                        }
+                    } else {
+                        for (const p of predecessors) {
+                            if (cycle.nodes.has(p)) {
+                                if (!longestCycles.has(p)) {
                                     longestCycles.set(p, cycle);
+                                } else {
+                                    const len = longestCycles.get(p)!.length;
+                                    if (cycle.length > len)
+                                        longestCycles.set(p, cycle);
+                                }
                             }
                         }
                     }
@@ -191,7 +206,7 @@ export function allBackedges(
             for (const candidate of backedgeCandidates) {
                 const src = candidate[0][0];
                 const dst = candidate[0][1];
-                if (!visited.has(src) && cycle.nodes.has(src)) {
+                if (cycle.nodes.has(src) && (src == dst || !visited.has(src))) {
                     nodeBackedgeCandidates.add([candidate, cycle]);
                     if (!strict)
                         backedges.add(candidate[0]);
