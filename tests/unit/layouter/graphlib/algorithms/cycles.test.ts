@@ -87,40 +87,39 @@ function testFindSelfCycle(): void {
     expect(backedges).toContainEqual(['2', '2']);
 }
 
-/*
-function testFullyConnected(): void {
+function testSelfLoopsTightNestedLoop(): void {
     const g = new DiGraph();
 
     // Construct graph.
-    // 0    1
-    //      ↓
-    //      2
-    //      ↓ 
-    //      3
+    //   0   
+    //   ↓   
+    // ┌→1=-┐
+    // | ↓  |
+    // └-2= |
+    // ┌→|  |
+    // | ↓  |
+    // └-3= |
+    //      |
+    //   4←-┘
 
     g.addEdges([
-        ['0', '0'],
+        ['0', '1'],
         ['1', '1'],
         ['1', '2'],
-        ['1', '3'],
+        ['1', '4'],
         ['2', '1'],
         ['2', '2'],
         ['2', '3'],
-        ['3', '1'],
         ['3', '2'],
         ['3', '3'],
     ]);
 
     const cycles = Array.from(simpleCycles(g));
 
-    expect(cycles.length).toBe(9);
+    expect(cycles.length).toBe(5);
     const setifiedCycles = new Set();
     for (const cycle of cycles)
         setifiedCycles.add([new Set(cycle[0]), new Set(cycle[1])]);
-    expect(setifiedCycles).toContainEqual([
-        new Set(['0']),
-        new Set([['0', '0']])
-    ]);
     expect(setifiedCycles).toContainEqual([
         new Set(['1']),
         new Set([['1', '1']])
@@ -138,28 +137,19 @@ function testFullyConnected(): void {
         new Set([['1', '2'], ['2', '1']])
     ]);
     expect(setifiedCycles).toContainEqual([
-        new Set(['1', '3']),
-        new Set([['1', '3'], ['3', '1']])
-    ]);
-    expect(setifiedCycles).toContainEqual([
         new Set(['3', '2']),
         new Set([['3', '2'], ['2', '3']])
-    ]);
-    expect(setifiedCycles).toContainEqual([
-        new Set(['1', '2', '3']),
-        new Set([['1', '2'], ['2', '3'], ['3', '1']])
-    ]);
-    expect(setifiedCycles).toContainEqual([
-        new Set(['1', '2', '3']),
-        new Set([['1', '3'], ['2', '1'], ['3', '2']])
     ]);
 
     const [backedges, eclipsedBackedges] = allBackedges(g, '1', false);
     expect(eclipsedBackedges.size).toBe(0);
-    expect(backedges.size).toBe(1);
+    expect(backedges.size).toBe(5);
+    expect(backedges).toContainEqual(['1', '1']);
     expect(backedges).toContainEqual(['2', '2']);
+    expect(backedges).toContainEqual(['3', '3']);
+    expect(backedges).toContainEqual(['2', '1']);
+    expect(backedges).toContainEqual(['3', '2']);
 }
-*/
 
 function testFindNestedCycles(): void {
     const g = new DiGraph();
@@ -358,7 +348,10 @@ function testFindEclipsedBackedgesSimilarLengths(): void {
 describe('Test cycle-related graph algorithms', () => {
     test('Test finding a single simple cycles', testFindSimpleCycle);
     test('Test finding a self cycles', testFindSelfCycle);
-    //test('Test finding a self cycles', testFullyConnected);
+    test(
+        'Test finding self cycles in tightly nested loops',
+        testSelfLoopsTightNestedLoop
+    );
     test(
         'Test finding nested cycles, including self cycles',
         testFindNestedCycles

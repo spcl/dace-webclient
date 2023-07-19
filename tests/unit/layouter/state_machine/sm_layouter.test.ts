@@ -18,6 +18,10 @@ function constructEdge(
     graph: DiGraph<SMLayouterNode, SMLayouterEdge>, src: string, dst: string
 ): SMLayouterEdge {
     const edge = { points: [], weight: 2 };
+    if (!graph.has(src))
+        constructNode(graph, src);
+    if (!graph.has(dst))
+        constructNode(graph, dst);
     graph.addEdge(src, dst, edge);
     return edge;
 }

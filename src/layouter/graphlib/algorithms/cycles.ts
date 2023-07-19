@@ -130,6 +130,7 @@ export function allBackedges(
     g: DiGraph<unknown, unknown>, start?: string, strict: boolean = false
 ): [Set<[string, string]>, Set<[string, string]>] {
     const backedges = new Set<[string, string]>();
+    const backedgesCheckSet = new Set<string>();
     const eclipsedBackedges = new Set<[string, string]>();
 
     if (start === undefined) {
@@ -157,8 +158,6 @@ export function allBackedges(
     }
 
     // Do a BFS traversal of the graph to detect the back edges.
-    // For each node that is part of an (unhandled) cycle, find the longest
-    // still unhandled cycle and try to use it to find the back edge for it.
     const bfsFrontier = [start];
     const visited = new Set<string>([start]);
     while (bfsFrontier.length > 0) {
@@ -168,32 +167,7 @@ export function allBackedges(
             if (!visited.has(p))
                 predecessors.push(p);
         }
-        const longestCycles = new Map<string, NodeCycle<string>>();
         const cycles = cycleMap.get(node);
-        for (const cycle of cycles ?? []) {
-            if (cycle.length == 1) {
-                const selfCycleNode = Array.from(cycle.nodes)[0];
-                if (!longestCycles.has(selfCycleNode)) {
-                    longestCycles.set(selfCycleNode, cycle);
-                } else {
-                    const len = longestCycles.get(selfCycleNode)!.length;
-                    if (cycle.length > len)
-                        longestCycles.set(selfCycleNode, cycle);
-                }
-            } else {
-                for (const p of predecessors) {
-                    if (cycle.edges.has([p, node].toString())) {
-                        if (!longestCycles.has(p)) {
-                            longestCycles.set(p, cycle);
-                        } else {
-                            const len = longestCycles.get(p)!.length;
-                            if (cycle.length > len)
-                                longestCycles.set(p, cycle);
-                        }
-                    }
-                }
-            }
-        }
 
         // For the current node, find the incoming edge which belongs to the
         // cycle and has not been visited yet, which indicates a backedge.
@@ -201,8 +175,7 @@ export function allBackedges(
             [[string, string], unknown], NodeCycle<string>
         ]>();
         const nodeBackedgeCandidatesCheckSet = new Set<string>();
-        for (const cycleRaw of longestCycles) {
-            const cycle = cycleRaw[1];
+        for (const cycle of cycles ?? []) {
             const backedgeCandidates = g.inEdges(node);
             for (const candidate of backedgeCandidates) {
                 const src = candidate[0][0];
@@ -217,8 +190,11 @@ export function allBackedges(
                         );
                         nodeBackedgeCandidates.add([candidate, cycle]);
                     }
-                    if (strict === false)
+                    const candStr = candidate[0].toString();
+                    if (strict === false && !backedgesCheckSet.has(candStr)) {
                         backedges.add(candidate[0]);
+                        backedgesCheckSet.add(candStr);
+                    }
                 }
             }
         }
@@ -242,8 +218,13 @@ export function allBackedges(
                 }
             }
 
-            if (longestCandidate)
-                backedges.add(longestCandidate[0][0]);
+            if (longestCandidate) {
+                const candStr = longestCandidate[0][0].toString();
+                if (!backedgesCheckSet.has(candStr)) {
+                    backedges.add(longestCandidate[0][0]);
+                    backedgesCheckSet.add(candStr);
+                }
+            }
 
             if (eclipsedCandidates.size > 0) {
                 for (const candidate of eclipsedCandidates)

@@ -3,5 +3,8 @@
 		{
 			"path": "."
 		}
-	]
+	],
+	"settings": {
+		"dace.sdfv.useVerticalStateMachineLayout": true
+	}
 }

@@ -18,6 +18,9 @@ function testInsertNode(): void {
 
     graph.addNode(testNodeId1, testNode1);
     graph.addNode(testNodeId2, testNode2);
+    expect(graph.has(testNodeId1)).toBeTruthy();
+    expect(graph.has(testNodeId2)).toBeTruthy();
+    expect(graph.has('doesnotexist')).toBeFalsy();
 
     const nodes = graph.nodes();
     expect(nodes).toContainEqual(testNodeId1);

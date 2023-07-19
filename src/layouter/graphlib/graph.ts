@@ -18,6 +18,10 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
         return val;
     }
 
+    public has(id: string): boolean {
+        return this.nodeMap.get(id) !== undefined;
+    }
+
     public addNode(id: string, node?: NodeT | null): void {
         this.nodeMap.set(id, node ?? null);
         if (!this.adjacencyList.has(id))

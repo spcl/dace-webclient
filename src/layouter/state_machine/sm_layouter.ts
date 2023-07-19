@@ -696,7 +696,8 @@ export class SMLayouter {
             recursiveFlipDepths(be, be.maxDepth ?? 0);
 
         const recursiveAssignLanes = (be: BackedgeT) => {
-            lanes.get(maxDepth - be.depth!)!.push(be);
+            const lvl = maxDepth - be.depth!;
+            lanes.get(lvl >= 0 ? lvl : 0)!.push(be);
             for (const child of be.children)
                 recursiveAssignLanes(child);
         };
