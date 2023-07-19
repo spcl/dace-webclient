@@ -2,6 +2,7 @@
 
 [![Build](https://github.com/spcl/dace-webclient/actions/workflows/build.yml/badge.svg)](https://github.com/spcl/dace-webclient/actions/workflows/build.yml)
 [![Tests](https://github.com/spcl/dace-webclient/actions/workflows/test.yml/badge.svg)](https://github.com/spcl/dace-webclient/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/spcl/dace-webclient/branch/master/graph/badge.svg?token=K2PCAAUTNU)](https://codecov.io/gh/spcl/dace-webclient)
 
 SDFV is a standalone tool for viewing/embedding SDFGs in your web browser. For more
 information on SDFGs, see the [DaCe](https://www.github.com/spcl/dace)
