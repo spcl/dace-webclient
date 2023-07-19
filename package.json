@@ -31,7 +31,7 @@
         "serve": "npm run clean && webpack serve --mode=development",
         "build-prod": "npm run clean && webpack --mode=production",
         "postinstall": "patch-package",
-        "test": "jest && make-coverage-badge"
+        "test": "jest"
     },
     "devDependencies": {
         "@babel/cli": "^7.20.7",
