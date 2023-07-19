@@ -1,6 +1,6 @@
 export interface GraphI<NodeT, EdgeT> {
 
-    get(id: string): NodeT | undefined;
+    get(id: string): NodeT | null;
     addNode(id: string, node?: NodeT): void;
     addNodesWithAttributes(nodes: [string, NodeT][]): void;
     addNodes(nodes: string[]): void;
@@ -14,7 +14,7 @@ export interface GraphI<NodeT, EdgeT> {
     addEdges(edges: [string, string][]): void;
     removeEdge(u: string, v: string): void;
     hasEdge(u: string, v: string): boolean;
-    edge(u: string, v: string): EdgeT | undefined;
+    edge(u: string, v: string): EdgeT | null;
     neighbors(id: string): string[];
     neighborsIter(id: string): IterableIterator<string>;
     edges(): [string, string][];

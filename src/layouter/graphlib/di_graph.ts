@@ -11,7 +11,7 @@ export class DiGraph<NodeT, EdgeT> extends Graph<NodeT, EdgeT> {
         super(name);
     }
 
-    public addNode(id: string, node?: NodeT | undefined): void {
+    public addNode(id: string, node?: NodeT | null): void {
         super.addNode(id, node);
         if (!this.pred.has(id))
             this.pred.set(id, new Map());
@@ -25,7 +25,7 @@ export class DiGraph<NodeT, EdgeT> extends Graph<NodeT, EdgeT> {
         this.succ.delete(id);
     }
 
-    public addEdge(u: string, v: string, edge?: EdgeT | undefined): void {
+    public addEdge(u: string, v: string, edge?: EdgeT | null): void {
         if (!this.nodeMap.has(u))
             this.addNode(u, undefined);
         if (!this.nodeMap.has(v))
@@ -39,15 +39,22 @@ export class DiGraph<NodeT, EdgeT> extends Graph<NodeT, EdgeT> {
         this.pred.get(v)?.delete(u);
     }
 
-    public edge(u: string, v: string): EdgeT | undefined {
+    public edge(u: string, v: string): EdgeT | null {
         const val = this.succ.get(u)?.get(v);
         if (val === undefined)
             throw new Error(`Edge ${u} -> ${v} does not exist`);
-        return val ?? undefined;
+        return val;
     }
 
     public neighborsIter(id: string): IterableIterator<string> {
-        return this.succ.get(id)?.keys() ?? new Map().keys();
+        const neighMap = this.succ.get(id);
+        if (neighMap === undefined)
+            throw new Error(`Node ${id} does not exist`);
+        return neighMap.keys();
+    }
+
+    public numberOfEdges(): number {
+        return this.edges().length;
     }
 
     public* edgesIter(): Generator<[string, string]> {
@@ -156,7 +163,7 @@ export class DiGraph<NodeT, EdgeT> extends Graph<NodeT, EdgeT> {
         const H = new DiGraph<NodeT, EdgeT>();
         for (const nId of nodes) {
             const node = this.nodeMap.get(nId);
-            if (node)
+            if (node !== undefined)
                 H.addNode(nId, node);
         }
 

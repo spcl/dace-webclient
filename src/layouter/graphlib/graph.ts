@@ -11,14 +11,18 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
         return;
     }
 
-    public get(id: string): NodeT | undefined {
+    public get(id: string): NodeT | null {
         const val = this.nodeMap.get(id);
-        if (val === undefined || val === null)
+        if (val === undefined)
             throw new Error(`Node ${id} does not exist`);
         return val;
     }
 
-    public addNode(id: string, node?: NodeT): void {
+    public has(id: string): boolean {
+        return this.nodeMap.get(id) !== undefined;
+    }
+
+    public addNode(id: string, node?: NodeT | null): void {
         this.nodeMap.set(id, node ?? null);
         if (!this.adjacencyList.has(id))
             this.adjacencyList.set(id, new Map());
@@ -60,7 +64,7 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
         return this.nodeMap.keys();
     }
 
-    public addEdge(u: string, v: string, edge?: EdgeT): void {
+    public addEdge(u: string, v: string, edge?: EdgeT | null): void {
         if (!this.nodeMap.has(u))
             this.addNode(u);
         if (!this.nodeMap.has(v))
@@ -89,11 +93,11 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
             (this.adjacencyList.get(v)?.has(u) ?? false);
     }
 
-    public edge(u: string, v: string): EdgeT | undefined {
+    public edge(u: string, v: string): EdgeT | null {
         const val = this.adjacencyList.get(u)?.get(v);
         if (val === undefined)
             throw new Error(`Edge ${u} <-> ${v} does not exist`);
-        return val ?? undefined;
+        return val;
     }
 
     public neighbors(id: string): string[] {
@@ -121,7 +125,9 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
     }
 
     public numberOfEdges(): number {
-        return this.edges().length;
+        // Report half the number of actual edges, since the graph is
+        // bidirectional, which is represented by two edges going either way.
+        return this.edges().length / 2;
     }
 
     public adjList(): (string | [string, string])[] {
@@ -157,8 +163,7 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
         const H = new Graph<NodeT, EdgeT>();
         for (const nId of nodes) {
             const node = this.nodeMap.get(nId);
-            if (node)
-                H.addNode(nId, node);
+            H.addNode(nId, node);
         }
 
         for (const [u, v] of this.edgesIter()) {
