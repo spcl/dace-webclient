@@ -1,6 +1,10 @@
-name: Build and update dist
+name: Build
 
-on: workflow_dispatch
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
 
 jobs:
   build:
@@ -20,13 +24,3 @@ jobs:
     - run: npm ci
     - run: npm run type-check
     - run: npm run build-prod
-    - run: npm run test
-    - name: Update dist folder
-      uses: test-room-7/action-update-file@v1
-      with:
-          file-path: |
-              dist/*.js
-              dist/*.map
-              dist/*.txt
-          commit-msg: Auto-update distribution
-          github-token: ${{ secrets.GITHUB_TOKEN }}
