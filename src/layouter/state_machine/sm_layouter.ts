@@ -474,6 +474,11 @@ export class SMLayouter {
         for (const edge of this.graph.edgesIter()) {
             const src = edge[0];
             const dst = edge[1];
+
+            // Self-edges do not need to be normalized.
+            if (src === dst)
+                continue;
+
             const srcRank = this.graph.get(src)!.rank!;
             const dstRank = this.graph.get(dst)!.rank!;
 

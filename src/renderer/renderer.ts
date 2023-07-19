@@ -3298,10 +3298,17 @@ function relayout_sdfg(
         );
     });
 
-    if (SDFVSettings.useVerticalStateMachineLayout)
-        SMLayouter.layoutDagreCompat(g);
-    else
+    if (SDFVSettings.useVerticalStateMachineLayout) {
+        // Fall back to dagre for anything that cannot be laid out with
+        // the vertical layout (e.g., irreducible control flow).
+        try {
+            SMLayouter.layoutDagreCompat(g);
+        } catch (_ignored) {
+            dagre.layout(g);
+        }
+    } else {
         dagre.layout(g);
+    }
 
     // Annotate the sdfg with its layout info
     sdfg.nodes.forEach((state: any) => {

@@ -125,6 +125,8 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
     }
 
     public numberOfEdges(): number {
+        // Report half the number of actual edges, since the graph is
+        // bidirectional, which is represented by two edges going either way.
         return this.edges().length / 2;
     }
 

@@ -46,7 +46,7 @@ function testFindSimpleCycle(): void {
     expect(edgeCycle).toContainEqual(['4', '6']);
     expect(edgeCycle).toContainEqual(['6', '2']);
 
-    // If no start node is provided, this should toss an error since the start
+    // If no start node is provided, this should throw an error since the start
     // is ambiguous.
     expect(() => allBackedges(g)).toThrow(Error);
     const [backedges, eclipsedBackedges] = allBackedges(g, '1', true);

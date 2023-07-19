@@ -13,6 +13,10 @@ export class NodeCycle<NodeT> {
             this._edges.add(e.toString());
     }
 
+    /**
+     * Get the length of a cycle, which is given by the number of edges
+     * that make up the cycle.
+     */
     public get length(): number {
         return this._edges.size;
     }

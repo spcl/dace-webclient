@@ -170,6 +170,53 @@ function testNestedLoopsFusedEdes(): void {
     expect(n5.rank).toBe(5);
 }
 
+function testSelfLoop(): void {
+    const graph = new DiGraph<SMLayouterNode, SMLayouterEdge>();
+
+    // Test a simple loop with a self edge.
+    // Construct graph.
+    //   0
+    //   |
+    //  =1
+    //   |
+    //   2
+ 
+    constructEdge(graph, '0', '1');
+    constructEdge(graph, '1', '1');
+    constructEdge(graph, '1', '2');
+
+    const layouter = new SMLayouter(graph);
+    layouter.doLayout();
+
+    expect(graph.get('0')?.rank).toBe(0);
+    expect(graph.get('1')?.rank).toBe(1);
+    expect(graph.get('2')?.rank).toBe(2);
+
+    const graph2 = new DiGraph<SMLayouterNode, SMLayouterEdge>();
+
+    // Test the same scenario with an additional nested loop inside.
+    // Construct graph.
+    //   0
+    //   |
+    //  =1==--3
+    //   | |
+    //   2--
+ 
+    constructEdge(graph2, '0', '1');
+    constructEdge(graph2, '1', '1');
+    constructEdge(graph2, '1', '2');
+    constructEdge(graph2, '1', '3');
+    constructEdge(graph2, '2', '1');
+
+    const layouter2 = new SMLayouter(graph2);
+    layouter2.doLayout();
+
+    expect(graph2.get('0')?.rank).toBe(0);
+    expect(graph2.get('1')?.rank).toBe(1);
+    expect(graph2.get('2')?.rank).toBe(2);
+    expect(graph2.get('3')?.rank).toBe(3);
+}
+
 describe('Test vertical state machine layout ranking', () => {
     test('Basic branching', testBasicBranching);
     test('Nested branching', testNestedBranching);
@@ -177,4 +224,5 @@ describe('Test vertical state machine layout ranking', () => {
         'Nested loops with fused assignment and condition edges',
         testNestedLoopsFusedEdes
     );
+    test('Test self loops', testSelfLoop);
 });
