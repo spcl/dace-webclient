@@ -12,10 +12,10 @@ const dagreOrder = require('dagre/lib/order');
 const ARTIFICIAL_START = '__smlayouter_artifical_start';
 const ARTIFICIAL_END = '__smlayouter_artifical_end';
 
-const LAYER_SPACING = 50;
-const NODE_SPACING = 50;
-const BACKEDGE_SPACING = 20;
-const SKIP_EDGES_CENTER_OFFSET = 50; // Given in percent.
+export const LAYER_SPACING = 50;
+export const NODE_SPACING = 50;
+export const BACKEDGE_SPACING = 20;
+export const SKIP_EDGES_CENTER_OFFSET = 50; // Given in percent.
 
 enum ScopeType {
     BRANCH,
@@ -824,7 +824,7 @@ export class SMLayouter {
 
         for (const edge of this.graph.edgesIter()) {
             // Here we don't want to route backedges, they are handled
-            // separately.
+            // separately (except for self edges).
             const srcRank = this.graph.get(edge[0])!.rank!;
             const dstRank = this.graph.get(edge[1])!.rank!;
             if (srcRank > dstRank)
@@ -833,10 +833,25 @@ export class SMLayouter {
             const edgeData = this.graph.edge(edge[0], edge[1])!;
             const src = this.graph.get(edge[0])!;
             const dst = this.graph.get(edge[1])!;
-            edgeData.points = [
-                { x: src.x, y: src.y + (src.height / 2) },
-                { x: dst.x, y: dst.y - (dst.height / 2) },
-            ];
+
+            if (edge[0] === edge[1]) {
+                // Self edge.
+                const nodeLeftX = src.x - (src.width / 2);
+                const edgeLeftX = nodeLeftX - BACKEDGE_SPACING;
+                const edgeBottomY = src.y + (src.height / 4);
+                const edgeTopY = src.y - (src.height / 4);
+                edgeData.points = [
+                    { x: nodeLeftX, y: edgeBottomY },
+                    { x: edgeLeftX, y: edgeBottomY },
+                    { x: edgeLeftX, y: edgeTopY },
+                    { x: nodeLeftX, y: edgeTopY },
+                ];
+            } else {
+                edgeData.points = [
+                    { x: src.x, y: src.y + (src.height / 2) },
+                    { x: dst.x, y: dst.y - (dst.height / 2) },
+                ];
+            }
             routedEdges.add(edgeData);
         }
 
