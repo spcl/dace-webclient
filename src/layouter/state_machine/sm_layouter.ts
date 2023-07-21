@@ -843,4 +843,8 @@ export class SMLayouter {
         return routedEdges;
     }
 
+    public getLoopScopes() {
+        return;
+    }
+
 }

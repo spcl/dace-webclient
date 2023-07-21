@@ -1,4 +1,5 @@
 import { DiGraph } from '../di_graph';
+import { Graph } from '../graph';
 
 export function* dfsLabeledEdges(
     graph: DiGraph<unknown, unknown>, source: string, depthLimit?: number
@@ -50,5 +51,20 @@ export function* dfsPostorderNodes(
     for (const edge of dfsLabeledEdges(graph, start, depthLimit)) {
         if (edge[2] === 'reverse')
             yield edge[1];
+    }
+}
+
+export function* allReachable(
+    graph: Graph<unknown, unknown>, start: string
+): Generator<string> {
+    const visited = new Set<string>();
+    const stack = graph.neighbors(start);
+    while (stack.length > 0) {
+        const n = stack.pop()!;
+        if (visited.has(n))
+            continue;
+        yield n;
+        visited.add(n);
+        stack.push(...graph.neighbors(n));
     }
 }
