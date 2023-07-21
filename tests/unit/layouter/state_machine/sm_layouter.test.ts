@@ -1,9 +1,10 @@
+import { DiGraph } from '../../../../src/layouter/graphlib/di_graph';
 import {
+    BACKEDGE_SPACING,
     SMLayouter,
     SMLayouterEdge,
-    SMLayouterNode,
+    SMLayouterNode
 } from '../../../../src/layouter/state_machine/sm_layouter';
-import { DiGraph } from '../../../../src/layouter/graphlib/di_graph';
 
 function constructNode(
     graph: DiGraph<SMLayouterNode, SMLayouterEdge>, id: string, height?: number,
@@ -225,4 +226,42 @@ describe('Test vertical state machine layout ranking', () => {
         testNestedLoopsFusedEdes
     );
     test('Test self loops', testSelfLoop);
+});
+
+function testEdgeRoutingSelfLoop(): void {
+    const graph = new DiGraph<SMLayouterNode, SMLayouterEdge>();
+
+    // Construct graph.
+    //   0
+    //   |
+    //  =1
+    //   |
+    //   2
+ 
+    constructEdge(graph, '0', '1');
+    constructEdge(graph, '1', '1');
+    constructEdge(graph, '1', '2');
+
+    const layouter = new SMLayouter(graph);
+    layouter.doLayout();
+
+    const selfEdge = graph.edge('1', '1')!;
+    const node = graph.get('1')!;
+    const lowerY = node.y + (node.height / 4);
+    const upperY = node.y - (node.height / 4);
+    const leftX = node.x - ((node.width / 2) + BACKEDGE_SPACING);
+    const rightX = node.x - (node.width / 2);
+    expect(selfEdge.points.length).toBe(4);
+    expect(selfEdge.points[0].x).toBeCloseTo(rightX);
+    expect(selfEdge.points[0].y).toBeCloseTo(lowerY);
+    expect(selfEdge.points[1].x).toBeCloseTo(leftX);
+    expect(selfEdge.points[1].y).toBeCloseTo(lowerY);
+    expect(selfEdge.points[2].x).toBeCloseTo(leftX);
+    expect(selfEdge.points[2].y).toBeCloseTo(upperY);
+    expect(selfEdge.points[3].x).toBeCloseTo(rightX);
+    expect(selfEdge.points[3].y).toBeCloseTo(upperY);
+}
+
+describe('Test vertical state machine edge routing', () => {
+    test('Test routing a self edge loop', testEdgeRoutingSelfLoop);
 });
