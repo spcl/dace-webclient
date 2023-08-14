@@ -6,6 +6,7 @@ import {
     immediateDominators,
 } from '../graphlib/algorithms/dominance';
 import { DiGraph } from '../graphlib/di_graph';
+import { allReachable } from '../graphlib/algorithms/traversal';
 
 const dagreOrder = require('dagre/lib/order');
 
@@ -245,6 +246,9 @@ export class SMLayouter {
             g.removeNode(ARTIFICIAL_START);
         if (instance.endNode === ARTIFICIAL_END)
             g.removeNode(ARTIFICIAL_END);
+
+        const loopScopes = instance.getLoopScopes();
+        console.log(loopScopes);
     }
 
     /**
@@ -844,7 +848,27 @@ export class SMLayouter {
     }
 
     public getLoopScopes() {
-        return;
+        const loopScopes = new Set<Set<string>>();
+        for (const be of this.backedges) {
+            const src = this.graph.get(be[0]);
+            const dst = this.graph.get(be[1]);
+            if (src && dst && src.rank !== undefined &&
+                dst.rank !== undefined && src.rank !== dst.rank) {
+                const upper = src.rank < dst.rank ? be[0] : be[1];
+                const cutoffRank = src.rank < dst.rank ? dst.rank : src.rank;
+                const reachableFromUpper = allReachable(this.graph, upper);
+                const loopScope = new Set<string>();
+                for (const reached of reachableFromUpper) {
+                    const reachedNode = this.graph.get(reached);
+                    if (reachedNode && reachedNode.rank !== undefined &&
+                        reachedNode.rank <= cutoffRank)
+                        loopScope.add(reached);
+                }
+                if (loopScope.size)
+                    loopScopes.add(loopScope);
+            }
+        }
+        return loopScopes;
     }
 
 }

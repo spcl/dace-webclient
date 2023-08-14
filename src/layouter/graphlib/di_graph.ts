@@ -23,6 +23,10 @@ export class DiGraph<NodeT, EdgeT> extends Graph<NodeT, EdgeT> {
         super.removeNode(id);
         this.pred.delete(id);
         this.succ.delete(id);
+        for (const p of this.pred.values())
+            p.delete(id);
+        for (const s of this.succ.values())
+            s.delete(id);
     }
 
     public addEdge(u: string, v: string, edge?: EdgeT | null): void {
