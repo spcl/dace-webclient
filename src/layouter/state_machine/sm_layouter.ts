@@ -75,7 +75,9 @@ export class SMLayouter {
     private readonly rankHeights: Map<number, number>;
     private readonly dummyChains: Set<[SMLayouterEdge, string[]]>;
 
-    public constructor(g: DiGraph<SMLayouterNode, SMLayouterEdge>) {
+    public constructor(
+        g: DiGraph<SMLayouterNode, SMLayouterEdge>, startState?: string
+    ) {
         this.graph = g;
 
         this.rankDict = new Map();
@@ -114,7 +116,10 @@ export class SMLayouter {
             for (const s of sources)
                 this.graph.addEdge(this.startNode, s, { points: [] });
         } else if (sources.length === 0) {
-            throw new Error('State machine has no sources.');
+            if (startState === undefined)
+                throw new Error('State machine has no sources.');
+            else
+                this.startNode = startState;
         } else {
             this.startNode = sources[0];
         }
@@ -179,14 +184,16 @@ export class SMLayouter {
      * performing the layout.
      * @param {DagreSDFG} dagreGraph Dagre.js graph to perform layouting for.
      */
-    public static layoutDagreCompat(dagreGraph: DagreSDFG): void {
+    public static layoutDagreCompat(
+        dagreGraph: DagreSDFG, startState?: string
+    ): void {
         const g = new DiGraph<SMLayouterNode, SMLayouterEdge>();
         for (const stateId of dagreGraph.nodes())
             g.addNode(stateId, dagreGraph.node(stateId));
         for (const edge of dagreGraph.edges())
             g.addEdge(edge.v, edge.w, dagreGraph.edge(edge));
 
-        SMLayouter.layout(g);
+        SMLayouter.layout(g, startState);
     }
 
     /**
@@ -235,11 +242,13 @@ export class SMLayouter {
      * Lay out a DiGraph.
      * @param {DiGraph<SMLayouterNode, SMLayouterEdge>} g Graph to lay out.
      */
-    private static layout(g: DiGraph<SMLayouterNode, SMLayouterEdge>): void {
+    private static layout(
+        g: DiGraph<SMLayouterNode, SMLayouterEdge>, startState?: string
+    ): void {
         // Construct a layouter instance (runs preparation phase) and perform
         // the laying out. Clean up afterwards by removing dummy start and end
         // nodes if they were added.
-        const instance = new SMLayouter(g);
+        const instance = new SMLayouter(g, startState);
         instance.doLayout();
         if (instance.startNode === ARTIFICIAL_START)
             g.removeNode(ARTIFICIAL_START);
