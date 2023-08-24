@@ -814,6 +814,8 @@ export class InterstateEdge extends Edge {
         this.create_arrow_line(ctx);
 
         let style = this.strokeStyle(renderer);
+        if (this.hovered)
+            renderer.set_tooltip((c) => this.tooltip(c, renderer));
 
         // Interstate edge
         if (style === this.getCssProperty(renderer, '--color-default'))
@@ -838,16 +840,11 @@ export class InterstateEdge extends Edge {
             ctx, this.points[this.points.length - 2],
             this.points[this.points.length - 1], 3
         );
-
-        if (SDFVSettings.alwaysOnISEdgeLabels) {
-            this.drawLabel(renderer, ctx);
-        } else {
-            if (this.hovered)
-                renderer.set_tooltip((c) => this.tooltip(c, renderer));
-        }
     }
 
-    public tooltip(container: HTMLElement, renderer?: SDFGRenderer): void {
+    public tooltip(
+        container: HTMLElement, renderer: SDFGRenderer | undefined = undefined
+    ): void {
         if (!renderer)
             return;
         super.tooltip(container);
@@ -855,25 +852,6 @@ export class InterstateEdge extends Edge {
         container.innerText = this.label();
         if (!this.label())
             container.style.display = 'none';
-    }
-
-    public drawLabel(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
-    ): void {
-        ctx.fillStyle = this.getCssProperty(renderer, '--color-default');
-        const oldFont = ctx.font;
-        ctx.font = '8px sans-serif';
-        const labelMetrics = ctx.measureText(this.label());
-        const labelW = Math.abs(labelMetrics.actualBoundingBoxLeft) +
-            Math.abs(labelMetrics.actualBoundingBoxRight);
-        const labelH = Math.abs(labelMetrics.actualBoundingBoxDescent) +
-            Math.abs(labelMetrics.actualBoundingBoxAscent);
-        const offsetX = this.points[0].x > this.points[1].x ? -(labelW + 5) : 5;
-        const offsetY = this.points[0].y > this.points[1].y ? -5 : (labelH + 5);
-        ctx.fillText(
-            this.label(), this.points[0].x + offsetX, this.points[0].y + offsetY
-        );
-        ctx.font = oldFont;
     }
 
 }
@@ -1742,12 +1720,10 @@ export class LibraryNode extends SDFGNode {
  */
 function batched_draw_edges(
     renderer: SDFGRenderer, graph: DagreSDFG, ctx: CanvasRenderingContext2D,
-    visible_rect: SimpleRect | null, mousepos: Point2D | null, color: string,
-    labelled: boolean = false
+    visible_rect: SimpleRect | null, mousepos: Point2D | null, color: string
 ): void {
     const deferredEdges: any[] = [];
     const arrowEdges: any[] = [];
-    const labelEdges: any[] = [];
     ctx.beginPath();
     graph.edges().forEach((e: any) => {
         const edge: Edge = (graph.edge(e) as Edge);
@@ -1775,13 +1751,6 @@ function batched_draw_edges(
             lPoint.y <= visible_rect.y + visible_rect.h)
             arrowEdges.push(edge);
 
-        const fPoint = edge.points[0];
-        if (labelled && visible_rect && fPoint.x >= visible_rect.x &&
-            fPoint.x <= visible_rect.x + visible_rect.w &&
-            fPoint.y >= visible_rect.y &&
-            fPoint.y <= visible_rect.y + visible_rect.h)
-            labelEdges.push(edge);
-
         edge.create_arrow_line(ctx);
     });
     ctx.setLineDash([1, 0]);
@@ -1792,10 +1761,6 @@ function batched_draw_edges(
         e.drawArrow(
             ctx, e.points[e.points.length - 2], e.points[e.points.length - 1], 3
         );
-    });
-
-    labelEdges.forEach(e => {
-        (e as InterstateEdge).drawLabel(renderer, ctx);
     });
 
     deferredEdges.forEach(e => {
@@ -1827,8 +1792,7 @@ export function draw_sdfg(
     const g = sdfg_dagre;
     if (!(ctx as any).lod || ppp < SDFV.EDGE_LOD)
         batched_draw_edges(
-            renderer, g, ctx, visible_rect, mousepos, '--interstate-edge-color',
-            SDFVSettings.alwaysOnISEdgeLabels
+            renderer, g, ctx, visible_rect, mousepos, '--interstate-edge-color'
         );
 
 
@@ -1897,8 +1861,7 @@ export function draw_sdfg(
                 return;
 
             batched_draw_edges(
-                renderer, ng, ctx, visible_rect, mousepos, '--color-default',
-                false
+                renderer, ng, ctx, visible_rect, mousepos, '--color-default'
             );
         }
     });
@@ -1988,7 +1951,7 @@ type AdaptiveTextPadding = {
     top?: number,
     right?: number,
     bottom?: number,
-};
+}
 
 export function drawAdaptiveText(
     ctx: CanvasRenderingContext2D, renderer: SDFGRenderer, far_text: string,

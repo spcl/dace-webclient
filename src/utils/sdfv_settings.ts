@@ -25,7 +25,6 @@ export class SDFVSettings {
     private readonly settingsDict: Record<string, boolean | string | number> = {
         // User modifiable settings fields.
         'minimap': true,
-        'alwaysOnISEdgeLabels': true,
         'showAccessNodes': true,
         'showStateNames': true,
         'showMapSchedules': true,
@@ -85,10 +84,6 @@ export class SDFVSettings {
                 else
                     this.renderer?.disableMinimap();
             }
-        );
-        this.addToggle(
-            root, 'Always show interstate edge labels', 'alwaysOnISEdgeLabels',
-            true
         );
         this.addToggle(root, 'Show access nodes', 'showAccessNodes', true);
         this.addToggle(root, 'Show state names', 'showStateNames');
@@ -211,12 +206,6 @@ export class SDFVSettings {
 
     public static get minimap(): boolean {
         return SDFVSettings.getInstance().settingsDict['minimap'] as boolean;
-    }
-
-    public static get alwaysOnISEdgeLabels(): boolean {
-        return SDFVSettings.getInstance().settingsDict[
-            'alwaysOnISEdgeLabels'
-        ] as boolean;
     }
 
     public static get showAccessNodes(): boolean {
