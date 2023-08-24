@@ -860,6 +860,11 @@ export class InterstateEdge extends Edge {
     public drawLabel(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
     ): void {
+        const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+        if (ppp === undefined)
+            return;
+        if ((ctx as any).lod && ppp >= SDFV.SCOPE_LOD)
+            return;
         ctx.fillStyle = this.getCssProperty(renderer, '--color-default');
         const oldFont = ctx.font;
         ctx.font = '8px sans-serif';
