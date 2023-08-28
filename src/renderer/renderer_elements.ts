@@ -373,7 +373,7 @@ export class State extends SDFGElement {
 
 }
 
-export class LoopScopeBlock extends State {
+export class LoopScopeBlock extends SDFGElement {
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
@@ -485,6 +485,29 @@ export class LoopScopeBlock extends State {
 
         ctx.font = oldfont;
         */
+    }
+
+    public shade(
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
+    ): void {
+        // Save the current style properties.
+        const orig_fill_style = ctx.fillStyle;
+        const orig_alpha = ctx.globalAlpha;
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+
+        const topleft = this.topleft();
+        ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
+
+        // Restore the previous style properties.
+        ctx.fillStyle = orig_fill_style;
+        ctx.globalAlpha = orig_alpha;
+    }
+
+    public tooltip(container: HTMLElement): void {
+        container.innerText = 'Loop: ' + this.label();
     }
 
     public attributes(): any {
@@ -1913,7 +1936,7 @@ function batchedDrawEdges(
 
 export function drawStateContents(
     stateGraph: DagreSDFG, ctx: CanvasRenderingContext2D,
-    renderer: SDFGRenderer, ppp: number, lod?: number,
+    renderer: SDFGRenderer, ppp: number, lod?: boolean,
     visibleRect?: SimpleRect, mousePos?: Point2D
 ): void {
     for (const nodeId of stateGraph.nodes()) {
@@ -1924,10 +1947,20 @@ export function drawStateContents(
         ))
             continue;
 
-        if (lod && node.height / ppp < SDFV.NODE_LOD) {
-            node.simple_draw(renderer, ctx, mousePos);
-            node.debug_draw(renderer, ctx);
-            continue;
+        if (node instanceof NestedSDFG) {
+            if (lod && (
+                Math.max(node.height, node.width) / ppp
+            ) < SDFV.STATE_LOD) {
+                node.simple_draw(renderer, ctx, mousePos);
+                node.debug_draw(renderer, ctx);
+                continue;
+            }
+        } else {
+            if (lod && ppp > SDFV.NODE_LOD) {
+                node.simple_draw(renderer, ctx, mousePos);
+                node.debug_draw(renderer, ctx);
+                continue;
+            }
         }
 
         node.draw(renderer, ctx, mousePos);
@@ -1956,7 +1989,7 @@ export function drawStateContents(
         });
     }
 
-    if (lod && ppp >= SDFV.EDGE_LOD)
+    if (lod && ppp > SDFV.EDGE_LOD)
         return;
 
     batchedDrawEdges(
@@ -1966,7 +1999,7 @@ export function drawStateContents(
 
 export function drawStateMachine(
     stateMachineGraph: DagreSDFG, ctx: CanvasRenderingContext2D,
-    renderer: SDFGRenderer, ppp: number, lod?: number,
+    renderer: SDFGRenderer, ppp: number, lod?: boolean,
     visibleRect?: SimpleRect, mousePos?: Point2D
 ): void {
     if (!lod || ppp < SDFV.EDGE_LOD)
@@ -1976,29 +2009,35 @@ export function drawStateMachine(
         );
 
     for (const nodeId of stateMachineGraph.nodes()) {
-        const node = stateMachineGraph.node(nodeId);
+        const block = stateMachineGraph.node(nodeId);
 
-        if (lod && (Math.max(node.width, node.height) / ppp < SDFV.STATE_LOD)) {
-            node.simple_draw(renderer, ctx, mousePos);
-            node.debug_draw(renderer, ctx);
+        if (lod && (Math.max(block.width, block.height) / ppp) < SDFV.STATE_LOD) {
+            block.simple_draw(renderer, ctx, mousePos);
+            block.debug_draw(renderer, ctx);
             continue;
         }
 
-        // Skip invisible states
-        if (lod && visibleRect && !node.intersect(
+        // Skip invisible states.
+        if (lod && visibleRect && !block.intersect(
             visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h
-        ))
+        )) {
             continue;
+        }
 
-        node.draw(renderer, ctx, mousePos);
-        node.debug_draw(renderer, ctx);
+        block.draw(renderer, ctx, mousePos);
+        block.debug_draw(renderer, ctx);
 
-        const ng = node.data.graph;
-        if (!node.attributes().is_collapsed && ng) {
-            if (node instanceof State)
-                drawStateContents(ng, ctx, renderer, ppp, lod, visibleRect, mousePos);
-            else
-                drawStateMachine(ng, ctx, renderer, ppp, lod, visibleRect, mousePos);
+        const ng = block.data.graph;
+        if (!block.attributes().is_collapsed && ng) {
+            if (block instanceof State) {
+                drawStateContents(
+                    ng, ctx, renderer, ppp, lod, visibleRect, mousePos
+                );
+            } else {
+                drawStateMachine(
+                    ng, ctx, renderer, ppp, lod, visibleRect, mousePos
+                );
+            }
         }
     }
 }
@@ -2013,6 +2052,7 @@ export function drawSDFG(
         return;
     const ppp = cManager.points_per_pixel();
     const visibleRect = renderer.get_visible_rect() ?? undefined;
+    console.log(ppp);
 
     drawStateMachine(
         g, ctx, renderer, ppp, (ctx as any).lod, visibleRect, mousePos
