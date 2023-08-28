@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
     Edge,
@@ -228,7 +228,7 @@ export function initialize_positioning_info(elem: any): any {
         position = { dx: 0, dy: 0, scope_dx: 0, scope_dy: 0 };
     }
 
-    set_positioning_info(elem, position);
+    setPositioningInfo(elem, position);
 
     return position;
 }
@@ -240,20 +240,14 @@ export function initialize_positioning_info(elem: any): any {
  * @param {SDFGElement} elem    The element that receives new positioning info
  * @param {*} position          The positioning information
  */
-export function set_positioning_info(
+export function setPositioningInfo(
     elem: any, position: any
 ): void {
-    if (elem instanceof State)
-        elem.data.state.attributes.position = position;
-    else if (elem instanceof SDFGNode)
-        elem.data.node.attributes.position = position;
-    else if (elem instanceof Edge)
-        elem.data.attributes.position = position;
-    else if (elem.type === 'MultiConnectorEdge')
-        elem.attributes.data.attributes.position = position;
-    // Works also for other objects with attributes
-    else if (elem.attributes)
-        elem.attributes.position = position;
+    let attr = elem?.attributes() ?? elem?.attributes?.data?.attributes;
+    if (!attr)
+        attr = elem?.attributes;
+    if (attr)
+        attr.position = position;
 }
 
 /**
@@ -262,20 +256,11 @@ export function set_positioning_info(
  * @param {SDFGElement} elem    The element that contains the information
  * @returns                     Position information, undefined if not present
  */
-export function get_positioning_info(elem: any): any {
-    if (elem instanceof State)
-        return elem.data.state.attributes.position;
-    if (elem instanceof SDFGNode)
-        return elem.data.node.attributes.position;
-    if (elem instanceof Edge)
-        return elem.data.attributes.position;
-    if (elem?.type === 'MultiConnectorEdge')
-        return elem?.attributes?.data?.attributes?.position;
-    // Works also for other objects with attributes
-    if (elem?.attributes)
-        return elem.attributes.position;
-
-    return undefined;
+export function getPositioningInfo(elem: any): any {
+    let attr = elem?.attributes() ?? elem?.attributes?.data?.attributes;
+    if (!attr)
+        attr = elem?.attributes;
+    return attr?.position;
 }
 
 /**
@@ -283,18 +268,12 @@ export function get_positioning_info(elem: any): any {
  *
  * @param {SDFGElement} elem    The element that contains the information
  */
-export function delete_positioning_info(elem: any): void {
-    if (elem instanceof State)
-        delete elem.data.state.attributes.position;
-    if (elem instanceof SDFGNode)
-        delete elem.data.node.attributes.position;
-    if (elem instanceof Edge)
-        delete elem.data.attributes.position;
-    if (elem?.type === 'MultiConnectorEdge')
-        delete elem.attributes.data.attributes.position;
-    // Works also for other objects with attributes
-    if (elem?.attributes)
-        delete elem.attributes.position;
+export function deletePositioningInfo(elem: any): void {
+    let attr = elem?.attributes() ?? elem?.attributes?.data?.attributes;
+    if (!attr)
+        attr = elem?.attributes;
+    if (attr)
+        delete attr.position;
 }
 
 

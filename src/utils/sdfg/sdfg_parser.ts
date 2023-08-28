@@ -1,68 +1,73 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { JsonSDFG, JsonSDFGNode, JsonSDFGState } from '../../index';
+import {
+    JsonSDFG,
+    JsonSDFGBlock,
+    JsonSDFGNode,
+    SDFGElementType,
+} from '../../index';
 
-export class SDFG_Parser {
+export class SDFGParser {
 
     public constructor(private readonly sdfg: JsonSDFG) {
     }
 
-    public getStates(): SDFG_State_Parser[] {
-        return this.sdfg.nodes.map((x: JsonSDFGState) => new SDFG_State_Parser(x));
+    public getStates(): SDFGStateParser[] {
+        return this.sdfg.nodes.map((x: JsonSDFGBlock) => new SDFGStateParser(x));
     }
 
-    public static lookup_symbols(
-        sdfg: JsonSDFG, state_id: number, elem: any,
-        symbols_to_resolve: string[], depth: number = 0
+    public static lookupSymbols(
+        sdfg: JsonSDFG, stateId: number, elem: any,
+        symbolsToResolve: string[], depth: number = 0
     ): any[] {
-        // Resolve used symbols by following connectors in reverse order
-        const state = sdfg.nodes[state_id];
+        // Resolve used symbols by following connectors in reverse order.
+        const state = sdfg.nodes[stateId];
 
         let syms: any[] = [];
 
         if (elem.constructor == Object) {
-            // Memlet
+            // Memlet.
             const memlets = state.edges.filter((x: any) => {
                 return x.dst == elem.dst && x.src == elem.src;
             });
 
             // Recurse into parent (since this a multigraph, all edges need to
-            // be looked at)
+            // be looked at).
             for (const m of memlets) {
-                // Find symbols used (may be Indices or Range)
+                // Find symbols used (may be Indices or Range).
                 const mdata = m.attributes.data.attributes.subset;
                 // Check for indices
                 if (mdata.type == 'subsets.Indices') {
-                    // These are constants or variables
-                    // Reverse to have smallest unit first
+                    // These are constants or variables.
+                    // Reverse to have smallest unit first.
                     const tmp = mdata.indices.map((x: any) => x).reverse();
                     for (const x of tmp) {
                         // Add the used variables as null and hope that they
-                        // will be resolved
+                        // will be resolved.
                         depth += 1;
                         syms.push({ var: x, val: null, depth: depth });
                     }
                 } else if (mdata.type == 'subsets.Range') {
-                    // These are ranges
+                    // These are ranges.
                     // These ranges are not of interest, as they specify what is
-                    // copied and don't define new variables 
+                    // copied and don't define new variables.
                 }
 
-                // Find parent nodes
-                const tmp = SDFG_Parser.lookup_symbols(
-                    sdfg, state_id, m.src, symbols_to_resolve, depth + 1
+                // Find parent nodes.
+                const tmp = SDFGParser.lookupSymbols(
+                    sdfg, stateId, m.src, symbolsToResolve, depth + 1
                 );
                 syms = [...syms, ...tmp];
             }
         } else {
-            // Node
+            // Node.
             const node = state.nodes[elem];
 
-            // Maps (and Consumes) define ranges, extract symbols from there
+            // Maps (and Consumes) define ranges, extract symbols from there.
             try {
-                // The iterator ranges
+                // The iterator ranges.
                 const rngs = node.attributes.range.ranges.map((x: any) => x);
-                // The iterators
+                // The iterators.
                 const params = node.attributes.params.map((x: any) => x);
 
                 console.assert(
@@ -71,13 +76,13 @@ export class SDFG_Parser {
                 );
 
                 // Reverse from big -> little to little -> big (or outer ->
-                // inner to inner -> outer)
+                // inner to inner -> outer).
                 rngs.reverse();
                 params.reverse();
 
                 for (let i = 0; i < rngs.length; ++i) {
                     // Check first if the variable is already defined, and if
-                    // yes, if the value is the same
+                    // yes, if the value is the same.
                     const fltrd = syms.filter(x => x.var == params[i]);
                     if (fltrd.length == 0) {
                         depth += 1;
@@ -96,13 +101,14 @@ export class SDFG_Parser {
                     }
                 }
             } catch (e) {
-                // Not a node defining ranges (every node except maps / consumes)
+                // Not a node defining ranges (every node except maps /
+                // consumes).
             }
-            // Find all incoming edges
+            // Find all incoming edges.
             const inc_edges = state.edges.filter((x: any) => x.dst == elem);
             for (const e of inc_edges) {
-                const tmp = SDFG_Parser.lookup_symbols(
-                    sdfg, state_id, e, symbols_to_resolve, depth + 1
+                const tmp = SDFGParser.lookupSymbols(
+                    sdfg, stateId, e, symbolsToResolve, depth + 1
                 );
                 syms = [...syms, ...tmp];
             }
@@ -112,28 +118,37 @@ export class SDFG_Parser {
     }
 }
 
-export class SDFG_State_Parser {
+export class SDFGStateParser {
 
-    public constructor(private readonly sdfg_state: JsonSDFGState) {
+    public constructor(private readonly block: JsonSDFGBlock) {
     }
 
     public getNodes(): any {
-        return this.sdfg_state.nodes.map((x: any) => new SDFG_Node_Parser(x));
+        return this.block.nodes.map((x) => {
+            switch (x.type) {
+                case SDFGElementType.SDFGState:
+                case SDFGElementType.BasicBlock:
+                case SDFGElementType.LoopScopeBlock:
+                    return new SDFGStateParser(x as JsonSDFGBlock);
+                default:
+                    return new SDFGNodeParser(x as JsonSDFGNode);
+            }
+        });
     }
 }
 
-export class SDFG_Node_Parser {
+export class SDFGNodeParser {
 
     public constructor(private readonly node: JsonSDFGNode) {
     }
 
-    public isNodeType(node_type: string): boolean {
-        return this.node.attributes.type === node_type;
+    public isNodeType(nodeType: string): boolean {
+        return this.node.attributes.type === nodeType;
     }
 
 }
 
-export class SDFG_PropUtil {
+export class SDFGPropUtil {
 
     public static getMetaFor(obj: any, attr_name: string): any {
         return obj.attributes['_meta_' + attr_name];

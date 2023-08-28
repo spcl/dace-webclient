@@ -16,7 +16,7 @@ import {
     Point2D,
     sdfg_property_to_string,
     showErrorModal,
-    traverse_sdfg_scopes
+    traverseSDFGScopes
 } from './index';
 import { LViewRenderer } from './local_view/lview_renderer';
 import {
@@ -165,7 +165,7 @@ export class SDFV {
         const stack: any[] = [sidebar];
 
         // Add elements to tree view in sidebar
-        traverse_sdfg_scopes(sdfg, (node: SDFGNode, parent: DagreSDFG) => {
+        traverseSDFGScopes(sdfg, (node: SDFGNode, parent: DagreSDFG) => {
             // Skip exit nodes when scopes are known
             if (node.type().endsWith('Exit') &&
                 node.data.node.scope_entry >= 0) {

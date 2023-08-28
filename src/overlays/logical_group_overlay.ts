@@ -7,6 +7,7 @@ import {
     SDFGNode,
     SDFGElement,
     State,
+    SDFGElementType,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
@@ -78,62 +79,69 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         }
     }
 
-    public recursively_shade_sdfg(
-        sdfg: JsonSDFG,
-        graph: DagreSDFG,
-        ctx: CanvasRenderingContext2D,
-        ppp: number,
-        visible_rect: SimpleRect
+    public recursivelyShadeSDFG(
+        sdfg: JsonSDFG, graph: DagreSDFG, ctx: CanvasRenderingContext2D,
+        ppp: number, visibleRect: SimpleRect
     ): void {
         // First go over visible states, skipping invisible ones. We only draw
         // something if the state is collapsed or we're zoomed out far enough.
         // In that case, we overlay the correct grouping color(s).
         // If it's expanded or zoomed in close enough, we traverse inside.
-        const sdfg_groups = sdfg.attributes.logical_groups;
-        if (sdfg_groups === undefined)
+        const sdfgGroups = sdfg.attributes.logical_groups;
+        if (sdfgGroups === undefined)
             return;
 
         graph.nodes().forEach(v => {
-            const state = graph.node(v);
+            const block = graph.node(v);
 
             // If the node's invisible, we skip it.
-            if ((ctx as any).lod && !state.intersect(
-                visible_rect.x, visible_rect.y,
-                visible_rect.w, visible_rect.h
+            if ((ctx as any).lod && !block.intersect(
+                visibleRect.x, visibleRect.y,
+                visibleRect.w, visibleRect.h
             ))
                 return;
 
             if (((ctx as any).lod && (ppp >= SDFV.STATE_LOD ||
-                state.width / ppp <= SDFV.STATE_LOD)) ||
-                state.data.state.attributes.is_collapsed) {
-                this.shade_node(state, sdfg_groups, ctx);
+                block.width / ppp <= SDFV.STATE_LOD)) ||
+                block.attributes().is_collapsed
+            ) {
+                this.shade_node(block, sdfgGroups, ctx);
             } else {
-                const state_graph = state.data.graph;
-                if (state_graph) {
-                    state_graph.nodes().forEach((v: string) => {
-                        const node = state_graph.node(v);
+                if (block.type() === SDFGElementType.SDFGState) {
+                    const stateGraph = block.data.graph;
+                    if (stateGraph) {
+                        stateGraph.nodes().forEach((v: string) => {
+                            const node = stateGraph.node(v);
 
-                        // Skip the node if it's not visible.
-                        if ((ctx as any).lod && !node.intersect(visible_rect.x,
-                            visible_rect.y, visible_rect.w, visible_rect.h))
-                            return;
+                            // Skip the node if it's not visible.
+                            if ((ctx as any).lod && !node.intersect(
+                                visibleRect.x,
+                                visibleRect.y, visibleRect.w, visibleRect.h)
+                            )
+                                return;
 
-                        if (node.data.node.attributes.is_collapsed ||
-                            ((ctx as any).lod && ppp >= SDFV.NODE_LOD)) {
-                            this.shade_node(node, sdfg_groups, ctx);
-                        } else {
-                            if (node instanceof NestedSDFG &&
-                                node.attributes().sdfg &&
-                                node.attributes().sdfg.type !== 'SDFGShell') {
-                                this.recursively_shade_sdfg(
-                                    node.data.node.attributes.sdfg,
-                                    node.data.graph, ctx, ppp, visible_rect
-                                );
+                            if (node.attributes().is_collapsed ||
+                                ((ctx as any).lod && ppp >= SDFV.NODE_LOD)) {
+                                this.shade_node(node, sdfgGroups, ctx);
                             } else {
-                                this.shade_node(node, sdfg_groups, ctx);
+                                if (node instanceof NestedSDFG &&
+                                    node.attributes().sdfg &&
+                                    node.attributes().sdfg.type !== 'SDFGShell'
+                                ) {
+                                    this.recursivelyShadeSDFG(
+                                        node.data.node.attributes.sdfg,
+                                        node.data.graph, ctx, ppp, visibleRect
+                                    );
+                                } else {
+                                    this.shade_node(node, sdfgGroups, ctx);
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
+                } else {
+                    this.recursivelyShadeSDFG(
+                        sdfg, block.data.graph, ctx, ppp, visibleRect
+                    );
                 }
             }
         });
@@ -146,7 +154,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         const context = this.renderer.get_context();
         const visible_rect = this.renderer.get_visible_rect();
         if (graph && ppp !== undefined && context && visible_rect)
-            this.recursively_shade_sdfg(
+            this.recursivelyShadeSDFG(
                 sdfg, graph, context, ppp, visible_rect
             );
     }
