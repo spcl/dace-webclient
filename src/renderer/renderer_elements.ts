@@ -37,6 +37,8 @@ export enum SDFGElementType {
     PipelineExit = 'PipelineExit',
     Reduce = 'Reduce',
     BasicBlock = 'BasicBlock',
+    ControlFlowBlock = 'ControlFlowBlock',
+    ScopeBlock = 'ScopeBlock',
     LoopScopeBlock = 'LoopScopeBlock',
 }
 
@@ -223,7 +225,16 @@ export class SDFG extends SDFGElement {
 export class SDFGShell extends SDFG {
 }
 
-export class State extends SDFGElement {
+export class ControlFlowBlock extends SDFGElement {
+}
+
+export class BasicBlock extends SDFGElement {
+}
+
+export class ScopeBlock extends ControlFlowBlock {
+}
+
+export class State extends BasicBlock {
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
@@ -373,24 +384,44 @@ export class State extends SDFGElement {
 
 }
 
-export class LoopScopeBlock extends SDFGElement {
+export class LoopScopeBlock extends ScopeBlock {
+
+    public static readonly META_LABEL_MARGIN: number = 5;
+
+    public static get CONDITION_SPACING(): number {
+        return 3 * SDFV.LINEHEIGHT;
+    }
+
+    public static get INIT_SPACING(): number {
+        return 3 * SDFV.LINEHEIGHT;
+    }
+
+    public static get UPDATE_SPACING(): number {
+        return 3 * SDFV.LINEHEIGHT;
+    }
+
+    public static get LOOP_STATEMENT_FONT(): string {
+        return (SDFV.DEFAULT_CANVAS_FONTSIZE * 1.5).toString() +
+            'px sans-serif';
+    }
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D
     ): void {
         const topleft = this.topleft();
-        const visible_rect = renderer.get_visible_rect();
+        const visibleRect = renderer.get_visible_rect();
+
         let clamped;
-        if (visible_rect)
+        if (visibleRect)
             clamped = {
-                x: Math.max(topleft.x, visible_rect.x),
-                y: Math.max(topleft.y, visible_rect.y),
+                x: Math.max(topleft.x, visibleRect.x),
+                y: Math.max(topleft.y, visibleRect.y),
                 x2: Math.min(
-                    topleft.x + this.width, visible_rect.x + visible_rect.w
+                    topleft.x + this.width, visibleRect.x + visibleRect.w
                 ),
                 y2: Math.min(
-                    topleft.y + this.height, visible_rect.y + visible_rect.h
+                    topleft.y + this.height, visibleRect.y + visibleRect.h
                 ),
                 w: 0,
                 h: 0,
@@ -412,19 +443,119 @@ export class LoopScopeBlock extends SDFGElement {
                 w: this.width, h: this.height
             };
 
+        // Draw the loop background below everything and stroke the border.
         ctx.fillStyle = this.getCssProperty(
             renderer, '--loop-background-color'
         );
+        ctx.strokeStyle = this.getCssProperty(
+            renderer, '--loop-foreground-color'
+        );
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
         ctx.fillStyle = this.getCssProperty(
             renderer, '--loop-foreground-color'
         );
-        ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
 
-        if (visible_rect && visible_rect.x <= topleft.x &&
-            visible_rect.y <= topleft.y + SDFV.LINEHEIGHT &&
+        const oldFont = ctx.font;
+        let topSpacing = LoopScopeBlock.META_LABEL_MARGIN;
+        let remainingHeight = this.height;
+
+        // Draw the init statement if there is one.
+        if (this.attributes().init_statement) {
+            topSpacing += LoopScopeBlock.INIT_SPACING;
+            const initBottomLineY = topleft.y + LoopScopeBlock.INIT_SPACING;
+            ctx.beginPath();
+            ctx.moveTo(topleft.x, initBottomLineY);
+            ctx.lineTo(topleft.x + this.width, initBottomLineY);
+            ctx.stroke();
+
+            ctx.font = LoopScopeBlock.LOOP_STATEMENT_FONT;
+            const initStatement = this.attributes().init_statement.string_data;
+            const initTextY = (
+                (topleft.y + (LoopScopeBlock.INIT_SPACING / 2)) +
+                (SDFV.LINEHEIGHT / 2)
+            );
+            const initTextMetrics = ctx.measureText(initStatement);
+            const initTextX = this.x - (initTextMetrics.width / 2);
+            ctx.fillText(initStatement, initTextX, initTextY);
+
+            ctx.font = oldFont;
+            ctx.fillText(
+                'init', topleft.x + LoopScopeBlock.META_LABEL_MARGIN, initTextY
+            );
+        }
+
+        // Draw the condition (either on top if the loop is a regularly
+        // structured loop, or on the bottom if the loop is an inverted
+        // (do-while-style) loop). If the condition is drawn on top, make sure
+        // the init statement spacing is respected if there is one.
+        let condTopY = topleft.y;
+        let condLineY = condTopY + LoopScopeBlock.CONDITION_SPACING;
+        if (this.attributes().inverted) {
+            condTopY = topleft.y +
+                (this.height - LoopScopeBlock.CONDITION_SPACING);
+            condLineY = condTopY - LoopScopeBlock.CONDITION_SPACING;
+        } else if (this.attributes().init_statement) {
+            condTopY += LoopScopeBlock.INIT_SPACING;
+            condLineY = condTopY + LoopScopeBlock.CONDITION_SPACING;
+        }
+        topSpacing += LoopScopeBlock.CONDITION_SPACING;
+        ctx.beginPath();
+        ctx.moveTo(topleft.x, condLineY);
+        ctx.lineTo(topleft.x + this.width, condLineY);
+        ctx.stroke();
+        ctx.font = LoopScopeBlock.LOOP_STATEMENT_FONT;
+        const condStatement = this.attributes().scope_condition.string_data;
+        const condTextY = (
+            (condTopY + (LoopScopeBlock.CONDITION_SPACING / 2)) +
+            (SDFV.LINEHEIGHT / 2)
+        );
+        const condTextMetrics = ctx.measureText(condStatement);
+        const condTextX = this.x - (condTextMetrics.width / 2);
+        ctx.fillText(condStatement, condTextX, condTextY);
+        ctx.font = oldFont;
+        ctx.fillText(
+            'while', topleft.x + LoopScopeBlock.META_LABEL_MARGIN, condTextY
+        );
+
+        // Draw the update statement if there is one.
+        if (this.attributes().update_statement) {
+            remainingHeight -= LoopScopeBlock.UPDATE_SPACING;
+            const updateTopY = topleft.y + (
+                this.height - LoopScopeBlock.UPDATE_SPACING
+            );
+            ctx.beginPath();
+            ctx.moveTo(topleft.x, updateTopY);
+            ctx.lineTo(topleft.x + this.width, updateTopY);
+            ctx.stroke();
+
+            ctx.font = LoopScopeBlock.LOOP_STATEMENT_FONT;
+            const updateStatement =
+                this.attributes().update_statement.string_data;
+            const updateTextY = (
+                (updateTopY + (LoopScopeBlock.UPDATE_SPACING / 2)) +
+                (SDFV.LINEHEIGHT / 2)
+            );
+            const updateTextMetrics = ctx.measureText(updateStatement);
+            const updateTextX = this.x - (updateTextMetrics.width / 2);
+            ctx.fillText(updateStatement, updateTextX, updateTextY);
+            ctx.font = oldFont;
+            ctx.fillText(
+                'update', topleft.x + LoopScopeBlock.META_LABEL_MARGIN,
+                updateTextY
+            );
+        }
+        remainingHeight -= topSpacing;
+
+        ctx.font = oldFont;
+
+        if (visibleRect && visibleRect.x <= topleft.x &&
+            visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
             SDFVSettings.showStateNames)
-            ctx.fillText(this.label(), topleft.x, topleft.y + SDFV.LINEHEIGHT);
+            ctx.fillText(
+                this.label(), topleft.x + LoopScopeBlock.META_LABEL_MARGIN,
+                topleft.y + topSpacing + SDFV.LINEHEIGHT
+            );
 
         // If this state is selected or hovered
         if ((this.selected || this.highlighted || this.hovered) &&
@@ -438,13 +569,14 @@ export class LoopScopeBlock extends SDFGElement {
 
         // If collapsed, draw a "+" sign in the middle
         if (this.attributes().is_collapsed) {
+            const plusCenterY = topleft.y + (remainingHeight / 2) + topSpacing;
             ctx.beginPath();
-            ctx.moveTo(this.x, this.y - SDFV.LINEHEIGHT);
-            ctx.lineTo(this.x, this.y + SDFV.LINEHEIGHT);
+            ctx.moveTo(this.x, plusCenterY - SDFV.LINEHEIGHT);
+            ctx.lineTo(this.x, plusCenterY + SDFV.LINEHEIGHT);
             ctx.stroke();
             ctx.beginPath();
-            ctx.moveTo(this.x - SDFV.LINEHEIGHT, this.y);
-            ctx.lineTo(this.x + SDFV.LINEHEIGHT, this.y);
+            ctx.moveTo(this.x - SDFV.LINEHEIGHT, plusCenterY);
+            ctx.lineTo(this.x + SDFV.LINEHEIGHT, plusCenterY);
             ctx.stroke();
         }
 
@@ -459,32 +591,13 @@ export class LoopScopeBlock extends SDFGElement {
         const topleft = this.topleft();
 
         ctx.fillStyle = this.getCssProperty(
-            renderer, '--loop-background-color'
+            renderer, '--loop-background-simple-color'
         );
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
         ctx.fillStyle = this.getCssProperty(renderer, '--loop-foreground-color');
 
         if (mousepos && this.intersect(mousepos.x, mousepos.y))
             renderer.set_tooltip((c) => this.tooltip(c));
-
-        // Draw state name in center without contents (does not look good)
-        /*
-        let FONTSIZE = Math.min(
-            renderer.canvas_manager.points_per_pixel() * 16, 100
-        );
-        let label = this.label();
-
-        let oldfont = ctx.font;
-        ctx.font = FONTSIZE + "px Arial";
-
-        let textmetrics = ctx.measureText(label);
-        ctx.fillText(
-            label, this.x - textmetrics.width / 2.0,
-            this.y - this.height / 6.0 + FONTSIZE / 2.0
-        );
-
-        ctx.font = oldfont;
-        */
     }
 
     public shade(
@@ -2011,7 +2124,8 @@ export function drawStateMachine(
     for (const nodeId of stateMachineGraph.nodes()) {
         const block = stateMachineGraph.node(nodeId);
 
-        if (lod && (Math.max(block.width, block.height) / ppp) < SDFV.STATE_LOD) {
+        const blockppp = Math.max(block.width, block.height) / ppp;
+        if (lod && blockppp < SDFV.STATE_LOD) {
             block.simple_draw(renderer, ctx, mousePos);
             block.debug_draw(renderer, ctx);
             continue;
@@ -2052,7 +2166,6 @@ export function drawSDFG(
         return;
     const ppp = cManager.points_per_pixel();
     const visibleRect = renderer.get_visible_rect() ?? undefined;
-    console.log(ppp);
 
     drawStateMachine(
         g, ctx, renderer, ppp, (ctx as any).lod, visibleRect, mousePos
@@ -2147,7 +2260,7 @@ type AdaptiveTextPadding = {
     top?: number,
     right?: number,
     bottom?: number,
-}
+};
 
 export function drawAdaptiveText(
     ctx: CanvasRenderingContext2D, renderer: SDFGRenderer, far_text: string,
@@ -2332,7 +2445,6 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     SDFGElement,
     SDFG,
     SDFGShell,
-    State,
     SDFGNode,
     InterstateEdge,
     Memlet,
@@ -2352,5 +2464,9 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     NestedSDFG,
     ExternalNestedSDFG,
     LibraryNode,
+    ControlFlowBlock,
+    BasicBlock,
+    State,
+    ScopeBlock,
     LoopScopeBlock,
 };

@@ -47,12 +47,13 @@ import { deepCopy, intersectRect, showErrorModal } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
 import {
     AccessNode, Connector,
-    Edge, EntryNode, InterstateEdge, Memlet, NestedSDFG,
+    Edge, EntryNode, InterstateEdge, LoopScopeBlock, Memlet, NestedSDFG,
     SDFG,
     SDFGElement,
     SDFGElementType,
     SDFGElements,
     SDFGNode,
+    ScopeBlock,
     State,
     drawSDFG,
     offset_sdfg,
@@ -2624,6 +2625,8 @@ export class SDFGRenderer extends EventEmitter {
             let sdfg_elem = null;
             if (foreground_elem instanceof State)
                 sdfg_elem = foreground_elem.data.state;
+            else if (foreground_elem instanceof ScopeBlock)
+                sdfg_elem = foreground_elem.data.block;
             else if (foreground_elem instanceof SDFGNode) {
                 sdfg_elem = foreground_elem.data.node;
 
@@ -3272,7 +3275,7 @@ function relayoutStateMachine(
     sdfg: JsonSDFG, sdfgList: SDFGListType, stateParentList: any[],
     omitAccessNodes: boolean, parent?: SDFGElement
 ): DagreSDFG {
-    const BLOCK_MARGIN = 4 * SDFV.LINEHEIGHT;
+    const BLOCK_MARGIN = 3 * SDFV.LINEHEIGHT;
 
     // Layout the state machine as a dagre graph.
     const g: DagreSDFG = new dagre.graphlib.Graph();
@@ -3307,8 +3310,32 @@ function relayoutStateMachine(
         blockInfo.label = block.id.toString();
         let blockGraph = null;
         if (block.attributes.is_collapsed) {
-            blockInfo.width = ctx.measureText(blockInfo.label).width;
             blockInfo.height = SDFV.LINEHEIGHT;
+            if (blockElem instanceof LoopScopeBlock) {
+                const oldFont = ctx.font;
+                ctx.font = LoopScopeBlock.LOOP_STATEMENT_FONT;
+                const labelWidths = [
+                    ctx.measureText(
+                        (block.attributes.scope_condition?.string_data ?? '') +
+                        'while'
+                    ).width,
+                    ctx.measureText(
+                        (block.attributes.init_statement?.string_data ?? '') +
+                        'init'
+                    ).width,
+                    ctx.measureText(
+                        (block.attributes.update_statement?.string_data ?? '') +
+                        'update'
+                    ).width,
+                ];
+                const maxLabelWidth = Math.max(...labelWidths);
+                ctx.font = oldFont;
+                blockInfo.width = Math.max(
+                    maxLabelWidth, ctx.measureText(block.label).width
+                ) + 3 * LoopScopeBlock.META_LABEL_MARGIN;
+            } else if (blockElem instanceof State) {
+                blockInfo.width = ctx.measureText(blockInfo.label).width;
+            }
         } else {
             blockGraph = relayoutSDFGBlock(
                 ctx, block, sdfg, sdfgList, stateParentList, omitAccessNodes,
@@ -3319,6 +3346,19 @@ function relayoutStateMachine(
         }
         blockInfo.width += 2 * BLOCK_MARGIN;
         blockInfo.height += 2 * BLOCK_MARGIN;
+
+        if (blockElem instanceof LoopScopeBlock) {
+            // Add spacing for the condition if the loop is not inverted.
+            if (!block.attributes.inverted)
+                blockInfo.height += LoopScopeBlock.CONDITION_SPACING;
+            // If there's an init statement, add space for it.
+            if (block.attributes.init_statement)
+                blockInfo.height += LoopScopeBlock.INIT_SPACING;
+            // If there's an update statement, also add space for it.
+            if (block.attributes.update_statement)
+                blockInfo.height += LoopScopeBlock.UPDATE_SPACING;
+        }
+
         blockElem.data.layout = blockInfo;
         blockElem.data.graph = blockGraph;
         blockElem.set_layout();
@@ -3385,9 +3425,20 @@ function relayoutStateMachine(
                     y: topleft.y + BLOCK_MARGIN
                 });
             } else {
+                // Base spacing for the inside.
+                let topSpacing = BLOCK_MARGIN;
+
+                if (gBlock instanceof LoopScopeBlock) {
+                    // Add spacing for the condition if the loop isn't inverted.
+                    if (!block.attributes.inverted)
+                        topSpacing += LoopScopeBlock.CONDITION_SPACING;
+                    // If there's an init statement, add space for it.
+                    if (block.attributes.init_statement)
+                        topSpacing += LoopScopeBlock.INIT_SPACING;
+                }
                 offset_sdfg(block as any, gBlock.data.graph, {
-                    x: topleft.x + SDFV.LINEHEIGHT,
-                    y: topleft.y + SDFV.LINEHEIGHT
+                    x: topleft.x + BLOCK_MARGIN,
+                    y: topleft.y + topSpacing,
                 });
             }
         }
