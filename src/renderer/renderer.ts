@@ -3302,7 +3302,7 @@ function relayout_sdfg(
         // Fall back to dagre for anything that cannot be laid out with
         // the vertical layout (e.g., irreducible control flow).
         try {
-            SMLayouter.layoutDagreCompat(g);
+            SMLayouter.layoutDagreCompat(g, sdfg.start_state?.toString());
         } catch (_ignored) {
             dagre.layout(g);
         }
