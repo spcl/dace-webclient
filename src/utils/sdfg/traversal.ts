@@ -25,37 +25,33 @@ import {
  * visited. The function also accepts an optional post-subscope callback (same
  * signature as `func`).
  **/
- export function traverse_sdfg_scopes(
-     sdfg: DagreSDFG,
-     func: CallableFunction,
-     post_subscope_func: CallableFunction | null = null
+ export function traverseSDFGScopes(
+    sdfg: DagreSDFG, func: CallableFunction, postSubscopeFunc?: CallableFunction
 ): void {
-    function scopes_recursive(
-        graph: DagreSDFG,
-        nodes: any[],
-        processed_nodes: Set<string> | null = null
+    function scopesRecursive(
+        graph: DagreSDFG, nodes: string[], processedNodes?: Set<string>
     ): void {
-        if (processed_nodes === null)
-            processed_nodes = new Set();
+        if (processedNodes === undefined)
+            processedNodes = new Set();
 
         for (const nodeid of nodes) {
             const node = graph.node(nodeid);
 
-            if (node === undefined || processed_nodes.has(node.id?.toString()))
+            if (node === undefined || processedNodes.has(node.id.toString()))
                 continue;
 
-            // Invoke function
+            // Invoke function.
             const result = func(node, graph);
 
-            // Skip in case of e.g., collapsed nodes
+            // Skip in case of e.g., collapsed nodes.
             if (result !== false) {
-                // Traverse scopes recursively (if scope_dict provided)
+                // Traverse scopes recursively (if scope_dict provided).
                 if (node.type().endsWith('Entry') && node.parent_id !== null &&
                     node.id !== null) {
                     const state = node.sdfg.nodes[node.parent_id];
                     if (state.scope_dict[node.id] !== undefined)
-                        scopes_recursive(
-                            graph, state.scope_dict[node.id], processed_nodes
+                        scopesRecursive(
+                            graph, state.scope_dict[node.id], processedNodes
                         );
                 }
 
@@ -64,21 +60,22 @@ import {
                     const state = node.data.state;
                     if (state !== undefined &&
                         state.scope_dict[-1] !== undefined)
-                        scopes_recursive(node.data.graph, state.scope_dict[-1]);
+                        scopesRecursive(node.data.graph, state.scope_dict[-1]);
                     else // No scope_dict, traverse all nodes as a flat hierarchy
-                        scopes_recursive(
+                        scopesRecursive(
                             node.data.graph, node.data.graph.nodes()
                         );
                 }
             }
 
-            if (post_subscope_func)
-                post_subscope_func(node, graph);
+            if (postSubscopeFunc)
+                postSubscopeFunc(node, graph);
 
-            processed_nodes.add(node.id?.toString());
+            processedNodes.add(node.id?.toString());
         }
     }
-    scopes_recursive(sdfg, sdfg.nodes());
+
+    scopesRecursive(sdfg, sdfg.nodes());
 }
 
 

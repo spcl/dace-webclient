@@ -67,8 +67,8 @@ body {
 #contents {
   position: relative;
   resize: both;
-  width: 1024px;
-  height: 768px;
+  width: 90%;
+  height: 90%;
   border: 1px solid;
   overflow: hidden;
 }
@@ -366,6 +366,9 @@ pre.code code {
   --node-missing-background-color: red;
   --state-background-color: #deebf7;
   --state-foreground-color: #000000;
+  --loop-background-color: #ffffff;
+  --loop-background-simple-color: #e0e0e0;
+  --loop-foreground-color: #000000;
   --interstate-edge-color: #86add9;
   --connector-scoped-color: #c1dfe690;
   --connector-unscoped-color: #f0fdff;
