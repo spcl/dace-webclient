@@ -2034,9 +2034,11 @@ function batchedDrawEdges(
             return;
 
         // WCR Edge.
-        if (edge.parent_id !== null && edge.data.attributes.wcr !== null) {
-            deferredEdges.push(edge);
-            return;
+        if (!(graph instanceof State)) {
+            if (edge.parent_id !== null && edge.data.attributes.wcr !== null) {
+                deferredEdges.push(edge);
+                return;
+            }
         }
 
         // Colored edge through selection/hovering/highlighting.
@@ -2147,7 +2149,7 @@ export function drawStateContents(
 
     batchedDrawEdges(
         renderer, stateGraph, ctx, visibleRect, mousePos, '--color-default',
-        SDFVSettings.alwaysOnISEdgeLabels
+        false
     );
 }
 
@@ -2159,7 +2161,7 @@ export function drawStateMachine(
     if (!lod || ppp < SDFV.EDGE_LOD)
         batchedDrawEdges(
             renderer, stateMachineGraph, ctx, visibleRect, mousePos,
-            '--interstate-edge-color'
+            '--interstate-edge-color', SDFVSettings.alwaysOnISEdgeLabels
         );
 
     for (const nodeId of stateMachineGraph.nodes()) {
