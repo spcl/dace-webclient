@@ -41,16 +41,6 @@ export type InvalidSDFGError = {
     isedge_id: number | undefined,
 };
 
-export type JsonSDFG = {
-    type: string,
-    start_state: number,
-    sdfg_list_id: number,
-    attributes: any,
-    edges: any[],
-    nodes: any[],
-    error: InvalidSDFGError | undefined,
-};
-
 export type JsonSDFGEdge = {
     attributes: any,
     dst: string,
@@ -64,24 +54,42 @@ export type JsonSDFGEdge = {
     y?: number,
 };
 
-export type JsonSDFGNode = {
+export interface JsonSDFGNode {
     attributes: any,
     id: number,
     label: string,
     scope_entry: string | null,
     scope_exit: string | null,
     type: string,
-};
+}
 
-export type JsonSDFGState = {
+export interface JsonSDFGBlock {
     attributes: any,
     collapsed: boolean,
     edges: JsonSDFGEdge[],
+    nodes: (JsonSDFGBlock | JsonSDFGNode)[],
     id: number,
     label: string,
-    nodes: JsonSDFGNode[],
-    scope_dict: any,
     type: string,
+}
+
+export interface JsonSDFGControlBlock extends JsonSDFGBlock {
+    nodes: JsonSDFGBlock[],
+}
+
+export interface JsonSDFGState extends JsonSDFGBlock {
+    scope_dict: any,
+    nodes: JsonSDFGNode[],
+}
+
+export type JsonSDFG = {
+    type: string,
+    start_state: number,
+    sdfg_list_id: number,
+    attributes: any,
+    edges: any[], // TODO
+    nodes: any[], // TODO
+    error: InvalidSDFGError | undefined,
 };
 
 export type ModeButtons = {
