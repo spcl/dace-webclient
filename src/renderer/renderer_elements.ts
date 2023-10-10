@@ -1083,8 +1083,6 @@ export class InterstateEdge extends Edge {
         this.create_arrow_line(ctx);
 
         let style = this.strokeStyle(renderer);
-        if (this.hovered)
-            renderer.set_tooltip((c) => this.tooltip(c, renderer));
 
         // Interstate edge
         if (style === this.getCssProperty(renderer, '--color-default'))
@@ -1109,11 +1107,16 @@ export class InterstateEdge extends Edge {
             ctx, this.points[this.points.length - 2],
             this.points[this.points.length - 1], 3
         );
+
+        if (SDFVSettings.alwaysOnISEdgeLabels) {
+            this.drawLabel(renderer, ctx);
+        } else {
+            if (this.hovered)
+                renderer.set_tooltip((c) => this.tooltip(c, renderer));
+        }
     }
 
-    public tooltip(
-        container: HTMLElement, renderer?: SDFGRenderer
-    ): void {
+    public tooltip(container: HTMLElement, renderer?: SDFGRenderer): void {
         if (!renderer)
             return;
         super.tooltip(container);
@@ -1121,6 +1124,30 @@ export class InterstateEdge extends Edge {
         container.innerText = this.label();
         if (!this.label())
             container.style.display = 'none';
+    }
+
+    public drawLabel(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
+    ): void {
+        const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+        if (ppp === undefined)
+            return;
+        if ((ctx as any).lod && ppp >= SDFV.SCOPE_LOD)
+            return;
+        ctx.fillStyle = this.getCssProperty(renderer, '--color-default');
+        const oldFont = ctx.font;
+        ctx.font = '8px sans-serif';
+        const labelMetrics = ctx.measureText(this.label());
+        const labelW = Math.abs(labelMetrics.actualBoundingBoxLeft) +
+            Math.abs(labelMetrics.actualBoundingBoxRight);
+        const labelH = Math.abs(labelMetrics.actualBoundingBoxDescent) +
+            Math.abs(labelMetrics.actualBoundingBoxAscent);
+        const offsetX = this.points[0].x > this.points[1].x ? -(labelW + 5) : 5;
+        const offsetY = this.points[0].y > this.points[1].y ? -5 : (labelH + 5);
+        ctx.fillText(
+            this.label(), this.points[0].x + offsetX, this.points[0].y + offsetY
+        );
+        ctx.font = oldFont;
     }
 
 }
@@ -1992,10 +2019,12 @@ export class LibraryNode extends SDFGNode {
 function batchedDrawEdges(
     renderer: SDFGRenderer, graph: DagreSDFG, ctx: CanvasRenderingContext2D,
     visible_rect?: SimpleRect, mousepos?: Point2D,
-    color: string = '--color-default'
+    color: string = '--color-default',
+    labelled: boolean = false
 ): void {
     const deferredEdges: any[] = [];
     const arrowEdges: any[] = [];
+    const labelEdges: any[] = [];
     ctx.beginPath();
     graph.edges().forEach((e: any) => {
         const edge: Edge = (graph.edge(e) as Edge);
@@ -2023,6 +2052,13 @@ function batchedDrawEdges(
             lPoint.y <= visible_rect.y + visible_rect.h)
             arrowEdges.push(edge);
 
+        const fPoint = edge.points[0];
+        if (labelled && visible_rect && fPoint.x >= visible_rect.x &&
+            fPoint.x <= visible_rect.x + visible_rect.w &&
+            fPoint.y >= visible_rect.y &&
+            fPoint.y <= visible_rect.y + visible_rect.h)
+            labelEdges.push(edge);
+
         edge.create_arrow_line(ctx);
     });
     ctx.setLineDash([1, 0]);
@@ -2033,6 +2069,10 @@ function batchedDrawEdges(
         e.drawArrow(
             ctx, e.points[e.points.length - 2], e.points[e.points.length - 1], 3
         );
+    });
+
+    labelEdges.forEach(e => {
+        (e as InterstateEdge).drawLabel(renderer, ctx);
     });
 
     deferredEdges.forEach(e => {
@@ -2106,7 +2146,8 @@ export function drawStateContents(
         return;
 
     batchedDrawEdges(
-        renderer, stateGraph, ctx, visibleRect, mousePos, '--color-default'
+        renderer, stateGraph, ctx, visibleRect, mousePos, '--color-default',
+        SDFVSettings.alwaysOnISEdgeLabels
     );
 }
 
