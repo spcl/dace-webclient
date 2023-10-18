@@ -935,11 +935,16 @@ export class Memlet extends Edge {
             renderer.set_tooltip((c) => this.tooltip(c, renderer));
         ctx.fillStyle = ctx.strokeStyle = this.strokeStyle(renderer);
 
-        // CR edges have dashed lines
-        if (this.data.attributes.wcr !== null)
-            ctx.setLineDash([2, 2]);
-        else
-            ctx.setLineDash([1, 0]);
+        if (this.attributes().data) {
+            // CR edges have dashed lines
+            if (this.data.attributes.wcr !== null)
+                ctx.setLineDash([3, 2]);
+            else
+                ctx.setLineDash([1, 0]);
+        } else {
+            // Empty memlet, i.e., a dependency edge. Show with dotted lines.
+            ctx.setLineDash([1, 2]);
+        }
 
         ctx.stroke();
 
@@ -2033,11 +2038,13 @@ function batchedDrawEdges(
         ))
             return;
 
-        // WCR Edge.
         if (!(graph instanceof State)) {
-            if (edge.parent_id !== null && edge.data.attributes.wcr !== null) {
-                deferredEdges.push(edge);
-                return;
+            if (edge.parent_id !== null) {
+                // WCR edge or dependency edge.
+                if (edge.attributes().wcr !== null || !edge.attributes().data) {
+                    deferredEdges.push(edge);
+                    return;
+                }
             }
         }
 
