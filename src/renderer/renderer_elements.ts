@@ -11,6 +11,7 @@ import {
     SimpleRect
 } from '../index';
 import { SDFV } from '../sdfv';
+import { editor } from 'monaco-editor';
 import {
     sdfg_consume_elem_to_string,
     sdfg_property_to_string,
@@ -1139,7 +1140,9 @@ export class InterstateEdge extends Edge {
             return;
         if ((ctx as any).lod && ppp >= SDFV.SCOPE_LOD)
             return;
-        ctx.fillStyle = this.getCssProperty(renderer, '--color-default');
+        ctx.fillStyle = this.getCssProperty(
+            renderer, '--interstate-edge-color'
+        );
         const oldFont = ctx.font;
         ctx.font = '8px sans-serif';
         const labelMetrics = ctx.measureText(this.label());
@@ -1158,7 +1161,10 @@ export class InterstateEdge extends Edge {
 }
 
 export class Connector extends SDFGElement {
+
     public custom_label: string | null = null;
+    public linkedElem?: SDFGElement;
+    public connectorType: 'in' | 'out' = 'in';
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
@@ -1653,7 +1659,178 @@ export class PipelineExit extends ExitNode {
 
 }
 
+enum TaskletCodeTokenType {
+    Number,
+    Input,
+    Output,
+    Symbol,
+    Other,
+}
+
+type TaskletCodeToken = {
+    token: string,
+    type: TaskletCodeTokenType,
+    highlighted: boolean,
+};
+
 export class Tasklet extends SDFGNode {
+
+    public constructor(
+        public data: any,
+        public id: number,
+        public sdfg: JsonSDFG,
+        public parent_id: number | null = null,
+        public parentElem?: SDFGElement,
+    ) {
+        super(data, id, sdfg, parent_id, parentElem);
+        this.highlightCode();
+    }
+
+    private highlightedCode: TaskletCodeToken[][] = [];
+    public readonly inputTokens: Set<TaskletCodeToken> = new Set();
+    public readonly outputTokens: Set<TaskletCodeToken> = new Set();
+    private longestCodeLine?: string;
+
+    public async highlightCode(): Promise<void> {
+        this.inputTokens.clear();
+        this.outputTokens.clear();
+        this.highlightedCode = [];
+
+        const lang = this.attributes().code.language?.toLowerCase() || 'python';
+        const code = this.attributes().code.string_data;
+
+        const sdfgSymbols = Object.keys(this.sdfg.attributes.symbols);
+        const inConnectors = Object.keys(this.attributes().in_connectors);
+        const outConnectors = Object.keys(this.attributes().out_connectors);
+
+        const lines = code.split('\n');
+        let maxline_len = 0;
+        for (const line of lines) {
+            if (line.length > maxline_len) {
+                this.longestCodeLine = line;
+                maxline_len = line.length;
+            }
+
+            const highlightedLine: TaskletCodeToken[] = [];
+            const tokens = editor.tokenize(line, lang)[0];
+            if (tokens.length < 2) {
+                highlightedLine.push({
+                    token: line,
+                    type: TaskletCodeTokenType.Other,
+                    highlighted: false,
+                });
+            } else {
+                for (let i = 0; i < tokens.length; i++) {
+                    const token = tokens[i];
+                    const next = i + 1 < tokens.length ? tokens[i + 1] : null;
+                    const endPos = next?.offset;
+                    const tokenValue = line.substring(token.offset, endPos);
+
+                    const taskletToken: TaskletCodeToken = {
+                        token: tokenValue,
+                        type: TaskletCodeTokenType.Other,
+                        highlighted: false,
+                    };
+                    if (token.type.startsWith('identifier')) {
+                        if (sdfgSymbols.includes(tokenValue)) {
+                            taskletToken.type = TaskletCodeTokenType.Symbol;
+                        } else if (inConnectors.includes(tokenValue)) {
+                            taskletToken.type = TaskletCodeTokenType.Input;
+                            this.inputTokens.add(taskletToken);
+                        } else if (outConnectors.includes(tokenValue)) {
+                            taskletToken.type = TaskletCodeTokenType.Output;
+                            this.outputTokens.add(taskletToken);
+                        }
+                    } else if (token.type.startsWith('number')) {
+                        taskletToken.type = TaskletCodeTokenType.Number;
+                    }                        
+
+                    highlightedLine.push(taskletToken);
+                }
+            }
+            this.highlightedCode.push(highlightedLine);
+        }
+    }
+
+    private drawTaskletCode(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
+    ): void {
+        if (!this.longestCodeLine)
+            return;
+
+        const oldfont = ctx.font;
+        ctx.font = '10px courier new';
+        const textmetrics = ctx.measureText(this.longestCodeLine);
+
+        // Fit font size to 80% height and width of tasklet
+        const height = this.highlightedCode.length * SDFV.LINEHEIGHT * 1.05;
+        const width = textmetrics.width;
+        const TASKLET_WRATIO = 0.9, TASKLET_HRATIO = 0.5;
+        const hr = height / (this.height * TASKLET_HRATIO);
+        const wr = width / (this.width * TASKLET_WRATIO);
+        const fontSize = Math.min(10 / hr, 10 / wr);
+        const textYOffset = fontSize / 4;
+
+        ctx.font = fontSize + 'px courier new';
+        const defaultColor = this.getCssProperty(
+            renderer, '--node-foreground-color'
+        );
+        // Set the start offset such that the middle row of the text is in
+        // this.y
+        const startY = this.y + textYOffset - (
+            (this.highlightedCode.length - 1) / 2
+        ) * fontSize * 1.05;
+        const startX = this.x - (this.width * TASKLET_WRATIO) / 2.0;
+        let i = 0;
+        for (const line of this.highlightedCode) {
+            const lineY = startY + i * fontSize * 1.05;
+            let tokenX = startX;
+            for (const token of line) {
+                const ofont = ctx.font;
+                if (token.highlighted) {
+                    ctx.font = 'bold ' + fontSize + 'px courier new';
+                    ctx.fillStyle = this.getCssProperty(
+                        renderer, '--tasklet-highlighted-color'
+                    );
+                } else {
+                    switch (token.type) {
+                        case TaskletCodeTokenType.Input:
+                            ctx.fillStyle = this.getCssProperty(
+                                renderer, '--tasklet-input-color'
+                            );
+                            break;
+                        case TaskletCodeTokenType.Output:
+                            ctx.fillStyle = this.getCssProperty(
+                                renderer, '--tasklet-output-color'
+                            );
+                            break;
+                        case TaskletCodeTokenType.Symbol:
+                            ctx.font = 'bold ' + fontSize + 'px courier new';
+                            ctx.fillStyle = this.getCssProperty(
+                                renderer, '--tasklet-symbol-color'
+                            );
+                            break;
+                        case TaskletCodeTokenType.Number:
+                            ctx.fillStyle = this.getCssProperty(
+                                renderer, '--tasklet-number-color'
+                            );
+                            break;
+                        default:
+                            ctx.fillStyle = defaultColor;
+                            break;
+                    }
+                }
+
+                ctx.fillText(token.token, tokenX, lineY);
+                const tokenWidth = ctx.measureText(token.token).width;
+                tokenX += tokenWidth;
+                ctx.font = ofont;
+            }
+            i++;
+        }
+
+        ctx.font = oldfont;
+    }
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
@@ -1682,49 +1859,14 @@ export class Tasklet extends SDFGNode {
         const ppp = canvas_manager.points_per_pixel();
         if (!(ctx as any).lod || ppp < SDFV.TASKLET_LOD) {
             // If we are close to the tasklet, show its contents
-            const code = this.attributes().code.string_data;
-            const lines = code.split('\n');
-            let maxline = 0, maxline_len = 0;
-            for (let i = 0; i < lines.length; i++) {
-                if (lines[i].length > maxline_len) {
-                    maxline = i;
-                    maxline_len = lines[i].length;
-                }
-            }
-            const oldfont = ctx.font;
-            ctx.font = '10px courier new';
-            const textmetrics = ctx.measureText(lines[maxline]);
-
-            // Fit font size to 80% height and width of tasklet
-            const height = lines.length * SDFV.LINEHEIGHT * 1.05;
-            const width = textmetrics.width;
-            const TASKLET_WRATIO = 0.9, TASKLET_HRATIO = 0.5;
-            const hr = height / (this.height * TASKLET_HRATIO);
-            const wr = width / (this.width * TASKLET_WRATIO);
-            const FONTSIZE = Math.min(10 / hr, 10 / wr);
-            const text_yoffset = FONTSIZE / 4;
-
-            ctx.font = FONTSIZE + 'px courier new';
-            // Set the start offset such that the middle row of the text is in
-            // this.y
-            const y = this.y + text_yoffset - (
-                (lines.length - 1) / 2
-            ) * FONTSIZE * 1.05;
-            for (let i = 0; i < lines.length; i++)
-                ctx.fillText(
-                    lines[i], this.x - (this.width * TASKLET_WRATIO) / 2.0,
-                    y + i * FONTSIZE * 1.05
-                );
-
-            ctx.font = oldfont;
-            return;
+            this.drawTaskletCode(renderer, ctx);
+        } else {
+            const textmetrics = ctx.measureText(this.label());
+            ctx.fillText(
+                this.label(), this.x - textmetrics.width / 2.0,
+                this.y + SDFV.LINEHEIGHT / 2.0
+            );
         }
-
-        const textmetrics = ctx.measureText(this.label());
-        ctx.fillText(
-            this.label(), this.x - textmetrics.width / 2.0,
-            this.y + SDFV.LINEHEIGHT / 2.0
-        );
     }
 
     public shade(
