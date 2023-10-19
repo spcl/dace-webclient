@@ -936,6 +936,7 @@ export class Memlet extends Edge {
             renderer.set_tooltip((c) => this.tooltip(c, renderer));
         ctx.fillStyle = ctx.strokeStyle = this.strokeStyle(renderer);
 
+        let skipArrow = false;
         if (this.attributes().data) {
             // CR edges have dashed lines
             if (this.data.attributes.wcr !== null)
@@ -945,6 +946,7 @@ export class Memlet extends Edge {
         } else {
             // Empty memlet, i.e., a dependency edge. Show with dotted lines.
             ctx.setLineDash([1, 2]);
+            skipArrow = true;
         }
 
         ctx.stroke();
@@ -963,10 +965,11 @@ export class Memlet extends Edge {
                 );
         }
 
-        this.drawArrow(
-            ctx, this.points[this.points.length - 2],
-            this.points[this.points.length - 1], 3
-        );
+        if (!skipArrow)
+            this.drawArrow(
+                ctx, this.points[this.points.length - 2],
+                this.points[this.points.length - 1], 3
+            );
     }
 
     public tooltip(
