@@ -944,8 +944,7 @@ export class Memlet extends Edge {
             else
                 ctx.setLineDash([1, 0]);
         } else {
-            // Empty memlet, i.e., a dependency edge. Show with dotted lines.
-            ctx.setLineDash([1, 2]);
+            // Empty memlet, i.e., a dependency edge. Do not draw the arrowhead.
             skipArrow = true;
         }
 
