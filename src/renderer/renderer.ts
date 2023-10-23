@@ -55,6 +55,7 @@ import {
     SDFGNode,
     ScopeBlock,
     State,
+    Tasklet,
     drawSDFG,
     offset_sdfg,
     offset_state
@@ -2543,6 +2544,12 @@ export class SDFGRenderer extends EventEmitter {
             (type: any, e: any, obj: any) => {
                 obj.hovered = false;
                 obj.highlighted = false;
+                if (obj instanceof Tasklet) {
+                    for (const t of obj.inputTokens)
+                        t.highlighted = false;
+                    for (const t of obj.outputTokens)
+                        t.highlighted = false;
+                }
             }
         );
         // Mark hovered and highlighted elements.
@@ -2581,23 +2588,42 @@ export class SDFGRenderer extends EventEmitter {
                     );
                 }
 
-                // Highlight all access nodes with the same name as the hovered
-                // connector in the nested sdfg
-                if (intersected && obj instanceof Connector && e.graph) {
-                    const nested_graph = e.graph.node(obj.parent_id).data.graph;
-                    if (nested_graph) {
-                        traverseSDFGScopes(nested_graph, (node: any) => {
-                            // If node is a state, then visit sub-scope
-                            if (node instanceof State) {
-                                return true;
+                if (intersected && obj instanceof Connector) {
+                    // Highlight all access nodes with the same name as the
+                    // hovered connector in the nested sdfg
+                    if (e.graph) {
+                        const nested_graph =
+                            e.graph.node(obj.parent_id).data.graph;
+                        if (nested_graph) {
+                            traverseSDFGScopes(nested_graph, (node: any) => {
+                                // If node is a state, then visit sub-scope
+                                if (node instanceof State) {
+                                    return true;
+                                }
+                                if (node instanceof AccessNode &&
+                                    node.data.node.label === obj.label()) {
+                                    node.highlighted = true;
+                                }
+                                // No need to visit sub-scope
+                                return false;
+                            });
+                        }
+                    }
+
+                    // Similarly, highlight any identifiers in a connector's
+                    // tasklet, if applicable.
+                    if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
+                        if (obj.connectorType === 'in') {
+                            for (const token of obj.linkedElem.inputTokens) {
+                                if (token.token === obj.data.name)
+                                    token.highlighted = true;
                             }
-                            if (node instanceof AccessNode &&
-                                node.data.node.label === obj.label()) {
-                                node.highlighted = true;
+                        } else {
+                            for (const token of obj.linkedElem.outputTokens) {
+                                if (token.token === obj.data.name)
+                                    token.highlighted = true;
                             }
-                            // No need to visit sub-scope
-                            return false;
-                        });
+                        }
                     }
                 }
 
@@ -3557,6 +3583,8 @@ function relayoutSDFGState(
             conns = Object.keys(node.attributes.layout.in_connectors);
         for (const cname of conns) {
             const conn = new Connector({ name: cname }, i, sdfg, node.id);
+            conn.connectorType = 'in';
+            conn.linkedElem = obj;
             obj.in_connectors.push(conn);
             i += 1;
         }
@@ -3569,6 +3597,8 @@ function relayoutSDFGState(
             conns = Object.keys(node.attributes.layout.out_connectors);
         for (const cname of conns) {
             const conn = new Connector({ name: cname }, i, sdfg, node.id);
+            conn.connectorType = 'out';
+            conn.linkedElem = obj;
             obj.out_connectors.push(conn);
             i += 1;
         }

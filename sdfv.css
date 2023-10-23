@@ -383,6 +383,12 @@ pre.code code {
   --color-selected-highlighted: darkorange;
   --color-minimap-viewport: #ff7a00;
 
+  --tasklet-input-color: black;
+  --tasklet-output-color: black;
+  --tasklet-symbol-color: red;
+  --tasklet-number-color: black;
+  --tasklet-highlighted-color: green;
+
   --overlay-color-lightness: 0.5;
   --overlay-color-saturation: 1.0;
 
