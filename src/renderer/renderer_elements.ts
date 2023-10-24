@@ -39,8 +39,8 @@ export enum SDFGElementType {
     Reduce = 'Reduce',
     BasicBlock = 'BasicBlock',
     ControlFlowBlock = 'ControlFlowBlock',
-    ScopeBlock = 'ScopeBlock',
-    LoopScopeBlock = 'LoopScopeBlock',
+    ControlFlowRegion = 'ControlFlowRegion',
+    LoopRegion = 'LoopRegion',
 }
 
 export class SDFGElement {
@@ -232,7 +232,7 @@ export class ControlFlowBlock extends SDFGElement {
 export class BasicBlock extends SDFGElement {
 }
 
-export class ScopeBlock extends ControlFlowBlock {
+export class ControlFlowRegion extends ControlFlowBlock {
 }
 
 export class State extends BasicBlock {
@@ -385,7 +385,7 @@ export class State extends BasicBlock {
 
 }
 
-export class LoopScopeBlock extends ScopeBlock {
+export class LoopRegion extends ControlFlowRegion {
 
     public static readonly META_LABEL_MARGIN: number = 5;
 
@@ -458,22 +458,22 @@ export class LoopScopeBlock extends ScopeBlock {
         );
 
         const oldFont = ctx.font;
-        let topSpacing = LoopScopeBlock.META_LABEL_MARGIN;
+        let topSpacing = LoopRegion.META_LABEL_MARGIN;
         let remainingHeight = this.height;
 
         // Draw the init statement if there is one.
         if (this.attributes().init_statement) {
-            topSpacing += LoopScopeBlock.INIT_SPACING;
-            const initBottomLineY = topleft.y + LoopScopeBlock.INIT_SPACING;
+            topSpacing += LoopRegion.INIT_SPACING;
+            const initBottomLineY = topleft.y + LoopRegion.INIT_SPACING;
             ctx.beginPath();
             ctx.moveTo(topleft.x, initBottomLineY);
             ctx.lineTo(topleft.x + this.width, initBottomLineY);
             ctx.stroke();
 
-            ctx.font = LoopScopeBlock.LOOP_STATEMENT_FONT;
+            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
             const initStatement = this.attributes().init_statement.string_data;
             const initTextY = (
-                (topleft.y + (LoopScopeBlock.INIT_SPACING / 2)) +
+                (topleft.y + (LoopRegion.INIT_SPACING / 2)) +
                 (SDFV.LINEHEIGHT / 2)
             );
             const initTextMetrics = ctx.measureText(initStatement);
@@ -482,7 +482,7 @@ export class LoopScopeBlock extends ScopeBlock {
 
             ctx.font = oldFont;
             ctx.fillText(
-                'init', topleft.x + LoopScopeBlock.META_LABEL_MARGIN, initTextY
+                'init', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
             );
         }
 
@@ -491,24 +491,24 @@ export class LoopScopeBlock extends ScopeBlock {
         // (do-while-style) loop). If the condition is drawn on top, make sure
         // the init statement spacing is respected if there is one.
         let condTopY = topleft.y;
-        let condLineY = condTopY + LoopScopeBlock.CONDITION_SPACING;
+        let condLineY = condTopY + LoopRegion.CONDITION_SPACING;
         if (this.attributes().inverted) {
             condTopY = topleft.y +
-                (this.height - LoopScopeBlock.CONDITION_SPACING);
-            condLineY = condTopY - LoopScopeBlock.CONDITION_SPACING;
+                (this.height - LoopRegion.CONDITION_SPACING);
+            condLineY = condTopY - LoopRegion.CONDITION_SPACING;
         } else if (this.attributes().init_statement) {
-            condTopY += LoopScopeBlock.INIT_SPACING;
-            condLineY = condTopY + LoopScopeBlock.CONDITION_SPACING;
+            condTopY += LoopRegion.INIT_SPACING;
+            condLineY = condTopY + LoopRegion.CONDITION_SPACING;
         }
-        topSpacing += LoopScopeBlock.CONDITION_SPACING;
+        topSpacing += LoopRegion.CONDITION_SPACING;
         ctx.beginPath();
         ctx.moveTo(topleft.x, condLineY);
         ctx.lineTo(topleft.x + this.width, condLineY);
         ctx.stroke();
-        ctx.font = LoopScopeBlock.LOOP_STATEMENT_FONT;
-        const condStatement = this.attributes().scope_condition.string_data;
+        ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+        const condStatement = this.attributes().loop_condition.string_data;
         const condTextY = (
-            (condTopY + (LoopScopeBlock.CONDITION_SPACING / 2)) +
+            (condTopY + (LoopRegion.CONDITION_SPACING / 2)) +
             (SDFV.LINEHEIGHT / 2)
         );
         const condTextMetrics = ctx.measureText(condStatement);
@@ -516,25 +516,25 @@ export class LoopScopeBlock extends ScopeBlock {
         ctx.fillText(condStatement, condTextX, condTextY);
         ctx.font = oldFont;
         ctx.fillText(
-            'while', topleft.x + LoopScopeBlock.META_LABEL_MARGIN, condTextY
+            'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
         );
 
         // Draw the update statement if there is one.
         if (this.attributes().update_statement) {
-            remainingHeight -= LoopScopeBlock.UPDATE_SPACING;
+            remainingHeight -= LoopRegion.UPDATE_SPACING;
             const updateTopY = topleft.y + (
-                this.height - LoopScopeBlock.UPDATE_SPACING
+                this.height - LoopRegion.UPDATE_SPACING
             );
             ctx.beginPath();
             ctx.moveTo(topleft.x, updateTopY);
             ctx.lineTo(topleft.x + this.width, updateTopY);
             ctx.stroke();
 
-            ctx.font = LoopScopeBlock.LOOP_STATEMENT_FONT;
+            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
             const updateStatement =
                 this.attributes().update_statement.string_data;
             const updateTextY = (
-                (updateTopY + (LoopScopeBlock.UPDATE_SPACING / 2)) +
+                (updateTopY + (LoopRegion.UPDATE_SPACING / 2)) +
                 (SDFV.LINEHEIGHT / 2)
             );
             const updateTextMetrics = ctx.measureText(updateStatement);
@@ -542,7 +542,7 @@ export class LoopScopeBlock extends ScopeBlock {
             ctx.fillText(updateStatement, updateTextX, updateTextY);
             ctx.font = oldFont;
             ctx.fillText(
-                'update', topleft.x + LoopScopeBlock.META_LABEL_MARGIN,
+                'update', topleft.x + LoopRegion.META_LABEL_MARGIN,
                 updateTextY
             );
         }
@@ -554,7 +554,7 @@ export class LoopScopeBlock extends ScopeBlock {
             visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
             SDFVSettings.showStateNames)
             ctx.fillText(
-                this.label(), topleft.x + LoopScopeBlock.META_LABEL_MARGIN,
+                this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
                 topleft.y + topSpacing + SDFV.LINEHEIGHT
             );
 
@@ -2661,6 +2661,6 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     ControlFlowBlock,
     BasicBlock,
     State,
-    ScopeBlock,
-    LoopScopeBlock,
+    ControlFlowRegion: ControlFlowRegion,
+    LoopRegion: LoopRegion,
 };
