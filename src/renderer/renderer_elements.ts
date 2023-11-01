@@ -1031,6 +1031,19 @@ export class Memlet extends Edge {
 
 export class InterstateEdge extends Edge {
 
+    // Parent ID is the state ID, if relevant
+    public constructor(
+        data: any,
+        id: number,
+        sdfg: JsonSDFG,
+        parent_id: number | null = null,
+        parentElem?: SDFGElement,
+        public readonly src?: string,
+        public readonly dst?: string,
+    ) {
+        super(data, id, sdfg, parent_id, parentElem);
+    }
+
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
         // Draw intersate edges with bezier curves through the arrow points.
         ctx.moveTo(this.points[0].x, this.points[0].y);
@@ -1116,12 +1129,11 @@ export class InterstateEdge extends Edge {
             this.points[this.points.length - 1], 3
         );
 
-        if (SDFVSettings.alwaysOnISEdgeLabels) {
+        if (SDFVSettings.alwaysOnISEdgeLabels)
             this.drawLabel(renderer, ctx);
-        } else {
-            if (this.hovered)
-                renderer.set_tooltip((c) => this.tooltip(c, renderer));
-        }
+
+        if (this.hovered)
+            renderer.set_tooltip((c) => this.tooltip(c, renderer));
     }
 
     public tooltip(container: HTMLElement, renderer?: SDFGRenderer): void {
@@ -1147,16 +1159,74 @@ export class InterstateEdge extends Edge {
         );
         const oldFont = ctx.font;
         ctx.font = '8px sans-serif';
-        const labelMetrics = ctx.measureText(this.label());
+        let label = '';
+        if (this.attributes().assignments) {
+            for (const k of Object.keys(this.attributes().assignments))
+                label += k + ' 🡐 ' + this.attributes().assignments[k] + '\n';
+        }
+        const cond = this.attributes().condition.string_data;
+        if (cond && cond !== '1' && cond !== 'true')
+            label += cond;
+        const labelMetrics = ctx.measureText(label);
         const labelW = Math.abs(labelMetrics.actualBoundingBoxLeft) +
             Math.abs(labelMetrics.actualBoundingBoxRight);
         const labelH = Math.abs(labelMetrics.actualBoundingBoxDescent) +
             Math.abs(labelMetrics.actualBoundingBoxAscent);
-        const offsetX = this.points[0].x > this.points[1].x ? -(labelW + 5) : 5;
-        const offsetY = this.points[0].y > this.points[1].y ? -5 : (labelH + 5);
-        ctx.fillText(
-            this.label(), this.points[0].x + offsetX, this.points[0].y + offsetY
-        );
+
+        // The label is positioned at the origin of the interstate edge, offset
+        // so that it does not intersect the edge or the state it originates
+        // from. There are a few cases to consider:
+        // 1. The edge exits from the top/bottom of a node. Then the label is
+        //    placed right next to the source point, offset up/down by
+        //    LABEL_PADDING pixels to not intersect with the state. If the edge
+        //    moves to the right/left, place the label to the left/right of the
+        //    edge to avoid intersection.
+        // 2. The edge exits from the side of a node. Then the label is placed
+        //    next to the source point, offset up/down by LABEL_PADDING pixels
+        //    depending on whether the edge direction is down/up, so it does not
+        //    intersect with the edge. To avoid intersecting with the node, the
+        //    label is also offset LABEL_PADDING pixels to the left/right,
+        //    depending on whether the edge exits to the left/right of the node.
+        const LABEL_PADDING = 3;
+        const srcP = this.points[0];
+        const srcNode = this.src !== undefined ?
+            renderer.get_graph()?.node(this.src) : null;
+        // Initial offsets are good for edges coming out of a node's top border.
+        let offsetX = LABEL_PADDING;
+        let offsetY = -LABEL_PADDING;
+        if (srcNode) {
+            const stl = srcNode.topleft();
+            if (Math.abs(srcP.y - (stl.y + srcNode.height)) < 1) {
+                // Edge exits the bottom of a node.
+                offsetY = LABEL_PADDING + labelH;
+                // If the edge moves right, offset the label to the left.
+                if (this.points[1].x > srcP.x)
+                    offsetX = -(LABEL_PADDING + labelW);
+            } else if (Math.abs(srcP.x - stl.x) < 1) {
+                // Edge exits to the left of a node.
+                offsetX = -(LABEL_PADDING + labelW);
+                // If the edge moves down, offset the label upwards.
+                if (this.points[1].y <= srcP.y)
+                    offsetY = LABEL_PADDING + labelH;
+            } else if (Math.abs(srcP.x - (stl.x + srcNode.width)) < 1) {
+                // Edge exits to the right of a node.
+                // If the edge moves down, offset the label upwards.
+                if (this.points[1].y <= srcP.y)
+                    offsetY = LABEL_PADDING + labelH;
+            } else {
+                // Edge exits the top of a node.
+                // If the edge moves right, offset the label to the left.
+                if (this.points[1].x > srcP.x)
+                    offsetX = -(LABEL_PADDING + labelW);
+            }
+        } else {
+            // Failsafe offset calculation if no source node is present.
+            if (this.points[0].x > this.points[1].x)
+                offsetX = -(labelW + LABEL_PADDING);
+            if (this.points[0].y <= this.points[1].y)
+                offsetY = labelH + LABEL_PADDING;
+        }
+        ctx.fillText(label, srcP.x + offsetX, srcP.y + offsetY);
         ctx.font = oldFont;
     }
 

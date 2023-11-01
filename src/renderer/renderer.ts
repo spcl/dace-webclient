@@ -3394,7 +3394,8 @@ function relayoutStateMachine(
     for (let id = 0; id < stateMachine.edges.length; id++) {
         const edge = stateMachine.edges[id];
         g.setEdge(edge.src, edge.dst, new InterstateEdge(
-            edge.attributes.data, id, sdfg
+            edge.attributes.data, id, sdfg, parent.id, parent, edge.src,
+            edge.dst
         ));
     }
 
