@@ -128,7 +128,7 @@ export class SDFGStateParser {
             switch (x.type) {
                 case SDFGElementType.SDFGState:
                 case SDFGElementType.BasicBlock:
-                case SDFGElementType.LoopScopeBlock:
+                case SDFGElementType.LoopRegion:
                     return new SDFGStateParser(x as JsonSDFGBlock);
                 default:
                     return new SDFGNodeParser(x as JsonSDFGNode);

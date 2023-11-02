@@ -39,8 +39,8 @@ export enum SDFGElementType {
     Reduce = 'Reduce',
     BasicBlock = 'BasicBlock',
     ControlFlowBlock = 'ControlFlowBlock',
-    ScopeBlock = 'ScopeBlock',
-    LoopScopeBlock = 'LoopScopeBlock',
+    ControlFlowRegion = 'ControlFlowRegion',
+    LoopRegion = 'LoopRegion',
 }
 
 export class SDFGElement {
@@ -232,7 +232,7 @@ export class ControlFlowBlock extends SDFGElement {
 export class BasicBlock extends SDFGElement {
 }
 
-export class ScopeBlock extends ControlFlowBlock {
+export class ControlFlowRegion extends ControlFlowBlock {
 }
 
 export class State extends BasicBlock {
@@ -385,7 +385,7 @@ export class State extends BasicBlock {
 
 }
 
-export class LoopScopeBlock extends ScopeBlock {
+export class LoopRegion extends ControlFlowRegion {
 
     public static readonly META_LABEL_MARGIN: number = 5;
 
@@ -458,22 +458,22 @@ export class LoopScopeBlock extends ScopeBlock {
         );
 
         const oldFont = ctx.font;
-        let topSpacing = LoopScopeBlock.META_LABEL_MARGIN;
+        let topSpacing = LoopRegion.META_LABEL_MARGIN;
         let remainingHeight = this.height;
 
         // Draw the init statement if there is one.
         if (this.attributes().init_statement) {
-            topSpacing += LoopScopeBlock.INIT_SPACING;
-            const initBottomLineY = topleft.y + LoopScopeBlock.INIT_SPACING;
+            topSpacing += LoopRegion.INIT_SPACING;
+            const initBottomLineY = topleft.y + LoopRegion.INIT_SPACING;
             ctx.beginPath();
             ctx.moveTo(topleft.x, initBottomLineY);
             ctx.lineTo(topleft.x + this.width, initBottomLineY);
             ctx.stroke();
 
-            ctx.font = LoopScopeBlock.LOOP_STATEMENT_FONT;
+            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
             const initStatement = this.attributes().init_statement.string_data;
             const initTextY = (
-                (topleft.y + (LoopScopeBlock.INIT_SPACING / 2)) +
+                (topleft.y + (LoopRegion.INIT_SPACING / 2)) +
                 (SDFV.LINEHEIGHT / 2)
             );
             const initTextMetrics = ctx.measureText(initStatement);
@@ -482,7 +482,7 @@ export class LoopScopeBlock extends ScopeBlock {
 
             ctx.font = oldFont;
             ctx.fillText(
-                'init', topleft.x + LoopScopeBlock.META_LABEL_MARGIN, initTextY
+                'init', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
             );
         }
 
@@ -491,24 +491,24 @@ export class LoopScopeBlock extends ScopeBlock {
         // (do-while-style) loop). If the condition is drawn on top, make sure
         // the init statement spacing is respected if there is one.
         let condTopY = topleft.y;
-        let condLineY = condTopY + LoopScopeBlock.CONDITION_SPACING;
+        let condLineY = condTopY + LoopRegion.CONDITION_SPACING;
         if (this.attributes().inverted) {
             condTopY = topleft.y +
-                (this.height - LoopScopeBlock.CONDITION_SPACING);
-            condLineY = condTopY - LoopScopeBlock.CONDITION_SPACING;
+                (this.height - LoopRegion.CONDITION_SPACING);
+            condLineY = condTopY - LoopRegion.CONDITION_SPACING;
         } else if (this.attributes().init_statement) {
-            condTopY += LoopScopeBlock.INIT_SPACING;
-            condLineY = condTopY + LoopScopeBlock.CONDITION_SPACING;
+            condTopY += LoopRegion.INIT_SPACING;
+            condLineY = condTopY + LoopRegion.CONDITION_SPACING;
         }
-        topSpacing += LoopScopeBlock.CONDITION_SPACING;
+        topSpacing += LoopRegion.CONDITION_SPACING;
         ctx.beginPath();
         ctx.moveTo(topleft.x, condLineY);
         ctx.lineTo(topleft.x + this.width, condLineY);
         ctx.stroke();
-        ctx.font = LoopScopeBlock.LOOP_STATEMENT_FONT;
-        const condStatement = this.attributes().scope_condition.string_data;
+        ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+        const condStatement = this.attributes().loop_condition.string_data;
         const condTextY = (
-            (condTopY + (LoopScopeBlock.CONDITION_SPACING / 2)) +
+            (condTopY + (LoopRegion.CONDITION_SPACING / 2)) +
             (SDFV.LINEHEIGHT / 2)
         );
         const condTextMetrics = ctx.measureText(condStatement);
@@ -516,25 +516,25 @@ export class LoopScopeBlock extends ScopeBlock {
         ctx.fillText(condStatement, condTextX, condTextY);
         ctx.font = oldFont;
         ctx.fillText(
-            'while', topleft.x + LoopScopeBlock.META_LABEL_MARGIN, condTextY
+            'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
         );
 
         // Draw the update statement if there is one.
         if (this.attributes().update_statement) {
-            remainingHeight -= LoopScopeBlock.UPDATE_SPACING;
+            remainingHeight -= LoopRegion.UPDATE_SPACING;
             const updateTopY = topleft.y + (
-                this.height - LoopScopeBlock.UPDATE_SPACING
+                this.height - LoopRegion.UPDATE_SPACING
             );
             ctx.beginPath();
             ctx.moveTo(topleft.x, updateTopY);
             ctx.lineTo(topleft.x + this.width, updateTopY);
             ctx.stroke();
 
-            ctx.font = LoopScopeBlock.LOOP_STATEMENT_FONT;
+            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
             const updateStatement =
                 this.attributes().update_statement.string_data;
             const updateTextY = (
-                (updateTopY + (LoopScopeBlock.UPDATE_SPACING / 2)) +
+                (updateTopY + (LoopRegion.UPDATE_SPACING / 2)) +
                 (SDFV.LINEHEIGHT / 2)
             );
             const updateTextMetrics = ctx.measureText(updateStatement);
@@ -542,7 +542,7 @@ export class LoopScopeBlock extends ScopeBlock {
             ctx.fillText(updateStatement, updateTextX, updateTextY);
             ctx.font = oldFont;
             ctx.fillText(
-                'update', topleft.x + LoopScopeBlock.META_LABEL_MARGIN,
+                'update', topleft.x + LoopRegion.META_LABEL_MARGIN,
                 updateTextY
             );
         }
@@ -554,7 +554,7 @@ export class LoopScopeBlock extends ScopeBlock {
             visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
             SDFVSettings.showStateNames)
             ctx.fillText(
-                this.label(), topleft.x + LoopScopeBlock.META_LABEL_MARGIN,
+                this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
                 topleft.y + topSpacing + SDFV.LINEHEIGHT
             );
 
@@ -1031,6 +1031,19 @@ export class Memlet extends Edge {
 
 export class InterstateEdge extends Edge {
 
+    // Parent ID is the state ID, if relevant
+    public constructor(
+        data: any,
+        id: number,
+        sdfg: JsonSDFG,
+        parent_id: number | null = null,
+        parentElem?: SDFGElement,
+        public readonly src?: string,
+        public readonly dst?: string,
+    ) {
+        super(data, id, sdfg, parent_id, parentElem);
+    }
+
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
         // Draw intersate edges with bezier curves through the arrow points.
         ctx.moveTo(this.points[0].x, this.points[0].y);
@@ -1116,12 +1129,11 @@ export class InterstateEdge extends Edge {
             this.points[this.points.length - 1], 3
         );
 
-        if (SDFVSettings.alwaysOnISEdgeLabels) {
+        if (SDFVSettings.alwaysOnISEdgeLabels)
             this.drawLabel(renderer, ctx);
-        } else {
-            if (this.hovered)
-                renderer.set_tooltip((c) => this.tooltip(c, renderer));
-        }
+
+        if (this.hovered)
+            renderer.set_tooltip((c) => this.tooltip(c, renderer));
     }
 
     public tooltip(container: HTMLElement, renderer?: SDFGRenderer): void {
@@ -1142,21 +1154,104 @@ export class InterstateEdge extends Edge {
             return;
         if ((ctx as any).lod && ppp >= SDFV.SCOPE_LOD)
             return;
+
+        const labelLines = [];
+        if (this.attributes().assignments) {
+            for (const k of Object.keys(this.attributes().assignments))
+                labelLines.push(k + ' 🡐 ' + this.attributes().assignments[k]);
+        }
+        const cond = this.attributes().condition.string_data;
+        if (cond && cond !== '1' && cond !== 'true')
+            labelLines.push('if ' + cond);
+
+        if (labelLines.length < 1)
+            return;
+
+        const oldFont = ctx.font;
+        ctx.font = '8px sans-serif';
+        const labelHs = [];
+        const labelWs = [];
+        for (const l of labelLines) {
+            const labelMetrics = ctx.measureText(l);
+            labelWs.push(
+                Math.abs(labelMetrics.actualBoundingBoxLeft) +
+                Math.abs(labelMetrics.actualBoundingBoxRight)
+            );
+            labelHs.push(
+                Math.abs(labelMetrics.actualBoundingBoxDescent) +
+                Math.abs(labelMetrics.actualBoundingBoxAscent)
+            );
+        }
+        const labelW = Math.max(...labelWs);
+        const labelH = labelHs.reduce((pv, cv) => {
+            if (!cv)
+                return pv;
+            return cv + SDFV.LINEHEIGHT + pv;
+        });
+
+        // The label is positioned at the origin of the interstate edge, offset
+        // so that it does not intersect the edge or the state it originates
+        // from. There are a few cases to consider:
+        // 1. The edge exits from the top/bottom of a node. Then the label is
+        //    placed right next to the source point, offset up/down by
+        //    LABEL_PADDING pixels to not intersect with the state. If the edge
+        //    moves to the right/left, place the label to the left/right of the
+        //    edge to avoid intersection.
+        // 2. The edge exits from the side of a node. Then the label is placed
+        //    next to the source point, offset up/down by LABEL_PADDING pixels
+        //    depending on whether the edge direction is down/up, so it does not
+        //    intersect with the edge. To avoid intersecting with the node, the
+        //    label is also offset LABEL_PADDING pixels to the left/right,
+        //    depending on whether the edge exits to the left/right of the node.
+        const LABEL_PADDING = 3;
+        const srcP = this.points[0];
+        const srcNode = this.src !== undefined ?
+            renderer.get_graph()?.node(this.src) : null;
+        // Initial offsets are good for edges coming out of a node's top border.
+        let offsetX = LABEL_PADDING;
+        let offsetY = -LABEL_PADDING;
+        if (srcNode) {
+            const stl = srcNode.topleft();
+            if (Math.abs(srcP.y - (stl.y + srcNode.height)) < 1) {
+                // Edge exits the bottom of a node.
+                offsetY = LABEL_PADDING + labelH;
+                // If the edge moves right, offset the label to the left.
+                if (this.points[1].x > srcP.x)
+                    offsetX = -(LABEL_PADDING + labelW);
+            } else if (Math.abs(srcP.x - stl.x) < 1) {
+                // Edge exits to the left of a node.
+                offsetX = -(LABEL_PADDING + labelW);
+                // If the edge moves down, offset the label upwards.
+                if (this.points[1].y <= srcP.y)
+                    offsetY = LABEL_PADDING + labelH;
+            } else if (Math.abs(srcP.x - (stl.x + srcNode.width)) < 1) {
+                // Edge exits to the right of a node.
+                // If the edge moves down, offset the label upwards.
+                if (this.points[1].y <= srcP.y)
+                    offsetY = LABEL_PADDING + labelH;
+            } else {
+                // Edge exits the top of a node.
+                // If the edge moves right, offset the label to the left.
+                if (this.points[1].x > srcP.x)
+                    offsetX = -(LABEL_PADDING + labelW);
+            }
+        } else {
+            // Failsafe offset calculation if no source node is present.
+            if (this.points[0].x > this.points[1].x)
+                offsetX = -(labelW + LABEL_PADDING);
+            if (this.points[0].y <= this.points[1].y)
+                offsetY = labelH + LABEL_PADDING;
+        }
+
         ctx.fillStyle = this.getCssProperty(
             renderer, '--interstate-edge-color'
         );
-        const oldFont = ctx.font;
-        ctx.font = '8px sans-serif';
-        const labelMetrics = ctx.measureText(this.label());
-        const labelW = Math.abs(labelMetrics.actualBoundingBoxLeft) +
-            Math.abs(labelMetrics.actualBoundingBoxRight);
-        const labelH = Math.abs(labelMetrics.actualBoundingBoxDescent) +
-            Math.abs(labelMetrics.actualBoundingBoxAscent);
-        const offsetX = this.points[0].x > this.points[1].x ? -(labelW + 5) : 5;
-        const offsetY = this.points[0].y > this.points[1].y ? -5 : (labelH + 5);
-        ctx.fillText(
-            this.label(), this.points[0].x + offsetX, this.points[0].y + offsetY
-        );
+        for (let i = 0; i < labelLines.length; i++)
+            ctx.fillText(
+                labelLines[i],
+                srcP.x + offsetX,
+                (srcP.y + offsetY) - (i * (labelHs[0] + SDFV.LINEHEIGHT))
+            );
         ctx.font = oldFont;
     }
 
@@ -2661,6 +2756,6 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     ControlFlowBlock,
     BasicBlock,
     State,
-    ScopeBlock,
-    LoopScopeBlock,
+    ControlFlowRegion: ControlFlowRegion,
+    LoopRegion: LoopRegion,
 };
