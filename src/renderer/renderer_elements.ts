@@ -1154,24 +1154,40 @@ export class InterstateEdge extends Edge {
             return;
         if ((ctx as any).lod && ppp >= SDFV.SCOPE_LOD)
             return;
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--interstate-edge-color'
-        );
-        const oldFont = ctx.font;
-        ctx.font = '8px sans-serif';
-        let label = '';
+
+        const labelLines = [];
         if (this.attributes().assignments) {
             for (const k of Object.keys(this.attributes().assignments))
-                label += k + ' 🡐 ' + this.attributes().assignments[k] + '\n';
+                labelLines.push(k + ' 🡐 ' + this.attributes().assignments[k]);
         }
         const cond = this.attributes().condition.string_data;
         if (cond && cond !== '1' && cond !== 'true')
-            label += cond;
-        const labelMetrics = ctx.measureText(label);
-        const labelW = Math.abs(labelMetrics.actualBoundingBoxLeft) +
-            Math.abs(labelMetrics.actualBoundingBoxRight);
-        const labelH = Math.abs(labelMetrics.actualBoundingBoxDescent) +
-            Math.abs(labelMetrics.actualBoundingBoxAscent);
+            labelLines.push('if ' + cond);
+
+        if (labelLines.length < 1)
+            return;
+
+        const oldFont = ctx.font;
+        ctx.font = '8px sans-serif';
+        const labelHs = [];
+        const labelWs = [];
+        for (const l of labelLines) {
+            const labelMetrics = ctx.measureText(l);
+            labelWs.push(
+                Math.abs(labelMetrics.actualBoundingBoxLeft) +
+                Math.abs(labelMetrics.actualBoundingBoxRight)
+            );
+            labelHs.push(
+                Math.abs(labelMetrics.actualBoundingBoxDescent) +
+                Math.abs(labelMetrics.actualBoundingBoxAscent)
+            );
+        }
+        const labelW = Math.max(...labelWs);
+        const labelH = labelHs.reduce((pv, cv) => {
+            if (!cv)
+                return pv;
+            return cv + SDFV.LINEHEIGHT + pv;
+        });
 
         // The label is positioned at the origin of the interstate edge, offset
         // so that it does not intersect the edge or the state it originates
@@ -1226,7 +1242,16 @@ export class InterstateEdge extends Edge {
             if (this.points[0].y <= this.points[1].y)
                 offsetY = labelH + LABEL_PADDING;
         }
-        ctx.fillText(label, srcP.x + offsetX, srcP.y + offsetY);
+
+        ctx.fillStyle = this.getCssProperty(
+            renderer, '--interstate-edge-color'
+        );
+        for (let i = 0; i < labelLines.length; i++)
+            ctx.fillText(
+                labelLines[i],
+                srcP.x + offsetX,
+                (srcP.y + offsetY) - (i * (labelHs[0] + SDFV.LINEHEIGHT))
+            );
         ctx.font = oldFont;
     }
 
