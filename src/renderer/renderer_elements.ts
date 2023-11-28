@@ -471,14 +471,16 @@ export class LoopRegion extends ControlFlowRegion {
             ctx.stroke();
 
             ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-            const initStatement = this.attributes().init_statement.string_data;
+            const initStatement = this.attributes().init_statement?.string_data;
             const initTextY = (
                 (topleft.y + (LoopRegion.INIT_SPACING / 2)) +
                 (SDFV.LINEHEIGHT / 2)
             );
-            const initTextMetrics = ctx.measureText(initStatement);
-            const initTextX = this.x - (initTextMetrics.width / 2);
-            ctx.fillText(initStatement, initTextX, initTextY);
+            if (initStatement) {
+                const initTextMetrics = ctx.measureText(initStatement);
+                const initTextX = this.x - (initTextMetrics.width / 2);
+                ctx.fillText(initStatement, initTextX, initTextY);
+            }
 
             ctx.font = oldFont;
             ctx.fillText(
@@ -506,18 +508,20 @@ export class LoopRegion extends ControlFlowRegion {
         ctx.lineTo(topleft.x + this.width, condLineY);
         ctx.stroke();
         ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-        const condStatement = this.attributes().loop_condition.string_data;
+        const condStatement = this.attributes().loop_condition?.string_data;
         const condTextY = (
             (condTopY + (LoopRegion.CONDITION_SPACING / 2)) +
             (SDFV.LINEHEIGHT / 2)
         );
-        const condTextMetrics = ctx.measureText(condStatement);
-        const condTextX = this.x - (condTextMetrics.width / 2);
-        ctx.fillText(condStatement, condTextX, condTextY);
-        ctx.font = oldFont;
-        ctx.fillText(
-            'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
-        );
+        if (condStatement) {
+            const condTextMetrics = ctx.measureText(condStatement);
+            const condTextX = this.x - (condTextMetrics.width / 2);
+            ctx.fillText(condStatement, condTextX, condTextY);
+            ctx.font = oldFont;
+            ctx.fillText(
+                'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
+            );
+        }
 
         // Draw the update statement if there is one.
         if (this.attributes().update_statement) {
@@ -1157,7 +1161,7 @@ export class InterstateEdge extends Edge {
 
         const labelLines = [];
         if (this.attributes().assignments) {
-            for (const k of Object.keys(this.attributes().assignments))
+            for (const k of Object.keys(this.attributes().assignments ?? []))
                 labelLines.push(k + ' 🡐 ' + this.attributes().assignments[k]);
         }
         const cond = this.attributes().condition?.string_data;
@@ -1623,7 +1627,7 @@ export class ScopeNode extends SDFGNode {
 
         if (this instanceof ConsumeEntry || this instanceof ConsumeExit) {
             result += sdfg_consume_elem_to_string(
-                attrs.num_pes, renderer.view_settings()
+                attrs.num_pes ?? 1, renderer.view_settings()
             );
         } else {
             for (let i = 0; i < attrs.params.length; ++i)
@@ -1664,7 +1668,7 @@ export class ScopeNode extends SDFGNode {
         result += '[';
         if (this instanceof ConsumeEntry || this instanceof ConsumeExit) {
             result += attrs.pe_index + '=' + sdfg_consume_elem_to_string(
-                attrs.num_pes, renderer.view_settings()
+                attrs.num_pes ?? 1, renderer.view_settings()
             );
         } else {
             for (let i = 0; i < attrs.params.length; ++i) {
@@ -2281,7 +2285,7 @@ function batchedDrawEdges(
         if (!(graph instanceof State)) {
             if (edge.parent_id !== null) {
                 // WCR edge or dependency edge.
-                if (edge.attributes().wcr !== null || !edge.attributes().data) {
+                if (edge.attributes().wcr || !edge.attributes().data) {
                     deferredEdges.push(edge);
                     return;
                 }
