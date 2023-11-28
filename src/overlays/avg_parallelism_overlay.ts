@@ -73,7 +73,7 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
                     if (node instanceof NestedSDFG) {
                         const nested_symbols_map: SymbolMap = {};
                         const mapping =
-                            node.data.node.attributes.symbol_mapping;
+                            node.data.node.attributes.symbol_mapping ?? {};
                         // Translate the symbol mappings for the nested SDFG
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol: string) => {

@@ -37,7 +37,7 @@ export class SDFGParser {
                 // Find symbols used (may be Indices or Range).
                 const mdata = m.attributes.data.attributes.subset;
                 // Check for indices
-                if (mdata.type == 'subsets.Indices') {
+                if (mdata && mdata.type == 'subsets.Indices') {
                     // These are constants or variables.
                     // Reverse to have smallest unit first.
                     const tmp = mdata.indices.map((x: any) => x).reverse();
@@ -47,7 +47,7 @@ export class SDFGParser {
                         depth += 1;
                         syms.push({ var: x, val: null, depth: depth });
                     }
-                } else if (mdata.type == 'subsets.Range') {
+                } else if (mdata && mdata.type == 'subsets.Range') {
                     // These are ranges.
                     // These ranges are not of interest, as they specify what is
                     // copied and don't define new variables.

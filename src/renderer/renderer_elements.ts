@@ -1589,9 +1589,9 @@ export class ScopeNode extends SDFGNode {
                 attrs = entry.attributes;
         }
 
-        let label = attrs.schedule;
+        let label = attrs.schedule ?? 'Default';
         try {
-            label = this.schedule_label_dict[attrs.schedule];
+            label = this.schedule_label_dict[label];
         } catch (_err) {
         }
 
@@ -1797,7 +1797,7 @@ export class Tasklet extends SDFGNode {
         const lang = this.attributes().code.language?.toLowerCase() || 'python';
         const code = this.attributes().code.string_data;
 
-        const sdfgSymbols = Object.keys(this.sdfg.attributes.symbols);
+        const sdfgSymbols = Object.keys(this.sdfg.attributes.symbols ?? []);
         const inConnectors = Object.keys(this.attributes().in_connectors ?? []);
         const outConnectors = Object.keys(this.attributes().out_connectors ?? []);
 
