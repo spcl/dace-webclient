@@ -939,7 +939,7 @@ export class Memlet extends Edge {
         let skipArrow = false;
         if (this.attributes().data) {
             // CR edges have dashed lines
-            if (this.data.attributes.wcr !== null)
+            if (this.data.attributes.wcr)
                 ctx.setLineDash([3, 2]);
             else
                 ctx.setLineDash([1, 0]);
@@ -1160,7 +1160,7 @@ export class InterstateEdge extends Edge {
             for (const k of Object.keys(this.attributes().assignments))
                 labelLines.push(k + ' 🡐 ' + this.attributes().assignments[k]);
         }
-        const cond = this.attributes().condition.string_data;
+        const cond = this.attributes().condition?.string_data;
         if (cond && cond !== '1' && cond !== 'true')
             labelLines.push('if ' + cond);
 
