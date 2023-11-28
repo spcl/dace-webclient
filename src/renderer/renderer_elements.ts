@@ -982,7 +982,7 @@ export class Memlet extends Edge {
         const dsettings = renderer.view_settings();
         const attr = this.attributes();
 
-        if (attr.subset === null) {  // Empty memlet
+        if (attr.subset === null || attr.subset === undefined) {  // Empty memlet
             container.style.display = 'none';
             return;
         }
@@ -1369,10 +1369,10 @@ export class AccessNode extends SDFGNode {
         }
 
         // Non-transient (external) data is thicker
-        if (nodedesc && nodedesc.attributes.transient === false) {
-            ctx.lineWidth = 3.0;
-        } else {
+        if (nodedesc && nodedesc.attributes.transient === true) {
             ctx.lineWidth = 1.0;
+        } else {
+            ctx.lineWidth = 3.0;
         }
         ctx.stroke();
         ctx.lineWidth = 1.0;
@@ -1387,7 +1387,8 @@ export class AccessNode extends SDFGNode {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--reference-background-color'
             );
-        } else if (nodedesc && this.sdfg.attributes.constants_prop[name] !== undefined) {
+        } else if (nodedesc && this.sdfg.attributes.constants_prop &&
+            this.sdfg.attributes.constants_prop[name] !== undefined) {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--connector-scoped-color'
             );
@@ -1547,9 +1548,9 @@ export class ScopeNode extends SDFGNode {
                 SDFV.SCOPE_LOD, SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
                 SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true,
                 TextVAlign.BOTTOM, TextHAlign.RIGHT, {
-                    bottom: 2.0,
-                    right: this.height,
-                }
+                bottom: 2.0,
+                right: this.height,
+            }
             );
     }
 
@@ -1797,8 +1798,8 @@ export class Tasklet extends SDFGNode {
         const code = this.attributes().code.string_data;
 
         const sdfgSymbols = Object.keys(this.sdfg.attributes.symbols);
-        const inConnectors = Object.keys(this.attributes().in_connectors);
-        const outConnectors = Object.keys(this.attributes().out_connectors);
+        const inConnectors = Object.keys(this.attributes().in_connectors ?? []);
+        const outConnectors = Object.keys(this.attributes().out_connectors ?? []);
 
         const lines = code.split('\n');
         let maxline_len = 0;
@@ -1840,7 +1841,7 @@ export class Tasklet extends SDFGNode {
                         }
                     } else if (token.type.startsWith('number')) {
                         taskletToken.type = TaskletCodeTokenType.Number;
-                    }                        
+                    }
 
                     highlightedLine.push(taskletToken);
                 }
@@ -2143,10 +2144,10 @@ export class NestedSDFG extends SDFGNode {
             const labelsize =
                 this.data.node.attributes.label.length * SDFV.LINEHEIGHT * 0.8;
             const inconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
-                this.data.node.attributes.in_connectors
+                this.data.node.attributes.in_connectors ?? []
             ).length - SDFV.LINEHEIGHT;
             const outconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
-                this.data.node.attributes.out_connectors
+                this.data.node.attributes.out_connectors ?? []
             ).length - SDFV.LINEHEIGHT;
             const maxwidth = Math.max(labelsize, inconnsize, outconnsize);
             let maxheight = 2 * SDFV.LINEHEIGHT;

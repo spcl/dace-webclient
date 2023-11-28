@@ -3524,16 +3524,16 @@ function relayoutSDFGState(
         node.attributes.layout = {};
 
         // Set connectors prior to computing node size
-        node.attributes.layout.in_connectors = node.attributes.in_connectors;
+        node.attributes.layout.in_connectors = node.attributes.in_connectors ?? [];
         if ('is_collapsed' in node.attributes && node.attributes.is_collapsed &&
             node.type !== SDFGElementType.NestedSDFG &&
             node.type !== SDFGElementType.ExternalNestedSDFG)
             node.attributes.layout.out_connectors = find_exit_for_entry(
                 state.nodes, node
-            )?.attributes.out_connectors;
+            )?.attributes.out_connectors ?? [];
         else
             node.attributes.layout.out_connectors =
-                node.attributes.out_connectors;
+                node.attributes.out_connectors ?? [];
 
         const nodeSize = calculateNodeSize(sdfg, node, ctx);
         node.attributes.layout.width = nodeSize.width;
