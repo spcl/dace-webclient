@@ -982,7 +982,7 @@ export class Memlet extends Edge {
         const dsettings = renderer.view_settings();
         const attr = this.attributes();
 
-        if (attr.subset === null || attr.subset === undefined) {  // Empty memlet
+        if (attr.data === null || attr.data === undefined) {  // Empty memlet
             container.style.display = 'none';
             return;
         }
