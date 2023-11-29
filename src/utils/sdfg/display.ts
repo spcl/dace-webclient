@@ -49,7 +49,7 @@ export function sdfg_property_to_string(
     prop: any,
     settings: any = null
 ): string {
-    if (prop === null) return prop;
+    if (prop === null || prop === undefined) return prop;
     if (typeof prop === 'boolean') {
         if (prop)
             return 'True';
