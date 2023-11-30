@@ -2058,7 +2058,9 @@ export class NestedSDFG extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D
     ): void {
-        if (this.data.node.attributes.is_collapsed) {
+        if (!this.data.node.attributes.sdfg) {
+            // TODO
+        } if (this.data.node.attributes.is_collapsed) {
             const topleft = this.topleft();
             drawOctagon(ctx, topleft, this.width, this.height);
             ctx.strokeStyle = this.strokeStyle(renderer);
