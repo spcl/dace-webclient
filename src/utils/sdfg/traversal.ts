@@ -279,7 +279,7 @@ export function memlet_tree_nested(
                 const name = edge.dst_connector;
                 const nested_sdfg = next_node.attributes.sdfg;
 
-                nested_sdfg.nodes.forEach((nstate: any) => {
+                nested_sdfg?.nodes.forEach((nstate: any) => {
                     nstate.edges.forEach((e: any) => {
                         const node = nstate.nodes[e.src];
                         if (node.type === SDFGElementType.AccessNode &&
@@ -328,7 +328,7 @@ export function memlet_tree_nested(
                 const name = edge.src_connector;
                 const nested_sdfg = next_node.attributes.sdfg;
 
-                nested_sdfg.nodes.forEach((nstate: JsonSDFGState) => {
+                nested_sdfg?.nodes.forEach((nstate: JsonSDFGState) => {
                     nstate.edges.forEach((e: JsonSDFGEdge) => {
                         const node = nstate.nodes[parseInt(e.dst)];
                         if (node.type === SDFGElementType.AccessNode &&
@@ -394,7 +394,7 @@ export function memlet_tree_recursive(root_sdfg: JsonSDFG): any[] {
         });
 
         state.nodes.forEach((n: JsonSDFGNode) => {
-            if (n.type == SDFGElementType.NestedSDFG) {
+            if (n.type == SDFGElementType.NestedSDFG && n.attributes.sdfg) {
                 const t = memlet_tree_recursive(n.attributes.sdfg);
                 trees = trees.concat(t);
             }

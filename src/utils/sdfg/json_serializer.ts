@@ -8,7 +8,7 @@ export function read_or_decompress(
     json: string | ArrayBuffer
 ): [string, boolean] {
     try {
-        return [gunzipSync(Buffer.from(json as Uint8Array)).toString(), true];
+        return [new TextDecoder().decode(gunzipSync(Buffer.from(json as Uint8Array))), true];
     } catch {
         if (typeof json !== 'string') {
             const enc = new TextDecoder('utf-8');

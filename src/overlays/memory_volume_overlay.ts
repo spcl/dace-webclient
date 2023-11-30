@@ -86,7 +86,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                     const node = state_graph.node(v);
                     if (node instanceof NestedSDFG) {
                         const nested_symbols_map: SymbolMap = {};
-                        const mapping = node.data.node.attributes.symbol_mapping;
+                        const mapping = node.data.node.attributes.symbol_mapping ?? {};
                         // Translate the symbol mappings for the nested SDFG
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol) => {

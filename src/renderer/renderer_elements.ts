@@ -471,14 +471,16 @@ export class LoopRegion extends ControlFlowRegion {
             ctx.stroke();
 
             ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-            const initStatement = this.attributes().init_statement.string_data;
+            const initStatement = this.attributes().init_statement?.string_data;
             const initTextY = (
                 (topleft.y + (LoopRegion.INIT_SPACING / 2)) +
                 (SDFV.LINEHEIGHT / 2)
             );
-            const initTextMetrics = ctx.measureText(initStatement);
-            const initTextX = this.x - (initTextMetrics.width / 2);
-            ctx.fillText(initStatement, initTextX, initTextY);
+            if (initStatement) {
+                const initTextMetrics = ctx.measureText(initStatement);
+                const initTextX = this.x - (initTextMetrics.width / 2);
+                ctx.fillText(initStatement, initTextX, initTextY);
+            }
 
             ctx.font = oldFont;
             ctx.fillText(
@@ -506,18 +508,20 @@ export class LoopRegion extends ControlFlowRegion {
         ctx.lineTo(topleft.x + this.width, condLineY);
         ctx.stroke();
         ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-        const condStatement = this.attributes().loop_condition.string_data;
+        const condStatement = this.attributes().loop_condition?.string_data;
         const condTextY = (
             (condTopY + (LoopRegion.CONDITION_SPACING / 2)) +
             (SDFV.LINEHEIGHT / 2)
         );
-        const condTextMetrics = ctx.measureText(condStatement);
-        const condTextX = this.x - (condTextMetrics.width / 2);
-        ctx.fillText(condStatement, condTextX, condTextY);
-        ctx.font = oldFont;
-        ctx.fillText(
-            'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
-        );
+        if (condStatement) {
+            const condTextMetrics = ctx.measureText(condStatement);
+            const condTextX = this.x - (condTextMetrics.width / 2);
+            ctx.fillText(condStatement, condTextX, condTextY);
+            ctx.font = oldFont;
+            ctx.fillText(
+                'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
+            );
+        }
 
         // Draw the update statement if there is one.
         if (this.attributes().update_statement) {
@@ -939,7 +943,7 @@ export class Memlet extends Edge {
         let skipArrow = false;
         if (this.attributes().data) {
             // CR edges have dashed lines
-            if (this.data.attributes.wcr !== null)
+            if (this.data.attributes.wcr)
                 ctx.setLineDash([3, 2]);
             else
                 ctx.setLineDash([1, 0]);
@@ -982,7 +986,7 @@ export class Memlet extends Edge {
         const dsettings = renderer.view_settings();
         const attr = this.attributes();
 
-        if (attr.subset === null) {  // Empty memlet
+        if (attr.data === null || attr.data === undefined) {  // Empty memlet
             container.style.display = 'none';
             return;
         }
@@ -1157,10 +1161,10 @@ export class InterstateEdge extends Edge {
 
         const labelLines = [];
         if (this.attributes().assignments) {
-            for (const k of Object.keys(this.attributes().assignments))
+            for (const k of Object.keys(this.attributes().assignments ?? []))
                 labelLines.push(k + ' 🡐 ' + this.attributes().assignments[k]);
         }
-        const cond = this.attributes().condition.string_data;
+        const cond = this.attributes().condition?.string_data;
         if (cond && cond !== '1' && cond !== 'true')
             labelLines.push('if ' + cond);
 
@@ -1369,10 +1373,10 @@ export class AccessNode extends SDFGNode {
         }
 
         // Non-transient (external) data is thicker
-        if (nodedesc && nodedesc.attributes.transient === false) {
-            ctx.lineWidth = 3.0;
-        } else {
+        if (nodedesc && nodedesc.attributes.transient === true) {
             ctx.lineWidth = 1.0;
+        } else {
+            ctx.lineWidth = 3.0;
         }
         ctx.stroke();
         ctx.lineWidth = 1.0;
@@ -1387,7 +1391,8 @@ export class AccessNode extends SDFGNode {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--reference-background-color'
             );
-        } else if (nodedesc && this.sdfg.attributes.constants_prop[name] !== undefined) {
+        } else if (nodedesc && this.sdfg.attributes.constants_prop &&
+            this.sdfg.attributes.constants_prop[name] !== undefined) {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--connector-scoped-color'
             );
@@ -1547,9 +1552,9 @@ export class ScopeNode extends SDFGNode {
                 SDFV.SCOPE_LOD, SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
                 SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true,
                 TextVAlign.BOTTOM, TextHAlign.RIGHT, {
-                    bottom: 2.0,
-                    right: this.height,
-                }
+                bottom: 2.0,
+                right: this.height,
+            }
             );
     }
 
@@ -1588,9 +1593,9 @@ export class ScopeNode extends SDFGNode {
                 attrs = entry.attributes;
         }
 
-        let label = attrs.schedule;
+        let label = attrs.schedule ?? 'Default';
         try {
-            label = this.schedule_label_dict[attrs.schedule];
+            label = this.schedule_label_dict[label];
         } catch (_err) {
         }
 
@@ -1622,7 +1627,7 @@ export class ScopeNode extends SDFGNode {
 
         if (this instanceof ConsumeEntry || this instanceof ConsumeExit) {
             result += sdfg_consume_elem_to_string(
-                attrs.num_pes, renderer.view_settings()
+                attrs.num_pes ?? 1, renderer.view_settings()
             );
         } else {
             for (let i = 0; i < attrs.params.length; ++i)
@@ -1663,7 +1668,7 @@ export class ScopeNode extends SDFGNode {
         result += '[';
         if (this instanceof ConsumeEntry || this instanceof ConsumeExit) {
             result += attrs.pe_index + '=' + sdfg_consume_elem_to_string(
-                attrs.num_pes, renderer.view_settings()
+                attrs.num_pes ?? 1, renderer.view_settings()
             );
         } else {
             for (let i = 0; i < attrs.params.length; ++i) {
@@ -1796,9 +1801,9 @@ export class Tasklet extends SDFGNode {
         const lang = this.attributes().code.language?.toLowerCase() || 'python';
         const code = this.attributes().code.string_data;
 
-        const sdfgSymbols = Object.keys(this.sdfg.attributes.symbols);
-        const inConnectors = Object.keys(this.attributes().in_connectors);
-        const outConnectors = Object.keys(this.attributes().out_connectors);
+        const sdfgSymbols = Object.keys(this.sdfg.attributes.symbols ?? []);
+        const inConnectors = Object.keys(this.attributes().in_connectors ?? []);
+        const outConnectors = Object.keys(this.attributes().out_connectors ?? []);
 
         const lines = code.split('\n');
         let maxline_len = 0;
@@ -1840,7 +1845,7 @@ export class Tasklet extends SDFGNode {
                         }
                     } else if (token.type.startsWith('number')) {
                         taskletToken.type = TaskletCodeTokenType.Number;
-                    }                        
+                    }
 
                     highlightedLine.push(taskletToken);
                 }
@@ -2058,9 +2063,7 @@ export class NestedSDFG extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D
     ): void {
-        if (!this.data.node.attributes.sdfg) {
-            // TODO
-        } if (this.data.node.attributes.is_collapsed) {
+        if (this.data.node.attributes.is_collapsed) {
             const topleft = this.topleft();
             drawOctagon(ctx, topleft, this.width, this.height);
             ctx.strokeStyle = this.strokeStyle(renderer);
@@ -2084,7 +2087,9 @@ export class NestedSDFG extends SDFGNode {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--node-foreground-color'
             );
-            const label = this.data.node.attributes.label;
+            let label = this.data.node.attributes.label;
+            if (!this.data.node.attributes.sdfg)
+                label += ' (not loaded)';
             const textmetrics = ctx.measureText(label);
             ctx.fillText(
                 label, this.x - textmetrics.width / 2.0,
@@ -2145,10 +2150,10 @@ export class NestedSDFG extends SDFGNode {
             const labelsize =
                 this.data.node.attributes.label.length * SDFV.LINEHEIGHT * 0.8;
             const inconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
-                this.data.node.attributes.in_connectors
+                this.data.node.attributes.in_connectors ?? []
             ).length - SDFV.LINEHEIGHT;
             const outconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
-                this.data.node.attributes.out_connectors
+                this.data.node.attributes.out_connectors ?? []
             ).length - SDFV.LINEHEIGHT;
             const maxwidth = Math.max(labelsize, inconnsize, outconnsize);
             let maxheight = 2 * SDFV.LINEHEIGHT;
@@ -2282,7 +2287,7 @@ function batchedDrawEdges(
         if (!(graph instanceof State)) {
             if (edge.parent_id !== null) {
                 // WCR edge or dependency edge.
-                if (edge.attributes().wcr !== null || !edge.attributes().data) {
+                if (edge.attributes().wcr || !edge.attributes().data) {
                     deferredEdges.push(edge);
                     return;
                 }
@@ -2511,7 +2516,8 @@ export function offset_state(
             c.y += offset.y;
         });
 
-        if (node.data.node.type === SDFGElementType.NestedSDFG)
+        if (node.data.node.type === SDFGElementType.NestedSDFG &&
+            node.data.node.attributes.sdfg)
             offset_sdfg(
                 node.data.node.attributes.sdfg, node.data.graph, offset
             );

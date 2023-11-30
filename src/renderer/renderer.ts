@@ -991,7 +991,8 @@ export class SDFGRenderer extends EventEmitter {
         this.sdfg_tree = {};
         this.for_all_sdfg_elements(
             (otype: SDFGElementGroup, odict: any, obj: any) => {
-                if (obj.type === SDFGElementType.NestedSDFG)
+                if (obj.type === SDFGElementType.NestedSDFG &&
+                    obj.attributes.sdfg)
                     this.sdfg_tree[obj.attributes.sdfg.sdfg_list_id] =
                         odict.sdfg.sdfg_list_id;
             }
@@ -1907,7 +1908,8 @@ export class SDFGRenderer extends EventEmitter {
 
                                 // If nested SDFG, traverse recursively
                                 if (node.data.node.type ===
-                                    SDFGElementType.NestedSDFG)
+                                    SDFGElementType.NestedSDFG &&
+                                    node.attributes().sdfg)
                                     traverseRecursive(
                                         node.data.graph,
                                         node.attributes().sdfg.attributes.name,
@@ -2004,7 +2006,8 @@ export class SDFGRenderer extends EventEmitter {
                     );
 
                     // If nested SDFG, traverse recursively
-                    if (node.type === SDFGElementType.NestedSDFG)
+                    if (node.type === SDFGElementType.NestedSDFG &&
+                        node.attributes.sdfg)
                         traverse_recursive(node.attributes.sdfg);
                 });
 
@@ -3524,16 +3527,16 @@ function relayoutSDFGState(
         node.attributes.layout = {};
 
         // Set connectors prior to computing node size
-        node.attributes.layout.in_connectors = node.attributes.in_connectors;
+        node.attributes.layout.in_connectors = node.attributes.in_connectors ?? [];
         if ('is_collapsed' in node.attributes && node.attributes.is_collapsed &&
             node.type !== SDFGElementType.NestedSDFG &&
             node.type !== SDFGElementType.ExternalNestedSDFG)
             node.attributes.layout.out_connectors = find_exit_for_entry(
                 state.nodes, node
-            )?.attributes.out_connectors;
+            )?.attributes.out_connectors ?? [];
         else
             node.attributes.layout.out_connectors =
-                node.attributes.out_connectors;
+                node.attributes.out_connectors ?? [];
 
         const nodeSize = calculateNodeSize(sdfg, node, ctx);
         node.attributes.layout.width = nodeSize.width;
@@ -3739,7 +3742,7 @@ function relayoutSDFGState(
         const topleft = gnode.topleft();
 
         // Offset nested SDFG.
-        if (node.type === SDFGElementType.NestedSDFG) {
+        if (node.type === SDFGElementType.NestedSDFG && node.attributes.sdfg) {
 
             offset_sdfg(node.attributes.sdfg, gnode.data.graph, {
                 x: topleft.x + SDFV.LINEHEIGHT,
