@@ -991,7 +991,8 @@ export class SDFGRenderer extends EventEmitter {
         this.sdfg_tree = {};
         this.for_all_sdfg_elements(
             (otype: SDFGElementGroup, odict: any, obj: any) => {
-                if (obj.type === SDFGElementType.NestedSDFG)
+                if (obj.type === SDFGElementType.NestedSDFG &&
+                    obj.attributes.sdfg)
                     this.sdfg_tree[obj.attributes.sdfg.sdfg_list_id] =
                         odict.sdfg.sdfg_list_id;
             }
@@ -1907,7 +1908,8 @@ export class SDFGRenderer extends EventEmitter {
 
                                 // If nested SDFG, traverse recursively
                                 if (node.data.node.type ===
-                                    SDFGElementType.NestedSDFG)
+                                    SDFGElementType.NestedSDFG &&
+                                    node.attributes().sdfg)
                                     traverseRecursive(
                                         node.data.graph,
                                         node.attributes().sdfg.attributes.name,
@@ -2004,7 +2006,8 @@ export class SDFGRenderer extends EventEmitter {
                     );
 
                     // If nested SDFG, traverse recursively
-                    if (node.type === SDFGElementType.NestedSDFG)
+                    if (node.type === SDFGElementType.NestedSDFG &&
+                        node.attributes.sdfg)
                         traverse_recursive(node.attributes.sdfg);
                 });
 
@@ -3739,7 +3742,7 @@ function relayoutSDFGState(
         const topleft = gnode.topleft();
 
         // Offset nested SDFG.
-        if (node.type === SDFGElementType.NestedSDFG) {
+        if (node.type === SDFGElementType.NestedSDFG && node.attributes.sdfg) {
 
             offset_sdfg(node.attributes.sdfg, gnode.data.graph, {
                 x: topleft.x + SDFV.LINEHEIGHT,

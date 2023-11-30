@@ -2087,7 +2087,9 @@ export class NestedSDFG extends SDFGNode {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--node-foreground-color'
             );
-            const label = this.data.node.attributes.label;
+            let label = this.data.node.attributes.label;
+            if (!this.data.node.attributes.sdfg)
+                label += ' (not loaded)';
             const textmetrics = ctx.measureText(label);
             ctx.fillText(
                 label, this.x - textmetrics.width / 2.0,
@@ -2514,7 +2516,8 @@ export function offset_state(
             c.y += offset.y;
         });
 
-        if (node.data.node.type === SDFGElementType.NestedSDFG)
+        if (node.data.node.type === SDFGElementType.NestedSDFG &&
+            node.data.node.attributes.sdfg)
             offset_sdfg(
                 node.data.node.attributes.sdfg, node.data.graph, offset
             );

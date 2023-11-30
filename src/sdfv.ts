@@ -326,7 +326,7 @@ export class SDFV {
         }
 
         // If nested SDFG, add SDFG information too
-        if (elem instanceof NestedSDFG) {
+        if (elem instanceof NestedSDFG && elem.attributes().sdfg) {
             const sdfg_sdfg = elem.attributes().sdfg;
             contents.append($('<br>'));
             contents.append($('<h4>', {
