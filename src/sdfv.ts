@@ -6,7 +6,8 @@ import 'material-icons/iconfont/material-icons.css';
 import 'material-symbols/index.css';
 
 import 'bootstrap';
-import 'bootstrap/dist/css/bootstrap.min.css';
+
+import '../scss/sdfv.scss';
 
 import { mean, median } from 'mathjs';
 import {
