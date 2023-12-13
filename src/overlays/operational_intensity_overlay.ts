@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
-import { SDFGRenderer, SDFGRendererEvent } from '../renderer/renderer';
+import { SDFGRenderer } from '../renderer/renderer';
 import {
     Edge,
     NestedSDFG,
@@ -136,7 +136,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                     if (node instanceof NestedSDFG) {
                         const nested_symbols_map: SymbolMap = {};
                         const mapping =
-                            node.data.node.attributes.symbol_mapping;
+                            node.data.node.attributes.symbol_mapping ?? {};
                         // Translate the symbol mappings for the nested SDFG
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol: string) => {

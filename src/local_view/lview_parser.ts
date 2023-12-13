@@ -130,7 +130,7 @@ export class LViewParser {
             let container = graph.dataContainers.get(name);
             if (!container) {
                 const dimensions = [];
-                for (const s of sdfgContainer.attributes.shape) {
+                for (const s of sdfgContainer.attributes.shape ?? []) {
                     const val = this.parseSymbolic(s, symbolMap);
                     dimensions.push(new DataDimension(s.toString(), val));
                 }
@@ -157,8 +157,8 @@ export class LViewParser {
                     name,
                     dimensions,
                     8, // TODO
-                    sdfgContainer.attributes.start_offset,
-                    sdfgContainer.attributes.alignment,
+                    sdfgContainer.attributes.start_offset ?? 0,
+                    sdfgContainer.attributes.alignment ?? 0,
                     storageType?.type,
                     strides,
                 );
@@ -203,8 +203,8 @@ export class LViewParser {
             attributes.data, graph, state, symbolMap
         );
         const ranges = attributes.other_subset ?
-            attributes.other_subset.ranges : attributes.subset.ranges;
-        const volume = this.parseSymbolic(attributes.num_accesses, symbolMap);
+            attributes.other_subset.ranges : attributes.subset?.ranges;
+        const volume = this.parseSymbolic(attributes.num_accesses ?? 0, symbolMap);
         if (dataContainer && ranges) {
             if (volume === 1) {
                 const accessIdx = [];
@@ -428,8 +428,8 @@ export class LViewParser {
         sdfg: JsonSDFG
     ): Promise<Map<string, number>> {
         const symbolMap = new Map<string, number>();
-        const symbols = sdfg.attributes.symbols;
-        const constants = sdfg.attributes.constants_prop;
+        const symbols = sdfg.attributes.symbols ?? [];
+        const constants = sdfg.attributes.constants_prop ?? [];
 
         if (symbols) {
             for (const symbol in symbols) {

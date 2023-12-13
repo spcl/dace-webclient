@@ -20,7 +20,7 @@ export class SymbolResolver {
         this.sdfg = this.renderer.get_sdfg();
 
         // Initialize the symbol mapping to the graph's symbol table.
-        Object.keys(this.sdfg.attributes.symbols).forEach((s) => {
+        Object.keys(this.sdfg.attributes.symbols ?? []).forEach((s) => {
             if (this.sdfg.attributes.constants_prop !== undefined &&
                 Object.keys(this.sdfg.attributes.constants_prop).includes(s) &&
                 this.sdfg.attributes.constants_prop[s][0]['type'] === 'Scalar')
@@ -36,7 +36,7 @@ export class SymbolResolver {
 
     public removeStaleSymbols(): void {
         const toKeep: SymbolMap = {};
-        for (const sym in this.renderer.get_sdfg().attributes.symbols)
+        for (const sym in this.renderer.get_sdfg().attributes.symbols ?? [])
             toKeep[sym] = this.symbol_value_map[sym];
         this.symbol_value_map = toKeep;
     }

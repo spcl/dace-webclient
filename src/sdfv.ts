@@ -16,7 +16,7 @@ import {
     Point2D,
     sdfg_property_to_string,
     showErrorModal,
-    traverse_sdfg_scopes
+    traverseSDFGScopes
 } from './index';
 import { LViewRenderer } from './local_view/lview_renderer';
 import {
@@ -50,7 +50,7 @@ export class SDFV {
     // Points-per-pixel threshold for not drawing memlets/interstate edges.
     public static EDGE_LOD: number = 8;
     // Points-per-pixel threshold for not drawing node shapes and labels.
-    public static NODE_LOD: number = 60;
+    public static NODE_LOD: number = 60.0;
     // Pixel threshold for not drawing state contents.
     public static STATE_LOD: number = 50;
 
@@ -165,7 +165,7 @@ export class SDFV {
         const stack: any[] = [sidebar];
 
         // Add elements to tree view in sidebar
-        traverse_sdfg_scopes(sdfg, (node: SDFGNode, parent: DagreSDFG) => {
+        traverseSDFGScopes(sdfg, (node: SDFGNode, parent: DagreSDFG) => {
             // Skip exit nodes when scopes are known
             if (node.type().endsWith('Exit') &&
                 node.data.node.scope_entry >= 0) {
@@ -326,7 +326,7 @@ export class SDFV {
         }
 
         // If nested SDFG, add SDFG information too
-        if (elem instanceof NestedSDFG) {
+        if (elem instanceof NestedSDFG && elem.attributes().sdfg) {
             const sdfg_sdfg = elem.attributes().sdfg;
             contents.append($('<br>'));
             contents.append($('<h4>', {

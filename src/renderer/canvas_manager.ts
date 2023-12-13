@@ -4,7 +4,7 @@ import { Edge, EntryNode, SDFGElement, SDFGElementType, SDFGNode } from './rende
 import { lerpMatrix } from '../utils/lerp_matrix';
 import { updateEdgeBoundingBox } from '../utils/bounding_box';
 import {
-    get_positioning_info,
+    getPositioningInfo,
     initialize_positioning_info,
 } from '../utils/sdfg/sdfg_utils';
 import { SDFGRenderer, SDFGListType } from './renderer';
@@ -483,7 +483,7 @@ export class CanvasManager {
             const points = el.get_points();
             let position;
             if (update_position_info) {
-                position = get_positioning_info(el);
+                position = getPositioningInfo(el);
 
                 if (!position)
                     position = initialize_positioning_info(el);
@@ -591,7 +591,7 @@ export class CanvasManager {
 
         // Store movement information in element (for relayouting)
         if (update_position_info) {
-            let position = get_positioning_info(el);
+            let position = getPositioningInfo(el);
             if (!position)
                 position = initialize_positioning_info(el);
 
