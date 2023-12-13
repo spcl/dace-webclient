@@ -3362,7 +3362,7 @@ function relayoutStateMachine(
                 blockInfo.width = Math.max(
                     maxLabelWidth, ctx.measureText(block.label).width
                 ) + 3 * LoopRegion.META_LABEL_MARGIN;
-            } else if (blockElem instanceof State) {
+            } else {
                 blockInfo.width = ctx.measureText(blockInfo.label).width;
             }
         } else {
@@ -3866,6 +3866,7 @@ function relayoutSDFGBlock(
 ): DagreSDFG | null {
     switch (block.type) {
         case SDFGElementType.LoopRegion:
+        case SDFGElementType.ControlFlowRegion:
             return relayoutStateMachine(
                 ctx, block as StateMachineType, sdfg, sdfgList, stateParentList,
                 omitAccessNodes, parent
