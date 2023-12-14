@@ -233,6 +233,147 @@ export class BasicBlock extends SDFGElement {
 }
 
 export class ControlFlowRegion extends ControlFlowBlock {
+
+    public static readonly META_LABEL_MARGIN: number = 5;
+
+    public draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        _mousepos?: Point2D
+    ): void {
+        const topleft = this.topleft();
+        const visibleRect = renderer.get_visible_rect();
+
+        let clamped;
+        if (visibleRect)
+            clamped = {
+                x: Math.max(topleft.x, visibleRect.x),
+                y: Math.max(topleft.y, visibleRect.y),
+                x2: Math.min(
+                    topleft.x + this.width, visibleRect.x + visibleRect.w
+                ),
+                y2: Math.min(
+                    topleft.y + this.height, visibleRect.y + visibleRect.h
+                ),
+                w: 0,
+                h: 0,
+            };
+        else
+            clamped = {
+                x: topleft.x,
+                y: topleft.y,
+                x2: topleft.x + this.width,
+                y2: topleft.y + this.height,
+                w: 0,
+                h: 0,
+            };
+        clamped.w = clamped.x2 - clamped.x;
+        clamped.h = clamped.y2 - clamped.y;
+        if (!(ctx as any).lod)
+            clamped = {
+                x: topleft.x, y: topleft.y, x2: 0, y2: 0,
+                w: this.width, h: this.height
+            };
+
+        // Draw the region's background below everything and stroke the border.
+        ctx.fillStyle = this.getCssProperty(
+            renderer, '--control-flow-region-background-color'
+        );
+        ctx.strokeStyle = this.getCssProperty(
+            renderer, '--control-flow-region-foreground-color'
+        );
+        ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        ctx.fillStyle = this.getCssProperty(
+            renderer, '--control-flow-region-foreground-color'
+        );
+
+        if (visibleRect && visibleRect.x <= topleft.x &&
+            visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
+            SDFVSettings.showStateNames)
+            ctx.fillText(
+                this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
+                topleft.y + SDFV.LINEHEIGHT
+            );
+
+        // If this state is selected or hovered
+        if ((this.selected || this.highlighted || this.hovered) &&
+            (clamped.x === topleft.x ||
+                clamped.y === topleft.y ||
+                clamped.x2 === topleft.x + this.width ||
+                clamped.y2 === topleft.y + this.height)) {
+            ctx.strokeStyle = this.strokeStyle(renderer);
+            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        }
+
+        // If collapsed, draw a "+" sign in the middle
+        if (this.attributes().is_collapsed) {
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y - SDFV.LINEHEIGHT);
+            ctx.lineTo(this.x, this.y + SDFV.LINEHEIGHT);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(this.x - SDFV.LINEHEIGHT, this.y);
+            ctx.lineTo(this.x + SDFV.LINEHEIGHT, this.y);
+            ctx.stroke();
+        }
+
+        ctx.strokeStyle = 'black';
+    }
+
+    public simple_draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D
+    ): void {
+        // Fast drawing function for small states
+        const topleft = this.topleft();
+
+        ctx.fillStyle = this.getCssProperty(
+            renderer, '--control-flow-region-background-simple-color'
+        );
+        ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
+        ctx.fillStyle = this.getCssProperty(
+            renderer, '--control-flow-region-foreground-color'
+        );
+
+        if (mousepos && this.intersect(mousepos.x, mousepos.y))
+            renderer.set_tooltip((c) => this.tooltip(c));
+    }
+
+    public shade(
+        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        alpha: number = 0.4
+    ): void {
+        // Save the current style properties.
+        const orig_fill_style = ctx.fillStyle;
+        const orig_alpha = ctx.globalAlpha;
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+
+        const topleft = this.topleft();
+        ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
+
+        // Restore the previous style properties.
+        ctx.fillStyle = orig_fill_style;
+        ctx.globalAlpha = orig_alpha;
+    }
+
+    public tooltip(container: HTMLElement): void {
+        container.innerText = 'Loop: ' + this.label();
+    }
+
+    public attributes(): any {
+        return this.data.block.attributes;
+    }
+
+    public label(): string {
+        return this.data.block.label;
+    }
+
+    public type(): string {
+        return this.data.block.type;
+    }
+
 }
 
 export class State extends BasicBlock {
@@ -386,8 +527,6 @@ export class State extends BasicBlock {
 }
 
 export class LoopRegion extends ControlFlowRegion {
-
-    public static readonly META_LABEL_MARGIN: number = 5;
 
     public static get CONDITION_SPACING(): number {
         return 3 * SDFV.LINEHEIGHT;
@@ -588,56 +727,8 @@ export class LoopRegion extends ControlFlowRegion {
         ctx.strokeStyle = 'black';
     }
 
-    public simple_draw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void {
-        // Fast drawing function for small states
-        const topleft = this.topleft();
-
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--loop-background-simple-color'
-        );
-        ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.fillStyle = this.getCssProperty(renderer, '--loop-foreground-color');
-
-        if (mousepos && this.intersect(mousepos.x, mousepos.y))
-            renderer.set_tooltip((c) => this.tooltip(c));
-    }
-
-    public shade(
-        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.4
-    ): void {
-        // Save the current style properties.
-        const orig_fill_style = ctx.fillStyle;
-        const orig_alpha = ctx.globalAlpha;
-
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = color;
-
-        const topleft = this.topleft();
-        ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
-
-        // Restore the previous style properties.
-        ctx.fillStyle = orig_fill_style;
-        ctx.globalAlpha = orig_alpha;
-    }
-
     public tooltip(container: HTMLElement): void {
         container.innerText = 'Loop: ' + this.label();
-    }
-
-    public attributes(): any {
-        return this.data.block.attributes;
-    }
-
-    public label(): string {
-        return this.data.block.label;
-    }
-
-    public type(): string {
-        return this.data.block.type;
     }
 
 }
