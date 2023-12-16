@@ -67,6 +67,19 @@ export class DiGraph<NodeT, EdgeT> extends Graph<NodeT, EdgeT> {
         return this.succ.get(u)?.has(v) ?? false;
     }
 
+    public* successorsIterSelective(
+        id: string, ignoreEdges: [string, string][]
+    ): Generator<string> {
+        const ignoredTargets = new Set<string>();
+        for (const ie of ignoreEdges)
+            if (ie[0] == id)
+                ignoredTargets.add(ie[1]);
+        for (const v of this.succ.get(id)?.keys() ?? []) {
+            if (!ignoredTargets.has(v))
+                yield v;
+        }
+    }
+
     public successorsIter(id: string): IterableIterator<string> {
         return this.succ.get(id)?.keys() ?? new Map().keys();
     }
