@@ -360,21 +360,25 @@ export class SMLayouter {
                 throw new Error('Failed to determine exit.');
         }
 
-        // TODO: Not sure about this, this may fail in situations where the loop
-        // is executed conditionally and contains breaks and returns.
-        let subtr = 0;
-        for (const s of exitCandidates)
-            subtr += this.allDom.get(s)?.size ?? 0;
-        const exitRank = rank + (
-            (this.allDom.get(node)?.size ?? 0) - subtr
-        );
-        for (const s of exitCandidates)
-            q.push([s, exitRank]);
-
-        // Add all successors that are not the exit candidate.
-        for (const n of successors)
-            if (!exitCandidates.has(n))
+        if (exitCandidates.size > 1) {
+            throw new Error('Undetermined number of possible exit states.');
+        } else if (exitCandidates.size === 1) {
+            let loopSize = 0;
+            const exitNode = Array.from(exitCandidates)[0];
+            for (const s of successors) {
+                if (s !== exitNode) {
+                    loopSize += (this.allDom.get(s)?.size ?? 0) + 1;
+                    q.push([s, rank + 1]);
+                }
+            }
+            const exitRank = rank + loopSize + 1;
+            for (const s of exitCandidates)
+                q.push([s, exitRank]);
+        } else {
+            // Add all successors that are not the exit candidate.
+            for (const n of successors)
                 q.push([n, rank + 1]);
+        }
     }
 
     /**
@@ -386,20 +390,16 @@ export class SMLayouter {
         const q: [string, number][] = [[this.startNode, 0]];
 
         const scopes: [ScopeType, number, number][] = [];
-        const visited = new Set<string>();
         const rankings = new Map<string, number>();
 
         while (q.length > 0) {
             const [node, rank] = q.shift()!;
-            if (!visited.has(node)) {
-                const backedges = this.backedgesDstDict.get(node) ?? new Set();
+            if (rankings.has(node)) {
+                rankings.set(node, Math.max(rankings.get(node)!, rank));
+            } else {
+                rankings.set(node, rank);
 
-                // Assign the rank for the current node (passed along in the
-                // queue).
-                if (rankings.has(node))
-                    rankings.set(node, Math.max(rankings.get(node)!, rank));
-                else
-                    rankings.set(node, rank);
+                const backedges = this.backedgesDstDict.get(node) ?? new Set();
 
                 // Gather all successors that are not reached through backedges.
                 const successors: string[] = [];
@@ -443,8 +443,6 @@ export class SMLayouter {
                 } else {
                     this.propagate(node, successors, rank, q, scopes);
                 }
-
-                visited.add(node);
             }
         }
 
