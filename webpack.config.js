@@ -37,21 +37,13 @@ module.exports = {
                         loader: 'css-loader',
                     },
                     {
-                        loader: 'postcss-loader',
-                        options: {
-                            postcssOptions: {
-                                plugins: function () {
-                                    return [
-                                        require('autoprefixer'),
-                                    ];
-                                },
-                            },
-                        },
-                    },
-                    {
                         loader: 'sass-loader',
                     },
                 ],
+            },
+            {
+                test: /\.(woff|woff2|otf|eot|ttf)$/i,
+                type: 'asset/resource',
             },
         ],
     },

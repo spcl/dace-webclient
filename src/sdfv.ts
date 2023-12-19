@@ -2,9 +2,6 @@
 
 import $ from 'jquery';
 
-import 'material-icons/iconfont/material-icons.css';
-import 'material-symbols/index.css';
-
 import 'bootstrap';
 
 import '../scss/sdfv.scss';

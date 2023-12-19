@@ -5,6 +5,11 @@
 @import "~bootstrap/scss/mixins";
 @import "~bootstrap/scss/root";
 
+$material-icons-font-path: "~material-icons/iconfont/";
+//$material-symbols-font-path: "~material-symbols/";
+@import "~material-icons/iconfont/material-icons";
+//@import "~material-symbols";
+
 .sdfv {
   @import "~bootstrap/scss/bootstrap";
 }
