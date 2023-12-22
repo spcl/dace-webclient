@@ -218,7 +218,7 @@ function testSelfLoop(): void {
     expect(graph2.get('3')?.rank).toBe(3);
 }
 
-function testMultiInvertedSkipLops(): void {
+function testMultiInvertedSkipLoops(): void {
     const graph = new DiGraph<SMLayouterNode, SMLayouterEdge>();
 
     // Construct graph.
@@ -274,6 +274,36 @@ function testMultiInvertedSkipLops(): void {
     expect(graph.get('17')?.rank).toBe(9);
 }
 
+function testSkipLoopWithBreakReturn(): void {
+    const graph = new DiGraph<SMLayouterNode, SMLayouterEdge>();
+
+    // Construct graph.
+
+    constructEdge(graph, '0', '1');
+    constructEdge(graph, '1', '2');
+    constructEdge(graph, '1', '6');
+    constructEdge(graph, '2', '3');
+    constructEdge(graph, '2', '6');
+    constructEdge(graph, '3', '4');
+    constructEdge(graph, '3', '6');
+    constructEdge(graph, '4', '5');
+    constructEdge(graph, '4', '7');
+    constructEdge(graph, '5', '2');
+    constructEdge(graph, '6', '7');
+
+    const layouter = new SMLayouter(graph);
+    layouter.doLayout();
+
+    expect(graph.get('0')?.rank).toBe(0);
+    expect(graph.get('1')?.rank).toBe(1);
+    expect(graph.get('2')?.rank).toBe(2);
+    expect(graph.get('3')?.rank).toBe(3);
+    expect(graph.get('4')?.rank).toBe(4);
+    expect(graph.get('5')?.rank).toBe(5);
+    expect(graph.get('6')?.rank).toBe(6);
+    expect(graph.get('7')?.rank).toBe(7);
+}
+
 describe('Test vertical state machine layout ranking', () => {
     test('Basic branching', testBasicBranching);
     test('Nested branching', testNestedBranching);
@@ -284,7 +314,11 @@ describe('Test vertical state machine layout ranking', () => {
     test('Test self loops', testSelfLoop);
     test(
         'Test multiple inverted loops with skip edges',
-        testMultiInvertedSkipLops
+        testMultiInvertedSkipLoops
+    );
+    test(
+        'Test conditionally skipped loop with break and returns',
+        testSkipLoopWithBreakReturn
     );
 });
 
