@@ -25,6 +25,8 @@ export enum SDFGElementType {
     Edge = 'Edge',
     MultiConnectorEdge = 'MultiConnectorEdge',
     SDFGState = 'SDFGState',
+    ContinueState = 'ContinueState',
+    BreakState = 'BreakState',
     AccessNode = 'AccessNode',
     Tasklet = 'Tasklet',
     LibraryNode = 'LibraryNode',
@@ -524,6 +526,12 @@ export class State extends BasicBlock {
         return this.data.state.type;
     }
 
+}
+
+export class BreakState extends State {
+}
+
+export class ContinueState extends State {
 }
 
 export class LoopRegion extends ControlFlowRegion {
@@ -2855,6 +2863,8 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     ControlFlowBlock,
     BasicBlock,
     State,
-    ControlFlowRegion: ControlFlowRegion,
-    LoopRegion: LoopRegion,
+    BreakState,
+    ContinueState,
+    ControlFlowRegion,
+    LoopRegion,
 };

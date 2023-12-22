@@ -11,12 +11,8 @@ module.exports = {
             {
                 test: /\.m?[jt]sx?$/,
                 use: [
-                    {
-                        loader: 'babel-loader',
-                    },
-                    {
-                        loader: 'ts-loader',
-                    },
+                    'babel-loader',
+                    'ts-loader',
                 ],
                 exclude: /node_modules/,
             },
@@ -30,15 +26,9 @@ module.exports = {
             {
                 test: /\.(scss)$/,
                 use: [
-                    {
-                        loader: 'style-loader',
-                    },
-                    {
-                        loader: 'css-loader',
-                    },
-                    {
-                        loader: 'sass-loader',
-                    },
+                    'style-loader',
+                    'css-loader',
+                    'sass-loader',
                 ],
             },
             {
@@ -73,6 +63,9 @@ module.exports = {
     plugins: [
         new webpack.ProvidePlugin({
             process: 'process/browser',
+        }),
+        new webpack.optimize.LimitChunkCountPlugin({
+            maxChunks: 1,
         }),
     ]
 };
