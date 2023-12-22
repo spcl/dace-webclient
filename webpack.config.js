@@ -64,8 +64,5 @@ module.exports = {
         new webpack.ProvidePlugin({
             process: 'process/browser',
         }),
-        new webpack.optimize.LimitChunkCountPlugin({
-            maxChunks: 1,
-        }),
     ]
 };
