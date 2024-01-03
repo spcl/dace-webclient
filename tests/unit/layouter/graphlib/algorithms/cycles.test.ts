@@ -209,6 +209,52 @@ function testFindNestedCycles(): void {
     expect(backedges).toContainEqual(['4', '4']);
 }
 
+function testFindBackedgesWithMultipleCrossEdges(): void {
+    const g = new DiGraph();
+
+    // Construct graph.
+
+    g.addEdges([
+        ['0', '1'],
+        ['0', '15'],
+        ['1', '2'],
+        ['1', '7'],
+        ['2', '3'],
+        ['2', '6'],
+        ['3', '4'],
+        ['4', '3'],
+        ['4', '5'],
+        ['5', '6'],
+        ['6', '2'],
+        ['6', '7'],
+        ['7', '8'],
+        ['7', '16'],
+        ['8', '9'],
+        ['8', '17'],
+        ['9', '10'],
+        ['10', '9'],
+        ['10', '11'],
+        ['11', '12'],
+        ['12', '8'],
+        ['12', '13'],
+        ['13', '14'],
+        ['14', '1'],
+        ['14', '15'],
+        ['16', '14'],
+        ['17', '12'],
+    ]);
+
+    const [backedgesSt, eclipsedBackedgesSt] = allBackedges(g, undefined, true);
+
+    expect(eclipsedBackedgesSt.size).toBe(0);
+    expect(backedgesSt.size).toBe(5);
+    expect(backedgesSt).toContainEqual(['14', '1']);
+    expect(backedgesSt).toContainEqual(['6', '2']);
+    expect(backedgesSt).toContainEqual(['4', '3']);
+    expect(backedgesSt).toContainEqual(['10', '9']);
+    expect(backedgesSt).toContainEqual(['12', '8']);
+}
+
 function testFindEclipsedBackedgesDistinctLengths(): void {
     const g = new DiGraph();
 
@@ -355,6 +401,11 @@ describe('Test cycle-related graph algorithms', () => {
     test(
         'Test finding nested cycles, including self cycles',
         testFindNestedCycles
+    );
+    test(
+        'Test finding backedges in a situation with many cross edges and skip' +
+        ' edges.',
+        testFindBackedgesWithMultipleCrossEdges
     );
     test(
         'Test finding eclipsed backedges',

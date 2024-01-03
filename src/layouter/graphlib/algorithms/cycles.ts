@@ -134,7 +134,7 @@ export function allBackedges(
     g: DiGraph<unknown, unknown>, start?: string, strict: boolean = false
 ): [Set<[string, string]>, Set<[string, string]>] {
     const backedges = new Set<[string, string]>();
-    const backedgesCheckSet = new Set<string>();
+    const backedgeMap = new Map<string, Set<[string, string]>>();
     const eclipsedBackedges = new Set<[string, string]>();
 
     if (start === undefined) {
@@ -145,13 +145,44 @@ export function allBackedges(
     if (start === undefined)
         throw new Error('No start node specified and none could be found');
 
-    // Gather all cycles in the graph. Cycles are represented as a sequence of
-    // nodes.
+    const visited = new Set<string>();
+    const locked = new Set<string>();
+
+    const dfsWalk = (node: string) => {
+        visited.add(node);
+        locked.add(node);
+
+        for (const succ of g.successorsIter(node)) {
+            if (!visited.has(succ)) {
+                dfsWalk(succ);
+            } else if (locked.has(succ)) {
+                // Backedge found.
+                const be: [string, string] = [node, succ];
+                backedges.add(be);
+                if (strict) {
+                    if (!backedgeMap.has(succ))
+                        backedgeMap.set(succ, new Set([be]));
+                    else
+                        backedgeMap.get(succ)!.add(be);
+                }
+            }
+        }
+
+        locked.delete(node);
+    };
+
+    dfsWalk(start);
+
+    if (!strict)
+        return [backedges, eclipsedBackedges];
+
+    backedges.clear();
+    eclipsedBackedges.clear();
+
     const allCycles = new Set<NodeCycle<string>>();
     for (const cycle of simpleCycles(g))
         allCycles.add(new NodeCycle(cycle[0], cycle[1]));
 
-    // Construct a dictionary mapping a node to the cycles containing that node.
     const cycleMap = new Map<string, Set<NodeCycle<string>>>();
     for (const cycle of allCycles) {
         for (const node of cycle.nodes) {
@@ -161,92 +192,32 @@ export function allBackedges(
         }
     }
 
-    // Do a BFS traversal of the graph to detect the back edges.
-    const bfsFrontier = [start];
-    const visited = new Set<string>([start]);
-    while (bfsFrontier.length > 0) {
-        const node = bfsFrontier.shift()!;
-        const predecessors = [];
-        for (const p of g.predecessors(node)) {
-            if (!visited.has(p))
-                predecessors.push(p);
-        }
-        const cycles = cycleMap.get(node);
-
-        // For the current node, find the incoming edge which belongs to the
-        // cycle and has not been visited yet, which indicates a backedge.
-        const nodeBackedgeCandidates = new Set<[
-            [[string, string], unknown], NodeCycle<string>
-        ]>();
-        const nodeBackedgeCandidatesCheckSet = new Set<string>();
-        for (const cycle of cycles ?? []) {
-            const backedgeCandidates = g.inEdges(node);
-            for (const candidate of backedgeCandidates) {
-                const src = candidate[0][0];
-                const dst = candidate[0][1];
-                if (cycle.edges.has([src, dst].toString()) &&
-                    (src == dst || !visited.has(src))) {
-                    if (!nodeBackedgeCandidatesCheckSet.has(
-                        candidate.toString()
-                    )) {
-                        nodeBackedgeCandidatesCheckSet.add(
-                            candidate.toString()
-                        );
-                        nodeBackedgeCandidates.add([candidate, cycle]);
-                    }
-                    const candStr = candidate[0].toString();
-                    if (strict === false && !backedgesCheckSet.has(candStr)) {
-                        backedges.add(candidate[0]);
-                        backedgesCheckSet.add(candStr);
+    for (const target of backedgeMap.keys()) {
+        const nodeBackedges = backedgeMap.get(target) ?? new Set([]);
+        if (nodeBackedges.size === 1) {
+            backedges.add(Array.from(nodeBackedges)[0]);
+        } else {
+            let longestEdge = undefined;
+            let maxLen = 0;
+            for (const be of nodeBackedges) {
+                for (const cycle of cycleMap.get(target) ?? []) {
+                    if (cycle.edges.has(be.toString())) {
+                        if (cycle.length > maxLen) {
+                            maxLen = cycle.length;
+                            if (longestEdge !== undefined && longestEdge !== be)
+                                eclipsedBackedges.add(longestEdge);
+                            longestEdge = be;
+                        } else {
+                            eclipsedBackedges.add(be);
+                        }
                     }
                 }
             }
-        }
-
-        // If strict is set, we only report the longest cycle's back edges for
-        // any given node, and separately return any other backedges as
-        // 'eclipsed' backedges. In the case of a while-loop, for example,
-        // the loop edge is considered a backedge, while a continue inside the
-        // loop is considered an 'eclipsed' backedge.
-        if (strict) {
-            let longestCandidate = undefined;
-            const eclipsedCandidates = new Set<[string, string]>();
-            for (const candidate of nodeBackedgeCandidates) {
-                if (!longestCandidate) {
-                    longestCandidate = candidate;
-                } else if (longestCandidate[1].length < candidate[1].length) {
-                    eclipsedCandidates.add(longestCandidate[0][0]);
-                    longestCandidate = candidate;
-                } else {
-                    eclipsedCandidates.add(candidate[0][0]);
-                }
-            }
-
-            if (longestCandidate) {
-                const candStr = longestCandidate[0][0].toString();
-                if (!backedgesCheckSet.has(candStr)) {
-                    backedges.add(longestCandidate[0][0]);
-                    backedgesCheckSet.add(candStr);
-                }
-            }
-
-            if (eclipsedCandidates.size > 0) {
-                for (const candidate of eclipsedCandidates)
-                    eclipsedBackedges.add(candidate);
-            }
-        }
-
-        // Continue the BFS.
-        for (const neighbor of g.successors(node)) {
-            if (!visited.has(neighbor)) {
-                visited.add(neighbor);
-                bfsFrontier.push(neighbor);
-            }
+            if (longestEdge === undefined)
+                throw Error('No backedge candidate for target node ' + target);
+            backedges.add(longestEdge);
         }
     }
 
-    if (strict)
-        return [backedges, eclipsedBackedges];
-    else
-        return [backedges, new Set<[string, string]>()];
+    return [backedges, eclipsedBackedges];
 }
