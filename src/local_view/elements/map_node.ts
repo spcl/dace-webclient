@@ -103,7 +103,7 @@ export class MapNode extends Node {
             const range = this.ranges[i];
             const labelText =
                 range.itvar + '=' + range.start + ':' + range.end +
-                (range.step > 1 ? (':' + range.step) : '');
+                (+range.step > 1 ? (':' + range.step) : '');
             const label = new Text(labelText, DEFAULT_TEXT_STYLE);
             label.renderable = false;
             maxLabelWidth = Math.max(maxLabelWidth, label.width + 60);
@@ -325,7 +325,7 @@ export class MapNode extends Node {
                 'This graph cannot be simulated due to a map step of 0'
             );
         const cond = nRange.step > 0 ?
-            (i: number) => i <= nRange.end : (i: number) => i >= nRange.end;
+            (i: number) => i <= +nRange.end : (i: number) => i >= +nRange.end;
         for (let i = nRange.start; cond(i); i += nRange.step) {
             if (newNRanges.length > 0) {
                 this.recursiveSimulate(

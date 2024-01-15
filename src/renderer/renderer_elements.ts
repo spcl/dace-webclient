@@ -25,6 +25,8 @@ export enum SDFGElementType {
     Edge = 'Edge',
     MultiConnectorEdge = 'MultiConnectorEdge',
     SDFGState = 'SDFGState',
+    ContinueState = 'ContinueState',
+    BreakState = 'BreakState',
     AccessNode = 'AccessNode',
     Tasklet = 'Tasklet',
     LibraryNode = 'LibraryNode',
@@ -524,6 +526,12 @@ export class State extends BasicBlock {
         return this.data.state.type;
     }
 
+}
+
+export class BreakState extends State {
+}
+
+export class ContinueState extends State {
 }
 
 export class LoopRegion extends ControlFlowRegion {
@@ -1894,7 +1902,9 @@ export class Tasklet extends SDFGNode {
 
         const sdfgSymbols = Object.keys(this.sdfg.attributes.symbols ?? []);
         const inConnectors = Object.keys(this.attributes().in_connectors ?? []);
-        const outConnectors = Object.keys(this.attributes().out_connectors ?? []);
+        const outConnectors = Object.keys(
+            this.attributes().out_connectors ?? []
+        );
 
         const lines = code.split('\n');
         let maxline_len = 0;
@@ -1905,41 +1915,45 @@ export class Tasklet extends SDFGNode {
             }
 
             const highlightedLine: TaskletCodeToken[] = [];
-            const tokens = editor.tokenize(line, lang)[0];
-            if (tokens.length < 2) {
-                highlightedLine.push({
-                    token: line,
-                    type: TaskletCodeTokenType.Other,
-                    highlighted: false,
-                });
-            } else {
-                for (let i = 0; i < tokens.length; i++) {
-                    const token = tokens[i];
-                    const next = i + 1 < tokens.length ? tokens[i + 1] : null;
-                    const endPos = next?.offset;
-                    const tokenValue = line.substring(token.offset, endPos);
-
-                    const taskletToken: TaskletCodeToken = {
-                        token: tokenValue,
+            try {
+                const tokens = editor.tokenize(line, lang)[0];
+                if (tokens.length < 2) {
+                    highlightedLine.push({
+                        token: line,
                         type: TaskletCodeTokenType.Other,
                         highlighted: false,
-                    };
-                    if (token.type.startsWith('identifier')) {
-                        if (sdfgSymbols.includes(tokenValue)) {
-                            taskletToken.type = TaskletCodeTokenType.Symbol;
-                        } else if (inConnectors.includes(tokenValue)) {
-                            taskletToken.type = TaskletCodeTokenType.Input;
-                            this.inputTokens.add(taskletToken);
-                        } else if (outConnectors.includes(tokenValue)) {
-                            taskletToken.type = TaskletCodeTokenType.Output;
-                            this.outputTokens.add(taskletToken);
-                        }
-                    } else if (token.type.startsWith('number')) {
-                        taskletToken.type = TaskletCodeTokenType.Number;
-                    }
+                    });
+                } else {
+                    for (let i = 0; i < tokens.length; i++) {
+                        const token = tokens[i];
+                        const next = i + 1 < tokens.length ?
+                            tokens[i + 1] : null;
+                        const endPos = next?.offset;
+                        const tokenValue = line.substring(token.offset, endPos);
 
-                    highlightedLine.push(taskletToken);
+                        const taskletToken: TaskletCodeToken = {
+                            token: tokenValue,
+                            type: TaskletCodeTokenType.Other,
+                            highlighted: false,
+                        };
+                        if (token.type.startsWith('identifier')) {
+                            if (sdfgSymbols.includes(tokenValue)) {
+                                taskletToken.type = TaskletCodeTokenType.Symbol;
+                            } else if (inConnectors.includes(tokenValue)) {
+                                taskletToken.type = TaskletCodeTokenType.Input;
+                                this.inputTokens.add(taskletToken);
+                            } else if (outConnectors.includes(tokenValue)) {
+                                taskletToken.type = TaskletCodeTokenType.Output;
+                                this.outputTokens.add(taskletToken);
+                            }
+                        } else if (token.type.startsWith('number')) {
+                            taskletToken.type = TaskletCodeTokenType.Number;
+                        }
+
+                        highlightedLine.push(taskletToken);
+                    }
                 }
+            } catch (_ignored) {
             }
             this.highlightedCode.push(highlightedLine);
         }
@@ -2855,6 +2869,8 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     ControlFlowBlock,
     BasicBlock,
     State,
-    ControlFlowRegion: ControlFlowRegion,
-    LoopRegion: LoopRegion,
+    BreakState,
+    ContinueState,
+    ControlFlowRegion,
+    LoopRegion,
 };

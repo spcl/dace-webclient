@@ -3331,7 +3331,9 @@ function relayoutStateMachine(
         const blockElem = new SDFGElements[btype](
             { layout: { width: 0, height: 0 } }, block.id, sdfg, null, parent
         );
-        if (block.type === SDFGElementType.SDFGState)
+        if (block.type === SDFGElementType.SDFGState ||
+            block.type === SDFGElementType.ContinueState ||
+            block.type === SDFGElementType.BreakState)
             blockElem.data.state = block;
         else
             blockElem.data.block = block;
