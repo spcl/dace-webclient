@@ -114,7 +114,7 @@ const jupyterConfig = {
         }
     },
     output: {
-        filename: '[name].js',
+        filename: '[name]_jupyter.js',
         path: path.resolve(__dirname, 'dist'),
     },
     plugins: [
