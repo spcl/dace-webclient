@@ -1474,11 +1474,11 @@ export class AccessNode extends SDFGNode {
         ctx.setLineDash([1, 0]);
 
         // Views are colored like connectors
-        if (nodedesc && nodedesc.type === 'View') {
+        if (nodedesc && nodedesc.type.includes('View')) {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--connector-unscoped-color'
             );
-        } else if (nodedesc && nodedesc.type === 'Reference') {
+        } else if (nodedesc && nodedesc.type.includes('Reference')) {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--reference-background-color'
             );
