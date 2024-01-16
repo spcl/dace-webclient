@@ -7,6 +7,7 @@ export * from './overlays/memory_volume_overlay';
 export * from './overlays/runtime_micro_seconds_overlay';
 export * from './overlays/memory_location_overlay';
 export * from './overlays/operational_intensity_overlay';
+export * from './overlays/simulated_operational_intensity_overlay';
 export * from './overlays/static_flops_overlay';
 export * from './overlays/depth_overlay';
 export * from './overlays/avg_parallelism_overlay';
