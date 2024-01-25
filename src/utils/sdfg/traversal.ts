@@ -48,7 +48,7 @@ import {
                 // Traverse scopes recursively (if scope_dict provided).
                 if (node.type().endsWith('Entry') && node.parent_id !== null &&
                     node.id !== null) {
-                    const state = node.sdfg.nodes[node.parent_id];
+                    const state = node.parentElem?.data.state;
                     if (state.scope_dict[node.id] !== undefined)
                         scopesRecursive(
                             graph, state.scope_dict[node.id], processedNodes

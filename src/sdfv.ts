@@ -180,7 +180,7 @@ export class SDFV {
 
             // If a scope has children, remove the name "Entry" from the type
             if (node.type().endsWith('Entry') && node.parent_id && node.id) {
-                const state = node.sdfg.nodes[node.parent_id];
+                const state = node.parentElem?.data.state.nodes[node.parent_id];
                 if (state.scope_dict[node.id] !== undefined) {
                     node_type = node_type.slice(0, -5);
                 }
@@ -194,7 +194,9 @@ export class SDFV {
                 const nodes_to_display = [node];
                 if (node.type().endsWith('Entry') && node.parent_id &&
                     node.id) {
-                    const state = node.sdfg.nodes[node.parent_id];
+                    const state = node.parentElem?.data.state.nodes[
+                        node.parent_id
+                    ];
                     if (state.scope_dict[node.id] !== undefined) {
                         for (const subnode_id of state.scope_dict[node.id])
                             nodes_to_display.push(parent.node(subnode_id));
@@ -241,7 +243,7 @@ export class SDFV {
         contents.html('');
 
         if (elem instanceof Memlet && elem.parent_id && elem.id) {
-            const sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
+            const sdfg_edge = elem.parentElem?.data.state.edges[elem.id];
             contents.append($('<h4>', {
                 html: 'Connectors: ' + sdfg_edge.src_connector + ' &rarr; ' +
                     sdfg_edge.dst_connector,
