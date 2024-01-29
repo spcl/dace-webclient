@@ -731,16 +731,16 @@ export function find_in_graph(
 }
 
 function recursive_find_graph(
-    graph: DagreSDFG, sdfg_id: number
+    graph: DagreSDFG, cfg_id: number
 ): DagreSDFG | undefined {
     let found = undefined;
     for (const n_id of graph.nodes()) {
         const n = graph.node(n_id);
-        if (n && n.sdfg.sdfg_list_id === sdfg_id) {
+        if (n && n.sdfg.cfg_list_id === cfg_id) {
             found = graph;
             return found;
         } else if (n && n.data.graph) {
-            found = recursive_find_graph(n.data.graph, sdfg_id);
+            found = recursive_find_graph(n.data.graph, cfg_id);
             if (found)
                 return found;
         }
