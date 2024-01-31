@@ -29,7 +29,7 @@ import {
     State
 } from './renderer/renderer_elements';
 import { htmlSanitize } from './utils/sanitization';
-import { parse_sdfg, stringify_sdfg } from './utils/sdfg/json_serializer';
+import { checkCompatLoad, parse_sdfg, stringify_sdfg } from './utils/sdfg/json_serializer';
 import { SDFVSettings } from './utils/sdfv_settings';
 
 declare const vscode: any;
@@ -503,7 +503,7 @@ function file_read_complete(sdfv: SDFV): void {
     const result_string = fr.result;
     const container = document.getElementById('contents');
     if (result_string && container) {
-        const sdfg = parse_sdfg(result_string);
+        const sdfg = checkCompatLoad(parse_sdfg(result_string));
         sdfv.get_renderer()?.destroy();
         sdfv.set_renderer(new SDFGRenderer(sdfv, sdfg, container, mouse_event));
         sdfv.close_menu();
@@ -632,7 +632,7 @@ function load_sdfg_from_url(sdfv: SDFV, url: string): void {
     request.responseType = 'text'; // Will be parsed as JSON by parse_sdfg
     request.onload = () => {
         if (request.status === 200) {
-            const sdfg = parse_sdfg(request.response);
+            const sdfg = checkCompatLoad(parse_sdfg(request.response));
             sdfv.get_renderer()?.destroy();
             init_sdfv(sdfg, null, false, null);
         } else {

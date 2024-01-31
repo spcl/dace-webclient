@@ -18,6 +18,7 @@ import {
     Point2D,
     SDFVTooltipFunc,
     SimpleRect,
+    checkCompatSave,
     stringify_sdfg
 } from '../index';
 import { SMLayouter } from '../layouter/state_machine/sm_layouter';
@@ -1365,8 +1366,10 @@ export class SDFGRenderer extends EventEmitter {
 
     public save_sdfg(): void {
         const name = this.sdfg.attributes.name;
-        const contents = 'data:text/json;charset=utf-8,' +
-            encodeURIComponent(stringify_sdfg(this.sdfg));
+        const sdfgString = stringify_sdfg(checkCompatSave(this.sdfg));
+        const contents = 'data:text/json;charset=utf-8,' + encodeURIComponent(
+            sdfgString
+        );
         this.save(name + '.sdfg', contents);
     }
 
