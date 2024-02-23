@@ -4,11 +4,75 @@ import { Edge, JsonSDFG } from '../../index';
 import { gunzipSync } from 'zlib';
 import { Buffer } from 'buffer';
 
+const propertyReplacements_0_16_0: { [key: string]: {
+    replaceWith: string,
+    recursive: boolean,
+}} = {
+    'start_state': {
+        replaceWith: 'start_block',
+        recursive: false,
+    },
+    'sdfg_list_id': {
+        replaceWith: 'cfg_list_id',
+        recursive: true,
+    },
+};
+
+function propertyReplace(obj: any, fromName: string, toName: string): void {
+    if (Object.hasOwn(obj, fromName)) {
+        const prop = Object.getOwnPropertyDescriptor(obj, fromName)!;
+        Object.defineProperty(obj, toName, prop);
+        delete obj[fromName];
+    }
+}
+
+function makeCompat(sdfg: any, direction: 'in' | 'out'): void {
+    if (sdfg.dace_version && sdfg.dace_version < '0.16.0') {
+        for (const k in propertyReplacements_0_16_0) {
+            const v = propertyReplacements_0_16_0[k];
+            if (v.recursive) {
+                const recurse = (el: {
+                    nodes?: any[],
+                    edges?: any[],
+                    attributes?: { sdfg?: any },
+                }) => {
+                    if (direction === 'in')
+                        propertyReplace(el, k, v.replaceWith);
+                    else
+                        propertyReplace(el, v.replaceWith, k);
+                    el.nodes?.forEach(recurse);
+                    el.edges?.forEach(recurse);
+                    if (el.attributes?.sdfg)
+                        recurse(el.attributes.sdfg);
+                };
+                recurse(sdfg);
+            } else {
+                if (direction === 'in')
+                    propertyReplace(sdfg, k, v.replaceWith);
+                else
+                    propertyReplace(sdfg, v.replaceWith, k);
+            }
+        }
+    }
+}
+
+export function checkCompatLoad(sdfg: JsonSDFG): JsonSDFG {
+    makeCompat(sdfg, 'in');
+    return sdfg;
+}
+
+export function checkCompatSave(sdfg: JsonSDFG): JsonSDFG {
+    makeCompat(sdfg, 'out');
+    return sdfg;
+}
+
 export function read_or_decompress(
     json: string | ArrayBuffer
 ): [string, boolean] {
     try {
-        return [new TextDecoder().decode(gunzipSync(Buffer.from(json as Uint8Array))), true];
+        return [new TextDecoder().decode(
+            gunzipSync(Buffer.from(json as Uint8Array))
+        ), true];
     } catch {
         if (typeof json !== 'string') {
             const enc = new TextDecoder('utf-8');

@@ -86,8 +86,8 @@ export interface JsonSDFGState extends JsonSDFGBlock {
 
 export type JsonSDFG = {
     type: string,
-    start_state: number,
-    sdfg_list_id: number,
+    start_block: number,
+    cfg_list_id: number,
     attributes: any,
     edges: any[], // TODO
     nodes: any[], // TODO

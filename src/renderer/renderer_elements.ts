@@ -1685,7 +1685,7 @@ export class ScopeNode extends SDFGNode {
     public schedule_label(): string {
         let attrs = this.attributes();
         if (this.scopeend() && this.parent_id !== null) {
-            const entry = this.sdfg.nodes[this.parent_id].nodes[
+            const entry = this.parentElem?.data.state.nodes[
                 this.data.node.scope_entry
             ];
             if (entry !== undefined)
@@ -1715,7 +1715,7 @@ export class ScopeNode extends SDFGNode {
 
         let attrs = this.attributes();
         if (this.scopeend() && this.parent_id !== null) {
-            const entry = this.sdfg.nodes[this.parent_id].nodes[
+            const entry = this.parentElem?.data.state.nodes[
                 this.data.node.scope_entry
             ];
             if (entry !== undefined)
@@ -1753,7 +1753,7 @@ export class ScopeNode extends SDFGNode {
 
         let result = '';
         if (this.scopeend() && this.parent_id !== null) {
-            const entry = this.sdfg.nodes[this.parent_id].nodes[
+            const entry = this.parentElem?.data.state.nodes[
                 this.data.node.scope_entry
             ];
             if (entry !== undefined)

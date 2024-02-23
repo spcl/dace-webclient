@@ -7,7 +7,7 @@ import {
     getPositioningInfo,
     initialize_positioning_info,
 } from '../utils/sdfg/sdfg_utils';
-import { SDFGRenderer, SDFGListType } from './renderer';
+import { SDFGRenderer, CFGListType } from './renderer';
 import { DagreSDFG, intersectRect, Point2D } from '../index';
 
 const animation_duration = 1000;
@@ -322,7 +322,7 @@ export class CanvasManager {
      * @param {*} old_mousepos      Old mouse position in canvas coordinates
      * @param {*} new_mousepos      New mouse position in canvas coordinates
      * @param {*} entire_graph      Reference to the entire graph
-     * @param {*} sdfg_list         List of SDFGs and nested SDFGs
+     * @param {*} cfg_list          List of CFGs in this SDFG
      * @param {*} state_parent_list List of parent elements to SDFG states
      * @param {*} drag_start        Drag starting event, undefined if no drag
      * @param {*} update_position_info Whether to update positioning information
@@ -334,7 +334,7 @@ export class CanvasManager {
         old_mousepos: Point2D,
         new_mousepos: Point2D,
         entire_graph: DagreSDFG,
-        sdfg_list: SDFGListType,
+        cfg_list: CFGListType,
         state_parent_list: any[],
         drag_start: any,
         update_position_info: boolean = true,
@@ -348,7 +348,7 @@ export class CanvasManager {
         const in_edges: any[] = [];
 
         // Find the parent graph in the list of available SDFGs
-        let parent_graph = sdfg_list[el.sdfg.sdfg_list_id];
+        let parent_graph = cfg_list[el.sdfg.cfg_list_id];
         let parent_element: SDFGElement | null = null;
 
         if (
@@ -359,7 +359,7 @@ export class CanvasManager {
             // we're currently in a nested SDFG. If we're also moving a state,
             // this means that its parent element is found in the list of
             // parents to states (state_parent_list)
-            parent_element = state_parent_list[el.sdfg.sdfg_list_id];
+            parent_element = state_parent_list[el.sdfg.cfg_list_id];
         } else if (el.parent_id !== null && parent_graph) {
             // If the parent_id isn't null and there is a parent graph, we can
             // look up the parent node via the element's parent_id
