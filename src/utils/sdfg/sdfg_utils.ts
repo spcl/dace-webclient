@@ -20,7 +20,7 @@ export function recursively_find_graph(
     graph_id: number,
     ns_node: SDFGNode | undefined = undefined
 ): { graph: DagreSDFG | undefined, node: SDFGNode | undefined } {
-    if (graph.node('0').sdfg.sdfg_list_id === graph_id) {
+    if (graph.node('0').sdfg.cfg_list_id === graph_id) {
         return {
             graph: graph,
             node: ns_node,
@@ -80,14 +80,14 @@ export function get_uuid_graph_element(element: SDFGElement | null): string {
     const undefined_val = -1;
     if (element instanceof State) {
         return (
-            element.sdfg.sdfg_list_id + '/' +
+            element.sdfg.cfg_list_id + '/' +
             element.id + '/' +
             undefined_val + '/' +
             undefined_val
         );
     } else if (element instanceof SDFGNode) {
         return (
-            element.sdfg.sdfg_list_id + '/' +
+            element.sdfg.cfg_list_id + '/' +
             element.parent_id + '/' +
             element.id + '/' +
             undefined_val
@@ -97,7 +97,7 @@ export function get_uuid_graph_element(element: SDFGElement | null): string {
         if (element.parent_id !== null && element.parent_id !== undefined)
             parent_id = element.parent_id;
         return (
-            element.sdfg.sdfg_list_id + '/' +
+            element.sdfg.cfg_list_id + '/' +
             parent_id + '/' +
             undefined_val + '/' +
             element.id
@@ -380,8 +380,8 @@ export function delete_sdfg_states(
         e.src = mapping[e.src];
         e.dst = mapping[e.dst];
     });
-    if (mapping[sdfg.start_state] === '-1')
-        sdfg.start_state = 0;
+    if (mapping[sdfg.start_block] === '-1')
+        sdfg.start_block = 0;
     else
-        sdfg.start_state = parseInt(mapping[sdfg.start_state]);
+        sdfg.start_block = parseInt(mapping[sdfg.start_block]);
 }

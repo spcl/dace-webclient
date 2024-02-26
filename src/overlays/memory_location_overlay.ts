@@ -147,7 +147,7 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
         if (node instanceof SDFGNode) {
             if (node.data?.node?.scope_entry !== undefined &&
                 node.parent_id !== null) {
-                scopeNode = node.sdfg.nodes[node.parent_id].nodes[
+                scopeNode = node.parentElem?.data.state.nodes[
                     node.data.node.scope_entry
                 ];
                 parentId = node.parent_id;

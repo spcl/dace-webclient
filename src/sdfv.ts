@@ -29,7 +29,7 @@ import {
     State
 } from './renderer/renderer_elements';
 import { htmlSanitize } from './utils/sanitization';
-import { parse_sdfg, stringify_sdfg } from './utils/sdfg/json_serializer';
+import { checkCompatLoad, parse_sdfg, stringify_sdfg } from './utils/sdfg/json_serializer';
 import { SDFVSettings } from './utils/sdfv_settings';
 
 declare const vscode: any;
@@ -180,7 +180,7 @@ export class SDFV {
 
             // If a scope has children, remove the name "Entry" from the type
             if (node.type().endsWith('Entry') && node.parent_id && node.id) {
-                const state = node.sdfg.nodes[node.parent_id];
+                const state = node.parentElem?.data.state.nodes[node.parent_id];
                 if (state.scope_dict[node.id] !== undefined) {
                     node_type = node_type.slice(0, -5);
                 }
@@ -194,7 +194,9 @@ export class SDFV {
                 const nodes_to_display = [node];
                 if (node.type().endsWith('Entry') && node.parent_id &&
                     node.id) {
-                    const state = node.sdfg.nodes[node.parent_id];
+                    const state = node.parentElem?.data.state.nodes[
+                        node.parent_id
+                    ];
                     if (state.scope_dict[node.id] !== undefined) {
                         for (const subnode_id of state.scope_dict[node.id])
                             nodes_to_display.push(parent.node(subnode_id));
@@ -241,7 +243,7 @@ export class SDFV {
         contents.html('');
 
         if (elem instanceof Memlet && elem.parent_id && elem.id) {
-            const sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
+            const sdfg_edge = elem.parentElem?.data.state.edges[elem.id];
             contents.append($('<h4>', {
                 html: 'Connectors: ' + sdfg_edge.src_connector + ' &rarr; ' +
                     sdfg_edge.dst_connector,
@@ -501,7 +503,7 @@ function file_read_complete(sdfv: SDFV): void {
     const result_string = fr.result;
     const container = document.getElementById('contents');
     if (result_string && container) {
-        const sdfg = parse_sdfg(result_string);
+        const sdfg = checkCompatLoad(parse_sdfg(result_string));
         sdfv.get_renderer()?.destroy();
         sdfv.set_renderer(new SDFGRenderer(sdfv, sdfg, container, mouse_event));
         sdfv.close_menu();
@@ -630,7 +632,7 @@ function load_sdfg_from_url(sdfv: SDFV, url: string): void {
     request.responseType = 'text'; // Will be parsed as JSON by parse_sdfg
     request.onload = () => {
         if (request.status === 200) {
-            const sdfg = parse_sdfg(request.response);
+            const sdfg = checkCompatLoad(parse_sdfg(request.response));
             sdfv.get_renderer()?.destroy();
             init_sdfv(sdfg, null, false, null);
         } else {
@@ -729,16 +731,16 @@ export function find_in_graph(
 }
 
 function recursive_find_graph(
-    graph: DagreSDFG, sdfg_id: number
+    graph: DagreSDFG, cfg_id: number
 ): DagreSDFG | undefined {
     let found = undefined;
     for (const n_id of graph.nodes()) {
         const n = graph.node(n_id);
-        if (n && n.sdfg.sdfg_list_id === sdfg_id) {
+        if (n && n.sdfg.cfg_list_id === cfg_id) {
             found = graph;
             return found;
         } else if (n && n.data.graph) {
-            found = recursive_find_graph(n.data.graph, sdfg_id);
+            found = recursive_find_graph(n.data.graph, cfg_id);
             if (found)
                 return found;
         }

@@ -26,6 +26,7 @@ module.exports = {
                 "argsIgnorePattern": "^_",
             },
         ],
+        "@typescript-eslint/no-unsafe-declaration-merging": "warn",
         "@typescript-eslint/no-var-requires": "warn",
         "semi": "error",
         "no-useless-escape": "off",

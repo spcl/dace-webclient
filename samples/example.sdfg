@@ -584,7 +584,7 @@
     }
   ],
   "edges": [],
-  "sdfg_list_id": 0,
-  "start_state": 0,
+  "cfg_list_id": 0,
+  "start_block": 0,
   "dace_version": "0.13.3"
 }

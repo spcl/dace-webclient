@@ -18,6 +18,7 @@ import {
     Point2D,
     SDFVTooltipFunc,
     SimpleRect,
+    checkCompatSave,
     stringify_sdfg
 } from '../index';
 import { SMLayouter } from '../layouter/state_machine/sm_layouter';
@@ -71,7 +72,7 @@ declare const vscode: any | null;
 
 type SDFGElementGroup = 'states' | 'nodes' | 'edges' | 'isedges';
 // If type is explicitly set, dagre typecheck fails with integer node ids
-export type SDFGListType = any[];//{ [key: number]: DagreSDFG };
+export type CFGListType = any[];//{ [key: number]: DagreSDFG };
 
 function check_valid_add_position(
     type: SDFGElementType | null,
@@ -127,7 +128,7 @@ export interface SDFGRenderer {
 
 export class SDFGRenderer extends EventEmitter {
 
-    protected sdfg_list: any = {};
+    protected cfg_list: any = {};
     protected graph: DagreSDFG | null = null;
     // Parent-pointing SDFG tree.
     protected sdfg_tree: { [key: number]: number } = {};
@@ -993,8 +994,8 @@ export class SDFGRenderer extends EventEmitter {
             (otype: SDFGElementGroup, odict: any, obj: any) => {
                 if (obj.type === SDFGElementType.NestedSDFG &&
                     obj.attributes.sdfg)
-                    this.sdfg_tree[obj.attributes.sdfg.sdfg_list_id] =
-                        odict.sdfg.sdfg_list_id;
+                    this.sdfg_tree[obj.attributes.sdfg.cfg_list_id] =
+                        odict.sdfg.cfg_list_id;
             }
         );
     }
@@ -1063,9 +1064,9 @@ export class SDFGRenderer extends EventEmitter {
         if (!this.ctx)
             throw new Error('No context found while performing layouting');
 
-        this.sdfg_list = {};
+        this.cfg_list = {};
         this.graph = relayoutStateMachine(
-            this.ctx, this.sdfg, this.sdfg, this.sdfg_list,
+            this.ctx, this.sdfg, this.sdfg, this.cfg_list,
             this.state_parent_list, !SDFVSettings.showAccessNodes, undefined
         );
         this.onresize();
@@ -1130,7 +1131,7 @@ export class SDFGRenderer extends EventEmitter {
                     this.canvas_manager?.translate_element(
                         node, { x: node.x, y: node.y },
                         { x: node.x + dx, y: node.y + dy }, this.graph,
-                        this.sdfg_list, this.state_parent_list, undefined, false
+                        this.cfg_list, this.state_parent_list, undefined, false
                     );
             }
 
@@ -1163,7 +1164,7 @@ export class SDFGRenderer extends EventEmitter {
                     if (this.graph)
                         this.canvas_manager?.translate_element(
                             edge, { x: 0, y: 0 },
-                            { x: 0, y: 0 }, this.graph, this.sdfg_list,
+                            { x: 0, y: 0 }, this.graph, this.cfg_list,
                             this.state_parent_list, undefined, false, false,
                             final_pos_d
                         );
@@ -1365,8 +1366,10 @@ export class SDFGRenderer extends EventEmitter {
 
     public save_sdfg(): void {
         const name = this.sdfg.attributes.name;
-        const contents = 'data:text/json;charset=utf-8,' +
-            encodeURIComponent(stringify_sdfg(this.sdfg));
+        const sdfgString = stringify_sdfg(checkCompatSave(this.sdfg));
+        const contents = 'data:text/json;charset=utf-8,' + encodeURIComponent(
+            sdfgString
+        );
         this.save(name + '.sdfg', contents);
     }
 
@@ -1913,7 +1916,7 @@ export class SDFGRenderer extends EventEmitter {
                                     traverseRecursive(
                                         node.data.graph,
                                         node.attributes().sdfg.attributes.name,
-                                        node.attributes().sdfg.sdfg_list_id
+                                        node.attributes().sdfg.cfg_list_id
                                     );
                             }
                             // Connectors
@@ -1984,7 +1987,7 @@ export class SDFGRenderer extends EventEmitter {
 
         // Start with top-level SDFG.
         traverseRecursive(
-            this.graph, this.sdfg.attributes.name, this.sdfg.sdfg_list_id
+            this.graph, this.sdfg.attributes.name, this.sdfg.cfg_list_id
         );
     }
 
@@ -2371,7 +2374,7 @@ export class SDFGRenderer extends EventEmitter {
                                     // Do not move connectors (individually)
                                     if (el instanceof Connector)
                                         return false;
-                                    const list_id = el.sdfg.sdfg_list_id;
+                                    const list_id = el.sdfg.cfg_list_id;
 
                                     // Do not move element individually if it is
                                     // moved together with a nested SDFG
@@ -2386,7 +2389,7 @@ export class SDFGRenderer extends EventEmitter {
                                     // Do not move element individually if it is
                                     // moved together with its parent state
                                     const state_parent =
-                                        this.sdfg_list[list_id].node(
+                                        this.cfg_list[list_id].node(
                                             el.parent_id!.toString()
                                         );
                                     if (state_parent &&
@@ -2406,7 +2409,7 @@ export class SDFGRenderer extends EventEmitter {
                             if (old_mousepos)
                                 this.canvas_manager?.translate_element(
                                     el, old_mousepos, this.mousepos,
-                                    this.graph, this.sdfg_list,
+                                    this.graph, this.cfg_list,
                                     this.state_parent_list,
                                     this.drag_start,
                                     true,
@@ -2682,7 +2685,7 @@ export class SDFGRenderer extends EventEmitter {
                 // nested sdfg
                 if (intersected && obj instanceof AccessNode) {
                     traverseSDFGScopes(
-                        this.sdfg_list[obj.sdfg.sdfg_list_id],
+                        this.cfg_list[obj.sdfg.cfg_list_id],
                         (node: any) => {
                             // If node is a state, then visit sub-scope
                             if (node instanceof State)
@@ -2999,7 +3002,7 @@ export class SDFGRenderer extends EventEmitter {
                             // Move it to original position
                             this.canvas_manager?.translate_element(
                                 edge_el, { x: 0, y: 0 }, { x: 0, y: 0 },
-                                this.graph, this.sdfg_list,
+                                this.graph, this.cfg_list,
                                 this.state_parent_list, undefined, false, false,
                                 new_points
                             );
@@ -3021,7 +3024,7 @@ export class SDFGRenderer extends EventEmitter {
                             this.canvas_manager?.translate_element(
                                 el, { x: el.x, y: el.y },
                                 { x: new_x, y: new_y }, this.graph,
-                                this.sdfg_list, this.state_parent_list,
+                                this.cfg_list, this.state_parent_list,
                                 undefined, false, false, undefined
                             );
 
@@ -3264,15 +3267,15 @@ export class SDFGRenderer extends EventEmitter {
          */
         // Collect nodes and states
         const sdfgs: Set<number> = new Set<number>();
-        const sdfg_list: { [key: string]: JsonSDFG } = {};
+        const cfg_list: { [key: string]: JsonSDFG } = {};
         const states: { [key: string]: Array<number> } = {};
         const nodes: { [key: string]: Array<number> } = {};
         for (const elem of this.selected_elements) {
             // Ignore edges and connectors
             if (elem instanceof Edge || elem instanceof Connector)
                 continue;
-            const sdfg_id = elem.sdfg.sdfg_list_id;
-            sdfg_list[sdfg_id] = elem.sdfg;
+            const sdfg_id = elem.sdfg.cfg_list_id;
+            cfg_list[sdfg_id] = elem.sdfg;
             sdfgs.add(sdfg_id);
             let state_id: number = -1;
             if (elem.parent_id !== null) {
@@ -3308,20 +3311,20 @@ export class SDFGRenderer extends EventEmitter {
         // Find root SDFG and root state (if possible)
         const root_sdfg_id = find_root_sdfg(sdfgs, this.sdfg_tree);
         if (root_sdfg_id !== null) {
-            const root_sdfg = sdfg_list[root_sdfg_id];
+            const root_sdfg = cfg_list[root_sdfg_id];
 
             // For every participating state, filter out irrelevant nodes and
             // memlets.
             for (const nkey of Object.keys(nodes)) {
                 const [sdfg_id, state_id] = JSON.parse(nkey);
-                const sdfg = sdfg_list[sdfg_id];
+                const sdfg = cfg_list[sdfg_id];
                 delete_sdfg_nodes(sdfg, state_id, nodes[nkey], true);
             }
 
             // For every participating SDFG, filter out irrelevant states and
             // interstate edges.
             for (const sdfg_id of Object.keys(states)) {
-                const sdfg = sdfg_list[sdfg_id];
+                const sdfg = cfg_list[sdfg_id];
                 delete_sdfg_states(sdfg, states[sdfg_id], true);
             }
 
@@ -3406,7 +3409,7 @@ type StateMachineType = {
 
 function relayoutStateMachine(
     ctx: CanvasRenderingContext2D, stateMachine: StateMachineType,
-    sdfg: JsonSDFG, sdfgList: SDFGListType, stateParentList: any[],
+    sdfg: JsonSDFG, sdfgList: CFGListType, stateParentList: any[],
     omitAccessNodes: boolean, parent?: SDFGElement
 ): DagreSDFG {
     const BLOCK_MARGIN = 3 * SDFV.LINEHEIGHT;
@@ -3513,7 +3516,7 @@ function relayoutStateMachine(
         // Fall back to dagre for anything that cannot be laid out with
         // the vertical layout (e.g., irreducible control flow).
         try {
-            SMLayouter.layoutDagreCompat(g, sdfg.start_state?.toString());
+            SMLayouter.layoutDagreCompat(g, sdfg.start_block?.toString());
         } catch (_ignored) {
             dagre.layout(g);
         }
@@ -3586,7 +3589,7 @@ function relayoutStateMachine(
     (g as any).height = bb.height;
 
     // Add SDFG to global store.
-    sdfgList[sdfg.sdfg_list_id] = g;
+    sdfgList[sdfg.cfg_list_id] = g;
 
     return g;
 }
@@ -3683,7 +3686,7 @@ function relayoutSDFGState(
         if ((node.type === SDFGElementType.NestedSDFG ||
              node.type === SDFGElementType.ExternalNestedSDFG) &&
             node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell')
-            stateParentList[node.attributes.sdfg.sdfg_list_id] = obj;
+            stateParentList[node.attributes.sdfg.cfg_list_id] = obj;
 
         // Add input connectors.
         let i = 0;

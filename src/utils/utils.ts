@@ -145,13 +145,13 @@ export function get_element_uuid(element: SDFGElement): string {
     const undefined_val = -1;
     if (element instanceof State) {
         return (
-            element.sdfg.sdfg_list_id + '/' +
+            element.sdfg.cfg_list_id + '/' +
             element.id + '/' +
             undefined_val + '/' +
             undefined_val
         );
     } else if (element instanceof NestedSDFG) {
-        const sdfg_id = element.data.node.attributes.sdfg.sdfg_list_id;
+        const sdfg_id = element.data.node.attributes.sdfg.cfg_list_id;
         return (
             sdfg_id + '/' +
             undefined_val + '/' +
@@ -162,14 +162,14 @@ export function get_element_uuid(element: SDFGElement): string {
         // For MapExit nodes, we want to get the uuid of the corresponding
         // entry node instead.
         return (
-            element.sdfg.sdfg_list_id + '/' +
+            element.sdfg.cfg_list_id + '/' +
             element.parent_id + '/' +
             element.data.node.scope_entry + '/' +
             undefined_val
         );
     } else if (element instanceof SDFGNode) {
         return (
-            element.sdfg.sdfg_list_id + '/' +
+            element.sdfg.cfg_list_id + '/' +
             element.parent_id + '/' +
             element.id + '/' +
             undefined_val
