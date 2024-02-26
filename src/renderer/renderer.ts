@@ -2263,6 +2263,55 @@ export class SDFGRenderer extends EventEmitter {
         return true;
     }
 
+    // Checks if pan mouse movement is in the bounds of the graph.
+    // Takes the current visible_rect as input and computes if the pan mouse movement (movX, movY) is 
+    // allowed and additionally corrects it to have a smooth view pan blocking.
+    // Returns: corrected movement x/y coordinates to input into this.canvas_manager?.translate()
+    public pan_movement_in_bounds(visible_rect: SimpleRect, movX: number, movY: number) {
+
+        const visible_rectCenter = {
+            x: (visible_rect.x + (visible_rect.w / 2)),
+            y: (visible_rect.y + (visible_rect.h / 2))
+        }
+
+        const graphLimits = {
+            minX: 0,
+            minY: 0,
+            maxX: (this.graph as any).width,
+            maxY: (this.graph as any).height,
+        };
+
+        let outofboundsX = 0;
+        let outofboundsY = 0;
+
+        if (visible_rectCenter.x < graphLimits.minX) {
+            outofboundsX = -1;
+        }
+        else if (visible_rectCenter.x > graphLimits.maxX) {
+            outofboundsX = 1;
+        }
+        if (visible_rectCenter.y < graphLimits.minY) {
+            outofboundsY = -1;
+        }
+        else if (visible_rectCenter.y > graphLimits.maxY) {
+            outofboundsY = 1;
+        }
+
+        let correctedMovement = {
+            x: movX,
+            y: movY
+        }
+
+        if ((outofboundsX === -1 && correctedMovement.x > 0) || (outofboundsX === 1 && correctedMovement.x < 0)) {
+            correctedMovement.x = 0;
+        }
+        if ((outofboundsY === -1 && correctedMovement.y > 0) || (outofboundsY === 1 && correctedMovement.y < 0)) {
+            correctedMovement.y = 0;
+        }
+        
+        return correctedMovement;
+    }
+
     // TODO(later): Improve event system using event types (instanceof) instead
     // of passing string eventtypes.
     /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
@@ -2392,20 +2441,41 @@ export class SDFGRenderer extends EventEmitter {
                     // Mark for redraw
                     dirty = true;
                 } else {
-                    this.canvas_manager?.translate(
-                        event.movementX, event.movementY
-                    );
+                    
+                    // Mouse move in panning mode
+                    if (this.visible_rect) {
 
-                    // Mark for redraw
-                    dirty = true;
+                        // Check if mouse panning is in bounds (near graph)
+                        // and restrict/correct it 
+                        const correctedMovement = this.pan_movement_in_bounds(
+                            this.visible_rect, event.movementX, event.movementY
+                        );
+
+                        this.canvas_manager?.translate(
+                            correctedMovement.x, correctedMovement.y
+                        );
+
+                        // Mark for redraw
+                        dirty = true;
+                    }
+                    
                 }
             } else if (this.drag_start && event.buttons & 4) {
                 // Pan the view with the middle mouse button
                 this.dragging = true;
-                this.canvas_manager?.translate(
-                    event.movementX, event.movementY
-                );
-                dirty = true;
+                if (this.visible_rect) {
+
+                    // Check if mouse panning is in bounds (near graph)
+                    // and restrict/correct it 
+                    const correctedMovement = this.pan_movement_in_bounds(
+                        this.visible_rect, event.movementX, event.movementY
+                    );
+
+                    this.canvas_manager?.translate(
+                        correctedMovement.x, correctedMovement.y
+                    );
+                    dirty = true;
+                }
                 element_focus_changed = true;
             } else {
                 this.drag_start = null;
@@ -2418,12 +2488,21 @@ export class SDFGRenderer extends EventEmitter {
                 // Different number of touches, ignore and reset drag_start
                 this.drag_start = event;
             } else if (event.touches.length === 1) { // Move/drag
-                this.canvas_manager?.translate(
-                    event.touches[0].clientX -
-                        this.drag_start.touches[0].clientX,
-                    event.touches[0].clientY -
-                        this.drag_start.touches[0].clientY
-                );
+                if (this.visible_rect) {
+
+                    const movX = event.touches[0].clientX - this.drag_start.touches[0].clientX;
+                    const movY = event.touches[0].clientY - this.drag_start.touches[0].clientY;
+
+                    // Check if panning is in bounds (near graph)
+                    // and restrict/correct it 
+                    const correctedMovement = this.pan_movement_in_bounds(
+                        this.visible_rect, movX, movY
+                    );
+
+                    this.canvas_manager?.translate(
+                        correctedMovement.x, correctedMovement.y
+                    );
+                }
                 this.drag_start = event;
 
                 // Mark for redraw
@@ -2448,15 +2527,28 @@ export class SDFGRenderer extends EventEmitter {
                 );
                 const newCenter = [(x1 + x2) / 2.0, (y1 + y2) / 2.0];
 
-                // First, translate according to movement of center point
-                this.canvas_manager?.translate(
-                    newCenter[0] - oldCenter[0], newCenter[1] - oldCenter[1]
-                );
-                // Then scale
-                this.canvas_manager?.scale(
-                    currentDistance / initialDistance, newCenter[0],
-                    newCenter[1]
-                );
+                if (this.visible_rect) {
+
+                    // First, translate according to movement of center point
+                    const movX = newCenter[0] - oldCenter[0];
+                    const movY = newCenter[1] - oldCenter[1];
+
+                    // Check if movement is in bounds (near graph)
+                    // and restrict/correct it 
+                    const correctedMovement = this.pan_movement_in_bounds(
+                        this.visible_rect, movX, movY
+                    );
+
+                    this.canvas_manager?.translate(
+                        correctedMovement.x, correctedMovement.y
+                    );
+
+                    // Then scale
+                    this.canvas_manager?.scale(
+                        currentDistance / initialDistance, newCenter[0],
+                        newCenter[1]
+                    );
+                }
 
                 this.drag_start = event;
 
@@ -2470,9 +2562,22 @@ export class SDFGRenderer extends EventEmitter {
                 // If vertical scroll navigation is turned on, use this to
                 // move the viewport up and down. If the control key is held
                 // down while scrolling, treat it as a typical zoom operation.
-                this.canvas_manager?.translate(0, -event.deltaY);
-                dirty = true;
-                element_focus_changed = true;
+                if (this.visible_rect) {
+                    const movX = 0;
+                    const movY = -event.deltaY;
+
+                    // Check if scroll is in bounds (near graph)
+                    // and restrict/correct it 
+                    const correctedMovement = this.pan_movement_in_bounds(
+                        this.visible_rect, movX, movY
+                    );
+
+                    this.canvas_manager?.translate(
+                        correctedMovement.x, correctedMovement.y
+                    );
+                    dirty = true;
+                    element_focus_changed = true;
+                }
             } else {
                 // Get physical x,y coordinates (rather than canvas coordinates)
                 const br = this.canvas?.getBoundingClientRect();
