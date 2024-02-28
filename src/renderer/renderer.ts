@@ -2267,8 +2267,9 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     // Checks if pan mouse movement is in the bounds of the graph.
-    // Takes the current visible_rect as input and computes if the pan mouse movement (movX, movY) is 
-    // allowed and additionally corrects it to have a smooth view pan blocking.
+    // Takes the current visible_rect as input and computes if its center is 
+    // within the graph bounds. The pan mouse movement (movX, movY) is 
+    // corrected accordingly to have a smooth view pan blocking.
     // Returns: corrected movement x/y coordinates to input into this.canvas_manager?.translate()
     public pan_movement_in_bounds(visible_rect: SimpleRect, movX: number, movY: number) {
 
@@ -2284,6 +2285,8 @@ export class SDFGRenderer extends EventEmitter {
             maxY: (this.graph as any).height,
         };
 
+        // Compute where the visible_rectCenter is out of bounds:
+        // outofboundsX/Y === 0 means not out of bounds
         let outofboundsX = 0;
         let outofboundsY = 0;
 
@@ -2300,15 +2303,19 @@ export class SDFGRenderer extends EventEmitter {
             outofboundsY = 1;
         }
 
+        // Take uncorrected mouse event movement as default
         let correctedMovement = {
             x: movX,
             y: movY
         }
 
-        if ((outofboundsX === -1 && correctedMovement.x > 0) || (outofboundsX === 1 && correctedMovement.x < 0)) {
+        // Correct mouse movement if necessary
+        if ((outofboundsX === -1 && correctedMovement.x > 0) || 
+            (outofboundsX === 1 && correctedMovement.x < 0)) {
             correctedMovement.x = 0;
         }
-        if ((outofboundsY === -1 && correctedMovement.y > 0) || (outofboundsY === 1 && correctedMovement.y < 0)) {
+        if ((outofboundsY === -1 && correctedMovement.y > 0) || 
+            (outofboundsY === 1 && correctedMovement.y < 0)) {
             correctedMovement.y = 0;
         }
         
