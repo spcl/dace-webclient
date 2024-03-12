@@ -292,10 +292,14 @@ export class ControlFlowRegion extends ControlFlowBlock {
         if (visibleRect && visibleRect.x <= topleft.x &&
             visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
             SDFVSettings.showStateNames)
-            ctx.fillText(
-                this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
-                topleft.y + SDFV.LINEHEIGHT
-            );
+
+            if (!too_far_away_for_text(renderer, ctx)) {
+
+                ctx.fillText(
+                    this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
+                    topleft.y + SDFV.LINEHEIGHT
+                );
+            }
 
         // If this state is selected or hovered
         if ((this.selected || this.highlighted || this.hovered) &&
@@ -427,8 +431,12 @@ export class State extends BasicBlock {
 
         if (visible_rect && visible_rect.x <= topleft.x &&
             visible_rect.y <= topleft.y + SDFV.LINEHEIGHT &&
-            SDFVSettings.showStateNames)
-            ctx.fillText(this.label(), topleft.x, topleft.y + SDFV.LINEHEIGHT);
+            SDFVSettings.showStateNames) {
+
+            if (!too_far_away_for_text(renderer, ctx)) {
+                ctx.fillText(this.label(), topleft.x, topleft.y + SDFV.LINEHEIGHT);
+            } 
+        }
 
         // If this state is selected or hovered
         if ((this.selected || this.highlighted || this.hovered) &&
@@ -617,22 +625,25 @@ export class LoopRegion extends ControlFlowRegion {
             ctx.lineTo(topleft.x + this.width, initBottomLineY);
             ctx.stroke();
 
-            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-            const initStatement = this.attributes().init_statement?.string_data;
-            const initTextY = (
-                (topleft.y + (LoopRegion.INIT_SPACING / 2)) +
-                (SDFV.LINEHEIGHT / 2)
-            );
-            if (initStatement) {
-                const initTextMetrics = ctx.measureText(initStatement);
-                const initTextX = this.x - (initTextMetrics.width / 2);
-                ctx.fillText(initStatement, initTextX, initTextY);
-            }
+            if (!too_far_away_for_text(renderer, ctx)) {
 
-            ctx.font = oldFont;
-            ctx.fillText(
-                'init', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
-            );
+                ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+                const initStatement = this.attributes().init_statement?.string_data;
+                const initTextY = (
+                    (topleft.y + (LoopRegion.INIT_SPACING / 2)) +
+                    (SDFV.LINEHEIGHT / 2)
+                );
+                if (initStatement) {
+                    const initTextMetrics = ctx.measureText(initStatement);
+                    const initTextX = this.x - (initTextMetrics.width / 2);
+                    ctx.fillText(initStatement, initTextX, initTextY);
+                }
+    
+                ctx.font = oldFont;
+                ctx.fillText(
+                    'init', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
+                );
+            }
         }
 
         // Draw the condition (either on top if the loop is a regularly
@@ -654,20 +665,25 @@ export class LoopRegion extends ControlFlowRegion {
         ctx.moveTo(topleft.x, condLineY);
         ctx.lineTo(topleft.x + this.width, condLineY);
         ctx.stroke();
-        ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-        const condStatement = this.attributes().loop_condition?.string_data;
-        const condTextY = (
-            (condTopY + (LoopRegion.CONDITION_SPACING / 2)) +
-            (SDFV.LINEHEIGHT / 2)
-        );
-        if (condStatement) {
-            const condTextMetrics = ctx.measureText(condStatement);
-            const condTextX = this.x - (condTextMetrics.width / 2);
-            ctx.fillText(condStatement, condTextX, condTextY);
-            ctx.font = oldFont;
-            ctx.fillText(
-                'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
+
+
+        if (!too_far_away_for_text(renderer, ctx)) {
+
+            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+            const condStatement = this.attributes().loop_condition?.string_data;
+            const condTextY = (
+                (condTopY + (LoopRegion.CONDITION_SPACING / 2)) +
+                (SDFV.LINEHEIGHT / 2)
             );
+            if (condStatement) {
+                const condTextMetrics = ctx.measureText(condStatement);
+                const condTextX = this.x - (condTextMetrics.width / 2);
+                ctx.fillText(condStatement, condTextX, condTextY);
+                ctx.font = oldFont;
+                ctx.fillText(
+                    'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
+                );
+            }
         }
 
         // Draw the update statement if there is one.
@@ -681,21 +697,25 @@ export class LoopRegion extends ControlFlowRegion {
             ctx.lineTo(topleft.x + this.width, updateTopY);
             ctx.stroke();
 
-            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-            const updateStatement =
-                this.attributes().update_statement.string_data;
-            const updateTextY = (
-                (updateTopY + (LoopRegion.UPDATE_SPACING / 2)) +
-                (SDFV.LINEHEIGHT / 2)
-            );
-            const updateTextMetrics = ctx.measureText(updateStatement);
-            const updateTextX = this.x - (updateTextMetrics.width / 2);
-            ctx.fillText(updateStatement, updateTextX, updateTextY);
-            ctx.font = oldFont;
-            ctx.fillText(
-                'update', topleft.x + LoopRegion.META_LABEL_MARGIN,
-                updateTextY
-            );
+
+            if (!too_far_away_for_text(renderer, ctx)) {
+
+                ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+                const updateStatement =
+                    this.attributes().update_statement.string_data;
+                const updateTextY = (
+                    (updateTopY + (LoopRegion.UPDATE_SPACING / 2)) +
+                    (SDFV.LINEHEIGHT / 2)
+                );
+                const updateTextMetrics = ctx.measureText(updateStatement);
+                const updateTextX = this.x - (updateTextMetrics.width / 2);
+                ctx.fillText(updateStatement, updateTextX, updateTextY);
+                ctx.font = oldFont;
+                ctx.fillText(
+                    'update', topleft.x + LoopRegion.META_LABEL_MARGIN,
+                    updateTextY
+                );
+            }
         }
         remainingHeight -= topSpacing;
 
@@ -704,10 +724,14 @@ export class LoopRegion extends ControlFlowRegion {
         if (visibleRect && visibleRect.x <= topleft.x &&
             visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
             SDFVSettings.showStateNames)
-            ctx.fillText(
-                this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
-                topleft.y + topSpacing + SDFV.LINEHEIGHT
-            );
+
+            if (!too_far_away_for_text(renderer, ctx)) {
+
+                ctx.fillText(
+                    this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
+                    topleft.y + topSpacing + SDFV.LINEHEIGHT
+                );
+            }
 
         // If this state is selected or hovered
         if ((this.selected || this.highlighted || this.hovered) &&
@@ -792,17 +816,21 @@ export class SDFGNode extends SDFGElement {
             ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
         }
         if (this.label()) {
-            ctx.fillStyle = this.getCssProperty(renderer, fgstyle);
-            const textw = ctx.measureText(this.label()).width;
-            if (!visible_rect)
-                ctx.fillText(
-                    this.label(), this.x - textw / 2, this.y + SDFV.LINEHEIGHT / 4
-                );
-            else if (visible_rect && visible_rect.x <= topleft.x &&
-                visible_rect.y <= topleft.y + SDFV.LINEHEIGHT)
-                ctx.fillText(
-                    this.label(), this.x - textw / 2, this.y + SDFV.LINEHEIGHT / 4
-                );
+
+            if (!too_far_away_for_text(renderer, ctx)) {
+
+                ctx.fillStyle = this.getCssProperty(renderer, fgstyle);
+                const textw = ctx.measureText(this.label()).width;
+                if (!visible_rect)
+                    ctx.fillText(
+                        this.label(), this.x - textw / 2, this.y + SDFV.LINEHEIGHT / 4
+                    );
+                else if (visible_rect && visible_rect.x <= topleft.x &&
+                    visible_rect.y <= topleft.y + SDFV.LINEHEIGHT)
+                    ctx.fillText(
+                        this.label(), this.x - textw / 2, this.y + SDFV.LINEHEIGHT / 4
+                    );
+            }
         }
     }
 
@@ -1015,6 +1043,9 @@ export class Memlet extends Edge {
             // Straight line can be drawn
             ctx.lineTo(this.points[1].x, this.points[1].y);
         } else {
+
+            // ctx.lineTo(this.points[this.points.length-1].x, this.points[this.points.length-1].y);
+
             let i;
             for (i = 1; i < this.points.length - 2; i++) {
                 const xm = (this.points[i].x + this.points[i + 1].x) / 2.0;
@@ -1523,6 +1554,12 @@ export class AccessNode extends SDFGNode {
             if (this.strokeStyle(renderer) !== this.getCssProperty(renderer, '--color-default'))
                 renderer.set_tooltip((c) => this.tooltip(c));
         }
+
+        // If we are far away, don't show the text
+        if (too_far_away_for_text(renderer, ctx)) {
+            return;
+        }
+
         const textmetrics = ctx.measureText(this.label());
         ctx.fillText(
             this.label(), this.x - textmetrics.width / 2.0,
@@ -1636,6 +1673,11 @@ export class ScopeNode extends SDFGNode {
         ctx.fillStyle = this.getCssProperty(
             renderer, '--node-foreground-color'
         );
+
+        // If we are far away, don't show the text
+        if (too_far_away_for_text(renderer, ctx)) {
+            return;
+        }
 
         drawAdaptiveText(
             ctx, renderer, this.far_label(renderer),
@@ -2063,6 +2105,11 @@ export class Tasklet extends SDFGNode {
             renderer, '--node-foreground-color'
         );
 
+        // If we are far away, don't show the text
+        if (too_far_away_for_text(renderer, ctx)) {
+            return;
+        }
+
         const ppp = canvas_manager.points_per_pixel();
         if (!(ctx as any).lod || ppp < SDFV.TASKLET_LOD) {
             // If we are close to the tasklet, show its contents
@@ -2122,17 +2169,20 @@ export class Reduce extends SDFGNode {
         if ((ctx as any).pdf)
             draw_shape();
         ctx.fill();
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--node-foreground-color'
-        );
-
-        const far_label = this.label().substring(4, this.label().indexOf(','));
-        drawAdaptiveText(
-            ctx, renderer, far_label,
-            this.label(), this.x, this.y - this.height * 0.2,
-            this.width, this.height,
-            SDFV.SCOPE_LOD
-        );
+        
+        if (!too_far_away_for_text(renderer, ctx)) {
+            
+            ctx.fillStyle = this.getCssProperty(
+                renderer, '--node-foreground-color'
+            );
+            const far_label = this.label().substring(4, this.label().indexOf(','));
+            drawAdaptiveText(
+                ctx, renderer, far_label,
+                this.label(), this.x, this.y - this.height * 0.2,
+                this.width, this.height,
+                SDFV.SCOPE_LOD
+            );
+        }
     }
 
     public shade(
@@ -2189,17 +2239,22 @@ export class NestedSDFG extends SDFGNode {
                     this.width - 5, this.height - 5
                 );
             ctx.fill();
-            ctx.fillStyle = this.getCssProperty(
-                renderer, '--node-foreground-color'
-            );
-            let label = this.data.node.attributes.label;
-            if (!this.data.node.attributes.sdfg)
-                label += ' (not loaded)';
-            const textmetrics = ctx.measureText(label);
-            ctx.fillText(
-                label, this.x - textmetrics.width / 2.0,
-                this.y + SDFV.LINEHEIGHT / 4.0
-            );
+
+
+            if (!too_far_away_for_text(renderer, ctx)) {
+
+                ctx.fillStyle = this.getCssProperty(
+                    renderer, '--node-foreground-color'
+                );
+                let label = this.data.node.attributes.label;
+                if (!this.data.node.attributes.sdfg)
+                    label += ' (not loaded)';
+                const textmetrics = ctx.measureText(label);
+                ctx.fillText(
+                    label, this.x - textmetrics.width / 2.0,
+                    this.y + SDFV.LINEHEIGHT / 4.0
+                );
+            }
         } else {
             // Draw square around nested SDFG.
             super.draw(
@@ -2213,16 +2268,19 @@ export class NestedSDFG extends SDFGNode {
                 drawSDFG(renderer, ctx, this.data.graph, mousepos);
             } else {
                 // Expanded, but no SDFG present or loaded yet.
-                const errColor = this.getCssProperty(
-                    renderer, '--node-missing-background-color'
-                );
-                const label = 'No SDFG loaded';
-                const textmetrics = ctx.measureText(label);
-                ctx.fillStyle = errColor;
-                ctx.fillText(
-                    label, this.x - textmetrics.width / 2.0,
-                    this.y + SDFV.LINEHEIGHT / 4.0
-                );
+                if (!too_far_away_for_text(renderer, ctx)) {
+
+                    const errColor = this.getCssProperty(
+                        renderer, '--node-missing-background-color'
+                    );
+                    const label = 'No SDFG loaded';
+                    const textmetrics = ctx.measureText(label);
+                    ctx.fillStyle = errColor;
+                    ctx.fillText(
+                        label, this.x - textmetrics.width / 2.0,
+                        this.y + SDFV.LINEHEIGHT / 4.0
+                    );
+                }
             }
         }
     }
@@ -2325,6 +2383,12 @@ export class LibraryNode extends SDFGNode {
         ctx.fillStyle = this.getCssProperty(
             renderer, '--node-foreground-color'
         );
+
+        // If we are far away, don't show the text
+        if (too_far_away_for_text(renderer, ctx)) {
+            return;
+        }
+        
         const textw = ctx.measureText(this.label()).width;
         ctx.fillText(
             this.label(), this.x - textw / 2, this.y + SDFV.LINEHEIGHT / 4
@@ -2353,6 +2417,24 @@ export class LibraryNode extends SDFGNode {
 }
 
 //////////////////////////////////////////////////////
+
+// Checks if graph is zoomed out far (defined by SDFV.TEXT_LOD), using Points-per-Pixel
+// Used before ctx.fillText calls to only draw text when zoomed in close enough
+function too_far_away_for_text(renderer: SDFGRenderer, ctx: CanvasRenderingContext2D): boolean {
+
+    const canvas_manager = renderer.get_canvas_manager();
+    const ppp = canvas_manager?.points_per_pixel();
+    if (ppp) {
+        if ((!(ctx as any).lod || ppp > SDFV.TEXT_LOD)) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    return false;
+}
 
 /**
  * Batched drawing of graph edges, given a specific default color.
@@ -2525,6 +2607,7 @@ export function drawStateMachine(
     for (const nodeId of stateMachineGraph.nodes()) {
         const block = stateMachineGraph.node(nodeId);
 
+        // TODO: Move this after the invisible state check below?
         const blockppp = Math.max(block.width, block.height) / ppp;
         if (lod && blockppp < SDFV.STATE_LOD) {
             block.simple_draw(renderer, ctx, mousePos);

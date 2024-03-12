@@ -733,6 +733,8 @@ export class CanvasManager {
         // (right-left)/width should be equivalent
         const left = this.mapPixelToCoordsX(0);
         const right = this.mapPixelToCoordsX(this.canvas.width);
+        // console.log('coordinates width: %f', (right - left));
+        // console.log('canvas pixel width: %f', this.canvas.width);
         return (right - left) / this.canvas.width;
     }
 
