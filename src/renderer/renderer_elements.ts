@@ -2607,18 +2607,17 @@ export function drawStateMachine(
     for (const nodeId of stateMachineGraph.nodes()) {
         const block = stateMachineGraph.node(nodeId);
 
-        // TODO: Move this after the invisible state check below?
+        // Skip invisible states.
+        if (lod && visibleRect && !block.intersect(
+            visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h
+            )) {
+                continue;
+            }
+            
         const blockppp = Math.max(block.width, block.height) / ppp;
         if (lod && blockppp < SDFV.STATE_LOD) {
             block.simple_draw(renderer, ctx, mousePos);
             block.debug_draw(renderer, ctx);
-            continue;
-        }
-
-        // Skip invisible states.
-        if (lod && visibleRect && !block.intersect(
-            visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h
-        )) {
             continue;
         }
 
