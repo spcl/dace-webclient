@@ -1535,13 +1535,20 @@ export class SDFGRenderer extends EventEmitter {
         let targetHeight = minDimSize;
         const maxPercentage = 0.22;
         if (targetHeight > this.canvas.height * maxPercentage)
-            targetHeight = this.canvas.height * maxPercentage;
+            targetHeight = Math.floor(this.canvas.height * maxPercentage);
         if (targetWidth > this.canvas.width * maxPercentage)
-            targetWidth = this.canvas.width * maxPercentage;
-        this.minimap_canvas.height = targetHeight;
-        this.minimap_canvas.width = targetWidth;
-        this.minimap_canvas.style.width = targetWidth.toString() + 'px';
-        this.minimap_canvas.style.height = targetHeight.toString() + 'px';
+            targetWidth = Math.floor(this.canvas.width * maxPercentage);
+        
+        // Prevent forced style reflow if nothing changed
+        // Can save about 0.5ms of computation
+        if (this.minimap_canvas.height !== targetHeight) {
+            this.minimap_canvas.height = targetHeight;
+            this.minimap_canvas.style.height = targetHeight.toString() + 'px';
+        }
+        if (this.minimap_canvas.width !== targetWidth) {
+            this.minimap_canvas.width = targetWidth;
+            this.minimap_canvas.style.width = targetWidth.toString() + 'px';
+        }
 
         // Set the zoom level and translation so everything is visible.
         const bb = {
@@ -1566,11 +1573,17 @@ export class SDFGRenderer extends EventEmitter {
             if (n && this.minimap_ctx)
                 n.simple_draw(this, this.minimap_ctx, undefined);
         });
-        this.graph.edges().forEach(x => {
-            const e = this.graph?.edge(x);
-            if (e && this.minimap_ctx)
-                e.draw(this, this.minimap_ctx, undefined);
-        });
+
+        // Don't draw Interstate edges in the minimap:
+        // Small optimization thats can save ~1ms in computation
+        // The performance problem comes from the edges and their 
+        // labels which are also drawn.
+
+        // this.graph.edges().forEach(x => {
+        //     const e = this.graph?.edge(x);
+        //     if (e && this.minimap_ctx)
+        //         e.draw(this, this.minimap_ctx, undefined);
+        // });
 
         // Draw the viewport.
         if (this.visible_rect) {
