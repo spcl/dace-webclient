@@ -2670,98 +2670,113 @@ export class SDFGRenderer extends EventEmitter {
 
         this.tooltip = null;
 
-        // De-highlight all elements.
-        this.doForVisibleElements(
-            (type: any, e: any, obj: any) => {
-                obj.hovered = false;
-                obj.highlighted = false;
-                if (obj instanceof Tasklet) {
-                    for (const t of obj.inputTokens)
-                        t.highlighted = false;
-                    for (const t of obj.outputTokens)
-                        t.highlighted = false;
-                }
-            }
-        );
-        // Mark hovered and highlighted elements.
-        this.doForVisibleElements(
-            (type: any, e: any, obj: any) => {
-                const intersected = obj.intersect(
-                    this.mousepos!.x, this.mousepos!.y, 0, 0
+        // Only do highlighting re-computation if view is close enough to actually see the 
+        // highlights. Done by points-per-pixel metric using SDFV.NODE_LOD as the threshold.
+        // Hence, the highlights only update/become visible if there are nodes visible to hover over.
+        // This creatly reduces CPU utilization when moving/hovering the mouse over large graphs.
+        if (this.canvas_manager) {
+            const ppp = this.canvas_manager.points_per_pixel();
+            if (ppp < SDFV.NODE_LOD) {
+
+                // De-highlight all elements.
+                this.doForVisibleElements(
+                    (type: any, e: any, obj: any) => {
+                        obj.hovered = false;
+                        obj.highlighted = false;
+                        if (obj instanceof Tasklet) {
+                            for (const t of obj.inputTokens)
+                                t.highlighted = false;
+                            for (const t of obj.outputTokens)
+                                t.highlighted = false;
+                        }
+                    }
                 );
-
-                // Highlight all edges of the memlet tree
-                if (intersected && obj instanceof Edge &&
-                    obj.parent_id !== null) {
-                    const tree = this.get_nested_memlet_tree(obj);
-                    tree.forEach(te => {
-                        if (te !== obj && te !== undefined) {
-                            te.highlighted = true;
-                        }
-                    });
-                }
-
-                // Highlight all access nodes with the same name in the same
-                // nested sdfg
-                if (intersected && obj instanceof AccessNode) {
-                    traverseSDFGScopes(
-                        this.cfg_list[obj.sdfg.cfg_list_id],
-                        (node: any) => {
-                            // If node is a state, then visit sub-scope
-                            if (node instanceof State)
-                                return true;
-                            if (node instanceof AccessNode &&
-                                node.data.node.label === obj.data.node.label)
-                                node.highlighted = true;
-                            // No need to visit sub-scope
-                            return false;
-                        }
-                    );
-                }
-
-                if (intersected && obj instanceof Connector) {
-                    // Highlight all access nodes with the same name as the
-                    // hovered connector in the nested sdfg
-                    if (e.graph) {
-                        const nested_graph =
-                            e.graph.node(obj.parent_id).data.graph;
-                        if (nested_graph) {
-                            traverseSDFGScopes(nested_graph, (node: any) => {
-                                // If node is a state, then visit sub-scope
-                                if (node instanceof State) {
-                                    return true;
+                // Mark hovered and highlighted elements.
+                this.doForVisibleElements(
+                    (type: any, e: any, obj: any) => {
+                        const intersected = obj.intersect(
+                            this.mousepos!.x, this.mousepos!.y, 0, 0
+                        );
+        
+                        // Highlight all edges of the memlet tree
+                        if (intersected && obj instanceof Edge &&
+                            obj.parent_id !== null) {
+                            const tree = this.get_nested_memlet_tree(obj);
+                            tree.forEach(te => {
+                                if (te !== obj && te !== undefined) {
+                                    te.highlighted = true;
                                 }
-                                if (node instanceof AccessNode &&
-                                    node.data.node.label === obj.label()) {
-                                    node.highlighted = true;
-                                }
-                                // No need to visit sub-scope
-                                return false;
                             });
                         }
-                    }
-
-                    // Similarly, highlight any identifiers in a connector's
-                    // tasklet, if applicable.
-                    if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
-                        if (obj.connectorType === 'in') {
-                            for (const token of obj.linkedElem.inputTokens) {
-                                if (token.token === obj.data.name)
-                                    token.highlighted = true;
+        
+                        // Highlight all access nodes with the same name in the same
+                        // nested sdfg
+                        if (intersected && obj instanceof AccessNode) {
+                            traverseSDFGScopes(
+                                this.cfg_list[obj.sdfg.cfg_list_id],
+                                (node: any) => {
+                                    // If node is a state, then visit sub-scope
+                                    if (node instanceof State)
+                                        return true;
+                                    if (node instanceof AccessNode &&
+                                        node.data.node.label === obj.data.node.label)
+                                        node.highlighted = true;
+                                    // No need to visit sub-scope
+                                    return false;
+                                }
+                            );
+                        }
+        
+                        if (intersected && obj instanceof Connector) {
+                            // Highlight all access nodes with the same name as the
+                            // hovered connector in the nested sdfg
+                            if (e.graph) {
+                                const nested_graph =
+                                    e.graph.node(obj.parent_id).data.graph;
+                                if (nested_graph) {
+                                    traverseSDFGScopes(nested_graph, (node: any) => {
+                                        // If node is a state, then visit sub-scope
+                                        if (node instanceof State) {
+                                            return true;
+                                        }
+                                        if (node instanceof AccessNode &&
+                                            node.data.node.label === obj.label()) {
+                                            node.highlighted = true;
+                                        }
+                                        // No need to visit sub-scope
+                                        return false;
+                                    });
+                                }
                             }
-                        } else {
-                            for (const token of obj.linkedElem.outputTokens) {
-                                if (token.token === obj.data.name)
-                                    token.highlighted = true;
+        
+                            // Similarly, highlight any identifiers in a connector's
+                            // tasklet, if applicable.
+                            if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
+                                if (obj.connectorType === 'in') {
+                                    for (const token of obj.linkedElem.inputTokens) {
+                                        if (token.token === obj.data.name)
+                                            token.highlighted = true;
+                                    }
+                                } else {
+                                    for (const token of obj.linkedElem.outputTokens) {
+                                        if (token.token === obj.data.name)
+                                            token.highlighted = true;
+                                    }
+                                }
                             }
                         }
+        
+                        if (intersected)
+                            obj.hovered = true;
                     }
-                }
+                );
 
-                if (intersected)
-                    obj.hovered = true;
+                // TODO: only redraw when highlighting changed
+                dirty = true;
+
             }
-        );
+        }
+
 
         // If adding an edge, mark/highlight the first/from element, if it has
         // already been selected.
@@ -2772,10 +2787,11 @@ export class SDFGRenderer extends EventEmitter {
                 this.add_edge_start_conn.highlighted = true;
         }
 
-        if (evtype === 'mousemove') {
-            // TODO: Draw only if elements have changed
-            dirty = true;
-        }
+        // TODO: check everything works if this is commented out
+        // if (evtype === 'mousemove') {
+        //     // TODO: Draw only if elements have changed
+        //     dirty = true;
+        // }
 
         if (evtype === 'dblclick') {
             const sdfg = (foreground_elem ? foreground_elem.sdfg : null);
