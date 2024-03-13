@@ -2560,28 +2560,33 @@ export function drawStateContents(
 
         node.draw(renderer, ctx, mousePos);
         node.debug_draw(renderer, ctx);
-        node.in_connectors.forEach((c: Connector) => {
-            let edge: Edge | null = null;
-            stateGraph.inEdges(nodeId)?.forEach((e) => {
-                const eobj = stateGraph.edge(e);
-                if (eobj.dst_connector == c.data.name)
-                    edge = eobj as any;
-            });
 
-            c.draw(renderer, ctx, mousePos, edge);
-            c.debug_draw(renderer, ctx);
-        });
-        node.out_connectors.forEach((c: Connector) => {
-            let edge: Edge | null = null;
-            stateGraph.outEdges(nodeId)?.forEach((e) => {
-                const eobj = stateGraph.edge(e);
-                if (eobj.src_connector == c.data.name)
-                    edge = eobj as any;
-            });
+        // Only draw connectors when close enough to see them
+        if (!lod || ppp < SDFV.CONNECTOR_LOD) {
 
-            c.draw(renderer, ctx, mousePos, edge);
-            c.debug_draw(renderer, ctx);
-        });
+            node.in_connectors.forEach((c: Connector) => {
+                let edge: Edge | null = null;
+                stateGraph.inEdges(nodeId)?.forEach((e) => {
+                    const eobj = stateGraph.edge(e);
+                    if (eobj.dst_connector == c.data.name)
+                        edge = eobj as any;
+                });
+    
+                c.draw(renderer, ctx, mousePos, edge);
+                c.debug_draw(renderer, ctx);
+            });
+            node.out_connectors.forEach((c: Connector) => {
+                let edge: Edge | null = null;
+                stateGraph.outEdges(nodeId)?.forEach((e) => {
+                    const eobj = stateGraph.edge(e);
+                    if (eobj.src_connector == c.data.name)
+                        edge = eobj as any;
+                });
+    
+                c.draw(renderer, ctx, mousePos, edge);
+                c.debug_draw(renderer, ctx);
+            });
+        }
     }
 
     if (lod && ppp > SDFV.EDGE_LOD)

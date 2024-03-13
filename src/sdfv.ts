@@ -47,6 +47,8 @@ export class SDFV {
     public static SCOPE_LOD: number = 0.75; // 0.75
     // Points-per-pixel threshold for not drawing memlets/interstate edges.
     public static EDGE_LOD: number = 5.0; // 5.0
+    // Points-per-pixel threshold for not drawing connectors
+    public static CONNECTOR_LOD = 2.0; // 5.0
     // Points-per-pixel threshold for not drawing node shapes and labels.
     public static NODE_LOD: number = 5.0; // 5.0
     // Points-per-pixel threshold for not drawing node text
