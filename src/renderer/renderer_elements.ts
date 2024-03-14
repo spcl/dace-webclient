@@ -2507,11 +2507,17 @@ function batchedDrawEdges(
     ctx.fillStyle = ctx.strokeStyle = renderer.getCssProperty(color);
     ctx.stroke();
 
-    arrowEdges.forEach(e => {
-        e.drawArrow(
-            ctx, e.points[e.points.length - 2], e.points[e.points.length - 1], 3
-        );
-    });
+    // Only draw Arrowheads when close enough to see them
+    const canvas_manager = renderer.get_canvas_manager();
+    const ppp = canvas_manager?.points_per_pixel();
+    if (ppp && ppp < SDFV.ARROW_LOD) {
+
+        arrowEdges.forEach(e => {
+            e.drawArrow(
+                ctx, e.points[e.points.length - 2], e.points[e.points.length - 1], 3
+            );
+        });
+    }
 
     labelEdges.forEach(e => {
         (e as InterstateEdge).drawLabel(renderer, ctx);
