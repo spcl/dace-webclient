@@ -2678,19 +2678,7 @@ export class SDFGRenderer extends EventEmitter {
             const ppp = this.canvas_manager.points_per_pixel();
             if (ppp < SDFV.NODE_LOD) {
 
-                // De-highlight all elements.
-                this.doForVisibleElements(
-                    (type: any, e: any, obj: any) => {
-                        obj.hovered = false;
-                        obj.highlighted = false;
-                        if (obj instanceof Tasklet) {
-                            for (const t of obj.inputTokens)
-                                t.highlighted = false;
-                            for (const t of obj.outputTokens)
-                                t.highlighted = false;
-                        }
-                    }
-                );
+                let highlighting_changed = false;
                 // Mark hovered and highlighted elements.
                 this.doForVisibleElements(
                     (type: any, e: any, obj: any) => {
@@ -2699,19 +2687,26 @@ export class SDFGRenderer extends EventEmitter {
                         );
         
                         // Highlight all edges of the memlet tree
-                        if (intersected && obj instanceof Edge &&
-                            obj.parent_id !== null) {
+                        if (obj instanceof Edge && obj.parent_id !== null) {
                             const tree = this.get_nested_memlet_tree(obj);
                             tree.forEach(te => {
                                 if (te !== obj && te !== undefined) {
-                                    te.highlighted = true;
+                                    if (intersected && te.highlighted === false) {
+
+                                        te.highlighted = true;
+                                        highlighting_changed = true;
+                                    }
+                                    else if (!intersected && te.highlighted === true) {
+                                        te.highlighted = false;
+                                        highlighting_changed = true;
+                                    }
                                 }
                             });
                         }
         
                         // Highlight all access nodes with the same name in the same
                         // nested sdfg
-                        if (intersected && obj instanceof AccessNode) {
+                        if (obj instanceof AccessNode) {
                             traverseSDFGScopes(
                                 this.cfg_list[obj.sdfg.cfg_list_id],
                                 (node: any) => {
@@ -2720,14 +2715,21 @@ export class SDFGRenderer extends EventEmitter {
                                         return true;
                                     if (node instanceof AccessNode &&
                                         node.data.node.label === obj.data.node.label)
-                                        node.highlighted = true;
+                                        if (intersected && node.highlighted === false) {
+                                            node.highlighted = true;
+                                            highlighting_changed = true;
+                                        }
+                                        else if (!intersected && node.highlighted === true) {
+                                            node.highlighted = false;
+                                            highlighting_changed = true;
+                                        }
                                     // No need to visit sub-scope
                                     return false;
                                 }
                             );
                         }
         
-                        if (intersected && obj instanceof Connector) {
+                        if (obj instanceof Connector) {
                             // Highlight all access nodes with the same name as the
                             // hovered connector in the nested sdfg
                             if (e.graph) {
@@ -2741,7 +2743,14 @@ export class SDFGRenderer extends EventEmitter {
                                         }
                                         if (node instanceof AccessNode &&
                                             node.data.node.label === obj.label()) {
-                                            node.highlighted = true;
+                                            if (intersected && node.highlighted === false) {
+                                                node.highlighted = true;
+                                                highlighting_changed = true;
+                                            }
+                                            else if (!intersected && node.highlighted === true) {
+                                                node.highlighted = false;
+                                                highlighting_changed = true;
+                                            }
                                         }
                                         // No need to visit sub-scope
                                         return false;
@@ -2755,28 +2764,48 @@ export class SDFGRenderer extends EventEmitter {
                                 if (obj.connectorType === 'in') {
                                     for (const token of obj.linkedElem.inputTokens) {
                                         if (token.token === obj.data.name)
-                                            token.highlighted = true;
+                                            if (intersected && token.highlighted === false) {
+                                                token.highlighted = true;
+                                                highlighting_changed = true;
+                                            }
+                                            else if (!intersected && token.highlighted === true) {
+                                                token.highlighted = false;
+                                                highlighting_changed = true;
+                                            }
                                     }
                                 } else {
                                     for (const token of obj.linkedElem.outputTokens) {
                                         if (token.token === obj.data.name)
-                                            token.highlighted = true;
+                                            if (intersected && token.highlighted === false) {
+                                                token.highlighted = true;
+                                                highlighting_changed = true;
+                                            }
+                                            else if (!intersected && token.highlighted === true) {
+                                                token.highlighted = false;
+                                                highlighting_changed = true;
+                                            }
                                     }
                                 }
                             }
                         }
         
-                        if (intersected)
+                        if (intersected && obj.hovered === false) {
                             obj.hovered = true;
+                            highlighting_changed = true;
+                        }
+                        else if (!intersected && obj.hovered === true) {
+                            obj.hovered = false;
+                            highlighting_changed = true;
+                        }
                     }
                 );
 
-                // TODO: only redraw when highlighting changed
-                dirty = true;
+                if (highlighting_changed) {
+                    dirty = true;
+                }
 
             }
         }
-
 
         // If adding an edge, mark/highlight the first/from element, if it has
         // already been selected.
@@ -2786,12 +2815,6 @@ export class SDFGRenderer extends EventEmitter {
             if (this.add_edge_start_conn)
                 this.add_edge_start_conn.highlighted = true;
         }
-
-        // TODO: check everything works if this is commented out
-        // if (evtype === 'mousemove') {
-        //     // TODO: Draw only if elements have changed
-        //     dirty = true;
-        // }
 
         if (evtype === 'dblclick') {
             const sdfg = (foreground_elem ? foreground_elem.sdfg : null);
