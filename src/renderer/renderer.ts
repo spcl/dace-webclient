@@ -150,6 +150,7 @@ export class SDFGRenderer extends EventEmitter {
     protected bgcolor: string | null = null;
     protected visible_rect: SimpleRect | null = null;
     protected static cssProps: { [key: string]: string } = {};
+    public static rendered_elements_count: number = 0;
 
     // Toolbar related fields.
     protected toolbar: JQuery<HTMLElement> | null = null;
@@ -3140,8 +3141,11 @@ export class SDFGRenderer extends EventEmitter {
             dirty = dirty || ol_manager_dirty;
         }
 
-        if (dirty)
+        if (dirty) {
+
             this.draw_async();
+            // console.log(SDFGRenderer.rendered_elements_count)
+        }
 
         if (element_focus_changed || selection_changed)
             this.emit('selection_changed', multi_selection_changed);

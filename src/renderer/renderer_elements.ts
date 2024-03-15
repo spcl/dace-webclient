@@ -2502,6 +2502,7 @@ function batchedDrawEdges(
             labelEdges.push(edge);
 
         edge.create_arrow_line(ctx);
+        // SDFGRenderer.rendered_elements_count++;
     });
     ctx.setLineDash([1, 0]);
     ctx.fillStyle = ctx.strokeStyle = renderer.getCssProperty(color);
@@ -2516,15 +2517,18 @@ function batchedDrawEdges(
             e.drawArrow(
                 ctx, e.points[e.points.length - 2], e.points[e.points.length - 1], 3
             );
+            // SDFGRenderer.rendered_elements_count++;
         });
     }
 
     labelEdges.forEach(e => {
         (e as InterstateEdge).drawLabel(renderer, ctx);
+        // SDFGRenderer.rendered_elements_count++;
     });
 
     deferredEdges.forEach(e => {
         e.draw(renderer, ctx, mousepos);
+        // SDFGRenderer.rendered_elements_count++;
     });
 
     if (renderer.debug_draw) {
@@ -2554,23 +2558,35 @@ export function drawStateContents(
             ) < SDFV.STATE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
+                // SDFGRenderer.rendered_elements_count++;
                 continue;
             }
         } else {
             if (lod && ppp > SDFV.NODE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
+                // SDFGRenderer.rendered_elements_count++;
                 continue;
             }
         }
 
         node.draw(renderer, ctx, mousePos);
         node.debug_draw(renderer, ctx);
+        // SDFGRenderer.rendered_elements_count++;
 
         // Only draw connectors when close enough to see them
         if (!lod || ppp < SDFV.CONNECTOR_LOD) {
 
             node.in_connectors.forEach((c: Connector) => {
+
+                // Only draw connectors if actually visible. This is needed for large
+                // nodes in the background like NestedSDFGs, that are visible, but their
+                // connectors are actually not.
+                if (visibleRect && !c.intersect(
+                    visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h)) {
+                    return;
+                }
+
                 let edge: Edge | null = null;
                 stateGraph.inEdges(nodeId)?.forEach((e) => {
                     const eobj = stateGraph.edge(e);
@@ -2580,8 +2596,15 @@ export function drawStateContents(
     
                 c.draw(renderer, ctx, mousePos, edge);
                 c.debug_draw(renderer, ctx);
+                // SDFGRenderer.rendered_elements_count++;
             });
             node.out_connectors.forEach((c: Connector) => {
+
+                if (visibleRect && !c.intersect(
+                    visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h)) {
+                    return;
+                }
+
                 let edge: Edge | null = null;
                 stateGraph.outEdges(nodeId)?.forEach((e) => {
                     const eobj = stateGraph.edge(e);
@@ -2591,6 +2614,7 @@ export function drawStateContents(
     
                 c.draw(renderer, ctx, mousePos, edge);
                 c.debug_draw(renderer, ctx);
+                // SDFGRenderer.rendered_elements_count++;
             });
         }
     }
@@ -2629,11 +2653,13 @@ export function drawStateMachine(
         if (lod && blockppp < SDFV.STATE_LOD) {
             block.simple_draw(renderer, ctx, mousePos);
             block.debug_draw(renderer, ctx);
+            // SDFGRenderer.rendered_elements_count++;
             continue;
         }
 
         block.draw(renderer, ctx, mousePos);
         block.debug_draw(renderer, ctx);
+        // SDFGRenderer.rendered_elements_count++;
 
         const ng = block.data.graph;
         if (!block.attributes().is_collapsed && ng) {
@@ -2661,6 +2687,7 @@ export function drawSDFG(
     const ppp = cManager.points_per_pixel();
     const visibleRect = renderer.get_visible_rect() ?? undefined;
 
+    SDFGRenderer.rendered_elements_count = 0;
     drawStateMachine(
         g, ctx, renderer, ppp, (ctx as any).lod, visibleRect, mousePos
     );
