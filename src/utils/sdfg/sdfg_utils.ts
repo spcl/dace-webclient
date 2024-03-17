@@ -6,6 +6,8 @@ import {
     SDFGNode,
     NestedSDFG,
     State,
+    SDFG,
+    ControlFlowRegion,
 } from '../../renderer/renderer_elements';
 import {
     DagreSDFG,
@@ -138,6 +140,7 @@ export function find_graph_element_by_uuid(
     p_graph: DagreSDFG | undefined | null, uuid: string
 ): { parent: DagreSDFG | undefined, element: any } {
     const uuid_split = uuid.split('/');
+    console.log('Trying to find:', uuid);
 
     const graph_id = Number(uuid_split[0]);
     const state_id = Number(uuid_split[1]);

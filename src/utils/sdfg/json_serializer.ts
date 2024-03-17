@@ -8,11 +8,11 @@ const propertyReplacements_0_16_0: { [key: string]: {
     replaceWith: string,
     recursive: boolean,
 }} = {
-    'start_state': {
+    'start_block': {
         replaceWith: 'start_block',
         recursive: false,
     },
-    'sdfg_list_id': {
+    'cfg_list_id': {
         replaceWith: 'cfg_list_id',
         recursive: true,
     },
