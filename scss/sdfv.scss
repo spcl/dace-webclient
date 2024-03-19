@@ -25,6 +25,20 @@ body.sdfv {
   font-family: "Segoe UI", Arial, sans-serif;
 }
 
+// Loading animation
+.loader {
+  border: 4px solid #ffffff;
+  border-top: 7px solid #34db50;
+  border-radius: 50%;
+  width: 25px;
+  height: 25px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 .sdfv {
 
   .hidden {

@@ -858,6 +858,8 @@ export class SDFGRenderer extends EventEmitter {
             this.bgcolor = window.getComputedStyle(this.canvas).backgroundColor;
 
         // Create the initial SDFG layout
+        // Loading animation already started in the file_read_complete function in sdfv.ts
+        // to also include the JSON parsing step.
         this.relayout();
 
         // Set mouse event handlers
@@ -976,7 +978,11 @@ export class SDFGRenderer extends EventEmitter {
         this.sdfg = new_sdfg;
 
         if (layout) {
-            this.relayout();
+            this.add_loading_animation();
+            setTimeout(() => {
+                this.relayout();
+            }, 10);
+            
             this.draw_async();
         }
 
@@ -1060,6 +1066,18 @@ export class SDFGRenderer extends EventEmitter {
         }
     }
 
+    // Add loading animation if not already present
+    // Appends a div of class "loader" to task-info-field div
+    public add_loading_animation() {
+
+        const info_field = document.getElementById('task-info-field');
+        if (info_field && !info_field.hasChildNodes()) {
+            const loaderDiv = document.createElement("div");
+            loaderDiv.classList.add("loader");
+            info_field.appendChild(loaderDiv);
+        }
+    }
+
     // Re-layout graph and nested graphs
     public relayout(): DagreSDFG {
         if (!this.ctx)
@@ -1084,6 +1102,12 @@ export class SDFGRenderer extends EventEmitter {
         // If we're in a VSCode context, we also want to refresh the outline.
         if (this.in_vscode)
             this.sdfv_instance.outline(this, this.graph);
+
+        // Remove loading animation
+        const info_field = document.getElementById('task-info-field');
+        if (info_field) {
+            info_field.innerHTML = "";
+        }
 
         return this.graph;
     }
@@ -1280,7 +1304,13 @@ export class SDFGRenderer extends EventEmitter {
         if (collapsed) {
             this.emit('collapse_state_changed', false, true);
 
-            this.relayout();
+            this.add_loading_animation();
+            // Use timout function with low delay to force the browser 
+            // to reload the dom with the above loader element.
+            setTimeout(() => {
+                this.relayout();
+            }, 10);
+
             this.draw_async();
         }
     }
@@ -1296,7 +1326,13 @@ export class SDFGRenderer extends EventEmitter {
 
         this.emit('collapse_state_changed', true, true);
 
-        this.relayout();
+        this.add_loading_animation();
+        // Use timout function with low delay to force the browser 
+        // to reload the dom with the above loader element.
+        setTimeout(() => {
+            this.relayout();
+        }, 10);
+
         this.draw_async();
     }
 
@@ -1316,7 +1352,13 @@ export class SDFGRenderer extends EventEmitter {
 
         this.emit('collapse_state_changed', false, true);
 
-        this.relayout();
+        this.add_loading_animation();
+        // Use timout function with low delay to force the browser 
+        // to reload the dom with the above loader element.
+        setTimeout(() => {
+            this.relayout();
+        }, 10);
+
         this.draw_async();
     }
 
@@ -1331,7 +1373,13 @@ export class SDFGRenderer extends EventEmitter {
 
         this.emit('collapse_state_changed', false, true);
 
-        this.relayout();
+        this.add_loading_animation();
+        // Use timout function with low delay to force the browser 
+        // to reload the dom with the above loader element.
+        setTimeout(() => {
+            this.relayout();
+        }, 10);
+
         this.draw_async();
     }
 
@@ -1344,7 +1392,13 @@ export class SDFGRenderer extends EventEmitter {
 
         this.emit('element_position_changed', 'reset');
 
-        this.relayout();
+        this.add_loading_animation();
+        // Use timout function with low delay to force the browser 
+        // to reload the dom with the above loader element.
+        setTimeout(() => {
+            this.relayout();
+        }, 10);
+        
         this.draw_async();
     }
 
@@ -2844,7 +2898,10 @@ export class SDFGRenderer extends EventEmitter {
                 this.emit('collapse_state_changed');
 
                 // Re-layout SDFG
-                this.relayout();
+                this.add_loading_animation();
+                setTimeout(() => {
+                    this.relayout();
+                }, 10);
                 dirty = true;
                 element_focus_changed = true;
             }
@@ -3102,9 +3159,13 @@ export class SDFGRenderer extends EventEmitter {
                     }
                 }
 
-                if (relayout_necessary)
-                    this.relayout();
-
+                if (relayout_necessary) {
+                    this.add_loading_animation();
+                    setTimeout(() => {
+                        this.relayout();
+                    }, 10);
+                }
+                
                 this.draw_async();
 
                 if (element_moved) {
