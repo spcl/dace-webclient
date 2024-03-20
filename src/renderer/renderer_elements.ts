@@ -1015,8 +1015,9 @@ export abstract class Edge extends SDFGElement {
         x: number, y: number, w: number = 0, h: number = 0
     ): boolean {
         // First, check bounding box
-        if (!super.intersect(x, y, w, h))
+        if (!super.intersect(x, y, w, h)) {
             return false;
+        }
 
         // Then (if point), check distance from line
         if (w === 0 || h === 0) {
@@ -1029,7 +1030,33 @@ export abstract class Edge extends SDFGElement {
             }
             return false;
         }
-        return true;
+        else { 
+            // Its a rectangle.
+            // Check if the any of the rectangles, spanned by pairs of points of the line,
+            // intersect the input rectangle.
+            // This is needed for long Interstate edges that have a huge bounding box and
+            // intersect almost always with the viewport even if they are not visible.
+            // This is only an approximation to detect if a line is in the viewport and
+            // could be made more accurate at the cost of more computation.
+            for (let i = 0; i < this.points.length - 1; i++) {
+                const linepoint_0 = this.points[i];
+                const linepoint_1 = this.points[i + 1];
+                // Rectangle spanned by the two line points
+                const r = {
+                    x: Math.min(linepoint_0.x, linepoint_1.x),
+                    y: Math.min(linepoint_0.y, linepoint_1.y),
+                    w: Math.abs(linepoint_1.x - linepoint_0.x),
+                    h: Math.abs(linepoint_1.y - linepoint_0.y)
+                }
+
+                // Check if the two rectangles intersect
+                if (r.x + r.w >= x && r.x <= x+w &&
+                    r.y + r.h >= y && r.y <= y+h) {
+                        return true;
+                }
+            }
+            return false;
+        }
     }
 
 }
@@ -2633,11 +2660,13 @@ export function drawStateMachine(
     renderer: SDFGRenderer, ppp: number, lod?: boolean,
     visibleRect?: SimpleRect, mousePos?: Point2D
 ): void {
-    if (!lod || ppp < SDFV.EDGE_LOD)
+    if (!lod || ppp < SDFV.EDGE_LOD) {
+
         batchedDrawEdges(
             renderer, stateMachineGraph, ctx, visibleRect, mousePos,
             '--interstate-edge-color', SDFVSettings.alwaysOnISEdgeLabels
         );
+    }
 
     for (const nodeId of stateMachineGraph.nodes()) {
         const block = stateMachineGraph.node(nodeId);

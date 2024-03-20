@@ -167,8 +167,12 @@ export class SDFVSettings {
     }
 
     private onSettingsChanged(relayout: boolean): void {
-        if (relayout)
-            this.renderer?.relayout();
+        if (relayout) {
+            this.renderer?.add_loading_animation();
+            setTimeout(() => {
+                this.renderer?.relayout();
+            }, 10);
+        }
         this.renderer?.draw_async();
 
         if (this.renderer?.get_in_vscode())

@@ -508,11 +508,27 @@ export function reload_file(sdfv: SDFV): void {
 function file_read_complete(sdfv: SDFV): void {
     const result_string = fr.result;
     const container = document.getElementById('contents');
-    if (result_string && container) {
-        const sdfg = checkCompatLoad(parse_sdfg(result_string));
-        sdfv.get_renderer()?.destroy();
-        sdfv.set_renderer(new SDFGRenderer(sdfv, sdfg, container, mouse_event));
-        sdfv.close_menu();
+    const info_field = document.getElementById('task-info-field');
+
+    if (result_string && container && info_field) {
+
+        // Create the loader element before starting to parse and layout the graph.
+        // The layouting can take several seconds for large graphs on slow machines.
+        // The user sees a loading animation in the meantime so that the site doesn't 
+        // appear unresponsive.
+        // The loader element is removed/cleared again at the end of the layout function in
+        // the SDFGRenderer.
+        const loaderDiv = document.createElement("div");
+        loaderDiv.classList.add("loader");
+        info_field.appendChild(loaderDiv);
+
+        // Use setTimeout function to force the browser to reload the dom with the above loader element.
+        setTimeout(() => {
+            const sdfg = checkCompatLoad(parse_sdfg(result_string));
+            sdfv.get_renderer()?.destroy();
+            sdfv.set_renderer(new SDFGRenderer(sdfv, sdfg, container, mouse_event));
+            sdfv.close_menu();
+        }, 20);
     }
 }
 

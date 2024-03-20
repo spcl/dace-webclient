@@ -733,8 +733,6 @@ export class CanvasManager {
         // (right-left)/width should be equivalent
         const left = this.mapPixelToCoordsX(0);
         const right = this.mapPixelToCoordsX(this.canvas.width);
-        // console.log('coordinates width: %f', (right - left));
-        // console.log('canvas pixel width: %f', this.canvas.width);
         return (right - left) / this.canvas.width;
     }
 
@@ -792,8 +790,9 @@ export class CanvasManager {
         this.renderer.draw(dt);
         this.contention -= 1;
 
-        if (this.animation_end !== null && now < this.animation_end)
+        if (this.animation_end !== null && now < this.animation_end) {
             this.draw_async();
+        }
     }
 
     public draw_async(): void {
