@@ -2733,124 +2733,169 @@ export class SDFGRenderer extends EventEmitter {
             const ppp = this.canvas_manager.points_per_pixel();
             if (ppp < SDFV.NODE_LOD) {
 
+                // Global change boolean. Determines if repaint necessary.
                 let highlighting_changed = false;
+
                 // Mark hovered and highlighted elements.
                 this.doForVisibleElements(
                     (type: any, e: any, obj: any) => {
                         const intersected = obj.intersect(
                             this.mousepos!.x, this.mousepos!.y, 0, 0
                         );
+
+                        // Local change boolean, for each visible element checked.
+                        // Prevents recursion if nothing changed.
+                        let hover_changed = false;
         
+                        // Change hover status
+                        if (intersected && !obj.hovered) {
+                            obj.hovered = true;
+                            highlighting_changed = true;
+                            hover_changed = true;
+                        }
+                        else if (!intersected && obj.hovered) {
+                            obj.hovered = false;
+                            highlighting_changed = true;
+                            hover_changed = true;
+                        }
+
                         // Highlight all edges of the memlet tree
                         if (obj instanceof Edge && obj.parent_id !== null) {
-                            const tree = this.get_nested_memlet_tree(obj);
-                            tree.forEach(te => {
-                                if (te !== obj && te !== undefined) {
-                                    if (intersected && te.highlighted === false) {
-
+                            if (obj.hovered && hover_changed) {
+                                const tree = this.get_nested_memlet_tree(obj);
+                                tree.forEach(te => {
+                                    if (te !== obj && te !== undefined) {
                                         te.highlighted = true;
-                                        highlighting_changed = true;
                                     }
-                                    else if (!intersected && te.highlighted === true) {
+                                });
+                            }
+                            else if (!obj.hovered && hover_changed) {
+                                const tree = this.get_nested_memlet_tree(obj);
+                                tree.forEach(te => {
+                                    if (te !== obj && te !== undefined) {
                                         te.highlighted = false;
-                                        highlighting_changed = true;
                                     }
-                                }
-                            });
+                                });
+                            }
                         }
         
                         // Highlight all access nodes with the same name in the same
                         // nested sdfg
                         if (obj instanceof AccessNode) {
-                            traverseSDFGScopes(
-                                this.cfg_list[obj.sdfg.cfg_list_id],
-                                (node: any) => {
-                                    // If node is a state, then visit sub-scope
-                                    if (node instanceof State)
-                                        return true;
-                                    if (node instanceof AccessNode &&
-                                        node.data.node.label === obj.data.node.label)
-                                        if (intersected && node.highlighted === false) {
+                            if (obj.hovered && hover_changed) {
+                                traverseSDFGScopes(
+                                    this.cfg_list[obj.sdfg.cfg_list_id],
+                                    (node: any) => {
+                                        // If node is a state, then visit sub-scope
+                                        if (node instanceof State)
+                                            return true;
+                                        if (node instanceof AccessNode &&
+                                            node.data.node.label === obj.data.node.label) {
                                             node.highlighted = true;
-                                            highlighting_changed = true;
                                         }
-                                        else if (!intersected && node.highlighted === true) {
+                                        // No need to visit sub-scope
+                                        return false;
+                                    }
+                                );
+                            }
+                            else if (!obj.hovered && hover_changed) {
+                                traverseSDFGScopes(
+                                    this.cfg_list[obj.sdfg.cfg_list_id],
+                                    (node: any) => {
+                                        // If node is a state, then visit sub-scope
+                                        if (node instanceof State)
+                                            return true;
+                                        if (node instanceof AccessNode &&
+                                            node.data.node.label === obj.data.node.label) {
                                             node.highlighted = false;
-                                            highlighting_changed = true;
                                         }
-                                    // No need to visit sub-scope
-                                    return false;
-                                }
-                            );
+                                        // No need to visit sub-scope
+                                        return false;
+                                    }
+                                );
+                            }
                         }
         
                         if (obj instanceof Connector) {
                             // Highlight all access nodes with the same name as the
                             // hovered connector in the nested sdfg
-                            if (e.graph) {
-                                const nested_graph =
-                                    e.graph.node(obj.parent_id).data.graph;
-                                if (nested_graph) {
-                                    traverseSDFGScopes(nested_graph, (node: any) => {
-                                        // If node is a state, then visit sub-scope
-                                        if (node instanceof State) {
-                                            return true;
-                                        }
-                                        if (node instanceof AccessNode &&
-                                            node.data.node.label === obj.label()) {
-                                            if (intersected && node.highlighted === false) {
+                            if (obj.hovered && hover_changed) {
+                                if (e.graph) {
+                                    const nested_graph =
+                                        e.graph.node(obj.parent_id).data.graph;
+                                    if (nested_graph) {
+                                        traverseSDFGScopes(nested_graph, (node: any) => {
+                                            // If node is a state, then visit sub-scope
+                                            if (node instanceof State) {
+                                                return true;
+                                            }
+                                            if (node instanceof AccessNode &&
+                                                node.data.node.label === obj.label()) {
                                                 node.highlighted = true;
-                                                highlighting_changed = true;
                                             }
-                                            else if (!intersected && node.highlighted === true) {
+                                            // No need to visit sub-scope
+                                            return false;
+                                        });
+                                    }
+                                }
+                            }
+                            else if (!obj.hovered && hover_changed) {
+                                if (e.graph) {
+                                    const nested_graph =
+                                        e.graph.node(obj.parent_id).data.graph;
+                                    if (nested_graph) {
+                                        traverseSDFGScopes(nested_graph, (node: any) => {
+                                            // If node is a state, then visit sub-scope
+                                            if (node instanceof State) {
+                                                return true;
+                                            }
+                                            if (node instanceof AccessNode &&
+                                                node.data.node.label === obj.label()) {
                                                 node.highlighted = false;
-                                                highlighting_changed = true;
                                             }
-                                        }
-                                        // No need to visit sub-scope
-                                        return false;
-                                    });
+                                            // No need to visit sub-scope
+                                            return false;
+                                        });
+                                    }
                                 }
                             }
         
                             // Similarly, highlight any identifiers in a connector's
                             // tasklet, if applicable.
-                            if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
-                                if (obj.connectorType === 'in') {
-                                    for (const token of obj.linkedElem.inputTokens) {
-                                        if (token.token === obj.data.name)
-                                            if (intersected && token.highlighted === false) {
+                            if (obj.hovered && hover_changed) {
+                                if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
+                                    if (obj.connectorType === 'in') {
+                                        for (const token of obj.linkedElem.inputTokens) {
+                                            if (token.token === obj.data.name) {
                                                 token.highlighted = true;
-                                                highlighting_changed = true;
                                             }
-                                            else if (!intersected && token.highlighted === true) {
-                                                token.highlighted = false;
-                                                highlighting_changed = true;
-                                            }
-                                    }
-                                } else {
-                                    for (const token of obj.linkedElem.outputTokens) {
-                                        if (token.token === obj.data.name)
-                                            if (intersected && token.highlighted === false) {
+                                        }
+                                    } else {
+                                        for (const token of obj.linkedElem.outputTokens) {
+                                            if (token.token === obj.data.name) {
                                                 token.highlighted = true;
-                                                highlighting_changed = true;
                                             }
-                                            else if (!intersected && token.highlighted === true) {
-                                                token.highlighted = false;
-                                                highlighting_changed = true;
-                                            }
+                                        }
                                     }
                                 }
                             }
-                        }
-        
-                        if (intersected && obj.hovered === false) {
-                            obj.hovered = true;
-                            highlighting_changed = true;
-                        }
-                        else if (!intersected && obj.hovered === true) {
-                            obj.hovered = false;
-                            highlighting_changed = true;
+                            else if (!obj.hovered && hover_changed) {
+                                if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
+                                    if (obj.connectorType === 'in') {
+                                        for (const token of obj.linkedElem.inputTokens) {
+                                            if (token.token === obj.data.name) {
+                                                token.highlighted = false;
+                                            }
+                                        }
+                                    } else {
+                                        for (const token of obj.linkedElem.outputTokens) {
+                                            if (token.token === obj.data.name) {
+                                                token.highlighted = false;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 );
@@ -2865,10 +2910,14 @@ export class SDFGRenderer extends EventEmitter {
         // If adding an edge, mark/highlight the first/from element, if it has
         // already been selected.
         if (this.mouse_mode === 'add' && this.add_type === 'Edge') {
-            if (this.add_edge_start)
+            if (this.add_edge_start) {
                 this.add_edge_start.highlighted = true;
-            if (this.add_edge_start_conn)
+                dirty = true;
+            }
+            if (this.add_edge_start_conn) {
                 this.add_edge_start_conn.highlighted = true;
+                dirty = true;
+            }
         }
 
         if (evtype === 'dblclick') {

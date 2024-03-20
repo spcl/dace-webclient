@@ -284,7 +284,13 @@ export class ControlFlowRegion extends ControlFlowBlock {
             renderer, '--control-flow-region-foreground-color'
         );
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
-        ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+
+        // Only draw line if close enough.
+        const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+        if (ppp && ppp < SDFV.NODE_LOD) {            
+            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        }
+
         ctx.fillStyle = this.getCssProperty(
             renderer, '--control-flow-region-foreground-color'
         );
@@ -302,13 +308,15 @@ export class ControlFlowRegion extends ControlFlowBlock {
             }
 
         // If this state is selected or hovered
-        if ((this.selected || this.highlighted || this.hovered) &&
-            (clamped.x === topleft.x ||
-                clamped.y === topleft.y ||
-                clamped.x2 === topleft.x + this.width ||
-                clamped.y2 === topleft.y + this.height)) {
-            ctx.strokeStyle = this.strokeStyle(renderer);
-            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        if (ppp && ppp < SDFV.NODE_LOD) {
+            if ((this.selected || this.highlighted || this.hovered) &&
+                (clamped.x === topleft.x ||
+                    clamped.y === topleft.y ||
+                    clamped.x2 === topleft.x + this.width ||
+                    clamped.y2 === topleft.y + this.height)) {
+                ctx.strokeStyle = this.strokeStyle(renderer);
+                ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+            }
         }
 
         // If collapsed, draw a "+" sign in the middle
@@ -439,13 +447,16 @@ export class State extends BasicBlock {
         }
 
         // If this state is selected or hovered
-        if ((this.selected || this.highlighted || this.hovered) &&
-            (clamped.x === topleft.x ||
-                clamped.y === topleft.y ||
-                clamped.x2 === topleft.x + this.width ||
-                clamped.y2 === topleft.y + this.height)) {
-            ctx.strokeStyle = this.strokeStyle(renderer);
-            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+        if (ppp && ppp < SDFV.NODE_LOD) {
+            if ((this.selected || this.highlighted || this.hovered) &&
+                (clamped.x === topleft.x ||
+                    clamped.y === topleft.y ||
+                    clamped.x2 === topleft.x + this.width ||
+                    clamped.y2 === topleft.y + this.height)) {
+                ctx.strokeStyle = this.strokeStyle(renderer);
+                ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+            }
         }
 
         // If collapsed, draw a "+" sign in the middle
@@ -607,7 +618,13 @@ export class LoopRegion extends ControlFlowRegion {
             renderer, '--loop-foreground-color'
         );
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
-        ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+
+        // Only draw line if close enough.
+        const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+        if (ppp && ppp < SDFV.NODE_LOD) {
+            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        }
+
         ctx.fillStyle = this.getCssProperty(
             renderer, '--loop-foreground-color'
         );
@@ -734,13 +751,15 @@ export class LoopRegion extends ControlFlowRegion {
             }
 
         // If this state is selected or hovered
-        if ((this.selected || this.highlighted || this.hovered) &&
-            (clamped.x === topleft.x ||
-                clamped.y === topleft.y ||
-                clamped.x2 === topleft.x + this.width ||
-                clamped.y2 === topleft.y + this.height)) {
-            ctx.strokeStyle = this.strokeStyle(renderer);
-            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        if (ppp && ppp < SDFV.NODE_LOD) {
+            if ((this.selected || this.highlighted || this.hovered) &&
+                (clamped.x === topleft.x ||
+                    clamped.y === topleft.y ||
+                    clamped.x2 === topleft.x + this.width ||
+                    clamped.y2 === topleft.y + this.height)) {
+                ctx.strokeStyle = this.strokeStyle(renderer);
+                ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+            }
         }
 
         // If collapsed, draw a "+" sign in the middle
@@ -808,12 +827,17 @@ export class SDFGNode extends SDFGElement {
 
         ctx.fillStyle = this.getCssProperty(renderer, bgstyle);
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
-        if (clamped.x === topleft.x &&
-            clamped.y === topleft.y &&
-            clamped.x2 === topleft.x + this.width &&
-            clamped.y2 === topleft.y + this.height) {
-            ctx.strokeStyle = this.strokeStyle(renderer);
-            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+
+        // Only draw line if close enough to see it.
+        const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+        if (ppp && ppp < SDFV.NODE_LOD) {
+            if (clamped.x === topleft.x &&
+                clamped.y === topleft.y &&
+                clamped.x2 === topleft.x + this.width &&
+                clamped.y2 === topleft.y + this.height) {
+                ctx.strokeStyle = this.strokeStyle(renderer);
+                ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+            }
         }
         if (this.label()) {
 
