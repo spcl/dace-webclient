@@ -30,11 +30,11 @@ export class SDFVSettings {
         'showStateNames': true,
         'showMapSchedules': true,
         'showDataDescriptorSizes': false,
-        'adaptiveContentHiding': true,
         'inclusiveRanges': false,
         'useVerticalStateMachineLayout': false,
         'useVerticalScrollNavigation': false,
         // Hidden settings fields.
+        'adaptiveContentHiding': true,
         'toolbar': true,
     };
 
@@ -99,13 +99,19 @@ export class SDFVSettings {
                 '(hides data container names)',
             'showDataDescriptorSizes', true
         );
-        this.addToggle(
-            root, 'Adaptively hide content when zooming out',
-            'adaptiveContentHiding', false, (value: boolean) => {
-                if (this.renderer)
-                    (this.renderer.get_context() as any).lod = value;
-            }
-        );
+        
+        // Remove this setting as disabling the adaptive content hiding can cause
+        // massive performance issues. TODO: add sliders for LOD thresholds of sdfv.ts 
+        // into an advanced settings menu.
+        
+        // this.addToggle(
+        //     root, 'Adaptively hide content when zooming out',
+        //     'adaptiveContentHiding', false, (value: boolean) => {
+        //         if (this.renderer)
+        //             (this.renderer.get_context() as any).lod = value;
+        //     }
+        // );
+        
         this.addToggle(root, 'Use inclusive ranges', 'inclusiveRanges', true);
         this.addToggle(
             root, 'Use vertical state machine layout',
