@@ -2605,7 +2605,7 @@ export function drawStateContents(
 
         if (node instanceof NestedSDFG) {
             if (lod && (
-                Math.max(node.height, node.width) / ppp
+                Math.sqrt(node.height * node.width) / ppp
             ) < SDFV.STATE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
@@ -2702,7 +2702,7 @@ export function drawStateMachine(
                 continue;
             }
             
-        const blockppp = Math.max(block.width, block.height) / ppp;
+        const blockppp = Math.sqrt(block.width * block.height) / ppp;
         if (lod && blockppp < SDFV.STATE_LOD) {
             block.simple_draw(renderer, ctx, mousePos);
             block.debug_draw(renderer, ctx);
