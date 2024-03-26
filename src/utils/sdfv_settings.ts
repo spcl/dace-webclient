@@ -181,6 +181,9 @@ export class SDFVSettings {
         }).appendTo(modalContents).append($('<h1>', {
             class: 'modal-title fs-5',
             text: 'Settings',
+        })).append($('<div>', {
+            id: 'task-info-field-settings',
+            style: 'margin-left: 15px;'
         })).append($('<button>', {
             type: 'button',
             class: 'btn-close',

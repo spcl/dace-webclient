@@ -1065,15 +1065,22 @@ export class SDFGRenderer extends EventEmitter {
         }
     }
 
-    // Add loading animation if not already present
-    // Appends a div of class "loader" to task-info-field div
+    // Add loading animation if not already present.
+    // Appends a div of class "loader" to task-info-field
+    // and task-info-field-settings divs.
     public add_loading_animation() {
 
         const info_field = document.getElementById('task-info-field');
-        if (info_field && !info_field.hasChildNodes()) {
+        if (info_field && info_field.innerHTML === '') {
             const loaderDiv = document.createElement("div");
             loaderDiv.classList.add("loader");
             info_field.appendChild(loaderDiv);
+        }
+        const info_field_settings = document.getElementById('task-info-field-settings');
+        if (info_field_settings && info_field_settings.innerHTML === '') {
+            const loaderDiv = document.createElement("div");
+            loaderDiv.classList.add("loader");
+            info_field_settings.appendChild(loaderDiv);
         }
     }
 
@@ -1106,6 +1113,10 @@ export class SDFGRenderer extends EventEmitter {
         const info_field = document.getElementById('task-info-field');
         if (info_field) {
             info_field.innerHTML = "";
+        }
+        const info_field_settings = document.getElementById('task-info-field-settings');
+        if (info_field_settings) {
+            info_field_settings.innerHTML = "";
         }
 
         return this.graph;
