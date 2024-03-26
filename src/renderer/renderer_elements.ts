@@ -1055,8 +1055,8 @@ export abstract class Edge extends SDFGElement {
             return false;
         }
         else { 
-            // Its a rectangle.
-            // Check if the any of the rectangles, spanned by pairs of points of the line,
+            // It is a rectangle.
+            // Check if any of the rectangles, spanned by pairs of points of the line,
             // intersect the input rectangle.
             // This is needed for long Interstate edges that have a huge bounding box and
             // intersect almost always with the viewport even if they are not visible.
@@ -1095,18 +1095,25 @@ export class Memlet extends Edge {
             ctx.lineTo(this.points[1].x, this.points[1].y);
         } else {
 
-            // ctx.lineTo(this.points[this.points.length-1].x, this.points[this.points.length-1].y);
-
             let i;
-            for (i = 1; i < this.points.length - 2; i++) {
-                const xm = (this.points[i].x + this.points[i + 1].x) / 2.0;
-                const ym = (this.points[i].y + this.points[i + 1].y) / 2.0;
-                ctx.quadraticCurveTo(
-                    this.points[i].x, this.points[i].y, xm, ym
-                );
+            if (SDFVSettings.curvedEdges) {
+                for (i = 1; i < this.points.length - 2; i++) {
+                    const xm = (this.points[i].x + this.points[i + 1].x) / 2.0;
+                    const ym = (this.points[i].y + this.points[i + 1].y) / 2.0;
+                    ctx.quadraticCurveTo(
+                        this.points[i].x, this.points[i].y, xm, ym
+                    );
+                }
+                ctx.quadraticCurveTo(this.points[i].x, this.points[i].y,
+                    this.points[i + 1].x, this.points[i + 1].y);
             }
-            ctx.quadraticCurveTo(this.points[i].x, this.points[i].y,
-                this.points[i + 1].x, this.points[i + 1].y);
+            else {
+                // Straight lines
+                for (i = 1; i < this.points.length; i++) {
+                    ctx.lineTo(this.points[i].x, this.points[i].y);
+                }
+            }
+            
         }
     }
 
@@ -1232,19 +1239,29 @@ export class InterstateEdge extends Edge {
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
         // Draw intersate edges with bezier curves through the arrow points.
         ctx.moveTo(this.points[0].x, this.points[0].y);
-        let lastX = this.points[0].x;
-        let lastY = this.points[0].y;
         let i;
-        for (i = 1; i < this.points.length; i++) {
-            const intermediateY = (lastY + this.points[i].y) / 2.0;
-            ctx.bezierCurveTo(
-                lastX, intermediateY,
-                this.points[i].x, intermediateY,
-                this.points[i].x, this.points[i].y
-            );
-            lastX = this.points[i].x;
-            lastY = this.points[i].y;
+        
+        if (SDFVSettings.curvedEdges) {
+            let lastX = this.points[0].x;
+            let lastY = this.points[0].y;
+            for (i = 1; i < this.points.length; i++) {
+                const intermediateY = (lastY + this.points[i].y) / 2.0;
+                ctx.bezierCurveTo(
+                    lastX, intermediateY,
+                    this.points[i].x, intermediateY,
+                    this.points[i].x, this.points[i].y
+                );
+                lastX = this.points[i].x;
+                lastY = this.points[i].y;
+            }
         }
+        else {
+            // Straight lines
+            for (i = 1; i < this.points.length; i++) {
+                ctx.lineTo(this.points[i].x, this.points[i].y);
+            }
+        }
+        
     }
 
     protected drawArrow(
@@ -2553,7 +2570,6 @@ function batchedDrawEdges(
             labelEdges.push(edge);
 
         edge.create_arrow_line(ctx);
-        // SDFGRenderer.rendered_elements_count++;
     });
     ctx.setLineDash([1, 0]);
     ctx.fillStyle = ctx.strokeStyle = renderer.getCssProperty(color);
@@ -2568,18 +2584,15 @@ function batchedDrawEdges(
             e.drawArrow(
                 ctx, e.points[e.points.length - 2], e.points[e.points.length - 1], 3
             );
-            // SDFGRenderer.rendered_elements_count++;
         });
     }
 
     labelEdges.forEach(e => {
         (e as InterstateEdge).drawLabel(renderer, ctx);
-        // SDFGRenderer.rendered_elements_count++;
     });
 
     deferredEdges.forEach(e => {
         e.draw(renderer, ctx, mousepos);
-        // SDFGRenderer.rendered_elements_count++;
     });
 
     if (renderer.debug_draw) {
@@ -2609,21 +2622,18 @@ export function drawStateContents(
             ) < SDFV.STATE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
-                // SDFGRenderer.rendered_elements_count++;
                 continue;
             }
         } else {
             if (lod && ppp > SDFV.NODE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
-                // SDFGRenderer.rendered_elements_count++;
                 continue;
             }
         }
 
         node.draw(renderer, ctx, mousePos);
         node.debug_draw(renderer, ctx);
-        // SDFGRenderer.rendered_elements_count++;
 
         // Only draw connectors when close enough to see them
         if (!lod || ppp < SDFV.CONNECTOR_LOD) {
@@ -2647,7 +2657,6 @@ export function drawStateContents(
     
                 c.draw(renderer, ctx, mousePos, edge);
                 c.debug_draw(renderer, ctx);
-                // SDFGRenderer.rendered_elements_count++;
             });
             node.out_connectors.forEach((c: Connector) => {
 
@@ -2665,7 +2674,6 @@ export function drawStateContents(
     
                 c.draw(renderer, ctx, mousePos, edge);
                 c.debug_draw(renderer, ctx);
-                // SDFGRenderer.rendered_elements_count++;
             });
         }
     }
@@ -2706,13 +2714,11 @@ export function drawStateMachine(
         if (lod && blockppp < SDFV.STATE_LOD) {
             block.simple_draw(renderer, ctx, mousePos);
             block.debug_draw(renderer, ctx);
-            // SDFGRenderer.rendered_elements_count++;
             continue;
         }
 
         block.draw(renderer, ctx, mousePos);
         block.debug_draw(renderer, ctx);
-        // SDFGRenderer.rendered_elements_count++;
 
         const ng = block.data.graph;
         if (!block.attributes().is_collapsed && ng) {
@@ -2740,7 +2746,6 @@ export function drawSDFG(
     const ppp = cManager.points_per_pixel();
     const visibleRect = renderer.get_visible_rect() ?? undefined;
 
-    SDFGRenderer.rendered_elements_count = 0;
     drawStateMachine(
         g, ctx, renderer, ppp, (ctx as any).lod, visibleRect, mousePos
     );

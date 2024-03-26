@@ -150,7 +150,6 @@ export class SDFGRenderer extends EventEmitter {
     protected bgcolor: string | null = null;
     protected visible_rect: SimpleRect | null = null;
     protected static cssProps: { [key: string]: string } = {};
-    public static rendered_elements_count: number = 0;
 
     // Toolbar related fields.
     protected toolbar: JQuery<HTMLElement> | null = null;
@@ -1305,7 +1304,7 @@ export class SDFGRenderer extends EventEmitter {
             this.emit('collapse_state_changed', false, true);
 
             this.add_loading_animation();
-            // Use timout function with low delay to force the browser 
+            // Use timeout function with low delay to force the browser 
             // to reload the dom with the above loader element.
             setTimeout(() => {
                 this.relayout();
@@ -1327,7 +1326,7 @@ export class SDFGRenderer extends EventEmitter {
         this.emit('collapse_state_changed', true, true);
 
         this.add_loading_animation();
-        // Use timout function with low delay to force the browser 
+        // Use timeout function with low delay to force the browser 
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
@@ -1353,7 +1352,7 @@ export class SDFGRenderer extends EventEmitter {
         this.emit('collapse_state_changed', false, true);
 
         this.add_loading_animation();
-        // Use timout function with low delay to force the browser 
+        // Use timeout function with low delay to force the browser 
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
@@ -1374,7 +1373,7 @@ export class SDFGRenderer extends EventEmitter {
         this.emit('collapse_state_changed', false, true);
 
         this.add_loading_animation();
-        // Use timout function with low delay to force the browser 
+        // Use timeout function with low delay to force the browser 
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
@@ -1393,7 +1392,7 @@ export class SDFGRenderer extends EventEmitter {
         this.emit('element_position_changed', 'reset');
 
         this.add_loading_animation();
-        // Use timout function with low delay to force the browser 
+        // Use timeout function with low delay to force the browser 
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
@@ -3254,7 +3253,6 @@ export class SDFGRenderer extends EventEmitter {
         if (dirty) {
 
             this.draw_async();
-            // console.log(SDFGRenderer.rendered_elements_count)
         }
 
         if (element_focus_changed || selection_changed)
