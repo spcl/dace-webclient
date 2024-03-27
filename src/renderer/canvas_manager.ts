@@ -790,8 +790,9 @@ export class CanvasManager {
         this.renderer.draw(dt);
         this.contention -= 1;
 
-        if (this.animation_end !== null && now < this.animation_end)
+        if (this.animation_end !== null && now < this.animation_end) {
             this.draw_async();
+        }
     }
 
     public draw_async(): void {

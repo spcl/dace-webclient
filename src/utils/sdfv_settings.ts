@@ -30,10 +30,11 @@ export class SDFVSettings {
         'showStateNames': true,
         'showMapSchedules': true,
         'showDataDescriptorSizes': false,
-        'adaptiveContentHiding': true,
         'inclusiveRanges': false,
         'useVerticalStateMachineLayout': false,
         'useVerticalScrollNavigation': false,
+        'adaptiveContentHiding': true,
+        'curvedEdges': true,
         // Hidden settings fields.
         'toolbar': true,
     };
@@ -72,7 +73,10 @@ export class SDFVSettings {
         const viewSettingsTitle = $('<div>', {
             class: 'col-12',
         }).append($('<h6>', {
-            text: 'View settings',
+            text: 'View Settings',
+            css: {
+                'font-weight': 'bold'
+            }
         }));
         $('<div>', {
             class: 'row',
@@ -99,21 +103,60 @@ export class SDFVSettings {
                 '(hides data container names)',
             'showDataDescriptorSizes', true
         );
-        this.addToggle(
-            root, 'Adaptively hide content when zooming out',
-            'adaptiveContentHiding', false, (value: boolean) => {
-                if (this.renderer)
-                    (this.renderer.get_context() as any).lod = value;
-            }
-        );
         this.addToggle(root, 'Use inclusive ranges', 'inclusiveRanges', true);
         this.addToggle(
             root, 'Use vertical state machine layout',
             'useVerticalStateMachineLayout', true
         );
+
+        const mouseSettingsTitle = $('<div>', {
+            class: 'col-12',
+        }).append($('<h6>', {
+            text: '',
+        })).append($('<h6>', {
+            text: 'Mouse Settings',
+            css: {
+                'font-weight': 'bold'
+            }
+        }));
+        $('<div>', {
+            class: 'row',
+        }).appendTo(root).append(mouseSettingsTitle);
+
         this.addToggle(
             root, 'Use vertical scroll navigation',
             'useVerticalScrollNavigation', false
+        );
+
+        const performanceSettingsTitle = $('<div>', {
+            class: 'col-12',
+        }).append($('<h6>', {
+            text: '',
+        })).append($('<h6>', {
+            text: 'Performance Settings',
+            css: {
+                'font-weight': 'bold'
+            }
+        }));
+        $('<div>', {
+            class: 'row',
+        }).appendTo(root).append(performanceSettingsTitle);
+
+        // TODO: Remove this setting as disabling the adaptive content hiding can cause
+        // massive performance issues. TODO: add sliders for LOD thresholds of sdfv.ts 
+        // into an advanced settings menu.
+        this.addToggle(
+            root, 'Adaptively hide content when zooming out (Warning: turning this off can cause\
+                huge performance issues on big graphs)',
+            'adaptiveContentHiding', false, (value: boolean) => {
+                if (this.renderer)
+                    (this.renderer.get_context() as any).lod = value;
+            }
+        );
+
+        this.addToggle(
+            root, 'Curved Edges (turn off in case of performance issues)',
+            'curvedEdges', false
         );
     }
 
@@ -138,6 +181,9 @@ export class SDFVSettings {
         }).appendTo(modalContents).append($('<h1>', {
             class: 'modal-title fs-5',
             text: 'Settings',
+        })).append($('<div>', {
+            id: 'task-info-field-settings',
+            style: 'margin-left: 15px;'
         })).append($('<button>', {
             type: 'button',
             class: 'btn-close',
@@ -167,8 +213,12 @@ export class SDFVSettings {
     }
 
     private onSettingsChanged(relayout: boolean): void {
-        if (relayout)
-            this.renderer?.relayout();
+        if (relayout) {
+            this.renderer?.add_loading_animation();
+            setTimeout(() => {
+                this.renderer?.relayout();
+            }, 10);
+        }
         this.renderer?.draw_async();
 
         if (this.renderer?.get_in_vscode())
@@ -267,4 +317,9 @@ export class SDFVSettings {
         ] as boolean;
     }
 
+    public static get curvedEdges(): boolean {
+        return this.getInstance().settingsDict[
+            'curvedEdges'
+        ] as boolean;
+    }
 }

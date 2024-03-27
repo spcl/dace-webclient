@@ -42,19 +42,25 @@ export class SDFV {
 
     public static LINEHEIGHT: number = 10;
     // Points-per-pixel threshold for drawing tasklet contents.
-    public static TASKLET_LOD: number = 0.35;
+    public static TASKLET_LOD: number = 0.35; // 0.35
     // Points-per-pixel threshold for simple version of map nodes (label only).
-    public static SCOPE_LOD: number = 1.5;
+    public static SCOPE_LOD: number = 0.75; // 0.75
     // Points-per-pixel threshold for not drawing memlets/interstate edges.
-    public static EDGE_LOD: number = 8;
+    public static EDGE_LOD: number = 5.0; // 5.0
+    // Points-per-pixel threshold for not drawing Arrowheads of memlets/interstate edges.
+    public static ARROW_LOD: number = 2.0; // 2.0
+    // Points-per-pixel threshold for not drawing connectors.
+    public static CONNECTOR_LOD = 2.0; // 2.0
     // Points-per-pixel threshold for not drawing node shapes and labels.
-    public static NODE_LOD: number = 60.0;
+    public static NODE_LOD: number = 5.0; // 5.0
+    // Points-per-pixel threshold for not drawing node text.
+    public static TEXT_LOD: number = 1.5; // 1.5
     // Pixel threshold for not drawing state contents.
-    public static STATE_LOD: number = 50;
+    public static STATE_LOD: number = 100; // 100
 
     public static DEFAULT_CANVAS_FONTSIZE: number = 10;
-    public static DEFAULT_MAX_FONTSIZE: number = 50;
-    public static DEFAULT_FAR_FONT_MULTIPLIER: number = 16;
+    public static DEFAULT_MAX_FONTSIZE: number = 20; // 50
+    public static DEFAULT_FAR_FONT_MULTIPLIER: number = 16; // 16
 
     protected renderer: SDFGRenderer | null = null;
     protected localViewRenderer: LViewRenderer | null = null;
@@ -502,11 +508,27 @@ export function reload_file(sdfv: SDFV): void {
 function file_read_complete(sdfv: SDFV): void {
     const result_string = fr.result;
     const container = document.getElementById('contents');
-    if (result_string && container) {
-        const sdfg = checkCompatLoad(parse_sdfg(result_string));
-        sdfv.get_renderer()?.destroy();
-        sdfv.set_renderer(new SDFGRenderer(sdfv, sdfg, container, mouse_event));
-        sdfv.close_menu();
+    const info_field = document.getElementById('task-info-field');
+
+    if (result_string && container && info_field) {
+
+        // Create the loader element before starting to parse and layout the graph.
+        // The layouting can take several seconds for large graphs on slow machines.
+        // The user sees a loading animation in the meantime so that the site doesn't 
+        // appear unresponsive.
+        // The loader element is removed/cleared again at the end of the layout function in
+        // the SDFGRenderer.
+        const loaderDiv = document.createElement("div");
+        loaderDiv.classList.add("loader");
+        info_field.appendChild(loaderDiv);
+
+        // Use setTimeout function to force the browser to reload the dom with the above loader element.
+        setTimeout(() => {
+            const sdfg = checkCompatLoad(parse_sdfg(result_string));
+            sdfv.get_renderer()?.destroy();
+            sdfv.set_renderer(new SDFGRenderer(sdfv, sdfg, container, mouse_event));
+            sdfv.close_menu();
+        }, 20);
     }
 }
 

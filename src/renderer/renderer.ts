@@ -857,6 +857,8 @@ export class SDFGRenderer extends EventEmitter {
             this.bgcolor = window.getComputedStyle(this.canvas).backgroundColor;
 
         // Create the initial SDFG layout
+        // Loading animation already started in the file_read_complete function in sdfv.ts
+        // to also include the JSON parsing step.
         this.relayout();
 
         // Set mouse event handlers
@@ -975,7 +977,11 @@ export class SDFGRenderer extends EventEmitter {
         this.sdfg = new_sdfg;
 
         if (layout) {
-            this.relayout();
+            this.add_loading_animation();
+            setTimeout(() => {
+                this.relayout();
+            }, 10);
+            
             this.draw_async();
         }
 
@@ -1059,6 +1065,25 @@ export class SDFGRenderer extends EventEmitter {
         }
     }
 
+    // Add loading animation if not already present.
+    // Appends a div of class "loader" to task-info-field
+    // and task-info-field-settings divs.
+    public add_loading_animation() {
+
+        const info_field = document.getElementById('task-info-field');
+        if (info_field && info_field.innerHTML === '') {
+            const loaderDiv = document.createElement("div");
+            loaderDiv.classList.add("loader");
+            info_field.appendChild(loaderDiv);
+        }
+        const info_field_settings = document.getElementById('task-info-field-settings');
+        if (info_field_settings && info_field_settings.innerHTML === '') {
+            const loaderDiv = document.createElement("div");
+            loaderDiv.classList.add("loader");
+            info_field_settings.appendChild(loaderDiv);
+        }
+    }
+
     // Re-layout graph and nested graphs
     public relayout(): DagreSDFG {
         if (!this.ctx)
@@ -1083,6 +1108,16 @@ export class SDFGRenderer extends EventEmitter {
         // If we're in a VSCode context, we also want to refresh the outline.
         if (this.in_vscode)
             this.sdfv_instance.outline(this, this.graph);
+
+        // Remove loading animation
+        const info_field = document.getElementById('task-info-field');
+        if (info_field) {
+            info_field.innerHTML = "";
+        }
+        const info_field_settings = document.getElementById('task-info-field-settings');
+        if (info_field_settings) {
+            info_field_settings.innerHTML = "";
+        }
 
         return this.graph;
     }
@@ -1279,7 +1314,13 @@ export class SDFGRenderer extends EventEmitter {
         if (collapsed) {
             this.emit('collapse_state_changed', false, true);
 
-            this.relayout();
+            this.add_loading_animation();
+            // Use timeout function with low delay to force the browser 
+            // to reload the dom with the above loader element.
+            setTimeout(() => {
+                this.relayout();
+            }, 10);
+
             this.draw_async();
         }
     }
@@ -1295,7 +1336,13 @@ export class SDFGRenderer extends EventEmitter {
 
         this.emit('collapse_state_changed', true, true);
 
-        this.relayout();
+        this.add_loading_animation();
+        // Use timeout function with low delay to force the browser 
+        // to reload the dom with the above loader element.
+        setTimeout(() => {
+            this.relayout();
+        }, 10);
+
         this.draw_async();
     }
 
@@ -1315,7 +1362,13 @@ export class SDFGRenderer extends EventEmitter {
 
         this.emit('collapse_state_changed', false, true);
 
-        this.relayout();
+        this.add_loading_animation();
+        // Use timeout function with low delay to force the browser 
+        // to reload the dom with the above loader element.
+        setTimeout(() => {
+            this.relayout();
+        }, 10);
+
         this.draw_async();
     }
 
@@ -1330,7 +1383,13 @@ export class SDFGRenderer extends EventEmitter {
 
         this.emit('collapse_state_changed', false, true);
 
-        this.relayout();
+        this.add_loading_animation();
+        // Use timeout function with low delay to force the browser 
+        // to reload the dom with the above loader element.
+        setTimeout(() => {
+            this.relayout();
+        }, 10);
+
         this.draw_async();
     }
 
@@ -1343,7 +1402,13 @@ export class SDFGRenderer extends EventEmitter {
 
         this.emit('element_position_changed', 'reset');
 
-        this.relayout();
+        this.add_loading_animation();
+        // Use timeout function with low delay to force the browser 
+        // to reload the dom with the above loader element.
+        setTimeout(() => {
+            this.relayout();
+        }, 10);
+        
         this.draw_async();
     }
 
@@ -1535,13 +1600,20 @@ export class SDFGRenderer extends EventEmitter {
         let targetHeight = minDimSize;
         const maxPercentage = 0.22;
         if (targetHeight > this.canvas.height * maxPercentage)
-            targetHeight = this.canvas.height * maxPercentage;
+            targetHeight = Math.floor(this.canvas.height * maxPercentage);
         if (targetWidth > this.canvas.width * maxPercentage)
-            targetWidth = this.canvas.width * maxPercentage;
-        this.minimap_canvas.height = targetHeight;
-        this.minimap_canvas.width = targetWidth;
-        this.minimap_canvas.style.width = targetWidth.toString() + 'px';
-        this.minimap_canvas.style.height = targetHeight.toString() + 'px';
+            targetWidth = Math.floor(this.canvas.width * maxPercentage);
+        
+        // Prevent forced style reflow if nothing changed
+        // Can save about 0.5ms of computation
+        if (this.minimap_canvas.height !== targetHeight) {
+            this.minimap_canvas.height = targetHeight;
+            this.minimap_canvas.style.height = targetHeight.toString() + 'px';
+        }
+        if (this.minimap_canvas.width !== targetWidth) {
+            this.minimap_canvas.width = targetWidth;
+            this.minimap_canvas.style.width = targetWidth.toString() + 'px';
+        }
 
         // Set the zoom level and translation so everything is visible.
         const bb = {
@@ -1566,11 +1638,17 @@ export class SDFGRenderer extends EventEmitter {
             if (n && this.minimap_ctx)
                 n.simple_draw(this, this.minimap_ctx, undefined);
         });
-        this.graph.edges().forEach(x => {
-            const e = this.graph?.edge(x);
-            if (e && this.minimap_ctx)
-                e.draw(this, this.minimap_ctx, undefined);
-        });
+
+        // Don't draw Interstate edges in the minimap:
+        // Small optimization thats can save ~1ms in computation
+        // The performance problem comes from the edges and their 
+        // labels which are also drawn.
+
+        // this.graph.edges().forEach(x => {
+        //     const e = this.graph?.edge(x);
+        //     if (e && this.minimap_ctx)
+        //         e.draw(this, this.minimap_ctx, undefined);
+        // });
 
         // Draw the viewport.
         if (this.visible_rect) {
@@ -2266,6 +2344,62 @@ export class SDFGRenderer extends EventEmitter {
         return true;
     }
 
+    // Checks if pan mouse movement is in the bounds of the graph.
+    // Takes the current visible_rect as input and computes if its center is 
+    // within the graph bounds. The pan mouse movement (movX, movY) is 
+    // corrected accordingly to have a smooth view pan blocking.
+    // Returns: corrected movement x/y coordinates to input into this.canvas_manager?.translate()
+    public pan_movement_in_bounds(visible_rect: SimpleRect, movX: number, movY: number) {
+
+        const visible_rectCenter = {
+            x: (visible_rect.x + (visible_rect.w / 2)),
+            y: (visible_rect.y + (visible_rect.h / 2))
+        }
+
+        const graphLimits = {
+            minX: 0,
+            minY: 0,
+            maxX: (this.graph as any).width,
+            maxY: (this.graph as any).height,
+        };
+
+        // Compute where the visible_rectCenter is out of bounds:
+        // outofboundsX/Y === 0 means not out of bounds
+        let outofboundsX = 0;
+        let outofboundsY = 0;
+
+        if (visible_rectCenter.x < graphLimits.minX) {
+            outofboundsX = -1;
+        }
+        else if (visible_rectCenter.x > graphLimits.maxX) {
+            outofboundsX = 1;
+        }
+        if (visible_rectCenter.y < graphLimits.minY) {
+            outofboundsY = -1;
+        }
+        else if (visible_rectCenter.y > graphLimits.maxY) {
+            outofboundsY = 1;
+        }
+
+        // Take uncorrected mouse event movement as default
+        let correctedMovement = {
+            x: movX,
+            y: movY
+        }
+
+        // Correct mouse movement if necessary
+        if ((outofboundsX === -1 && correctedMovement.x > 0) || 
+            (outofboundsX === 1 && correctedMovement.x < 0)) {
+            correctedMovement.x = 0;
+        }
+        if ((outofboundsY === -1 && correctedMovement.y > 0) || 
+            (outofboundsY === 1 && correctedMovement.y < 0)) {
+            correctedMovement.y = 0;
+        }
+        
+        return correctedMovement;
+    }
+
     // TODO(later): Improve event system using event types (instanceof) instead
     // of passing string eventtypes.
     /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
@@ -2395,20 +2529,41 @@ export class SDFGRenderer extends EventEmitter {
                     // Mark for redraw
                     dirty = true;
                 } else {
-                    this.canvas_manager?.translate(
-                        event.movementX, event.movementY
-                    );
+                    
+                    // Mouse move in panning mode
+                    if (this.visible_rect) {
 
-                    // Mark for redraw
-                    dirty = true;
+                        // Check if mouse panning is in bounds (near graph)
+                        // and restrict/correct it 
+                        const correctedMovement = this.pan_movement_in_bounds(
+                            this.visible_rect, event.movementX, event.movementY
+                        );
+
+                        this.canvas_manager?.translate(
+                            correctedMovement.x, correctedMovement.y
+                        );
+
+                        // Mark for redraw
+                        dirty = true;
+                    }
+                    
                 }
             } else if (this.drag_start && event.buttons & 4) {
                 // Pan the view with the middle mouse button
                 this.dragging = true;
-                this.canvas_manager?.translate(
-                    event.movementX, event.movementY
-                );
-                dirty = true;
+                if (this.visible_rect) {
+
+                    // Check if mouse panning is in bounds (near graph)
+                    // and restrict/correct it 
+                    const correctedMovement = this.pan_movement_in_bounds(
+                        this.visible_rect, event.movementX, event.movementY
+                    );
+
+                    this.canvas_manager?.translate(
+                        correctedMovement.x, correctedMovement.y
+                    );
+                    dirty = true;
+                }
                 element_focus_changed = true;
             } else {
                 this.drag_start = null;
@@ -2421,12 +2576,21 @@ export class SDFGRenderer extends EventEmitter {
                 // Different number of touches, ignore and reset drag_start
                 this.drag_start = event;
             } else if (event.touches.length === 1) { // Move/drag
-                this.canvas_manager?.translate(
-                    event.touches[0].clientX -
-                        this.drag_start.touches[0].clientX,
-                    event.touches[0].clientY -
-                        this.drag_start.touches[0].clientY
-                );
+                if (this.visible_rect) {
+
+                    const movX = event.touches[0].clientX - this.drag_start.touches[0].clientX;
+                    const movY = event.touches[0].clientY - this.drag_start.touches[0].clientY;
+
+                    // Check if panning is in bounds (near graph)
+                    // and restrict/correct it 
+                    const correctedMovement = this.pan_movement_in_bounds(
+                        this.visible_rect, movX, movY
+                    );
+
+                    this.canvas_manager?.translate(
+                        correctedMovement.x, correctedMovement.y
+                    );
+                }
                 this.drag_start = event;
 
                 // Mark for redraw
@@ -2451,15 +2615,28 @@ export class SDFGRenderer extends EventEmitter {
                 );
                 const newCenter = [(x1 + x2) / 2.0, (y1 + y2) / 2.0];
 
-                // First, translate according to movement of center point
-                this.canvas_manager?.translate(
-                    newCenter[0] - oldCenter[0], newCenter[1] - oldCenter[1]
-                );
-                // Then scale
-                this.canvas_manager?.scale(
-                    currentDistance / initialDistance, newCenter[0],
-                    newCenter[1]
-                );
+                if (this.visible_rect) {
+
+                    // First, translate according to movement of center point
+                    const movX = newCenter[0] - oldCenter[0];
+                    const movY = newCenter[1] - oldCenter[1];
+
+                    // Check if movement is in bounds (near graph)
+                    // and restrict/correct it 
+                    const correctedMovement = this.pan_movement_in_bounds(
+                        this.visible_rect, movX, movY
+                    );
+
+                    this.canvas_manager?.translate(
+                        correctedMovement.x, correctedMovement.y
+                    );
+
+                    // Then scale
+                    this.canvas_manager?.scale(
+                        currentDistance / initialDistance, newCenter[0],
+                        newCenter[1]
+                    );
+                }
 
                 this.drag_start = event;
 
@@ -2473,9 +2650,22 @@ export class SDFGRenderer extends EventEmitter {
                 // If vertical scroll navigation is turned on, use this to
                 // move the viewport up and down. If the control key is held
                 // down while scrolling, treat it as a typical zoom operation.
-                this.canvas_manager?.translate(0, -event.deltaY);
-                dirty = true;
-                element_focus_changed = true;
+                if (this.visible_rect) {
+                    const movX = 0;
+                    const movY = -event.deltaY;
+
+                    // Check if scroll is in bounds (near graph)
+                    // and restrict/correct it 
+                    const correctedMovement = this.pan_movement_in_bounds(
+                        this.visible_rect, movX, movY
+                    );
+
+                    this.canvas_manager?.translate(
+                        correctedMovement.x, correctedMovement.y
+                    );
+                    dirty = true;
+                    element_focus_changed = true;
+                }
             } else {
                 // Get physical x,y coordinates (rather than canvas coordinates)
                 const br = this.canvas?.getBoundingClientRect();
@@ -2545,111 +2735,199 @@ export class SDFGRenderer extends EventEmitter {
 
         this.tooltip = null;
 
-        // De-highlight all elements.
-        this.doForVisibleElements(
-            (type: any, e: any, obj: any) => {
-                obj.hovered = false;
-                obj.highlighted = false;
-                if (obj instanceof Tasklet) {
-                    for (const t of obj.inputTokens)
-                        t.highlighted = false;
-                    for (const t of obj.outputTokens)
-                        t.highlighted = false;
-                }
-            }
-        );
-        // Mark hovered and highlighted elements.
-        this.doForVisibleElements(
-            (type: any, e: any, obj: any) => {
-                const intersected = obj.intersect(
-                    this.mousepos!.x, this.mousepos!.y, 0, 0
+        // Only do highlighting re-computation if view is close enough to actually see the 
+        // highlights. Done by points-per-pixel metric using SDFV.NODE_LOD as the threshold.
+        // Hence, the highlights only update/become visible if there are nodes visible to hover over.
+        // This creatly reduces CPU utilization when moving/hovering the mouse over large graphs.
+        if (this.canvas_manager) {
+            const ppp = this.canvas_manager.points_per_pixel();
+            if (ppp < SDFV.NODE_LOD) {
+
+                // Global change boolean. Determines if repaint necessary.
+                let highlighting_changed = false;
+
+                // Mark hovered and highlighted elements.
+                this.doForVisibleElements(
+                    (type: any, e: any, obj: any) => {
+                        const intersected = obj.intersect(
+                            this.mousepos!.x, this.mousepos!.y, 0, 0
+                        );
+
+                        // Local change boolean, for each visible element checked.
+                        // Prevents recursion if nothing changed.
+                        let hover_changed = false;
+        
+                        // Change hover status
+                        if (intersected && !obj.hovered) {
+                            obj.hovered = true;
+                            highlighting_changed = true;
+                            hover_changed = true;
+                        }
+                        else if (!intersected && obj.hovered) {
+                            obj.hovered = false;
+                            highlighting_changed = true;
+                            hover_changed = true;
+                        }
+
+                        // Highlight all edges of the memlet tree
+                        if (obj instanceof Edge && obj.parent_id !== null) {
+                            if (obj.hovered && hover_changed) {
+                                const tree = this.get_nested_memlet_tree(obj);
+                                tree.forEach(te => {
+                                    if (te !== obj && te !== undefined) {
+                                        te.highlighted = true;
+                                    }
+                                });
+                            }
+                            else if (!obj.hovered && hover_changed) {
+                                const tree = this.get_nested_memlet_tree(obj);
+                                tree.forEach(te => {
+                                    if (te !== obj && te !== undefined) {
+                                        te.highlighted = false;
+                                    }
+                                });
+                            }
+                        }
+        
+                        // Highlight all access nodes with the same name in the same
+                        // nested sdfg
+                        if (obj instanceof AccessNode) {
+                            if (obj.hovered && hover_changed) {
+                                traverseSDFGScopes(
+                                    this.cfg_list[obj.sdfg.cfg_list_id],
+                                    (node: any) => {
+                                        // If node is a state, then visit sub-scope
+                                        if (node instanceof State)
+                                            return true;
+                                        if (node instanceof AccessNode &&
+                                            node.data.node.label === obj.data.node.label) {
+                                            node.highlighted = true;
+                                        }
+                                        // No need to visit sub-scope
+                                        return false;
+                                    }
+                                );
+                            }
+                            else if (!obj.hovered && hover_changed) {
+                                traverseSDFGScopes(
+                                    this.cfg_list[obj.sdfg.cfg_list_id],
+                                    (node: any) => {
+                                        // If node is a state, then visit sub-scope
+                                        if (node instanceof State)
+                                            return true;
+                                        if (node instanceof AccessNode &&
+                                            node.data.node.label === obj.data.node.label) {
+                                            node.highlighted = false;
+                                        }
+                                        // No need to visit sub-scope
+                                        return false;
+                                    }
+                                );
+                            }
+                        }
+        
+                        if (obj instanceof Connector) {
+                            // Highlight all access nodes with the same name as the
+                            // hovered connector in the nested sdfg
+                            if (obj.hovered && hover_changed) {
+                                if (e.graph) {
+                                    const nested_graph =
+                                        e.graph.node(obj.parent_id).data.graph;
+                                    if (nested_graph) {
+                                        traverseSDFGScopes(nested_graph, (node: any) => {
+                                            // If node is a state, then visit sub-scope
+                                            if (node instanceof State) {
+                                                return true;
+                                            }
+                                            if (node instanceof AccessNode &&
+                                                node.data.node.label === obj.label()) {
+                                                node.highlighted = true;
+                                            }
+                                            // No need to visit sub-scope
+                                            return false;
+                                        });
+                                    }
+                                }
+                            }
+                            else if (!obj.hovered && hover_changed) {
+                                if (e.graph) {
+                                    const nested_graph =
+                                        e.graph.node(obj.parent_id).data.graph;
+                                    if (nested_graph) {
+                                        traverseSDFGScopes(nested_graph, (node: any) => {
+                                            // If node is a state, then visit sub-scope
+                                            if (node instanceof State) {
+                                                return true;
+                                            }
+                                            if (node instanceof AccessNode &&
+                                                node.data.node.label === obj.label()) {
+                                                node.highlighted = false;
+                                            }
+                                            // No need to visit sub-scope
+                                            return false;
+                                        });
+                                    }
+                                }
+                            }
+        
+                            // Similarly, highlight any identifiers in a connector's
+                            // tasklet, if applicable.
+                            if (obj.hovered && hover_changed) {
+                                if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
+                                    if (obj.connectorType === 'in') {
+                                        for (const token of obj.linkedElem.inputTokens) {
+                                            if (token.token === obj.data.name) {
+                                                token.highlighted = true;
+                                            }
+                                        }
+                                    } else {
+                                        for (const token of obj.linkedElem.outputTokens) {
+                                            if (token.token === obj.data.name) {
+                                                token.highlighted = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            else if (!obj.hovered && hover_changed) {
+                                if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
+                                    if (obj.connectorType === 'in') {
+                                        for (const token of obj.linkedElem.inputTokens) {
+                                            if (token.token === obj.data.name) {
+                                                token.highlighted = false;
+                                            }
+                                        }
+                                    } else {
+                                        for (const token of obj.linkedElem.outputTokens) {
+                                            if (token.token === obj.data.name) {
+                                                token.highlighted = false;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 );
 
-                // Highlight all edges of the memlet tree
-                if (intersected && obj instanceof Edge &&
-                    obj.parent_id !== null) {
-                    const tree = this.get_nested_memlet_tree(obj);
-                    tree.forEach(te => {
-                        if (te !== obj && te !== undefined) {
-                            te.highlighted = true;
-                        }
-                    });
+                if (highlighting_changed) {
+                    dirty = true;
                 }
 
-                // Highlight all access nodes with the same name in the same
-                // nested sdfg
-                if (intersected && obj instanceof AccessNode) {
-                    traverseSDFGScopes(
-                        this.cfg_list[obj.sdfg.cfg_list_id],
-                        (node: any) => {
-                            // If node is a state, then visit sub-scope
-                            if (node instanceof State)
-                                return true;
-                            if (node instanceof AccessNode &&
-                                node.data.node.label === obj.data.node.label)
-                                node.highlighted = true;
-                            // No need to visit sub-scope
-                            return false;
-                        }
-                    );
-                }
-
-                if (intersected && obj instanceof Connector) {
-                    // Highlight all access nodes with the same name as the
-                    // hovered connector in the nested sdfg
-                    if (e.graph) {
-                        const nested_graph =
-                            e.graph.node(obj.parent_id).data.graph;
-                        if (nested_graph) {
-                            traverseSDFGScopes(nested_graph, (node: any) => {
-                                // If node is a state, then visit sub-scope
-                                if (node instanceof State) {
-                                    return true;
-                                }
-                                if (node instanceof AccessNode &&
-                                    node.data.node.label === obj.label()) {
-                                    node.highlighted = true;
-                                }
-                                // No need to visit sub-scope
-                                return false;
-                            });
-                        }
-                    }
-
-                    // Similarly, highlight any identifiers in a connector's
-                    // tasklet, if applicable.
-                    if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
-                        if (obj.connectorType === 'in') {
-                            for (const token of obj.linkedElem.inputTokens) {
-                                if (token.token === obj.data.name)
-                                    token.highlighted = true;
-                            }
-                        } else {
-                            for (const token of obj.linkedElem.outputTokens) {
-                                if (token.token === obj.data.name)
-                                    token.highlighted = true;
-                            }
-                        }
-                    }
-                }
-
-                if (intersected)
-                    obj.hovered = true;
             }
-        );
+        }
 
         // If adding an edge, mark/highlight the first/from element, if it has
         // already been selected.
         if (this.mouse_mode === 'add' && this.add_type === 'Edge') {
-            if (this.add_edge_start)
+            if (this.add_edge_start) {
                 this.add_edge_start.highlighted = true;
-            if (this.add_edge_start_conn)
+                dirty = true;
+            }
+            if (this.add_edge_start_conn) {
                 this.add_edge_start_conn.highlighted = true;
-        }
-
-        if (evtype === 'mousemove') {
-            // TODO: Draw only if elements have changed
-            dirty = true;
+                dirty = true;
+            }
         }
 
         if (evtype === 'dblclick') {
@@ -2679,7 +2957,10 @@ export class SDFGRenderer extends EventEmitter {
                 this.emit('collapse_state_changed');
 
                 // Re-layout SDFG
-                this.relayout();
+                this.add_loading_animation();
+                setTimeout(() => {
+                    this.relayout();
+                }, 10);
                 dirty = true;
                 element_focus_changed = true;
             }
@@ -2937,9 +3218,13 @@ export class SDFGRenderer extends EventEmitter {
                     }
                 }
 
-                if (relayout_necessary)
-                    this.relayout();
-
+                if (relayout_necessary) {
+                    this.add_loading_animation();
+                    setTimeout(() => {
+                        this.relayout();
+                    }, 10);
+                }
+                
                 this.draw_async();
 
                 if (element_moved) {
@@ -2976,8 +3261,10 @@ export class SDFGRenderer extends EventEmitter {
             dirty = dirty || ol_manager_dirty;
         }
 
-        if (dirty)
+        if (dirty) {
+
             this.draw_async();
+        }
 
         if (element_focus_changed || selection_changed)
             this.emit('selection_changed', multi_selection_changed);
