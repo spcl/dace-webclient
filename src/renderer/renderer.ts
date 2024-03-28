@@ -1454,65 +1454,81 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     public save_as_pdf(save_all = false): void {
-        const stream = blobStream();
-
-        // Compute document size
-        const curx = this.canvas_manager?.mapPixelToCoordsX(0);
-        const cury = this.canvas_manager?.mapPixelToCoordsY(0);
-        let size;
-        if (save_all) {
-            // Get size of entire graph
-            const elements: SDFGElement[] = [];
-            this.graph?.nodes().forEach((n_id: string) => {
-                const node = this.graph?.node(n_id);
-                if (node)
-                    elements.push(node);
-            });
-            const bb = boundingBox(elements);
-            size = [bb.width, bb.height];
-        } else {
-            // Get size of current view
-            const canvasw = this.canvas?.width;
-            const canvash = this.canvas?.height;
-            let endx = null;
-            if (canvasw)
-                endx = this.canvas_manager?.mapPixelToCoordsX(canvasw);
-            let endy = null;
-            if (canvash)
-                endy = this.canvas_manager?.mapPixelToCoordsY(canvash);
-            const curw = (endx ? endx : 0) - (curx ? curx : 0);
-            const curh = (endy ? endy : 0) - (cury ? cury : 0);
-            size = [curw, curh];
-        }
-
-        const ctx = new canvas2pdf.PdfContext(stream, {
-            size: size
-        });
-        const oldctx = this.ctx;
-        this.ctx = ctx;
         
-        // Necessary for "what you see is what you get" in the exported pdf file
-        if (!save_all && (oldctx as any).lod) {
-            // User wants to save the view "as is" with details hidden
-            (this.ctx as any).lod = true;
-        }
-        else {
-            // User wants to save all details in the view
-            (this.ctx as any).lod = false;
-        }
-        (this.ctx as any).pdf = true;
-        // Center on saved region
-        if (!save_all)
-            this.ctx?.translate(-(curx ? curx : 0), -(cury ? cury : 0));
+        this.add_loading_animation();
 
-        this.draw_async();
-
-        ctx.stream.on('finish', () => {
-            const name = this.sdfg.attributes.name;
-            this.save(name + '.pdf', ctx.stream.toBlobURL('application/pdf'));
-            this.ctx = oldctx;
+        // Use setTimeout to force browser to update the DOM with the above loading animation
+        setTimeout(() => {
+            
+            const stream = blobStream();
+    
+            // Compute document size
+            const curx = this.canvas_manager?.mapPixelToCoordsX(0);
+            const cury = this.canvas_manager?.mapPixelToCoordsY(0);
+            let size;
+            if (save_all) {
+                // Get size of entire graph
+                const elements: SDFGElement[] = [];
+                this.graph?.nodes().forEach((n_id: string) => {
+                    const node = this.graph?.node(n_id);
+                    if (node)
+                        elements.push(node);
+                });
+                const bb = boundingBox(elements);
+                size = [bb.width, bb.height];
+            } else {
+                // Get size of current view
+                const canvasw = this.canvas?.width;
+                const canvash = this.canvas?.height;
+                let endx = null;
+                if (canvasw)
+                    endx = this.canvas_manager?.mapPixelToCoordsX(canvasw);
+                let endy = null;
+                if (canvash)
+                    endy = this.canvas_manager?.mapPixelToCoordsY(canvash);
+                const curw = (endx ? endx : 0) - (curx ? curx : 0);
+                const curh = (endy ? endy : 0) - (cury ? cury : 0);
+                size = [curw, curh];
+            }
+    
+            const ctx = new canvas2pdf.PdfContext(stream, {
+                size: size
+            });
+            const oldctx = this.ctx;
+            this.ctx = ctx;
+            
+            // Necessary for "what you see is what you get" in the exported pdf file
+            if (!save_all && (oldctx as any).lod) {
+                // User wants to save the view "as is" with details hidden
+                (this.ctx as any).lod = true;
+            }
+            else {
+                // User wants to save all details in the view
+                (this.ctx as any).lod = false;
+            }
+            (this.ctx as any).pdf = true;
+            // Center on saved region
+            if (!save_all)
+                this.ctx?.translate(-(curx ? curx : 0), -(cury ? cury : 0));
+    
             this.draw_async();
-        });
+
+            ctx.stream.on('finish', () => {
+                const name = this.sdfg.attributes.name;
+                this.save(name + '.pdf', ctx.stream.toBlobURL('application/pdf'));
+                this.ctx = oldctx;
+                this.draw_async();
+                // Remove loading animation
+                const info_field = document.getElementById('task-info-field');
+                if (info_field) {
+                    info_field.innerHTML = "";
+                }
+                const info_field_settings = document.getElementById('task-info-field-settings');
+                if (info_field_settings) {
+                    info_field_settings.innerHTML = "";
+                }
+            });
+        }, 10);
     }
 
     // Draw a debug grid on the canvas to indicate coordinates.
