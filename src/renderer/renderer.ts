@@ -1484,14 +1484,22 @@ export class SDFGRenderer extends EventEmitter {
             const curh = (endy ? endy : 0) - (cury ? cury : 0);
             size = [curw, curh];
         }
-        //
 
         const ctx = new canvas2pdf.PdfContext(stream, {
             size: size
         });
         const oldctx = this.ctx;
         this.ctx = ctx;
-        (this.ctx as any).lod = !save_all;
+        
+        // Necessary for "what you see is what you get" in the exported pdf file
+        if (!save_all && (oldctx as any).lod) {
+            // User wants to save the view "as is" with details hidden
+            (this.ctx as any).lod = true;
+        }
+        else {
+            // User wants to save all details in the view
+            (this.ctx as any).lod = false;
+        }
         (this.ctx as any).pdf = true;
         // Center on saved region
         if (!save_all)
