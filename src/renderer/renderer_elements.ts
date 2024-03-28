@@ -1375,14 +1375,21 @@ export class InterstateEdge extends Edge {
         const labelWs = [];
         for (const l of labelLines) {
             const labelMetrics = ctx.measureText(l);
-            labelWs.push(
-                Math.abs(labelMetrics.actualBoundingBoxLeft) +
-                Math.abs(labelMetrics.actualBoundingBoxRight)
-            );
-            labelHs.push(
-                Math.abs(labelMetrics.actualBoundingBoxDescent) +
-                Math.abs(labelMetrics.actualBoundingBoxAscent)
-            );
+
+            let label_width = Math.abs(labelMetrics.actualBoundingBoxLeft) +
+                Math.abs(labelMetrics.actualBoundingBoxRight);
+            let label_height = Math.abs(labelMetrics.actualBoundingBoxDescent) +
+                Math.abs(labelMetrics.actualBoundingBoxAscent);
+            
+            // In case of canvas2pdf context, that only has width and height
+            // as TextMetrics properties
+            if (label_width != label_width)
+                label_width = (labelMetrics as any).width;
+            if (label_height != label_height)
+                label_height = (labelMetrics as any).height;
+
+            labelWs.push(label_width);
+            labelHs.push(label_height);
         }
         const labelW = Math.max(...labelWs);
         const labelH = labelHs.reduce((pv, cv) => {
@@ -1448,12 +1455,13 @@ export class InterstateEdge extends Edge {
         ctx.fillStyle = this.getCssProperty(
             renderer, '--interstate-edge-color'
         );
-        for (let i = 0; i < labelLines.length; i++)
+        for (let i = 0; i < labelLines.length; i++) {
             ctx.fillText(
                 labelLines[i],
                 srcP.x + offsetX,
                 (srcP.y + offsetY) - (i * (labelHs[0] + SDFV.LINEHEIGHT))
             );
+        }
         ctx.font = oldFont;
     }
 
