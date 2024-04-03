@@ -856,10 +856,12 @@ export class SDFGRenderer extends EventEmitter {
         else
             this.bgcolor = window.getComputedStyle(this.canvas).backgroundColor;
 
+
         // Create the initial SDFG layout
         // Loading animation already started in the file_read_complete function in sdfv.ts
         // to also include the JSON parsing step.
-        // Initial layout collapsed
+        
+        // Initial layout fully collapsed
         this.for_all_sdfg_elements(
             (_t: SDFGElementGroup, _d: any, obj: any) => {
                 if ('is_collapsed' in obj.attributes &&
@@ -868,9 +870,9 @@ export class SDFGRenderer extends EventEmitter {
             }
         );
         this.emit('collapse_state_changed', true, true);
-
         this.relayout();
 
+        // Expand by one level
         if (this.graph) {
             traverseSDFGScopes(
                 this.graph, (node: SDFGNode, _: DagreSDFG) => {
