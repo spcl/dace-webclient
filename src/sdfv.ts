@@ -528,7 +528,7 @@ function file_read_complete(sdfv: SDFV): void {
             sdfv.get_renderer()?.destroy();
             sdfv.set_renderer(new SDFGRenderer(sdfv, sdfg, container, mouse_event));
             sdfv.close_menu();
-        }, 20);
+        }, 10);
     }
 }
 

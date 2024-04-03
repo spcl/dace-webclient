@@ -2624,7 +2624,8 @@ export function drawStateContents(
         ))
             continue;
 
-        if (node instanceof NestedSDFG) {
+        // Simple draw for non-collapsed NestedSDFGs
+        if (node instanceof NestedSDFG && !node.data.node.attributes.is_collapsed) {
             if (lod && (
                 Math.sqrt(node.height * node.width) / ppp
             ) < SDFV.STATE_LOD) {
@@ -2633,6 +2634,7 @@ export function drawStateContents(
                 continue;
             }
         } else {
+            // Simple draw node
             if (lod && ppp > SDFV.NODE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);

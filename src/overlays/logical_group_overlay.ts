@@ -91,6 +91,10 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         if (sdfgGroups === undefined)
             return;
 
+        if (!graph) {
+            return;
+        }
+
         graph.nodes().forEach(v => {
             const block = graph.node(v);
 

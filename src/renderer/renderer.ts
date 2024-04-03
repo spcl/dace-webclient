@@ -859,6 +859,30 @@ export class SDFGRenderer extends EventEmitter {
         // Create the initial SDFG layout
         // Loading animation already started in the file_read_complete function in sdfv.ts
         // to also include the JSON parsing step.
+        // Initial layout collapsed
+        this.for_all_sdfg_elements(
+            (_t: SDFGElementGroup, _d: any, obj: any) => {
+                if ('is_collapsed' in obj.attributes &&
+                    !obj.type.endsWith('Exit'))
+                    obj.attributes.is_collapsed = true;
+            }
+        );
+        this.emit('collapse_state_changed', true, true);
+
+        this.relayout();
+
+        if (this.graph) {
+            traverseSDFGScopes(
+                this.graph, (node: SDFGNode, _: DagreSDFG) => {
+                    if(node.attributes().is_collapsed) {
+                        node.attributes().is_collapsed = false;
+                        return false;
+                    }
+                    return true;
+                }
+            );
+        }
+        this.emit('collapse_state_changed', false, true);
         this.relayout();
 
         // Set mouse event handlers
