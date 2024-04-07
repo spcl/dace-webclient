@@ -4078,7 +4078,7 @@ function relayoutSDFGState(
     state.nodes.forEach((node: JsonSDFGNode, id: number) => {
         const gnode: any = g.node(id.toString());
         if (!gnode || (omitAccessNodes && gnode instanceof AccessNode)) {
-            // Rgnore nodes that should not be drawn.
+            // Ignore nodes that should not be drawn.
             return;
         }
         const topleft = gnode.topleft();
@@ -4118,6 +4118,69 @@ function relayoutSDFGState(
             c.x = oConnX;
             oConnX += SDFV.LINEHEIGHT + SPACING;
             c.y = topleft.y + gnode.height;
+        }
+    });
+
+    
+    // Re-order in_connectors for the edges to not intertwine
+    state.nodes.forEach((node: JsonSDFGNode, id: number) => {
+        const gnode: any = g.node(id.toString());
+        if (!gnode || (omitAccessNodes && gnode instanceof AccessNode)) {
+            // Ignore nodes that should not be drawn.
+            return;
+        }
+
+        const SPACING = SDFV.LINEHEIGHT;
+        const iConnLength = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
+            node.attributes.layout.in_connectors
+        ).length - SPACING;
+        let iConnX = gnode.x - iConnLength / 2.0 + SDFV.LINEHEIGHT / 2.0;
+
+        // Dictionary that saves the x coordinates of each connector's source node or source connector.
+        // This is later used to reorder the in_connectors based on the sources' x coordinates.
+        let sources_x_coordinates: { [key: string]: number } = {};
+        
+        // For each in_connector, find the x coordinate of the source node connector
+        for (const c of gnode.in_connectors) {
+            state.edges.forEach((edge: JsonSDFGEdge, id: number) => {
+                if (edge.dst === gnode.id.toString() && edge.dst_connector === c.data.name) {
+
+                    const source_node: SDFGNode = g.node(edge.src);
+                    if (source_node) {
+                        
+                        // If source node doesn't have out_connectors, take
+                        // the source node's own x coordinate
+                        if (source_node.out_connectors.length === 0) {
+                            sources_x_coordinates[c.data.name] = source_node.x;
+                        }
+                        else {
+                            // Find the corresponding out_connector and take its x coordinate
+                            for (let i = 0; i < source_node.out_connectors.length; ++i) {
+                                if (source_node.out_connectors[i].data.name === edge.src_connector) {
+                                    sources_x_coordinates[c.data.name] = source_node.out_connectors[i].x;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+        }
+        
+        // Sort the dictionary by x coordinate values
+        let sources_x_coordinates_sorted = Object.entries(sources_x_coordinates);
+        sources_x_coordinates_sorted.sort((a, b) => a[1] - b[1]);
+
+        // In the order of the sorted source x coordinates, set the x coordinates of the in_connectors
+        for (const element of sources_x_coordinates_sorted) {
+            for (const c of gnode.in_connectors) {
+                if (c.data.name === element[0]) {
+                    c.x = iConnX;
+                    iConnX += SDFV.LINEHEIGHT + SPACING;
+                    continue;
+                }
+            }
         }
     });
 
