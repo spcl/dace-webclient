@@ -54,6 +54,13 @@ export class SDFGElement {
     public selected: boolean = false;
     public highlighted: boolean = false;
     public hovered: boolean = false;
+    
+    // Used to draw edge summary instead of all edges separately.
+    // Helps with rendering performance when too many edges would be drawn on the screen.
+    // These two fields get set in the layouter, depending on the number of in/out_connectors
+    // of a node.
+    public summarise_in_edges: boolean = false;
+    public summarise_out_edges: boolean = false;
 
     public x: number = 0;
     public y: number = 0;
@@ -205,6 +212,59 @@ export class SDFGElement {
         renderer: SDFGRenderer, propertyName: string
     ): string {
         return renderer.getCssProperty(propertyName);
+    }
+    
+    public draw_edge_summary(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
+    ): void {
+        
+        // Only draw if close enough
+        const canvas_manager = renderer.get_canvas_manager();
+        const ppp = canvas_manager?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.EDGE_LOD)) {
+            const topleft = this.topleft();
+    
+            if (this.summarise_in_edges) {
+                if (this.in_connectors.length > 0) {
+                    let min_connector_x = Number.MAX_SAFE_INTEGER;
+                    let max_connector_x = Number.MIN_SAFE_INTEGER;
+                    this.in_connectors.forEach((c: Connector) => {
+                        if (c.x < min_connector_x) {
+                            min_connector_x = c.x;
+                        }
+                        if (c.x > max_connector_x) {
+                            max_connector_x = c.x;
+                        }
+                    })
+                    ctx.beginPath();
+                    ctx.moveTo(min_connector_x, topleft.y - 12);
+                    ctx.lineTo(max_connector_x, topleft.y - 12);
+                    ctx.closePath();
+                    ctx.strokeStyle = this.strokeStyle(renderer);
+                    ctx.stroke();
+                }
+            }
+            if (this.summarise_out_edges) {
+                if (this.out_connectors.length > 0) {
+                    let min_connector_x = Number.MAX_SAFE_INTEGER;
+                    let max_connector_x = Number.MIN_SAFE_INTEGER;
+                    this.out_connectors.forEach((c: Connector) => {
+                        if (c.x < min_connector_x) {
+                            min_connector_x = c.x;
+                        }
+                        if (c.x > max_connector_x) {
+                            max_connector_x = c.x;
+                        }
+                    })
+                    ctx.beginPath();
+                    ctx.moveTo(min_connector_x, topleft.y + this.height + 12);
+                    ctx.lineTo(max_connector_x, topleft.y + this.height + 12);
+                    ctx.closePath();
+                    ctx.strokeStyle = this.strokeStyle(renderer);
+                    ctx.stroke();
+                }
+            }
+        }
     }
 }
 
@@ -1085,7 +1145,11 @@ export abstract class Edge extends SDFGElement {
 
 }
 
-export class Memlet extends Edge {
+export class Memlet extends Edge {    
+
+    // Currently used for Memlets to decide if they need to be drawn or not.
+    // Set in the layouter.
+    public summarised: boolean = false;
 
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
         // Draw memlet edges with quadratic curves through the arrow points.
@@ -1715,6 +1779,9 @@ export class ScopeNode extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D
     ): void {
+        
+        this.draw_edge_summary(renderer, ctx);
+        
         let draw_shape;
         if (this.data.node.attributes.is_collapsed) {
             draw_shape = () => {
@@ -2165,6 +2232,8 @@ export class Tasklet extends SDFGNode {
         if (!canvas_manager)
             return;
 
+        this.draw_edge_summary(renderer, ctx);
+
         const topleft = this.topleft();
         drawOctagon(ctx, topleft, this.width, this.height);
         ctx.strokeStyle = this.strokeStyle(renderer);
@@ -2294,6 +2363,9 @@ export class NestedSDFG extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D
     ): void {
+        
+        this.draw_edge_summary(renderer, ctx);
+        
         if (this.data.node.attributes.is_collapsed) {
             const topleft = this.topleft();
             drawOctagon(ctx, topleft, this.width, this.height);
@@ -2560,6 +2632,10 @@ function batchedDrawEdges(
         // Colored edge through selection/hovering/highlighting.
         if (edge.selected || edge.hovered || edge.highlighted) {
             deferredEdges.push(edge);
+            return;
+        }
+        // Dont draw if Memlet is summarised
+        else if (edge instanceof Memlet && edge.summarised) {
             return;
         }
 

@@ -3839,6 +3839,8 @@ function relayoutSDFGState(
     if (state.nodes.length >= 1000)
         layoutOptions.ranker = 'longest-path';
 
+    layoutOptions.nodesep = 20; // default: 50
+    layoutOptions.ranksep = 70; // default: 50
     g.setGraph(layoutOptions);
 
     // Set an object for the graph label.
@@ -4129,7 +4131,16 @@ function relayoutSDFGState(
             // Ignore nodes that should not be drawn.
             return;
         }
-
+        
+        const n_of_in_connectors = gnode.in_connectors.length;
+        const n_of_out_connectors = gnode.out_connectors.length;
+        if (n_of_in_connectors > 10) {
+            gnode.summarise_in_edges = true;
+        }
+        if (n_of_out_connectors > 10) {
+            gnode.summarise_out_edges = true;
+        }
+        
         const SPACING = SDFV.LINEHEIGHT;
         const iConnLength = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
             node.attributes.layout.in_connectors
@@ -4144,6 +4155,12 @@ function relayoutSDFGState(
         for (const c of gnode.in_connectors) {
             state.edges.forEach((edge: JsonSDFGEdge, id: number) => {
                 if (edge.dst === gnode.id.toString() && edge.dst_connector === c.data.name) {
+                
+                    // If in-edges are to be summarised, set Memlet.summarised
+                    const gedge = g.edge(edge.src, edge.dst, id.toString()) as Memlet;
+                    if (gedge && gnode.summarise_in_edges) {
+                        gedge.summarised = true;
+                    }
 
                     const source_node: SDFGNode = g.node(edge.src);
                     if (source_node) {
@@ -4180,6 +4197,20 @@ function relayoutSDFGState(
                     iConnX += SDFV.LINEHEIGHT + SPACING;
                     continue;
                 }
+            }
+        }
+        
+        // For out_connectors set Memlet.summarised for all out-edges if needed
+        if (gnode.summarise_out_edges) {
+            for (const c of gnode.out_connectors) {
+                state.edges.forEach((edge: JsonSDFGEdge, id: number) => {
+                    if (edge.src === gnode.id.toString() && edge.src_connector === c.data.name) {
+                        const gedge = g.edge(edge.src, edge.dst, id.toString()) as Memlet;
+                        if (gedge) {
+                            gedge.summarised = true;
+                        }
+                    }
+                });
             }
         }
     });
