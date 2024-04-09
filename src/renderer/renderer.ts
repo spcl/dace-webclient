@@ -2819,7 +2819,7 @@ export class SDFGRenderer extends EventEmitter {
                             highlighting_changed = true;
                             hover_changed = true;
                         }
-
+                        
                         // Highlight all edges of the memlet tree
                         if (obj instanceof Edge && obj.parent_id !== null) {
                             if (obj.hovered && hover_changed) {
@@ -2878,6 +2878,44 @@ export class SDFGRenderer extends EventEmitter {
                         }
         
                         if (obj instanceof Connector) {
+                            
+                            // Highlight the incoming/outgoing Edge
+                            const parent_node = obj.linkedElem;
+                            if (obj.hovered && (hover_changed || (!parent_node?.hovered))) {
+                                const state = obj.linkedElem?.parentElem;
+                                if (state && state instanceof State && state.data) {
+                                    const state_json = state.data.state;
+                                    const state_graph = state.data.graph;
+                                    state_json.edges.forEach((edge: JsonSDFGEdge, id: number) => {
+                                        if (edge.src_connector === obj.data.name || edge.dst_connector === obj.data.name) {
+                                            const gedge = state_graph.edge(edge.src, edge.dst, id.toString()) as Memlet;
+                                            if (gedge) {
+                                                gedge.highlighted = true;
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                            if (!obj.hovered && hover_changed) {
+                                // Prevent de-highlighting of edge if parent is already hovered (to show all edges)
+                                if (parent_node && !parent_node.hovered) {
+                                    const state = obj.linkedElem?.parentElem;
+                                    if (state && state instanceof State && state.data) {
+                                        const state_json = state.data.state;
+                                        const state_graph = state.data.graph;
+                                        state_json.edges.forEach((edge: JsonSDFGEdge, id: number) => {
+                                            if (edge.src_connector === obj.data.name || edge.dst_connector === obj.data.name) {
+                                                const gedge = state_graph.edge(edge.src, edge.dst, id.toString()) as Memlet;
+                                                if (gedge) {
+                                                    gedge.highlighted = false;
+                                                }
+                                            }
+                                        });
+                                    }
+                                }
+                            }
+
+
                             // Highlight all access nodes with the same name as the
                             // hovered connector in the nested sdfg
                             if (obj.hovered && hover_changed) {
@@ -2956,6 +2994,42 @@ export class SDFGRenderer extends EventEmitter {
                                         }
                                     }
                                 }
+                            }
+                        }
+                        
+                        // Make all edges of a node visible and remove the edge summary symbol
+                        if (obj.hovered && hover_changed) {
+                            obj.summarise_in_edges = false;
+                            obj.summarise_out_edges = false;
+                            const state = obj.parentElem;
+                            if (state && state instanceof State && state.data) {
+                                const state_json = state.data.state;
+                                const state_graph = state.data.graph;
+                                state_json.edges.forEach((edge: JsonSDFGEdge, id: number) => {
+                                    if (edge.src === obj.id.toString() || edge.dst === obj.id.toString()) {
+                                        const gedge = state_graph.edge(edge.src, edge.dst, id.toString()) as Memlet;
+                                        if (gedge) {
+                                            gedge.highlighted = true;
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                        else if (!obj.hovered && hover_changed) {
+                            obj.summarise_in_edges = true;
+                            obj.summarise_out_edges = true;
+                            const state = obj.parentElem;
+                            if (state && state instanceof State && state.data) {
+                                const state_json = state.data.state;
+                                const state_graph = state.data.graph;
+                                state_json.edges.forEach((edge: JsonSDFGEdge, id: number) => {
+                                    if (edge.src === obj.id.toString() || edge.dst === obj.id.toString()) {
+                                        const gedge = state_graph.edge(edge.src, edge.dst, id.toString()) as Memlet;
+                                        if (gedge) {
+                                            gedge.highlighted = false;
+                                        }
+                                    }
+                                });
                             }
                         }
                     }

@@ -231,12 +231,12 @@ export class SDFGElement {
                 horizontal_line_level: number, draw_arrows_above_line: boolean
             ): void {
 
-                // Draw horizontal line
-                ctx.beginPath();
-                ctx.moveTo(min_connector_x, horizontal_line_level);
-                ctx.lineTo(max_connector_x, horizontal_line_level);
-                ctx.closePath();
-                ctx.stroke();
+                // Draw horizontal line (looks better without)
+                // ctx.beginPath();
+                // ctx.moveTo(min_connector_x, horizontal_line_level);
+                // ctx.lineTo(max_connector_x, horizontal_line_level);
+                // ctx.closePath();
+                // ctx.stroke();
 
                 // Draw left arrow
                 const middle_of_line = (min_connector_x + max_connector_x) / 2;
@@ -315,7 +315,7 @@ export class SDFGElement {
                     // Draw the summary symbol above the node
                     draw_summary_symbol(ctx, 
                         min_connector_x, max_connector_x, 
-                        topleft.y - 12, true);
+                        topleft.y - 8, true);
                 }
             }
             if (this.summarise_out_edges) {
@@ -335,7 +335,7 @@ export class SDFGElement {
                     // Draw the summary symbol below the node
                     draw_summary_symbol(ctx, 
                         min_connector_x, max_connector_x, 
-                        topleft.y + this.height + 12, false);
+                        topleft.y + this.height + 8, false);
                 }
             }
         }
