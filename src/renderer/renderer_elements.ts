@@ -223,8 +223,83 @@ export class SDFGElement {
         const ppp = canvas_manager?.points_per_pixel();
         if (!(ctx as any).lod || (ppp && ppp < SDFV.EDGE_LOD)) {
             const topleft = this.topleft();
+            ctx.strokeStyle = this.strokeStyle(renderer);
+            ctx.fillStyle = ctx.strokeStyle;
+            
+            function draw_summary_symbol(ctx: CanvasRenderingContext2D,
+                min_connector_x: number, max_connector_x: number,
+                horizontal_line_level: number, draw_arrows_above_line: boolean
+            ): void {
+
+                // Draw horizontal line
+                ctx.beginPath();
+                ctx.moveTo(min_connector_x, horizontal_line_level);
+                ctx.lineTo(max_connector_x, horizontal_line_level);
+                ctx.closePath();
+                ctx.stroke();
+
+                // Draw left arrow
+                const middle_of_line = (min_connector_x + max_connector_x) / 2;
+                const left_arrow_x = middle_of_line - 10;
+                const righ_arrow_x = middle_of_line + 10;
+                let arrow_start_y = horizontal_line_level + 2;
+                let arrow_end_y = horizontal_line_level + 8;
+                if (draw_arrows_above_line) {
+                    arrow_start_y = horizontal_line_level - 10;
+                    arrow_end_y = horizontal_line_level - 4;
+                }
+                const dot_height = (arrow_start_y + arrow_end_y) / 2;
+                // Arrow line
+                ctx.beginPath();
+                ctx.moveTo(left_arrow_x, arrow_start_y);
+                ctx.lineTo(left_arrow_x, arrow_end_y);
+                ctx.closePath();
+                ctx.stroke();
+                // Arrow head
+                ctx.beginPath();
+                ctx.moveTo(left_arrow_x, arrow_end_y + 2);
+                ctx.lineTo(left_arrow_x - 2, arrow_end_y);
+                ctx.lineTo(left_arrow_x + 2, arrow_end_y);
+                ctx.lineTo(left_arrow_x, arrow_end_y + 2);
+                ctx.closePath();
+                ctx.fill();
+                
+                // 3 dots
+                ctx.beginPath();
+                ctx.moveTo(middle_of_line - 5, dot_height)
+                ctx.lineTo(middle_of_line - 4, dot_height)
+                ctx.closePath();
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(middle_of_line - 0.5, dot_height)
+                ctx.lineTo(middle_of_line + 0.5, dot_height)
+                ctx.closePath();
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(middle_of_line + 4, dot_height)
+                ctx.lineTo(middle_of_line + 5, dot_height)
+                ctx.closePath();
+                ctx.stroke();
+
+                // Draw right arrow
+                // Arrow line
+                ctx.beginPath();
+                ctx.moveTo(righ_arrow_x, arrow_start_y);
+                ctx.lineTo(righ_arrow_x, arrow_end_y);
+                ctx.closePath();
+                ctx.stroke();
+                // Arrow head
+                ctx.beginPath();
+                ctx.moveTo(righ_arrow_x, arrow_end_y + 2);
+                ctx.lineTo(righ_arrow_x - 2, arrow_end_y);
+                ctx.lineTo(righ_arrow_x + 2, arrow_end_y);
+                ctx.lineTo(righ_arrow_x, arrow_end_y + 2);
+                ctx.closePath();
+                ctx.fill();
+            }
     
             if (this.summarise_in_edges) {
+                // Find the left most and right most connector coordinates
                 if (this.in_connectors.length > 0) {
                     let min_connector_x = Number.MAX_SAFE_INTEGER;
                     let max_connector_x = Number.MIN_SAFE_INTEGER;
@@ -235,16 +310,16 @@ export class SDFGElement {
                         if (c.x > max_connector_x) {
                             max_connector_x = c.x;
                         }
-                    })
-                    ctx.beginPath();
-                    ctx.moveTo(min_connector_x, topleft.y - 12);
-                    ctx.lineTo(max_connector_x, topleft.y - 12);
-                    ctx.closePath();
-                    ctx.strokeStyle = this.strokeStyle(renderer);
-                    ctx.stroke();
+                    });
+
+                    // Draw the summary symbol above the node
+                    draw_summary_symbol(ctx, 
+                        min_connector_x, max_connector_x, 
+                        topleft.y - 12, true);
                 }
             }
             if (this.summarise_out_edges) {
+                // Find the left most and right most connector coordinates
                 if (this.out_connectors.length > 0) {
                     let min_connector_x = Number.MAX_SAFE_INTEGER;
                     let max_connector_x = Number.MIN_SAFE_INTEGER;
@@ -255,13 +330,12 @@ export class SDFGElement {
                         if (c.x > max_connector_x) {
                             max_connector_x = c.x;
                         }
-                    })
-                    ctx.beginPath();
-                    ctx.moveTo(min_connector_x, topleft.y + this.height + 12);
-                    ctx.lineTo(max_connector_x, topleft.y + this.height + 12);
-                    ctx.closePath();
-                    ctx.strokeStyle = this.strokeStyle(renderer);
-                    ctx.stroke();
+                    });
+                    
+                    // Draw the summary symbol below the node
+                    draw_summary_symbol(ctx, 
+                        min_connector_x, max_connector_x, 
+                        topleft.y + this.height + 12, false);
                 }
             }
         }
@@ -2231,8 +2305,6 @@ export class Tasklet extends SDFGNode {
         const canvas_manager = renderer.get_canvas_manager();
         if (!canvas_manager)
             return;
-
-        this.draw_edge_summary(renderer, ctx);
 
         const topleft = this.topleft();
         drawOctagon(ctx, topleft, this.width, this.height);

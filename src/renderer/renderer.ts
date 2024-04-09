@@ -59,7 +59,8 @@ import {
     Tasklet,
     drawSDFG,
     offset_sdfg,
-    offset_state
+    offset_state,
+    ScopeNode
 } from './renderer_elements';
 
 // External, non-typescript libraries which are presented as previously loaded
@@ -4132,13 +4133,17 @@ function relayoutSDFGState(
             return;
         }
         
-        const n_of_in_connectors = gnode.in_connectors.length;
-        const n_of_out_connectors = gnode.out_connectors.length;
-        if (n_of_in_connectors > 10) {
-            gnode.summarise_in_edges = true;
-        }
-        if (n_of_out_connectors > 10) {
-            gnode.summarise_out_edges = true;
+        // Summarise edges for NestedSDFGs and ScopeNodes
+        if (gnode instanceof NestedSDFG || gnode instanceof ScopeNode) {
+            const n_of_in_connectors = gnode.in_connectors.length;
+            const n_of_out_connectors = gnode.out_connectors.length;
+
+            if (n_of_in_connectors > 10) {
+                gnode.summarise_in_edges = true;
+            }
+            if (n_of_out_connectors > 10) {
+                gnode.summarise_out_edges = true;
+            }
         }
         
         const SPACING = SDFV.LINEHEIGHT;
