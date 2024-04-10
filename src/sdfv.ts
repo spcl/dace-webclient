@@ -250,10 +250,12 @@ export class SDFV {
 
         if (elem instanceof Memlet && elem.parent_id && elem.id) {
             const sdfg_edge = elem.parentElem?.data.state.edges[elem.id];
-            contents.append($('<h4>', {
-                html: 'Connectors: ' + sdfg_edge.src_connector + ' &rarr; ' +
-                    sdfg_edge.dst_connector,
-            }));
+            if (sdfg_edge) {
+                contents.append($('<h4>', {
+                    html: 'Connectors: ' + sdfg_edge.src_connector + ' &rarr; ' +
+                        sdfg_edge.dst_connector,
+                }));
+            }
         }
         contents.append($('<hr>'));
 
