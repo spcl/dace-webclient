@@ -4216,9 +4216,11 @@ function relayoutSDFGState(
 
             if (n_of_in_connectors > 10) {
                 gnode.summarise_in_edges = true;
+                gnode.in_summary_has_effect = true;
             }
             if (n_of_out_connectors > 10) {
                 gnode.summarise_out_edges = true;
+                gnode.out_summary_has_effect = true;
             }
         }
         

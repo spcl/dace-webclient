@@ -58,9 +58,15 @@ export class SDFGElement {
     // Used to draw edge summary instead of all edges separately.
     // Helps with rendering performance when too many edges would be drawn on the screen.
     // These two fields get set in the layouter, depending on the number of in/out_connectors
-    // of a node.
+    // of a node. They also get toggled in the mousehandler when the hover status changes.
+    // Currently only used for NestedSDFGs and ScopeNodes.
     public summarise_in_edges: boolean = false;
     public summarise_out_edges: boolean = false;
+    // Used in draw_edge_summary to decide if edge summary is applicable. Set in the layouter
+    // only for NestedSDFGs and ScopeNodes. This prevents the summary to get toggled on
+    // by the mousehandler when it is not applicable.
+    public in_summary_has_effect: boolean = false;
+    public out_summary_has_effect: boolean = false;
 
     public x: number = 0;
     public y: number = 0;
@@ -298,7 +304,7 @@ export class SDFGElement {
                 ctx.fill();
             }
     
-            if (this.summarise_in_edges) {
+            if (this.summarise_in_edges && this.in_summary_has_effect) {
                 // Find the left most and right most connector coordinates
                 if (this.in_connectors.length > 0) {
                     let min_connector_x = Number.MAX_SAFE_INTEGER;
@@ -318,7 +324,7 @@ export class SDFGElement {
                         topleft.y - 8, true);
                 }
             }
-            if (this.summarise_out_edges) {
+            if (this.summarise_out_edges && this.out_summary_has_effect) {
                 // Find the left most and right most connector coordinates
                 if (this.out_connectors.length > 0) {
                     let min_connector_x = Number.MAX_SAFE_INTEGER;
