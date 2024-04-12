@@ -2451,6 +2451,47 @@ export class SDFGRenderer extends EventEmitter {
         return correctedMovement;
     }
 
+    // Toggles collapsed state of foreground_elem if applicable.
+    // Returns true if re-layout occured and re-draw is necessary.
+    public toggle_element_collapse(foreground_elem: any): boolean {
+
+        const sdfg = (foreground_elem ? foreground_elem.sdfg : null);
+        let sdfg_elem = null;
+        if (foreground_elem instanceof State)
+            sdfg_elem = foreground_elem.data.state;
+        else if (foreground_elem instanceof ControlFlowRegion)
+            sdfg_elem = foreground_elem.data.block;
+        else if (foreground_elem instanceof SDFGNode) {
+            sdfg_elem = foreground_elem.data.node;
+
+            // If a scope exit node, use entry instead
+            if (sdfg_elem.type.endsWith('Exit') &&
+                foreground_elem.parent_id !== null)
+                sdfg_elem = sdfg.nodes[foreground_elem.parent_id].nodes[
+                    sdfg_elem.scope_entry
+                ];
+        } else
+            sdfg_elem = null;
+
+        // Toggle collapsed state
+        if (sdfg_elem && 'is_collapsed' in sdfg_elem.attributes) {
+            sdfg_elem.attributes.is_collapsed =
+                !sdfg_elem.attributes.is_collapsed;
+
+            this.emit('collapse_state_changed');
+
+            // Re-layout SDFG
+            this.add_loading_animation();
+            setTimeout(() => {
+                this.relayout();
+            }, 10);
+
+            return true;
+        }
+
+        return false;
+    }
+
     // TODO(later): Improve event system using event types (instanceof) instead
     // of passing string eventtypes.
     /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
@@ -2697,7 +2738,9 @@ export class SDFGRenderer extends EventEmitter {
                 return false;
             }
         } else if (evtype === 'wheel') {
-            if (SDFVSettings.useVerticalScrollNavigation && !event.ctrlKey) {
+            if (SDFVSettings.useVerticalScrollNavigation && !event.ctrlKey
+                || !SDFVSettings.useVerticalScrollNavigation && event.ctrlKey
+            ) {
                 // If vertical scroll navigation is turned on, use this to
                 // move the viewport up and down. If the control key is held
                 // down while scrolling, treat it as a typical zoom operation.
@@ -3058,36 +3101,9 @@ export class SDFGRenderer extends EventEmitter {
         }
 
         if (evtype === 'dblclick') {
-            const sdfg = (foreground_elem ? foreground_elem.sdfg : null);
-            let sdfg_elem = null;
-            if (foreground_elem instanceof State)
-                sdfg_elem = foreground_elem.data.state;
-            else if (foreground_elem instanceof ControlFlowRegion)
-                sdfg_elem = foreground_elem.data.block;
-            else if (foreground_elem instanceof SDFGNode) {
-                sdfg_elem = foreground_elem.data.node;
 
-                // If a scope exit node, use entry instead
-                if (sdfg_elem.type.endsWith('Exit') &&
-                    foreground_elem.parent_id !== null)
-                    sdfg_elem = sdfg.nodes[foreground_elem.parent_id].nodes[
-                        sdfg_elem.scope_entry
-                    ];
-            } else
-                sdfg_elem = null;
-
-            // Toggle collapsed state
-            if (sdfg_elem && 'is_collapsed' in sdfg_elem.attributes) {
-                sdfg_elem.attributes.is_collapsed =
-                    !sdfg_elem.attributes.is_collapsed;
-
-                this.emit('collapse_state_changed');
-
-                // Re-layout SDFG
-                this.add_loading_animation();
-                setTimeout(() => {
-                    this.relayout();
-                }, 10);
+            const relayout_happened = this.toggle_element_collapse(foreground_elem);
+            if (relayout_happened) {
                 dirty = true;
                 element_focus_changed = true;
             }
@@ -3266,6 +3282,7 @@ export class SDFGRenderer extends EventEmitter {
             el.selected = true;
         });
 
+        // Handle right-clicks
         if (evtype === 'contextmenu') {
             if (this.mouse_mode === 'move') {
                 let elements_to_reset = [foreground_elem];
@@ -3362,6 +3379,17 @@ export class SDFGRenderer extends EventEmitter {
                 // Cancel add mode
                 if (this.panmode_btn?.onclick)
                     this.panmode_btn?.onclick(event);
+            }
+            else if (this.mouse_mode === 'pan') {
+
+                // Shift + Rightclick to toggle expand/collapse
+                if (event.shiftKey) {
+                    const relayout_happened = this.toggle_element_collapse(foreground_elem);
+                    if (relayout_happened) {
+                        dirty = true;
+                        element_focus_changed = true;
+                    }
+                }
             }
         }
 
