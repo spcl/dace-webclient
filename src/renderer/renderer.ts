@@ -2184,7 +2184,9 @@ export class SDFGRenderer extends EventEmitter {
                     state
                 );
 
-                if (state.data.state.attributes.is_collapsed)
+                if (state instanceof State && state.data.state.attributes.is_collapsed)
+                    return;
+                if (state instanceof LoopRegion && state.data.block.attributes.is_collapsed)
                     return;
 
                 const ng = state.data.graph;
