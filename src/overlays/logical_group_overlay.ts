@@ -105,8 +105,9 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
             ))
                 return;
 
+            const blockppp = Math.sqrt(block.width * block.height) / ppp;
             if (((ctx as any).lod && (ppp >= SDFV.STATE_LOD ||
-                block.width / ppp <= SDFV.STATE_LOD)) ||
+                blockppp <= SDFV.STATE_LOD)) ||
                 block.attributes().is_collapsed
             ) {
                 this.shade_node(block, sdfgGroups, ctx);

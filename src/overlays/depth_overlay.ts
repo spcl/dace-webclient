@@ -208,8 +208,9 @@ export class DepthOverlay extends GenericSdfgOverlay {
             ))
                 return;
 
+            const stateppp = Math.sqrt(state.width * state.height) / ppp;
             if (((ctx as any).lod && (ppp >= SDFV.STATE_LOD ||
-                state.width / ppp <= SDFV.STATE_LOD)) ||
+                stateppp <= SDFV.STATE_LOD)) ||
                 state.data.state.attributes.is_collapsed) {
                 this.shade_node(state, ctx);
             } else {
