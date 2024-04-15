@@ -162,19 +162,21 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         graph.nodes().forEach(v => {
             const state: State = graph.node(v);
 
-            // If we're zoomed out enough that the contents aren't visible, we
-            // skip the state.
-            if ((ctx as any).lod && (
-                ppp >= SDFV.STATE_LOD || state.width / ppp < SDFV.STATE_LOD
-            ))
-                return;
-
             // If the node's invisible, we skip it.
             if ((ctx as any).lod && !state.intersect(
                 visible_rect.x, visible_rect.y,
                 visible_rect.w, visible_rect.h
             ))
                 return;
+
+            // If we're zoomed out enough that the contents aren't visible, we
+            // skip the state.
+            const stateppp = Math.sqrt(state.width * state.height) / ppp;
+            if ((ctx as any).lod && (
+                ppp >= SDFV.STATE_LOD || stateppp < SDFV.STATE_LOD
+            ))
+                return;
+
 
             const state_graph = state.data.graph;
             if (state_graph && !state.data.state.attributes.is_collapsed) {
@@ -205,8 +207,12 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 state_graph.edges().forEach((e: any) => {
                     const edge: Edge = state_graph.edge(e);
 
-                    if ((ctx as any).lod && !edge.intersect(visible_rect.x,
-                        visible_rect.y, visible_rect.w, visible_rect.h))
+                    // Skip if edge is invisible, or zoomed out far
+                    if ((ctx as any).lod 
+                        && (!edge.intersect(visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h)
+                        || ppp > SDFV.EDGE_LOD
+                        )
+                    )
                         return;
 
                     this.shade_edge(edge, ctx);

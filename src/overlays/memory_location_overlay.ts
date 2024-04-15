@@ -237,8 +237,9 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
             ))
                 return;
 
+            const stateppp = Math.sqrt(state.width * state.height) / ppp;
             if (((ctx as any).lod && (ppp >= SDFV.STATE_LOD ||
-                state.width / ppp <= SDFV.STATE_LOD)) ||
+                stateppp <= SDFV.STATE_LOD)) ||
                 state.data.state.attributes.is_collapsed) {
                 // The state is collapsed or invisible, so we don't need to
                 // traverse its insides.
@@ -261,7 +262,9 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                                 node.data.graph, ctx, ppp, visibleRect
                             );
                         } else if (node instanceof AccessNode) {
-                            this.shadeNode(node, ctx);
+                            if (!(ctx as any).lod || ppp < SDFV.NODE_LOD) {
+                                this.shadeNode(node, ctx);
+                            }
                         }
                     });
                 }
