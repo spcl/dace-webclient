@@ -88,8 +88,9 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         // In that case, we overlay the correct grouping color(s).
         // If it's expanded or zoomed in close enough, we traverse inside.
         const sdfgGroups = sdfg.attributes.logical_groups;
-        if (sdfgGroups === undefined)
+        if (sdfgGroups === undefined || sdfgGroups.length === 0) {    
             return;
+        }
 
         if (!graph) {
             return;

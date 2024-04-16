@@ -14,6 +14,12 @@ import {
     JsonSDFGState,
     MemoryLocationOverlay,
     MemoryVolumeOverlay,
+    AvgParallelismOverlay,
+    DepthOverlay,
+    OperationalIntensityOverlay,
+    RuntimeMicroSecondsOverlay,
+    SimulatedOperationalIntensityOverlay,
+    StaticFlopsOverlay,
     ModeButtons,
     Point2D,
     SDFVTooltipFunc,
@@ -219,9 +225,6 @@ export class SDFGRenderer extends EventEmitter {
         this.external_mouse_handler = on_mouse_event;
 
         this.overlay_manager = new OverlayManager(this);
-
-        // Register overlays that are turned on by default.
-        this.overlay_manager.register_overlay(LogicalGroupOverlay);
 
         this.in_vscode = false;
         try {
@@ -552,7 +555,7 @@ export class SDFGRenderer extends EventEmitter {
                 }).appendTo(this.toolbar).append(overlayDropdown);
 
                 const addOverlayToMenu = (
-                    txt: string, ol: typeof GenericSdfgOverlay
+                    txt: string, ol: typeof GenericSdfgOverlay, default_state: boolean
                 ) => {
                     const olItem = $('<li>', {
                         css: {
@@ -565,6 +568,7 @@ export class SDFGRenderer extends EventEmitter {
                     const olInput = $('<input>', {
                         class: 'form-check-input',
                         type: 'checkbox',
+                        checked: default_state,
                         change: () => {
                             if (olInput.prop('checked'))
                                 this.overlay_manager?.register_overlay(ol);
@@ -578,11 +582,20 @@ export class SDFGRenderer extends EventEmitter {
                     }).appendTo(olContainer);
                 };
 
-                addOverlayToMenu('Logical groups', LogicalGroupOverlay);
-                addOverlayToMenu('Storage locations', MemoryLocationOverlay);
-                addOverlayToMenu(
-                    'Logical data movement volume', MemoryVolumeOverlay
-                );
+                // Register overlays that are turned on by default.
+                this.overlay_manager.register_overlay(LogicalGroupOverlay);
+                addOverlayToMenu('Logical groups', LogicalGroupOverlay, true);
+
+                // Add overlays that are turned off by default.
+                addOverlayToMenu('Storage locations', MemoryLocationOverlay, false);
+                addOverlayToMenu('Logical data movement volume', MemoryVolumeOverlay, false);
+                
+                addOverlayToMenu('AvgParallelismOverlay', AvgParallelismOverlay, false);
+                addOverlayToMenu('DepthOverlay', DepthOverlay, false);
+                addOverlayToMenu('OperationalIntensityOverlay', OperationalIntensityOverlay, false);
+                addOverlayToMenu('RuntimeMicroSecondsOverlay', RuntimeMicroSecondsOverlay, false);
+                addOverlayToMenu('SimulatedOperationalIntensityOverlay', SimulatedOperationalIntensityOverlay, false);
+                addOverlayToMenu('StaticFlopsOverlay', StaticFlopsOverlay, false);
             }
 
             // Zoom to fit.
