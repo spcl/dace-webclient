@@ -127,7 +127,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
                                 return;
 
                             if (node.attributes().is_collapsed ||
-                                ((ctx as any).lod && ppp >= SDFV.NODE_LOD)) {
+                                ((ctx as any).lod && ppp > SDFV.NODE_LOD)) {
                                 this.shade_node(node, sdfgGroups, ctx);
                             } else {
                                 if (node instanceof NestedSDFG &&

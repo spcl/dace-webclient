@@ -1498,7 +1498,7 @@ export class InterstateEdge extends Edge {
         const ppp = renderer.get_canvas_manager()?.points_per_pixel();
         if (ppp === undefined)
             return;
-        if ((ctx as any).lod && ppp >= SDFV.SCOPE_LOD)
+        if ((ctx as any).lod && ppp > SDFV.SCOPE_LOD)
             return;
 
         const labelLines = [];
@@ -3024,7 +3024,7 @@ export function drawAdaptiveText(
     if (ppp === undefined)
         return;
 
-    const is_far: boolean = (ctx as any).lod && ppp >= ppp_thres;
+    const is_far: boolean = (ctx as any).lod && ppp > ppp_thres;
     const label = is_far ? far_text : close_text;
 
     let font_size = Math.min(

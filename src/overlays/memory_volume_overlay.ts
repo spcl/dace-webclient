@@ -193,7 +193,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                     // If we're zoomed out enough that the node's contents
                     // aren't visible or the node is collapsed, we skip it.
                     if (node.data.node.attributes.is_collapsed ||
-                        ((ctx as any).lod && ppp >= SDFV.NODE_LOD))
+                        ((ctx as any).lod && ppp > SDFV.NODE_LOD))
                         return;
 
                     if (node instanceof NestedSDFG &&

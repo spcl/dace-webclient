@@ -146,7 +146,7 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
                             return;
 
                         if (node.data.node.attributes.is_collapsed ||
-                            ((ctx as any).lod && ppp >= SDFV.NODE_LOD)) {
+                            ((ctx as any).lod && ppp > SDFV.NODE_LOD)) {
                             this.shade_node(node, ctx);
                         } else {
                             if (node instanceof NestedSDFG &&
