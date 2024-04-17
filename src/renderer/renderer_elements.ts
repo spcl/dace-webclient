@@ -1071,7 +1071,7 @@ export abstract class Edge extends SDFGElement {
                     y: Math.min(linepoint_0.y, linepoint_1.y),
                     w: Math.abs(linepoint_1.x - linepoint_0.x),
                     h: Math.abs(linepoint_1.y - linepoint_0.y)
-                }
+                };
 
                 // Check if the two rectangles intersect
                 if (r.x + r.w >= x && r.x <= x+w &&
@@ -1094,7 +1094,6 @@ export class Memlet extends Edge {
             // Straight line can be drawn
             ctx.lineTo(this.points[1].x, this.points[1].y);
         } else {
-
             let i;
             if (SDFVSettings.curvedEdges) {
                 for (i = 1; i < this.points.length - 2; i++) {
@@ -2501,12 +2500,10 @@ function too_far_away_for_text(renderer: SDFGRenderer, ctx: CanvasRenderingConte
     const canvas_manager = renderer.get_canvas_manager();
     const ppp = canvas_manager?.points_per_pixel();
     if (ppp) {
-        if ((ctx as any).lod && ppp > SDFV.TEXT_LOD) {
+        if ((ctx as any).lod && ppp > SDFV.TEXT_LOD)
             return true;
-        }
-        else {
+        else
             return false;
-        }
     }
 
     return false;
@@ -2578,6 +2575,7 @@ function batchedDrawEdges(
             labelEdges.push(edge);
 
         edge.create_arrow_line(ctx);
+        // SDFGRenderer.rendered_elements_count++;
     });
     ctx.setLineDash([1, 0]);
     ctx.fillStyle = ctx.strokeStyle = renderer.getCssProperty(color);
@@ -2587,7 +2585,6 @@ function batchedDrawEdges(
     const canvas_manager = renderer.get_canvas_manager();
     const ppp = canvas_manager?.points_per_pixel();
     if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
-
         arrowEdges.forEach(e => {
             e.drawArrow(
                 ctx, e.points[e.points.length - 2], e.points[e.points.length - 1], 3
@@ -2630,12 +2627,14 @@ export function drawStateContents(
             ) < SDFV.STATE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
+                // SDFGRenderer.rendered_elements_count++;
                 continue;
             }
         } else {
             if (lod && ppp > SDFV.NODE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
+                // SDFGRenderer.rendered_elements_count++;
                 continue;
             }
         }
@@ -2645,9 +2644,7 @@ export function drawStateContents(
 
         // Only draw connectors when close enough to see them
         if (!lod || ppp < SDFV.CONNECTOR_LOD) {
-
             node.in_connectors.forEach((c: Connector) => {
-
                 // Only draw connectors if actually visible. This is needed for large
                 // nodes in the background like NestedSDFGs, that are visible, but their
                 // connectors are actually not.
@@ -2727,6 +2724,7 @@ export function drawStateMachine(
 
         block.draw(renderer, ctx, mousePos);
         block.debug_draw(renderer, ctx);
+        // SDFGRenderer.rendered_elements_count++;
 
         const ng = block.data.graph;
         if (!block.attributes().is_collapsed && ng) {
@@ -2754,6 +2752,7 @@ export function drawSDFG(
     const ppp = cManager.points_per_pixel();
     const visibleRect = renderer.get_visible_rect() ?? undefined;
 
+    SDFGRenderer.rendered_elements_count = 0;
     drawStateMachine(
         g, ctx, renderer, ppp, (ctx as any).lod, visibleRect, mousePos
     );

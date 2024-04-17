@@ -150,6 +150,7 @@ export class SDFGRenderer extends EventEmitter {
     protected bgcolor: string | null = null;
     protected visible_rect: SimpleRect | null = null;
     protected static cssProps: { [key: string]: string } = {};
+    public static rendered_elements_count: number = 0;
 
     // Toolbar related fields.
     protected toolbar: JQuery<HTMLElement> | null = null;
@@ -2378,7 +2379,7 @@ export class SDFGRenderer extends EventEmitter {
         const visible_rectCenter = {
             x: (visible_rect.x + (visible_rect.w / 2)),
             y: (visible_rect.y + (visible_rect.h / 2))
-        }
+        };
 
         const graphLimits = {
             minX: 0,
@@ -2406,10 +2407,10 @@ export class SDFGRenderer extends EventEmitter {
         }
 
         // Take uncorrected mouse event movement as default
-        let correctedMovement = {
+        const correctedMovement = {
             x: movX,
             y: movY
-        }
+        };
 
         // Correct mouse movement if necessary
         if ((outofboundsX === -1 && correctedMovement.x > 0) || 
