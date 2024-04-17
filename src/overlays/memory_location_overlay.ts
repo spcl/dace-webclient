@@ -238,11 +238,10 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                 return;
 
             const stateppp = Math.sqrt(state.width * state.height) / ppp;
-            if (((ctx as any).lod && (ppp >= SDFV.STATE_LOD ||
-                stateppp <= SDFV.STATE_LOD)) ||
+            if (((ctx as any).lod && (stateppp < SDFV.STATE_LOD)) ||
                 // TODO: For all overlays: handle LoopRegions, which don't have the state.data.state attribute
                 state.data.state.attributes.is_collapsed) {
-                // The state is collapsed or invisible, so we don't need to
+                // The state is collapsed or too small, so we don't need to
                 // traverse its insides.
                 return;
             } else {

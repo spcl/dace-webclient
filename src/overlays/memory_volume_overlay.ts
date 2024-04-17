@@ -172,9 +172,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
             // If we're zoomed out enough that the contents aren't visible, we
             // skip the state.
             const stateppp = Math.sqrt(state.width * state.height) / ppp;
-            if ((ctx as any).lod && (
-                ppp >= SDFV.STATE_LOD || stateppp < SDFV.STATE_LOD
-            ))
+            if ((ctx as any).lod && (stateppp < SDFV.STATE_LOD))
                 return;
 
 
