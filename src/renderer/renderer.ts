@@ -14,12 +14,6 @@ import {
     JsonSDFGState,
     MemoryLocationOverlay,
     MemoryVolumeOverlay,
-    AvgParallelismOverlay,
-    DepthOverlay,
-    OperationalIntensityOverlay,
-    RuntimeMicroSecondsOverlay,
-    SimulatedOperationalIntensityOverlay,
-    StaticFlopsOverlay,
     ModeButtons,
     Point2D,
     SDFVTooltipFunc,
@@ -589,13 +583,6 @@ export class SDFGRenderer extends EventEmitter {
                 // Add overlays that are turned off by default.
                 addOverlayToMenu('Storage locations', MemoryLocationOverlay, false);
                 addOverlayToMenu('Logical data movement volume', MemoryVolumeOverlay, false);
-                
-                addOverlayToMenu('AvgParallelismOverlay', AvgParallelismOverlay, false);
-                addOverlayToMenu('DepthOverlay', DepthOverlay, false);
-                addOverlayToMenu('OperationalIntensityOverlay', OperationalIntensityOverlay, false);
-                addOverlayToMenu('RuntimeMicroSecondsOverlay', RuntimeMicroSecondsOverlay, false);
-                addOverlayToMenu('SimulatedOperationalIntensityOverlay', SimulatedOperationalIntensityOverlay, false);
-                addOverlayToMenu('StaticFlopsOverlay', StaticFlopsOverlay, false);
             }
 
             // Zoom to fit.
