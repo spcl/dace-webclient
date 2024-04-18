@@ -63,7 +63,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         const io_edges = [];
 
         for (const e of node.sdfg.nodes[node.parent_id].edges) {
-            if (e.src == node.id || e.dst == node.id)
+            if (e.src === node.id.toString() || e.dst === node.id.toString())
                 io_edges.push(e);
         }
 
