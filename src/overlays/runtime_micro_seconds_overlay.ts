@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Node } from 'dagre';
-import { DagreSDFG, SimpleRect } from '../index';
+import { DagreGraph, SimpleRect } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
@@ -110,7 +110,7 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
     }
 
     public recursively_shade_sdfg(
-        graph: DagreSDFG,
+        graph: DagreGraph,
         ctx: CanvasRenderingContext2D,
         ppp: number,
         visible_rect: SimpleRect

@@ -2,9 +2,9 @@
 
 import { GraphEdge } from 'dagre';
 import { Edge, SDFGElement } from '../renderer/renderer_elements';
-import { DagreSDFG } from '../index';
+import { DagreGraph } from '../index';
 
-export function calculateBoundingBox(g: DagreSDFG): DOMRect {
+export function calculateBoundingBox(g: DagreGraph): DOMRect {
     // iterate over all objects, calculate the size of the bounding box
     const bb = new DOMRect();
     bb.x = 0;

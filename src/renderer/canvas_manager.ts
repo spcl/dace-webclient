@@ -8,7 +8,7 @@ import {
     initialize_positioning_info,
 } from '../utils/sdfg/sdfg_utils';
 import { SDFGRenderer, CFGListType } from './renderer';
-import { DagreSDFG, intersectRect, Point2D } from '../index';
+import { DagreGraph, intersectRect, Point2D } from '../index';
 
 const animation_duration = 1000;
 
@@ -333,7 +333,7 @@ export class CanvasManager {
         el: SDFGElement,
         old_mousepos: Point2D,
         new_mousepos: Point2D,
-        entire_graph: DagreSDFG,
+        entire_graph: DagreGraph,
         cfg_list: CFGListType,
         state_parent_list: any[],
         drag_start: any,
@@ -550,7 +550,7 @@ export class CanvasManager {
         }
 
         // Allow recursive translation of nested SDFGs
-        function translate_recursive(ng: DagreSDFG) {
+        function translate_recursive(ng: DagreGraph) {
             ng.nodes().forEach((state_id: string) => {
                 const state = ng.node(state_id);
                 state.x += dx;

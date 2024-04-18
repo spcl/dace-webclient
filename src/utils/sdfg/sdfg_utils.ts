@@ -1,27 +1,27 @@
 // Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
-    Edge,
-    SDFGElement,
-    SDFGNode,
-    NestedSDFG,
-    State,
-    SDFG,
-    ControlFlowRegion,
-} from '../../renderer/renderer_elements';
-import {
-    DagreSDFG,
-    JsonSDFG,
+    DagreGraph,
+    JsonSDFGBlock,
+    JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGNode,
-    JsonSDFGState,
+    JsonSDFGState
 } from '../../index';
+import {
+    Edge,
+    NestedSDFG,
+    SDFGElement,
+    SDFGElementType,
+    SDFGNode,
+    State
+} from '../../renderer/renderer_elements';
 
 export function recursively_find_graph(
-    graph: DagreSDFG,
+    graph: DagreGraph,
     graph_id: number,
     ns_node: SDFGNode | undefined = undefined
-): { graph: DagreSDFG | undefined, node: SDFGNode | undefined } {
+): { graph: DagreGraph | undefined, node: SDFGNode | undefined } {
     if (graph.node('0').sdfg.cfg_list_id === graph_id) {
         return {
             graph: graph,
@@ -137,8 +137,8 @@ export function check_and_redirect_edge(
 }
 
 export function find_graph_element_by_uuid(
-    p_graph: DagreSDFG | undefined | null, uuid: string
-): { parent: DagreSDFG | undefined, element: any } {
+    p_graph: DagreGraph | undefined | null, uuid: string
+): { parent: DagreGraph | undefined, element: any } {
     const uuid_split = uuid.split('/');
     console.log('Trying to find:', uuid);
 
@@ -148,7 +148,7 @@ export function find_graph_element_by_uuid(
     const edge_id: any = Number(uuid_split[3]);
 
     let result: {
-        parent: DagreSDFG | undefined,
+        parent: DagreGraph | undefined,
         element: any,
     } = {
         parent: undefined,
@@ -310,19 +310,28 @@ export function find_root_sdfg(
 }
 
 // In-place delete of SDFG state nodes.
-export function delete_sdfg_nodes(
-    sdfg: JsonSDFG, state_id: number, nodes: Array<number>,
+export function deleteSDFGNodes(
+    cfg: JsonSDFGControlFlowRegion, stateId: number, nodeIds: number[],
     delete_others = false
 ): void {
-    const state: JsonSDFGState = sdfg.nodes[state_id];
-    nodes.sort((a, b) => (a - b));
+    const block = cfg.nodes[stateId];
+    if (block.type !== SDFGElementType.SDFGState) {
+        console.warn(
+            'Trying to delete an SDFG node, but parent element',
+            block, 'is not of type SDFGState'
+        );
+        return;
+    }
+
+    const state: JsonSDFGState = block as JsonSDFGState;
+    nodeIds.sort((a, b) => (a - b));
     const mapping: { [key: string]: string } = { '-1': '-1' };
     state.nodes.forEach((n: JsonSDFGNode) => mapping[n.id] = '-1');
     let predicate: CallableFunction;
     if (delete_others)
-        predicate = (ind: number) => nodes.includes(ind);
+        predicate = (ind: number) => nodeIds.includes(ind);
     else
-        predicate = (ind: number) => !nodes.includes(ind);
+        predicate = (ind: number) => !nodeIds.includes(ind);
 
     state.nodes = state.nodes.filter((_v, ind: number) => predicate(ind));
     state.edges = state.edges.filter((e: JsonSDFGEdge) => (
@@ -358,33 +367,48 @@ export function delete_sdfg_nodes(
     state.scope_dict = new_scope_dict;
 }
 
-export function delete_sdfg_states(
-    sdfg: JsonSDFG, states: Array<number>, delete_others = false
+export function deleteCFGBlocks(
+    cfg: JsonSDFGControlFlowRegion, blockIds: number[],
+    deleteOthers: boolean = false
 ): void {
-    states.sort((a, b) => (a - b));
+    blockIds.sort((a, b) => (a - b));
     let predicate: CallableFunction;
-    if (delete_others)
-        predicate = (ind: number) => states.includes(ind);
+    if (deleteOthers)
+        predicate = (ind: number) => blockIds.includes(ind);
     else
-        predicate = (ind: number) => !states.includes(ind);
+        predicate = (ind: number) => !blockIds.includes(ind);
 
-    sdfg.nodes = sdfg.nodes.filter((_v, ind: number) => predicate(ind));
-    sdfg.edges = sdfg.edges.filter((e: JsonSDFGEdge) => (
+    cfg.nodes = cfg.nodes.filter((_v, ind: number) => predicate(ind));
+    cfg.edges = cfg.edges.filter((e: JsonSDFGEdge) => (
         predicate(parseInt(e.src)) && predicate(parseInt(e.dst))
     ));
 
     // Remap node and edge indices.
     const mapping: { [key: string]: string } = {};
-    sdfg.nodes.forEach((n: JsonSDFGState, index: number) => {
+    cfg.nodes.forEach((n: JsonSDFGBlock, index: number) => {
         mapping[n.id] = index.toString();
         n.id = index;
     });
-    sdfg.edges.forEach((e: JsonSDFGEdge) => {
+    cfg.edges.forEach((e: JsonSDFGEdge) => {
         e.src = mapping[e.src];
         e.dst = mapping[e.dst];
     });
-    if (mapping[sdfg.start_block] === '-1')
-        sdfg.start_block = 0;
+    if (mapping[cfg.start_block] === '-1' ||
+        mapping[cfg.start_block] === undefined) {
+        cfg.start_block = 0;
+    } else {
+        cfg.start_block = parseInt(mapping[cfg.start_block]);
+    }
+}
+
+export function deleteCFGEdges(
+    cfg: JsonSDFGControlFlowRegion, edgeIds: number[],
+    deleteOthers: boolean = false
+): void {
+    edgeIds.sort((a, b) => (a - b));
+    let predicate: CallableFunction;
+    if (deleteOthers)
+        predicate = (ind: number) => edgeIds.includes(ind);
     else
-        sdfg.start_block = parseInt(mapping[sdfg.start_block]);
+        predicate = (ind: number) => !edgeIds.includes(ind);
 }

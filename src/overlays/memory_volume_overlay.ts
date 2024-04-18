@@ -1,6 +1,6 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
+import { DagreGraph, Point2D, SimpleRect, SymbolMap } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     Edge,
@@ -25,9 +25,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
     }
 
     public clear_cached_volume_values(): void {
-        this.renderer.for_all_elements(0, 0, 0, 0, (
-            type: string, e: MouseEvent, obj: any,
-        ) => {
+        this.renderer.doForAllGraphElements((_group, info, obj: any) => {
             if (obj.data) {
                 if (obj.data.volume !== undefined)
                     obj.data.volume = undefined;
@@ -64,7 +62,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
     }
 
     public calculate_volume_graph(
-        g: DagreSDFG,
+        g: DagreGraph,
         symbol_map: SymbolMap,
         volume_values: number[]
     ): void {
@@ -113,7 +111,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         });
     }
 
-    public recalculate_volume_values(graph: DagreSDFG): void {
+    public recalculate_volume_values(graph: DagreGraph): void {
         this.heatmap_scale_center = 5;
         this.heatmap_hist_buckets = [];
 
@@ -156,7 +154,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
     }
 
     public recursively_shade_sdfg(
-        graph: DagreSDFG, ctx: CanvasRenderingContext2D, ppp: number,
+        graph: DagreGraph, ctx: CanvasRenderingContext2D, ppp: number,
         visible_rect: SimpleRect
     ): void {
         graph.nodes().forEach(v => {

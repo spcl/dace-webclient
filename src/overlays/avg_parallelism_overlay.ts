@@ -1,6 +1,6 @@
-// Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
+import { DagreGraph, Point2D, SimpleRect, SymbolMap } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     Edge,
@@ -28,9 +28,7 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
     }
 
     public clear_cached_avg_parallelism_values(): void {
-        this.renderer.for_all_elements(0, 0, 0, 0, (
-            _type: string, _e: Event, obj: any
-        ) => {
+        this.renderer.doForAllGraphElements((_group, _info, obj) => {
             if (obj.data) {
                 if (obj.data.avg_parallelism !== undefined)
                     obj.data.avg_parallelism = undefined;
@@ -43,7 +41,9 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
     public calculate_avg_parallelism_node(
         node: SDFGNode, symbol_map: SymbolMap, avg_parallelism_values: number[]
     ): number | undefined {
-        const avg_parallelism_string = this.avg_parallelism_map[get_element_uuid(node)];
+        const avg_parallelism_string = this.avg_parallelism_map[
+            get_element_uuid(node)
+        ];
         let avg_parallelism = undefined;
         if (avg_parallelism_string !== undefined)
             avg_parallelism = this.symbol_resolver.parse_symbol_expression(
@@ -61,11 +61,13 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
     }
 
     public calculate_avg_parallelism_graph(
-        g: DagreSDFG, symbol_map: SymbolMap, avg_parallelism_values: number[]
+        g: DagreGraph, symbol_map: SymbolMap, avg_parallelism_values: number[]
     ): void {
         g.nodes().forEach(v => {
             const state = g.node(v);
-            this.calculate_avg_parallelism_node(state, symbol_map, avg_parallelism_values);
+            this.calculate_avg_parallelism_node(
+                state, symbol_map, avg_parallelism_values
+            );
             const state_graph = state.data.graph;
             if (state_graph) {
                 state_graph.nodes().forEach((v: string) => {
@@ -111,7 +113,7 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
         });
     }
 
-    public recalculate_avg_parallelism_values(graph: DagreSDFG): void {
+    public recalculate_avg_parallelism_values(graph: DagreGraph): void {
         this.heatmap_scale_center = 5;
         this.heatmap_hist_buckets = [];
 
@@ -128,7 +130,9 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
             avg_parallelism_values.push(0);
     }
 
-    public update_avg_parallelism_map(avg_parallelism_map: { [uuids: string]: any }): void {
+    public update_avg_parallelism_map(
+        avg_parallelism_map: { [uuids: string]: any }
+    ): void {
         this.avg_parallelism_map = avg_parallelism_map;
         this.refresh();
     }
@@ -155,7 +159,8 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
                     const tt_cont = this.renderer.get_tooltip_container();
                     if (tt_cont)
                         tt_cont.innerText = (
-                            'Average Parallelism: ' + avg_parallelism_string + ' (' + avg_parallelism + ')'
+                            'Average Parallelism: ' + avg_parallelism_string +
+                            ' (' + avg_parallelism + ')'
                         );
                 });
             else
@@ -189,7 +194,7 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
     }
 
     public recursively_shade_sdfg(
-        graph: DagreSDFG,
+        graph: DagreGraph,
         ctx: CanvasRenderingContext2D,
         ppp: number,
         visible_rect: SimpleRect

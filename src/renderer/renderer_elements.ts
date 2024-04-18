@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
-    DagreSDFG,
+    DagreGraph,
     JsonSDFG,
     JsonSDFGBlock,
     JsonSDFGEdge,
@@ -2528,7 +2528,7 @@ function too_far_away_for_text(renderer: SDFGRenderer, ctx: CanvasRenderingConte
  * @param color        Default edge color to use.
  */
 function batchedDrawEdges(
-    renderer: SDFGRenderer, graph: DagreSDFG, ctx: CanvasRenderingContext2D,
+    renderer: SDFGRenderer, graph: DagreGraph, ctx: CanvasRenderingContext2D,
     visible_rect?: SimpleRect, mousepos?: Point2D,
     color: string = '--color-default',
     labelled: boolean = false
@@ -2609,7 +2609,7 @@ function batchedDrawEdges(
 }
 
 export function drawStateContents(
-    stateGraph: DagreSDFG, ctx: CanvasRenderingContext2D,
+    stateGraph: DagreGraph, ctx: CanvasRenderingContext2D,
     renderer: SDFGRenderer, ppp: number, lod?: boolean,
     visibleRect?: SimpleRect, mousePos?: Point2D
 ): void {
@@ -2693,7 +2693,7 @@ export function drawStateContents(
 }
 
 export function drawStateMachine(
-    stateMachineGraph: DagreSDFG, ctx: CanvasRenderingContext2D,
+    stateMachineGraph: DagreGraph, ctx: CanvasRenderingContext2D,
     renderer: SDFGRenderer, ppp: number, lod?: boolean,
     visibleRect?: SimpleRect, mousePos?: Point2D
 ): void {
@@ -2743,7 +2743,7 @@ export function drawStateMachine(
 
 // Draw an entire SDFG.
 export function drawSDFG(
-    renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, g: DagreSDFG,
+    renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, g: DagreGraph,
     mousePos?: Point2D
 ): void {
     const cManager = renderer.get_canvas_manager();
@@ -2760,7 +2760,7 @@ export function drawSDFG(
 
 // Translate an SDFG by a given offset
 export function offset_sdfg(
-    sdfg: JsonSDFG, sdfg_graph: DagreSDFG, offset: Point2D
+    sdfg: JsonSDFG, sdfg_graph: DagreGraph, offset: Point2D
 ): void {
     sdfg.nodes.forEach((state: JsonSDFGBlock, id: number) => {
         const g = sdfg_graph.node(id.toString());

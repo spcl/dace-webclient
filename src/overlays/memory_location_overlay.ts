@@ -1,6 +1,6 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreSDFG, Point2D, SimpleRect } from '../index';
+import { DagreGraph, Point2D, SimpleRect } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     AccessNode,
@@ -220,7 +220,7 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
     }
 
     public recursivelyShadeSdfg(
-        graph: DagreSDFG,
+        graph: DagreGraph,
         ctx: CanvasRenderingContext2D,
         ppp: number,
         visibleRect: SimpleRect

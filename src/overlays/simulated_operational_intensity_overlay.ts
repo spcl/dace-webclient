@@ -1,6 +1,6 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
+import { DagreGraph, Point2D, SimpleRect, SymbolMap } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     Edge,
@@ -28,9 +28,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
     }
 
     public clear_cached_op_in_values(): void {
-        this.renderer.for_all_elements(0, 0, 0, 0, (
-            _type: string, _e: Event, obj: any
-        ) => {
+        this.renderer.doForAllGraphElements((_group, _info, obj) => {
             if (obj.data) {
                 if (obj.data.op_in !== undefined)
                     obj.data.op_in = undefined;
@@ -62,7 +60,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
     }
 
     public calculate_op_in_graph(
-        g: DagreSDFG, symbol_map: SymbolMap, op_in_values: number[]
+        g: DagreGraph, symbol_map: SymbolMap, op_in_values: number[]
     ): void {
         g.nodes().forEach(v => {
             const state = g.node(v);
@@ -112,7 +110,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         });
     }
 
-    public recalculate_op_in_values(graph: DagreSDFG): void {
+    public recalculate_op_in_values(graph: DagreGraph): void {
         this.heatmap_scale_center = 5;
         this.heatmap_hist_buckets = [];
 
@@ -190,7 +188,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
     }
 
     public recursively_shade_sdfg(
-        graph: DagreSDFG,
+        graph: DagreGraph,
         ctx: CanvasRenderingContext2D,
         ppp: number,
         visible_rect: SimpleRect

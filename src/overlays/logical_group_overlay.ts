@@ -1,6 +1,6 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreSDFG, JsonSDFG, Point2D, SimpleRect } from '../index';
+import { DagreGraph, JsonSDFG, Point2D, SimpleRect } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     NestedSDFG,
@@ -80,7 +80,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
     }
 
     public recursivelyShadeSDFG(
-        sdfg: JsonSDFG, graph: DagreSDFG, ctx: CanvasRenderingContext2D,
+        sdfg: JsonSDFG, graph: DagreGraph, ctx: CanvasRenderingContext2D,
         ppp: number, visibleRect: SimpleRect
     ): void {
         // First go over visible states, skipping invisible ones. We only draw
@@ -91,7 +91,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         if (sdfgGroups === undefined)
             return;
 
-        graph.nodes().forEach(v => {
+        graph?.nodes().forEach(v => {
             const block = graph.node(v);
 
             // If the node's invisible, we skip it.

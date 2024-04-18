@@ -8,7 +8,7 @@ import '../scss/sdfv.scss';
 
 import { mean, median } from 'mathjs';
 import {
-    DagreSDFG,
+    DagreGraph,
     GenericSdfgOverlay,
     JsonSDFG,
     Point2D,
@@ -146,7 +146,7 @@ export class SDFV {
             sidebar.style.display = 'none';
     }
 
-    public outline(renderer: SDFGRenderer, sdfg: DagreSDFG): void {
+    public outline(renderer: SDFGRenderer, sdfg: DagreGraph): void {
         this.sidebar_set_title('SDFG Outline');
 
         const sidebar = this.sidebar_get_contents();
@@ -169,7 +169,7 @@ export class SDFV {
         const stack: any[] = [sidebar];
 
         // Add elements to tree view in sidebar
-        traverseSDFGScopes(sdfg, (node: SDFGNode, parent: DagreSDFG) => {
+        traverseSDFGScopes(sdfg, (node: SDFGNode, parent: DagreGraph) => {
             // Skip exit nodes when scopes are known
             if (node.type().endsWith('Exit') &&
                 node.data.node.scope_entry >= 0) {
@@ -230,7 +230,7 @@ export class SDFV {
                 return false;
 
             return true;
-        }, (_node: SDFGNode, _parent: DagreSDFG) => {
+        }, (_node: SDFGNode, _parent: DagreGraph) => {
             // After scope ends, pop ourselves as the current element
             // and add to parent
             const elem = stack.pop();
@@ -676,7 +676,7 @@ function load_sdfg_from_url(sdfv: SDFV, url: string): void {
 }
 
 function find_recursive(
-    graph: DagreSDFG, predicate: CallableFunction, results: any[]
+    graph: DagreGraph, predicate: CallableFunction, results: any[]
 ): void {
     for (const nodeid of graph.nodes()) {
         const node = graph.node(nodeid);
@@ -696,7 +696,7 @@ function find_recursive(
 }
 
 export function find_in_graph_predicate(
-    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreSDFG, predicate: CallableFunction
+    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreGraph, predicate: CallableFunction
 ): void {
     sdfv.sidebar_set_title('Search Results');
 
@@ -736,13 +736,13 @@ export function find_in_graph_predicate(
 }
 
 export function find_in_graph(
-    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreSDFG, query: string,
+    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreGraph, query: string,
     case_sensitive: boolean = false
 ): void {
     if (!case_sensitive)
         query = query.toLowerCase();
     find_in_graph_predicate(
-        sdfv, renderer, sdfg, (graph: DagreSDFG, element: SDFGElement) => {
+        sdfv, renderer, sdfg, (graph: DagreGraph, element: SDFGElement) => {
             let label = element.label();
             if (!case_sensitive)
                 label = label.toLowerCase();
@@ -753,8 +753,8 @@ export function find_in_graph(
 }
 
 function recursive_find_graph(
-    graph: DagreSDFG, cfg_id: number
-): DagreSDFG | undefined {
+    graph: DagreGraph, cfg_id: number
+): DagreGraph | undefined {
     let found = undefined;
     for (const n_id of graph.nodes()) {
         const n = graph.node(n_id);
@@ -770,7 +770,7 @@ function recursive_find_graph(
     return found;
 }
 
-function find_state(graph: DagreSDFG, state_id: number): State | undefined {
+function find_state(graph: DagreGraph, state_id: number): State | undefined {
     let state = undefined;
     for (const s_id of graph.nodes()) {
         if (Number(s_id) === state_id) {
@@ -804,7 +804,7 @@ function find_edge(state: State, edge_id: number): Edge | undefined {
 }
 
 export function find_graph_element(
-    graph: DagreSDFG, type: string, sdfg_id: number, state_id: number = -1,
+    graph: DagreGraph, type: string, sdfg_id: number, state_id: number = -1,
     el_id: number = -1
 ): SDFGElement | undefined {
     const requested_graph = recursive_find_graph(graph, sdfg_id);

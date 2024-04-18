@@ -1,4 +1,4 @@
-import { DagreSDFG } from '../..';
+import { DagreGraph } from '../..';
 import * as dagre from 'dagre';
 import { allBackedges } from '../graphlib/algorithms/cycles';
 import {
@@ -182,10 +182,10 @@ export class SMLayouter {
      * Perform state machine layout for an existing dagre.js layout graph.
      * This translates the dagre graph into a minimal DiGraph necessary for
      * performing the layout.
-     * @param {DagreSDFG} dagreGraph Dagre.js graph to perform layouting for.
+     * @param {DagreGraph} dagreGraph Dagre.js graph to perform layouting for.
      */
     public static layoutDagreCompat(
-        dagreGraph: DagreSDFG, startState?: string
+        dagreGraph: DagreGraph, startState?: string
     ): void {
         const g = new DiGraph<SMLayouterNode, SMLayouterEdge>();
         for (const stateId of dagreGraph.nodes())

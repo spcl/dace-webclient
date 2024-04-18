@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
 
 import $ from 'jquery';
-import { DagreSDFG, JsonSDFG } from '..';
+import { DagreGraph, JsonSDFG } from '..';
 import {
     AccessNode,
     Edge,
@@ -45,7 +45,7 @@ export class LViewParser {
     }
 
     private static parseMap(
-        elem: MapEntry, graph: Graph, state: State, sdfg: DagreSDFG,
+        elem: MapEntry, graph: Graph, state: State, sdfg: DagreGraph,
         symbolMap: Map<string, number>, renderer?: LViewRenderer
     ): MapNode {
         const rRanges = elem.data.node.attributes.range.ranges;
@@ -226,7 +226,7 @@ export class LViewParser {
     }
 
     private static parseTasklet(
-        graph: Graph, el: Tasklet, state: State, sdfg: DagreSDFG,
+        graph: Graph, el: Tasklet, state: State, sdfg: DagreGraph,
         symbolMap: Map<string, number>, renderer?: LViewRenderer
     ): ComputationNode {
         const label = el.attributes().code?.string_data;
@@ -264,7 +264,7 @@ export class LViewParser {
 
     private static parseEdge(
         graph: Graph, el: { name: string, v: string, w: string }, state: State,
-        sdfg: DagreSDFG, symbolMap: Map<string, number>,
+        sdfg: DagreGraph, symbolMap: Map<string, number>,
         renderer?: LViewRenderer
     ): Element | null {
         let src: SDFGNode = state.data.graph.node(el.v);
@@ -292,7 +292,7 @@ export class LViewParser {
     }
 
     private static parseElement(
-        graph: Graph, el: SDFGElement, state: State, sdfg: DagreSDFG,
+        graph: Graph, el: SDFGElement, state: State, sdfg: DagreGraph,
         symbolMap: Map<string, number>, renderer?: LViewRenderer
     ): Element | null {
         if (el instanceof SDFGNode) {
@@ -313,7 +313,7 @@ export class LViewParser {
     }
 
     private static parseState(
-        state: State, sdfg: DagreSDFG, symbolMap: Map<string, number>,
+        state: State, sdfg: DagreGraph, symbolMap: Map<string, number>,
         renderer?: LViewRenderer
     ): Graph {
         const graph = new Graph(renderer);
@@ -446,7 +446,7 @@ export class LViewParser {
     }
 
     public static async parseGraph(
-        sdfg: DagreSDFG, renderer?: LViewRenderer
+        sdfg: DagreGraph, renderer?: LViewRenderer
     ): Promise<Graph | null> {
         const state = sdfg.node('0');
         if (state) {
