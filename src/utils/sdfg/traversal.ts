@@ -12,7 +12,8 @@ import {
  * signature as `func`).
  **/
  export function traverseSDFGScopes(
-    sdfg: DagreGraph, func: CallableFunction, postSubscopeFunc?: CallableFunction
+    sdfg: DagreGraph, func: CallableFunction,
+    postSubscopeFunc?: CallableFunction
 ): void {
     function scopesRecursive(
         graph: DagreGraph, nodes: string[], processedNodes?: Set<string>

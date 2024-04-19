@@ -10,6 +10,7 @@ import {
     JsonSDFGState
 } from '../../index';
 import {
+    ControlFlowRegion,
     Edge,
     SDFGElement,
     SDFGElementType,
@@ -42,18 +43,23 @@ export function findExitForEntry(
  *
  * @returns             String containing the UUID
  */
-export function get_uuid_graph_element(element: SDFGElement | null): string {
+export function getGraphElementUUID(element: SDFGElement | null): string {
     const undefined_val = -1;
+    const cfgId = (
+        element instanceof ControlFlowRegion ?
+            element.data.block.cfg_list_id :
+            element?.cfg?.cfg_list_id
+    ) ?? undefined_val;
     if (element instanceof State) {
         return (
-            element.sdfg.cfg_list_id + '/' +
+            cfgId + '/' +
             element.id + '/' +
             undefined_val + '/' +
             undefined_val
         );
     } else if (element instanceof SDFGNode) {
         return (
-            element.sdfg.cfg_list_id + '/' +
+            cfgId + '/' +
             element.parent_id + '/' +
             element.id + '/' +
             undefined_val
@@ -63,7 +69,7 @@ export function get_uuid_graph_element(element: SDFGElement | null): string {
         if (element.parent_id !== null && element.parent_id !== undefined)
             parent_id = element.parent_id;
         return (
-            element.sdfg.cfg_list_id + '/' +
+            cfgId + '/' +
             parent_id + '/' +
             undefined_val + '/' +
             element.id
@@ -114,9 +120,11 @@ export function findGraphElementByUUID(
         return null;
 
     const graph = cfgList[cfgId].graph;
+    if (graph === null)
+        return null;
 
     let state = null;
-    if (stateId !== '-1' && graph !== undefined)
+    if (stateId !== '-1')
         state = graph.node(stateId);
 
     let element = null;

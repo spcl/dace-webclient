@@ -40,7 +40,7 @@ import { memletTreeComplete } from '../utils/sdfg/memlet_trees';
 import {
     check_and_redirect_edge, deletePositioningInfo, deleteSDFGNodes,
     deleteCFGBlocks, findExitForEntry, findGraphElementByUUID,
-    getPositioningInfo, get_uuid_graph_element, findRootCFG
+    getPositioningInfo, getGraphElementUUID, findRootCFG
 } from '../utils/sdfg/sdfg_utils';
 import {
     traverseSDFGScopes
@@ -112,7 +112,7 @@ type JsonSDFGElemFunction = (
 export type CFGListType = {
     [id: string]: {
         jsonObj: JsonSDFGControlFlowRegion,
-        graph: DagreGraph,
+        graph: DagreGraph | null,
     }
 };
 
@@ -902,6 +902,7 @@ export class SDFGRenderer extends EventEmitter {
         // Create the initial SDFG layout
         // Loading animation already started in the file_read_complete function in sdfv.ts
         // to also include the JSON parsing step.
+        this.updateCFGList();
         this.relayout();
 
         // Set mouse event handlers
@@ -1016,10 +1017,48 @@ export class SDFGRenderer extends EventEmitter {
         this.canvas_manager?.draw_async();
     }
 
+    public updateCFGList() {
+        // Update SDFG metadata
+        this.cfgTree = {};
+        this.cfgList = {};
+        this.cfgList[0] = {
+            jsonObj: this.sdfg,
+            graph: null,
+        };
+
+        this.doForAllSDFGElements(
+            (_oGroup, oInfo, obj) => {
+                const cfgId = (obj as JsonSDFGControlFlowRegion).cfg_list_id;
+                if (obj.type === SDFGElementType.NestedSDFG &&
+                    obj.attributes.sdfg) {
+                    this.cfgTree[obj.attributes.sdfg.cfg_list_id] =
+                        oInfo.sdfg.cfg_list_id;
+                } else if (cfgId !== undefined && cfgId >= 0) {
+                    this.cfgTree[cfgId] = oInfo.cfgId;
+                    this.cfgList[cfgId] = {
+                        jsonObj: obj as JsonSDFGControlFlowRegion,
+                        graph: null,
+                    };
+                }
+            }
+        );
+    }
+
     public setSDFG(new_sdfg: JsonSDFG, layout: boolean = true): void {
         this.sdfg = new_sdfg;
 
+        // Update info box
+        if (this.selected_elements.length === 1) {
+            const uuid = getGraphElementUUID(this.selected_elements[0]);
+            if (this.graph)
+                this.sdfv_instance.fill_info(
+                    findGraphElementByUUID(this.cfgList, uuid)
+                );
+        }
+
         if (layout) {
+            this.updateCFGList();
+
             this.add_loading_animation();
             setTimeout(() => {
                 this.relayout();
@@ -1027,29 +1066,6 @@ export class SDFGRenderer extends EventEmitter {
             
             this.draw_async();
         }
-
-        // Update info box
-        if (this.selected_elements.length === 1) {
-            const uuid = get_uuid_graph_element(this.selected_elements[0]);
-            if (this.graph)
-                this.sdfv_instance.fill_info(
-                    findGraphElementByUUID(this.cfgList, uuid)
-                );
-        }
-
-        // Update SDFG metadata
-        this.cfgTree = {};
-        this.doForAllSDFGElements(
-            (_oGroup, oInfo, obj) => {
-                const cfgId = (obj as JsonSDFGControlFlowRegion).cfg_list_id;
-                if (obj.type === SDFGElementType.NestedSDFG &&
-                    obj.attributes.sdfg)
-                    this.cfgTree[obj.attributes.sdfg.cfg_list_id] =
-                        oInfo.sdfg.cfg_list_id;
-                else if (cfgId !== undefined && cfgId >= 0)
-                    this.cfgTree[cfgId] = oInfo.cfgId;
-            }
-        );
     }
 
     // Set mouse events (e.g., click, drag, zoom)
@@ -1136,7 +1152,8 @@ export class SDFGRenderer extends EventEmitter {
         if (!this.ctx)
             throw new Error('No context found while performing layouting');
 
-        this.cfgList = {};
+        for (const cfgId in this.cfgList)
+            this.cfgList[cfgId].graph = null;
         this.graph = relayoutStateMachine(
             this.ctx, this.sdfg, this.sdfg, this.cfgList,
             this.state_parent_list, !SDFVSettings.showAccessNodes, undefined
@@ -2708,7 +2725,7 @@ export class SDFGRenderer extends EventEmitter {
                                     // Do not move element individually if it is
                                     // moved together with its parent state
                                     const state_parent =
-                                        this.cfgList[list_id].graph.node(
+                                        this.cfgList[list_id].graph?.node(
                                             el.parent_id!.toString()
                                         );
                                     if (state_parent &&
@@ -3028,7 +3045,7 @@ export class SDFGRenderer extends EventEmitter {
                         if (obj instanceof AccessNode) {
                             if (obj.hovered && hover_changed) {
                                 traverseSDFGScopes(
-                                    this.cfgList[obj.sdfg.cfg_list_id].graph,
+                                    this.cfgList[obj.sdfg.cfg_list_id].graph!,
                                     (node: any) => {
                                         // If node is a state, then visit sub-scope
                                         if (node instanceof State)
@@ -3044,7 +3061,7 @@ export class SDFGRenderer extends EventEmitter {
                             }
                             else if (!obj.hovered && hover_changed) {
                                 traverseSDFGScopes(
-                                    this.cfgList[obj.sdfg.cfg_list_id].graph,
+                                    this.cfgList[obj.sdfg.cfg_list_id].graph!,
                                     (node: any) => {
                                         // If node is a state, then visit sub-scope
                                         if (node instanceof State)
@@ -3269,11 +3286,11 @@ export class SDFGRenderer extends EventEmitter {
                                 this.emit(
                                     'add_element',
                                     this.add_type,
-                                    get_uuid_graph_element(
+                                    getGraphElementUUID(
                                         foreground_elem
                                     ),
                                     undefined,
-                                    get_uuid_graph_element(start),
+                                    getGraphElementUUID(start),
                                     this.add_edge_start_conn ?
                                         this.add_edge_start_conn.data.name :
                                         undefined,
@@ -3292,7 +3309,7 @@ export class SDFGRenderer extends EventEmitter {
                             this.emit(
                                 'add_element',
                                 this.add_type,
-                                get_uuid_graph_element(
+                                getGraphElementUUID(
                                     foreground_elem
                                 ),
                                 this.add_mode_lib || undefined
@@ -3303,7 +3320,7 @@ export class SDFGRenderer extends EventEmitter {
                                 this.emit(
                                     'add_element',
                                     this.add_type,
-                                    get_uuid_graph_element(
+                                    getGraphElementUUID(
                                         foreground_elem
                                     )
                                 );
@@ -3707,19 +3724,25 @@ export class SDFGRenderer extends EventEmitter {
             // Add all contents of the CFG.
             const cfg: JsonSDFGControlFlowRegion = cfgNode.data.block;
             const ownCfgId = cfg.cfg_list_id;
+            cfgs.add(ownCfgId);
             if (!(ownCfgId in blocks))
                 blocks[ownCfgId] = new Set();
 
-            for (const blockId of cfgNode.data.graph.nodes()) {
-                const block = cfgNode.data.graph.node(blockId);
-                if (block instanceof ControlFlowRegion) {
-                    const nCfg: JsonSDFGControlFlowRegion = block.data.block;
-                    const nCfgId = nCfg.cfg_list_id;
-                    cfgs.add(nCfgId);
-                    addCutoutCFG(ownCfgId, block);
-                } else {
-                    addCutoutState(ownCfgId, block);
+            if (cfgNode.data.graph) {
+                for (const blockId of cfgNode.data.block.nodes.keys()) {
+                    const block = cfgNode.data.graph.node(blockId);
+                    if (block instanceof ControlFlowRegion) {
+                        const nCfg: JsonSDFGControlFlowRegion = block.data.block;
+                        const nCfgId = nCfg.cfg_list_id;
+                        cfgs.add(nCfgId);
+                        addCutoutCFG(ownCfgId, block);
+                    } else {
+                        addCutoutState(ownCfgId, block);
+                    }
                 }
+            } else {
+                for (const blockId of cfgNode.data.block.nodes.keys())
+                    blocks[ownCfgId].add(blockId);
             }
 
             blocks[cfgId].add(cfgNode.id);
@@ -3747,7 +3770,8 @@ export class SDFGRenderer extends EventEmitter {
         // Clear selection and redraw
         this.deselect();
 
-        if (Object.keys(nodes).length === 0) {  // Nothing to cut out
+        if (Object.keys(nodes).length + Object.keys(blocks).length === 0) {
+            // Nothing to cut out
             this.draw_async();
             return;
         }
@@ -4045,11 +4069,8 @@ function relayoutStateMachine(
     (g as any).width = bb.width;
     (g as any).height = bb.height;
 
-    // Add CFG to global store.
-    cfgList[stateMachine.cfg_list_id] = {
-        jsonObj: stateMachine,
-        graph: g,
-    };
+    // Add CFG graph to global store.
+    cfgList[stateMachine.cfg_list_id].graph = g;
 
     return g;
 }

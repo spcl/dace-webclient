@@ -656,7 +656,7 @@ export class CanvasManager {
             // Also update destination point of edge
             if (edge.dst_connector !== null) {
                 const e = parent_element?.data?.state?.edges[edge.id];
-                const dst_el = parent_graph.node(e?.dst);
+                const dst_el = parent_graph?.node(e?.dst);
                 if (dst_el) {
                     for (let i = 0; i < dst_el.in_connectors.length; i++) {
                         const dst_name = dst_el.in_connectors[i].data.name;
@@ -693,7 +693,7 @@ export class CanvasManager {
             // Also update source point of edge
             if (edge.src_connector !== null) {
                 const e = parent_element?.data?.state?.edges[edge.id];
-                const src_el = parent_graph.node(e?.src);
+                const src_el = parent_graph?.node(e?.src);
                 if (src_el) {
                     for (let i = 0; i < src_el.out_connectors.length; i++) {
                         const out_name = src_el.out_connectors[i].data.name;
