@@ -40,7 +40,7 @@ import { memletTreeComplete } from '../utils/sdfg/memlet_trees';
 import {
     check_and_redirect_edge, deletePositioningInfo, deleteSDFGNodes,
     deleteCFGBlocks, find_exit_for_entry, find_graph_element_by_uuid,
-    find_root_sdfg, getPositioningInfo, get_uuid_graph_element
+    getPositioningInfo, get_uuid_graph_element, findRootCFG
 } from '../utils/sdfg/sdfg_utils';
 import {
     traverseSDFGScopes
@@ -108,7 +108,13 @@ type JsonSDFGElemFunction = (
 ) => any;
 
 // If type is explicitly set, dagre typecheck fails with integer node ids
-export type CFGListType = any[];//{ [key: number]: DagreSDFG };
+//export type CFGListType = any[];//{ [key: number]: DagreGraph };
+export type CFGListType = {
+    [id: string]: {
+        jsonObj: JsonSDFGControlFlowRegion,
+        graph: DagreGraph,
+    }
+};
 
 function check_valid_add_position(
     type: SDFGElementType | null,
@@ -164,7 +170,7 @@ export interface SDFGRenderer {
 
 export class SDFGRenderer extends EventEmitter {
 
-    protected cfg_list: any = {};
+    protected cfgList: CFGListType = {};
     protected graph: DagreGraph | null = null;
     // Parent-pointing CFG tree.
     protected cfgTree: { [key: number]: number } = {};
@@ -268,7 +274,7 @@ export class SDFGRenderer extends EventEmitter {
 
         this.init_elements(user_transform, background, mode_buttons);
 
-        this.set_sdfg(sdfg, false);
+        this.setSDFG(sdfg, false);
 
         this.all_memlet_trees_sdfg = memletTreeComplete(this.sdfg);
 
@@ -797,7 +803,7 @@ export class SDFGRenderer extends EventEmitter {
                 html: '<i class="material-icons">content_cut</i>',
                 title: 'Filter selection (cutout)',
                 click: () => {
-                    this.cutout_selection();
+                    this.cutoutSelection();
                 },
             }).appendTo(this.toolbar);
 
@@ -1010,7 +1016,7 @@ export class SDFGRenderer extends EventEmitter {
         this.canvas_manager?.draw_async();
     }
 
-    public set_sdfg(new_sdfg: JsonSDFG, layout: boolean = true): void {
+    public setSDFG(new_sdfg: JsonSDFG, layout: boolean = true): void {
         this.sdfg = new_sdfg;
 
         if (layout) {
@@ -1130,9 +1136,9 @@ export class SDFGRenderer extends EventEmitter {
         if (!this.ctx)
             throw new Error('No context found while performing layouting');
 
-        this.cfg_list = {};
+        this.cfgList = {};
         this.graph = relayoutStateMachine(
-            this.ctx, this.sdfg, this.sdfg, this.cfg_list,
+            this.ctx, this.sdfg, this.sdfg, this.cfgList,
             this.state_parent_list, !SDFVSettings.showAccessNodes, undefined
         );
         this.onresize();
@@ -1209,7 +1215,7 @@ export class SDFGRenderer extends EventEmitter {
                     this.canvas_manager?.translate_element(
                         node, { x: node.x, y: node.y },
                         { x: node.x + dx, y: node.y + dy }, this.graph,
-                        this.cfg_list, this.state_parent_list, undefined, false
+                        this.cfgList, this.state_parent_list, undefined, false
                     );
             }
 
@@ -1242,7 +1248,7 @@ export class SDFGRenderer extends EventEmitter {
                     if (this.graph)
                         this.canvas_manager?.translate_element(
                             edge, { x: 0, y: 0 },
-                            { x: 0, y: 0 }, this.graph, this.cfg_list,
+                            { x: 0, y: 0 }, this.graph, this.cfgList,
                             this.state_parent_list, undefined, false, false,
                             final_pos_d
                         );
@@ -2434,10 +2440,13 @@ export class SDFGRenderer extends EventEmitter {
         const clicked_edges = elements.edges;
         const clicked_interstate_edges = elements.isedges;
         const clicked_connectors = elements.connectors;
+        const clicked_cfg_regions = elements.controlFlowRegions;
+        const clicked_cfg_blocks = elements.controlFlowBlocks;
         const total_elements =
             clicked_states.length + clicked_nodes.length +
             clicked_edges.length + clicked_interstate_edges.length +
-            clicked_connectors.length;
+            clicked_connectors.length + clicked_cfg_regions.length +
+            clicked_cfg_blocks.length;
         let foreground_elem = null, foreground_surface = -1;
         let foreground_connector = null;
 
@@ -2447,7 +2456,9 @@ export class SDFGRenderer extends EventEmitter {
             clicked_states,
             clicked_interstate_edges,
             clicked_nodes,
-            clicked_edges
+            clicked_edges,
+            clicked_cfg_regions,
+            clicked_cfg_blocks,
         ];
         for (const category of categories) {
             for (let i = 0; i < category.length; i++) {
@@ -2548,7 +2559,7 @@ export class SDFGRenderer extends EventEmitter {
                 }
             }
             this.deselect();
-            this.set_sdfg(this.sdfg);
+            this.setSDFG(this.sdfg);
             this.emit('graph_edited');
         }
 
@@ -2697,7 +2708,7 @@ export class SDFGRenderer extends EventEmitter {
                                     // Do not move element individually if it is
                                     // moved together with its parent state
                                     const state_parent =
-                                        this.cfg_list[list_id].node(
+                                        this.cfgList[list_id].graph.node(
                                             el.parent_id!.toString()
                                         );
                                     if (state_parent &&
@@ -2717,7 +2728,7 @@ export class SDFGRenderer extends EventEmitter {
                             if (old_mousepos)
                                 this.canvas_manager?.translate_element(
                                     el, old_mousepos, this.mousepos,
-                                    this.graph, this.cfg_list,
+                                    this.graph, this.cfgList,
                                     this.state_parent_list,
                                     this.drag_start,
                                     true,
@@ -3017,7 +3028,7 @@ export class SDFGRenderer extends EventEmitter {
                         if (obj instanceof AccessNode) {
                             if (obj.hovered && hover_changed) {
                                 traverseSDFGScopes(
-                                    this.cfg_list[obj.sdfg.cfg_list_id],
+                                    this.cfgList[obj.sdfg.cfg_list_id].graph,
                                     (node: any) => {
                                         // If node is a state, then visit sub-scope
                                         if (node instanceof State)
@@ -3033,7 +3044,7 @@ export class SDFGRenderer extends EventEmitter {
                             }
                             else if (!obj.hovered && hover_changed) {
                                 traverseSDFGScopes(
-                                    this.cfg_list[obj.sdfg.cfg_list_id],
+                                    this.cfgList[obj.sdfg.cfg_list_id].graph,
                                     (node: any) => {
                                         // If node is a state, then visit sub-scope
                                         if (node instanceof State)
@@ -3170,9 +3181,12 @@ export class SDFGRenderer extends EventEmitter {
             }
 
             // Toggle collapsed state
-            if (sdfg_elem && 'is_collapsed' in sdfg_elem.attributes) {
-                sdfg_elem.attributes.is_collapsed =
-                    !sdfg_elem.attributes.is_collapsed;
+            if (foreground_elem.COLLAPSIBLE) {
+                if ('is_collapsed' in sdfg_elem.attributes)
+                    sdfg_elem.attributes.is_collapsed =
+                        !sdfg_elem.attributes.is_collapsed;
+                else
+                    sdfg_elem.attributes['is_collapsed'] = true;
 
                 this.emit('collapse_state_changed');
 
@@ -3398,7 +3412,7 @@ export class SDFGRenderer extends EventEmitter {
                             // Move it to original position
                             this.canvas_manager?.translate_element(
                                 edge_el, { x: 0, y: 0 }, { x: 0, y: 0 },
-                                this.graph, this.cfg_list,
+                                this.graph, this.cfgList,
                                 this.state_parent_list, undefined, false, false,
                                 new_points
                             );
@@ -3420,7 +3434,7 @@ export class SDFGRenderer extends EventEmitter {
                             this.canvas_manager?.translate_element(
                                 el, { x: el.x, y: el.y },
                                 { x: new_x, y: new_y }, this.graph,
-                                this.cfg_list, this.state_parent_list,
+                                this.cfgList, this.state_parent_list,
                                 undefined, false, false, undefined
                             );
 
@@ -3623,7 +3637,7 @@ export class SDFGRenderer extends EventEmitter {
 
         // Transition to the local view by first cutting out the selection.
         try {
-            this.cutout_selection(true);
+            this.cutoutSelection(true);
             const lRenderer =
                 new LViewRenderer(this.sdfv_instance, this.container);
             const lGraph = await LViewParser.parseGraph(this.graph, lRenderer);
@@ -3658,7 +3672,7 @@ export class SDFGRenderer extends EventEmitter {
         }
     }
 
-    public cutout_selection(_suppressSave: boolean = false): void {
+    public cutoutSelection(_suppressSave: boolean = false): void {
         /* Rule set for creating a cutout subgraph:
          * Edges are selected according to the subgraph nodes - all edges
          * between subgraph nodes are preserved.
@@ -3668,38 +3682,66 @@ export class SDFGRenderer extends EventEmitter {
          * nodes from two states), the parents will be preserved.
          */
         // Collect nodes and states
-        const sdfgs: Set<number> = new Set<number>();
-        const cfg_list: { [key: string]: JsonSDFG } = {};
-        const states: { [key: string]: Array<number> } = {};
-        const nodes: { [key: string]: Array<number> } = {};
+        const cfgs: Set<number> = new Set<number>();
+        const blocks: { [key: string]: Set<number> } = {};
+        const nodes: { [key: string]: Set<number> } = {};
+
+        function addCutoutNode(cfgId: number, node: SDFGNode): void {
+            const stateId = node.parent_id ?? -1;
+            const stateUUID: string = JSON.stringify([cfgId, stateId]);
+            if (stateUUID in nodes)
+                nodes[stateUUID].add(node.id);
+            else
+                nodes[stateUUID] = new Set([node.id]);
+            blocks[cfgId].add(stateId);
+        }
+
+        function addCutoutState(cfgId: number, state: State): void {
+            // Add all nodes from the state to the filter.
+            const uuid: string = JSON.stringify([cfgId, state.id]);
+            nodes[uuid] = new Set([...state.data.state.nodes.keys()]);
+            blocks[cfgId].add(state.id);
+        }
+
+        function addCutoutCFG(cfgId: number, cfgNode: ControlFlowRegion): void {
+            // Add all contents of the CFG.
+            const cfg: JsonSDFGControlFlowRegion = cfgNode.data.block;
+            const ownCfgId = cfg.cfg_list_id;
+            if (!(ownCfgId in blocks))
+                blocks[ownCfgId] = new Set();
+
+            for (const blockId of cfgNode.data.graph.nodes()) {
+                const block = cfgNode.data.graph.node(blockId);
+                if (block instanceof ControlFlowRegion) {
+                    const nCfg: JsonSDFGControlFlowRegion = block.data.block;
+                    const nCfgId = nCfg.cfg_list_id;
+                    cfgs.add(nCfgId);
+                    addCutoutCFG(ownCfgId, block);
+                } else {
+                    addCutoutState(ownCfgId, block);
+                }
+            }
+
+            blocks[cfgId].add(cfgNode.id);
+        }
+
         for (const elem of this.selected_elements) {
             // Ignore edges and connectors
             if (elem instanceof Edge || elem instanceof Connector)
                 continue;
-            const sdfg_id = elem.sdfg.cfg_list_id;
-            cfg_list[sdfg_id] = elem.sdfg;
-            sdfgs.add(sdfg_id);
-            let state_id: number = -1;
-            if (elem.parent_id !== null) {
-                const state_uid: string = JSON.stringify(
-                    [sdfg_id, elem.parent_id]
-                );
-                if (state_uid in nodes)
-                    nodes[state_uid].push(elem.id);
-                else
-                    nodes[state_uid] = [elem.id];
-                state_id = elem.parent_id;
-            } else {
-                // Add all nodes from state
-                const state_uid: string = JSON.stringify([sdfg_id, elem.id]);
-                nodes[state_uid] = [...elem.data.state.nodes.keys()];
-                state_id = elem.id;
-            }
-            // Register state
-            if (sdfg_id in states)
-                states[sdfg_id].push(state_id);
+
+            const cfg = elem.cfg!;
+            const cfgId = cfg.cfg_list_id;
+            cfgs.add(cfgId);
+            if (!(cfgId in blocks))
+                blocks[cfgId] = new Set();
+
+            if (elem instanceof ControlFlowRegion)
+                addCutoutCFG(cfgId, elem);
+            else if (elem instanceof State)
+                addCutoutState(cfgId, elem);
             else
-                states[sdfg_id] = [state_id];
+                addCutoutNode(cfgId, elem);
         }
 
         // Clear selection and redraw
@@ -3711,27 +3753,44 @@ export class SDFGRenderer extends EventEmitter {
         }
 
         // Find root SDFG and root state (if possible)
-        const root_sdfg_id = find_root_sdfg(sdfgs, this.cfgTree);
-        if (root_sdfg_id !== null) {
-            const root_sdfg = cfg_list[root_sdfg_id];
+        const rootCFGId = findRootCFG(cfgs, this.cfgTree, this.cfgList, false);
+        const rootSDFGId = findRootCFG(
+            cfgs, this.cfgTree, this.cfgList, true
+        );
+        const needToFlatten = rootSDFGId != rootCFGId;
+        if (rootSDFGId !== null && rootCFGId !== null) {
+            const rootSDFG = this.cfgList[rootSDFGId].jsonObj;
+            const rootCFG = this.cfgList[rootCFGId].jsonObj;
+            if (rootSDFG.type !== 'SDFG')
+                throw Error('Cutout needs root CFG of type SDFG');
 
             // For every participating state, filter out irrelevant nodes and
             // memlets.
             for (const nkey of Object.keys(nodes)) {
-                const [sdfg_id, state_id] = JSON.parse(nkey);
-                const sdfg = cfg_list[sdfg_id];
-                deleteSDFGNodes(sdfg, state_id, nodes[nkey], true);
+                const [cfgId, stateId] = JSON.parse(nkey);
+                const cfg = this.cfgList[cfgId].jsonObj;
+                deleteSDFGNodes(
+                    cfg, stateId, Array.from(nodes[nkey].values()), true
+                );
             }
 
-            // For every participating SDFG, filter out irrelevant states and
+            // For every participating CFG, filter out irrelevant states and
             // interstate edges.
-            for (const sdfg_id of Object.keys(states)) {
-                const sdfg = cfg_list[sdfg_id];
-                deleteCFGBlocks(sdfg, states[sdfg_id], true);
+            for (const cfgId of Object.keys(blocks)) {
+                const cfg = this.cfgList[cfgId].jsonObj;
+                deleteCFGBlocks(cfg, Array.from(blocks[cfgId].values()), true);
+            }
+
+            // Ensure that the cutout contains only what is being cut out of
+            // the target root CFG. The root SDFG is used to piggyback in the
+            // necessary SDFG information.
+            if (needToFlatten) {
+                rootSDFG.nodes = rootCFG.nodes;
+                rootSDFG.edges = rootCFG.edges;
             }
 
             // Set root SDFG as the new SDFG
-            this.set_sdfg(root_sdfg);
+            this.setSDFG(rootSDFG as JsonSDFG);
         }
 
     }
@@ -3804,14 +3863,9 @@ function calculateNodeSize(
     return size;
 }
 
-type StateMachineType = {
-    nodes: JsonSDFGBlock[];
-    edges: JsonSDFGEdge[];
-};
-
 function relayoutStateMachine(
-    ctx: CanvasRenderingContext2D, stateMachine: StateMachineType,
-    sdfg: JsonSDFG, sdfgList: CFGListType, stateParentList: any[],
+    ctx: CanvasRenderingContext2D, stateMachine: JsonSDFGControlFlowRegion,
+    sdfg: JsonSDFG, cfgList: CFGListType, stateParentList: any[],
     omitAccessNodes: boolean, parent?: SDFGElement
 ): DagreGraph {
     const BLOCK_MARGIN = 3 * SDFV.LINEHEIGHT;
@@ -3839,7 +3893,8 @@ function relayoutStateMachine(
         const btype =
             block.type === SDFGElementType.SDFGState ? 'State' : block.type;
         const blockElem = new SDFGElements[btype](
-            { layout: { width: 0, height: 0 } }, block.id, sdfg, null, parent
+            { layout: { width: 0, height: 0 } }, block.id, sdfg, stateMachine,
+            null, parent
         );
         if (block.type === SDFGElementType.SDFGState ||
             block.type === SDFGElementType.ContinueState ||
@@ -3879,7 +3934,7 @@ function relayoutStateMachine(
             }
         } else {
             blockGraph = relayoutSDFGBlock(
-                ctx, block, sdfg, sdfgList, stateParentList, omitAccessNodes,
+                ctx, block, sdfg, cfgList, stateParentList, omitAccessNodes,
                 blockElem
             );
             if (blockGraph)
@@ -3909,8 +3964,8 @@ function relayoutStateMachine(
     for (let id = 0; id < stateMachine.edges.length; id++) {
         const edge = stateMachine.edges[id];
         g.setEdge(edge.src, edge.dst, new InterstateEdge(
-            edge.attributes.data, id, sdfg, parent.id, parent, edge.src,
-            edge.dst
+            edge.attributes.data, id, sdfg, stateMachine, parent.id, parent,
+            edge.src, edge.dst
         ));
     }
 
@@ -3990,15 +4045,18 @@ function relayoutStateMachine(
     (g as any).width = bb.width;
     (g as any).height = bb.height;
 
-    // Add SDFG to global store.
-    sdfgList[sdfg.cfg_list_id] = g;
+    // Add CFG to global store.
+    cfgList[stateMachine.cfg_list_id] = {
+        jsonObj: stateMachine,
+        graph: g,
+    };
 
     return g;
 }
 
 function relayoutSDFGState(
     ctx: CanvasRenderingContext2D, state: JsonSDFGState,
-    sdfg: JsonSDFG, sdfgList: JsonSDFG[], stateParentList: any[],
+    sdfg: JsonSDFG, sdfgList: CFGListType, stateParentList: any[],
     omitAccessNodes: boolean, parent: State
 ): DagreGraph | null {
     // layout the sdfg block as a dagre graph.
@@ -4080,7 +4138,8 @@ function relayoutSDFGState(
 
         // Dynamically create node type.
         const obj = new SDFGElements[node.type](
-            { node: node, graph: nestedGraph }, node.id, sdfg, state.id, parent
+            { node: node, graph: nestedGraph }, node.id, sdfg, parent.cfg,
+            state.id, parent
         );
 
         // If it's a nested SDFG, we need to record the node as all of its
@@ -4098,7 +4157,9 @@ function relayoutSDFGState(
         else
             conns = Object.keys(node.attributes.layout.in_connectors);
         for (const cname of conns) {
-            const conn = new Connector({ name: cname }, i, sdfg, node.id, obj);
+            const conn = new Connector(
+                { name: cname }, i, sdfg, parent.cfg, node.id, obj
+            );
             conn.connectorType = 'in';
             conn.linkedElem = obj;
             obj.in_connectors.push(conn);
@@ -4112,7 +4173,9 @@ function relayoutSDFGState(
         else
             conns = Object.keys(node.attributes.layout.out_connectors);
         for (const cname of conns) {
-            const conn = new Connector({ name: cname }, i, sdfg, node.id, obj);
+            const conn = new Connector(
+                { name: cname }, i, sdfg, parent.cfg, node.id, obj
+            );
             conn.connectorType = 'out';
             conn.linkedElem = obj;
             obj.out_connectors.push(conn);
@@ -4177,7 +4240,9 @@ function relayoutSDFGState(
         if (!edge)
             return;
 
-        const e = new Memlet(edge.attributes.data, id, sdfg, state.id, parent);
+        const e = new Memlet(
+            edge.attributes.data, id, sdfg, parent.cfg, state.id, parent
+        );
         edge.attributes.data.edge = e;
         (e as any).src_connector = edge.src_connector;
         (e as any).dst_connector = edge.dst_connector;
@@ -4226,7 +4291,7 @@ function relayoutSDFGState(
                 const edgeId = state.edges.length - 1;
                 const newShortCutEdge = new Memlet(
                     deepCopy(redirectedEdge.attributes.data), edgeId, sdfg,
-                    state.id
+                    parent.cfg, state.id
                 );
                 (newShortCutEdge as any).src_connector =
                     redirectedEdge.src_connector;
@@ -4373,15 +4438,15 @@ function relayoutSDFGState(
 
 function relayoutSDFGBlock(
     ctx: CanvasRenderingContext2D, block: JsonSDFGBlock,
-    sdfg: JsonSDFG, sdfgList: JsonSDFG[], stateParentList: any[],
+    sdfg: JsonSDFG, sdfgList: CFGListType, stateParentList: any[],
     omitAccessNodes: boolean, parent: SDFGElement
 ): DagreGraph | null {
     switch (block.type) {
         case SDFGElementType.LoopRegion:
         case SDFGElementType.ControlFlowRegion:
             return relayoutStateMachine(
-                ctx, block as StateMachineType, sdfg, sdfgList, stateParentList,
-                omitAccessNodes, parent
+                ctx, block as JsonSDFGControlFlowRegion, sdfg, sdfgList,
+                stateParentList, omitAccessNodes, parent
             );
         case SDFGElementType.SDFGState:
         case SDFGElementType.BasicBlock:

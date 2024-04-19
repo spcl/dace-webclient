@@ -348,7 +348,7 @@ export class CanvasManager {
         const in_edges: any[] = [];
 
         // Find the parent graph in the list of available SDFGs
-        let parent_graph = cfg_list[el.sdfg.cfg_list_id];
+        let parent_graph = cfg_list[el.sdfg.cfg_list_id].graph;
         let parent_element: SDFGElement | null = null;
 
         if (
@@ -363,7 +363,7 @@ export class CanvasManager {
         } else if (el.parent_id !== null && parent_graph) {
             // If the parent_id isn't null and there is a parent graph, we can
             // look up the parent node via the element's parent_id
-            parent_element = parent_graph.node(el.parent_id);
+            parent_element = parent_graph.node(el.parent_id.toString());
             // If our parent element is a state, we want the state's graph
             if (parent_element && parent_element.data.state)
                 parent_graph = parent_element.data.graph;
@@ -371,10 +371,10 @@ export class CanvasManager {
 
         if (parent_graph && !(el instanceof Edge)) {
             // Find all the edges connected to the moving node
-            parent_graph.outEdges(el.id).forEach((edge_id: number) => {
+            parent_graph.outEdges(el.id.toString())?.forEach(edge_id => {
                 out_edges.push(parent_graph.edge(edge_id));
             });
-            parent_graph.inEdges(el.id).forEach((edge_id: number) => {
+            parent_graph.inEdges(el.id.toString())?.forEach(edge_id => {
                 in_edges.push(parent_graph.edge(edge_id));
             });
         }

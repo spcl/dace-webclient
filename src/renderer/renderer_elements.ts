@@ -4,6 +4,7 @@ import {
     DagreGraph,
     JsonSDFG,
     JsonSDFGBlock,
+    JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGNode,
     JsonSDFGState,
@@ -47,6 +48,10 @@ export enum SDFGElementType {
 
 export class SDFGElement {
 
+    public get COLLAPSIBLE(): boolean {
+        return false;
+    }
+
     public in_connectors: Connector[] = [];
     public out_connectors: Connector[] = [];
 
@@ -65,6 +70,7 @@ export class SDFGElement {
         public data: any,
         public id: number,
         public sdfg: JsonSDFG,
+        public cfg: JsonSDFGControlFlowRegion | null,
         public parent_id: number | null = null,
         public parentElem?: SDFGElement,
     ) {
@@ -212,7 +218,7 @@ export class SDFGElement {
 export class SDFG extends SDFGElement {
 
     public constructor(sdfg: JsonSDFG) {
-        super(sdfg, -1, sdfg);
+        super(sdfg, -1, sdfg, null);
     }
 
     public set_layout(): void {
@@ -229,9 +235,19 @@ export class SDFGShell extends SDFG {
 }
 
 export class ControlFlowBlock extends SDFGElement {
+
+    public get COLLAPSIBLE(): boolean {
+        return true;
+    }
+
 }
 
 export class BasicBlock extends SDFGElement {
+
+    public get COLLAPSIBLE(): boolean {
+        return true;
+    }
+
 }
 
 export class ControlFlowRegion extends ControlFlowBlock {
@@ -1227,12 +1243,13 @@ export class InterstateEdge extends Edge {
         data: any,
         id: number,
         sdfg: JsonSDFG,
+        cfg: JsonSDFGControlFlowRegion,
         parent_id: number | null = null,
         parentElem?: SDFGElement,
         public readonly src?: string,
         public readonly dst?: string,
     ) {
-        super(data, id, sdfg, parent_id, parentElem);
+        super(data, id, sdfg, cfg, parent_id, parentElem);
     }
 
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
@@ -1690,6 +1707,10 @@ export class AccessNode extends SDFGNode {
 
 export class ScopeNode extends SDFGNode {
 
+    public get COLLAPSIBLE(): boolean {
+        return true;
+    }
+
     private cached_far_label: string | null = null;
     private cached_close_label: string | null = null;
 
@@ -1997,10 +2018,11 @@ export class Tasklet extends SDFGNode {
         public data: any,
         public id: number,
         public sdfg: JsonSDFG,
+        public cfg: JsonSDFGControlFlowRegion,
         public parent_id: number | null = null,
         public parentElem?: SDFGElement,
     ) {
-        super(data, id, sdfg, parent_id, parentElem);
+        super(data, id, sdfg, cfg, parent_id, parentElem);
         this.highlightCode();
     }
 
@@ -2288,6 +2310,10 @@ export class Reduce extends SDFGNode {
 }
 
 export class NestedSDFG extends SDFGNode {
+
+    public get COLLAPSIBLE(): boolean {
+        return true;
+    }
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,

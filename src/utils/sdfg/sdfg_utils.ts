@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
+    CFGListType,
     DagreGraph,
     JsonSDFGBlock,
     JsonSDFGControlFlowRegion,
@@ -280,30 +281,45 @@ export function deletePositioningInfo(elem: any): void {
 }
 
 
-export function find_root_sdfg(
-    sdfgs: Iterable<number>, sdfg_tree: { [key: number]: number }
+export function findRootCFG(
+    cfgs: Iterable<number>, cfgTree: { [key: number]: number },
+    cfgList: CFGListType,
+    sdfgsOnly: boolean = false
 ): number | null {
-    const make_sdfg_path = (sdfg: number, array: Array<number>) => {
-        array.push(sdfg);
-        if (sdfg in sdfg_tree) {
-            make_sdfg_path(sdfg_tree[sdfg], array);
-        }
+    const makeCFGPath = (cfg: number, path: Array<number>) => {
+        path.push(cfg);
+        if (cfg in cfgTree)
+            makeCFGPath(cfgTree[cfg], path);
     };
-    let common_sdfgs: Array<number> | null = null;
-    for (const sid of sdfgs) {
-        const path: Array<number> = [];
-        make_sdfg_path(sid, path);
 
-        if (common_sdfgs === null)
-            common_sdfgs = path;
+    let commonCFGs: Array<number> | null = null;
+    for (const sid of cfgs) {
+        const path: Array<number> = [];
+        makeCFGPath(sid, path);
+
+        if (commonCFGs === null)
+            commonCFGs = path;
         else
-            common_sdfgs = [...common_sdfgs].filter(
+            commonCFGs = [...commonCFGs].filter(
                 (x: number) => path.includes(x)
             );
     }
+
     // Return the first one (greatest common denominator).
-    if (common_sdfgs && common_sdfgs.length > 0)
-        return common_sdfgs[0];
+    // If only looking for SDFGs, only return the first one that is of type
+    // SDFG.
+    if (commonCFGs && commonCFGs.length > 0) {
+        for (let i = 0; i < commonCFGs.length; i++) {
+            const cfgId = commonCFGs[i];
+            const cfg = cfgList[cfgId].jsonObj;
+            if (sdfgsOnly) {
+                if (cfg.type === 'SDFG')
+                    return cfgId;
+            } else {
+                return cfgId;
+            }
+        }
+    }
 
     // No root SDFG found.
     return null;
@@ -399,16 +415,4 @@ export function deleteCFGBlocks(
     } else {
         cfg.start_block = parseInt(mapping[cfg.start_block]);
     }
-}
-
-export function deleteCFGEdges(
-    cfg: JsonSDFGControlFlowRegion, edgeIds: number[],
-    deleteOthers: boolean = false
-): void {
-    edgeIds.sort((a, b) => (a - b));
-    let predicate: CallableFunction;
-    if (deleteOthers)
-        predicate = (ind: number) => edgeIds.includes(ind);
-    else
-        predicate = (ind: number) => !edgeIds.includes(ind);
 }
