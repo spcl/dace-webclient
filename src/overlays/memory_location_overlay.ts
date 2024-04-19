@@ -4,9 +4,12 @@ import { DagreGraph, Point2D, SimpleRect } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     AccessNode,
+    ControlFlowBlock,
+    ControlFlowRegion,
     NestedSDFG,
     SDFGElement,
-    SDFGNode
+    SDFGNode,
+    State
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
 import { KELLY_COLORS } from '../utils/utils';
@@ -180,15 +183,17 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
 
         let storageType = sdfgArray?.attributes?.storage;
         let originalType: StorageType | null = null;
-        if (storageType) {
-            if (storageType === StorageType.Default) {
-                const schedule =
-                    MemoryLocationOverlay.recursiveFindScopeSchedule(node);
-                const derivedStorageType = SCOPEDEFAULT_STORAGE.get(schedule);
-                if (derivedStorageType) {
-                    originalType = storageType;
-                    storageType = derivedStorageType;
-                }
+
+        if (!storageType)
+            storageType = StorageType.Default;
+
+        if (storageType === StorageType.Default) {
+            const schedule =
+                MemoryLocationOverlay.recursiveFindScopeSchedule(node);
+            const derivedStorageType = SCOPEDEFAULT_STORAGE.get(schedule);
+            if (derivedStorageType) {
+                originalType = storageType;
+                storageType = derivedStorageType;
             }
         }
         return {
@@ -219,32 +224,33 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
             node.shade(this.renderer, ctx, '#' + color);
     }
 
-    public recursivelyShadeSdfg(
+    public recursivelyShadeCFG(
         graph: DagreGraph,
         ctx: CanvasRenderingContext2D,
         ppp: number,
         visibleRect: SimpleRect
     ): void {
-        // First go over visible states, skipping invisible ones. We traverse
-        // inside to shade memory nodes wherever applicable.
+        // First go over visible control flow blocks, skipping invisible ones.
+        // We traverse inside to shade memory nodes wherever applicable.
         graph.nodes().forEach(v => {
-            const state = graph.node(v);
+            const block: ControlFlowBlock = graph.node(v);
 
             // If the node's invisible, we skip it.
-            if ((ctx as any).lod && !state.intersect(
+            if ((ctx as any).lod && !block.intersect(
                 visibleRect.x, visibleRect.y,
                 visibleRect.w, visibleRect.h
             ))
                 return;
 
             if (((ctx as any).lod && (ppp >= SDFV.STATE_LOD ||
-                state.width / ppp <= SDFV.STATE_LOD)) ||
-                state.data.state.attributes.is_collapsed) {
-                // The state is collapsed or invisible, so we don't need to
+                block.width / ppp <= SDFV.STATE_LOD)) ||
+                block.data.state?.attributes.is_collapsed ||
+                block.data.block?.attributes.is_collapsed) {
+                // The block is collapsed or invisible, so we don't need to
                 // traverse its insides.
                 return;
-            } else {
-                const stateGraph = state.data.graph;
+            } else if (block instanceof State) {
+                const stateGraph = block.data.graph;
                 if (stateGraph) {
                     stateGraph.nodes().forEach((v: any) => {
                         const node = stateGraph.node(v);
@@ -257,7 +263,7 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                         if (node instanceof NestedSDFG &&
                             node.attributes().sdfg &&
                             node.attributes().sdfg.type !== 'SDFGShell') {
-                            this.recursivelyShadeSdfg(
+                            this.recursivelyShadeCFG(
                                 node.data.graph, ctx, ppp, visibleRect
                             );
                         } else if (node instanceof AccessNode) {
@@ -265,6 +271,10 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                         }
                     });
                 }
+            } else if (block instanceof ControlFlowRegion) {
+                this.recursivelyShadeCFG(
+                    block.data.graph, ctx, ppp, visibleRect
+                );
             }
         });
     }
@@ -275,7 +285,7 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
         const context = this.renderer.get_context();
         const visibleRect = this.renderer.get_visible_rect();
         if (graph && ppp !== undefined && context && visibleRect)
-            this.recursivelyShadeSdfg(graph, context, ppp, visibleRect);
+            this.recursivelyShadeCFG(graph, context, ppp, visibleRect);
     }
 
     public on_mouse_event(
