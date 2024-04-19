@@ -39,7 +39,7 @@ import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { memletTreeComplete } from '../utils/sdfg/memlet_trees';
 import {
     check_and_redirect_edge, deletePositioningInfo, deleteSDFGNodes,
-    deleteCFGBlocks, find_exit_for_entry, find_graph_element_by_uuid,
+    deleteCFGBlocks, findExitForEntry, findGraphElementByUUID,
     getPositioningInfo, get_uuid_graph_element, findRootCFG
 } from '../utils/sdfg/sdfg_utils';
 import {
@@ -1033,7 +1033,7 @@ export class SDFGRenderer extends EventEmitter {
             const uuid = get_uuid_graph_element(this.selected_elements[0]);
             if (this.graph)
                 this.sdfv_instance.fill_info(
-                    find_graph_element_by_uuid(this.graph, uuid).element
+                    findGraphElementByUUID(this.cfgList, uuid)
                 );
         }
 
@@ -1892,12 +1892,12 @@ export class SDFGRenderer extends EventEmitter {
                         el_id = error.edge_id;
                 }
                 const sdfg_id = error.sdfg_id ?? 0;
-                const offending_element = find_graph_element_by_uuid(
-                    this.graph, sdfg_id + '/' + state_id + '/' + el_id + '/-1'
+                const problemElem = findGraphElementByUUID(
+                    this.cfgList, sdfg_id + '/' + state_id + '/' + el_id + '/-1'
                 );
-                if (offending_element) {
-                    if (offending_element.element)
-                        this.zoom_to_view([offending_element.element]);
+                if (problemElem) {
+                    if (problemElem && problemElem instanceof SDFGElement)
+                        this.zoom_to_view([problemElem]);
                     else
                         this.zoom_to_view([]);
 
@@ -4101,7 +4101,7 @@ function relayoutSDFGState(
         if ('is_collapsed' in node.attributes && node.attributes.is_collapsed &&
             node.type !== SDFGElementType.NestedSDFG &&
             node.type !== SDFGElementType.ExternalNestedSDFG)
-            node.attributes.layout.out_connectors = find_exit_for_entry(
+            node.attributes.layout.out_connectors = findExitForEntry(
                 state.nodes, node
             )?.attributes.out_connectors ?? [];
         else

@@ -11,60 +11,23 @@ import {
 } from '../../index';
 import {
     Edge,
-    NestedSDFG,
     SDFGElement,
     SDFGElementType,
     SDFGNode,
     State
 } from '../../renderer/renderer_elements';
 
-export function recursively_find_graph(
-    graph: DagreGraph,
-    graph_id: number,
-    ns_node: SDFGNode | undefined = undefined
-): { graph: DagreGraph | undefined, node: SDFGNode | undefined } {
-    if (graph.node('0').sdfg.cfg_list_id === graph_id) {
-        return {
-            graph: graph,
-            node: ns_node,
-        };
-    } else {
-        const result = {
-            graph: undefined,
-            node: undefined,
-        };
-        for (const state_id of graph.nodes()) {
-            const state = graph.node(state_id);
-            if (state.data.graph !== undefined && state.data.graph !== null)
-                for (const node_id of state.data.graph.nodes()) {
-                    const node = state.data.graph.node(node_id);
-                    if (node instanceof NestedSDFG) {
-                        const search_graph = recursively_find_graph(
-                            node.data.graph, graph_id, node
-                        );
-                        if (search_graph.graph !== undefined) {
-                            return search_graph;
-                        }
-                    }
-                }
-        }
-        return result;
-    }
-}
-
-
-export function find_exit_for_entry(
-    nodes: JsonSDFGNode[], entry_node: JsonSDFGNode
+export function findExitForEntry(
+    nodes: JsonSDFGNode[], entryNode: JsonSDFGNode
 ): JsonSDFGNode | null {
     for (const n of nodes) {
         if (n.type.endsWith('Exit') && n.scope_entry &&
-            parseInt(n.scope_entry) == entry_node.id)
+            parseInt(n.scope_entry) == entryNode.id)
             return n;
     }
     console.warn('Did not find corresponding exit');
     return null;
 }
-
 
 /**
  * Return the string UUID for an SDFG graph element.
@@ -137,74 +100,40 @@ export function check_and_redirect_edge(
     return new_edge;
 }
 
-export function find_graph_element_by_uuid(
-    p_graph: DagreGraph | undefined | null, uuid: string
-): { parent: DagreGraph | undefined, element: any } {
-    const uuid_split = uuid.split('/');
-    console.log('Trying to find:', uuid);
+export function findGraphElementByUUID(
+    cfgList: CFGListType, uuid: string
+): SDFGElement | DagreGraph | null {
+    const uuidParts = uuid.split('/');
 
-    const graph_id = Number(uuid_split[0]);
-    const state_id = Number(uuid_split[1]);
-    const node_id = Number(uuid_split[2]);
-    const edge_id: any = Number(uuid_split[3]);
+    const cfgId = uuidParts[0];
+    const stateId = uuidParts[1];
+    const nodeId = uuidParts[2];
+    const edgeId = uuidParts[3];
 
-    let result: {
-        parent: DagreGraph | undefined,
-        element: any,
-    } = {
-        parent: undefined,
-        element: undefined,
-    };
+    if (!(cfgId in cfgList))
+        return null;
 
-    if (!p_graph)
-        return result;
+    const graph = cfgList[cfgId].graph;
 
-    let graph = p_graph;
-    if (graph_id > 0) {
-        const found_graph = recursively_find_graph(graph, graph_id);
-        if (found_graph.graph === undefined)
-            throw new Error();
+    let state = null;
+    if (stateId !== '-1' && graph !== undefined)
+        state = graph.node(stateId);
 
-        graph = found_graph.graph;
-        result = {
-            parent: graph,
-            element: found_graph.node,
-        };
-    }
+    let element = null;
+    if (nodeId !== '-1' && state !== null && state.data.graph !== null)
+        element = state.data.graph.node(nodeId); // SDFG Dataflow graph node
+    else if (edgeId !== '-1' && state !== null && state.data.graph !== null)
+        element = state.data.graph.edge(edgeId); // Memlet
+    else if (edgeId !== '-1' && state === null)
+        element = graph.edge(edgeId as any); // Interstate edge
 
-    let state = undefined;
-    if (state_id !== -1 && graph !== undefined) {
-        state = graph.node(state_id.toString());
-        result = {
-            parent: graph,
-            element: state,
-        };
-    }
-
-    if (node_id !== -1 && state !== undefined && state.data.graph !== null) {
-        // Look for a node in a state.
-        result = {
-            parent: state.data.graph,
-            element: state.data.graph.node(node_id),
-        };
-    } else if (
-        edge_id !== -1 && state !== undefined &&
-        state.data.graph !== null
-    ) {
-        // Look for an edge in a state.
-        result = {
-            parent: state.data.graph,
-            element: state.data.graph.edge(edge_id),
-        };
-    } else if (edge_id !== -1 && state === undefined) {
-        // Look for an inter-state edge.
-        result = {
-            parent: graph,
-            element: graph.edge(edge_id),
-        };
-    }
-
-    return result;
+    if (element)
+        return element;
+    if (state)
+        return state;
+    if (graph)
+        return graph;
+    return null;
 }
 
 /**

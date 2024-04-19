@@ -241,9 +241,9 @@ export class SDFV {
         this.sidebar_show();
     }
 
-    public fill_info(elem: SDFGElement): void {
+    public fill_info(elem: SDFGElement | DagreGraph | null): void {
         const contentsRaw = this.sidebar_get_contents();
-        if (!contentsRaw)
+        if (!contentsRaw || !elem || !(elem instanceof SDFGElement))
             return;
         const contents = $(contentsRaw);
         contents.html('');
