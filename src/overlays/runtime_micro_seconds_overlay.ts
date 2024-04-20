@@ -9,7 +9,7 @@ import { getTempColorHslString, get_element_uuid } from '../utils/utils';
 import {
     GenericSdfgOverlay,
     OverlayType,
-    RuntimeReportOverlay
+    RuntimeReportOverlay,
 } from './generic_sdfg_overlay';
 
 
@@ -20,7 +20,7 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
         RuntimeMicroSecondsOverlay;
 
     protected criterium: string = 'mean';
-    private runtime_map: { [uuids: string]: any } = {}
+    private runtime_map: { [uuids: string]: any } = {};
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
@@ -74,19 +74,19 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
         const mousepos = this.renderer.get_mousepos();
         if (mousepos && node.intersect(mousepos.x, mousepos.y)) {
             // Show the measured runtime.
-            if (rt_summary['min'] === rt_summary['max'])
+            if (rt_summary['min'] === rt_summary['max']) {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
+                    if (tt_cont) {
                         tt_cont.innerText = this.pretty_print_micros(
                             rt_summary['min']
                         );
+                    }
                 });
-
-            else
+            } else {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
+                    if (tt_cont) {
                         tt_cont.innerText = (
                             'Min: ' +
                             this.pretty_print_micros(rt_summary['min']) +
@@ -99,12 +99,14 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
                             '\nCount: ' +
                             rt_summary['count']
                         );
+                    }
                 });
+            }
         }
 
         // Calculate the severity color.
         const micros = rt_summary[this.criterium];
-        const color = getTempColorHslString(this.get_severity_value(micros));
+        const color = getTempColorHslString(this.getSeverityValue(micros));
 
         node.shade(this.renderer, ctx, color);
     }

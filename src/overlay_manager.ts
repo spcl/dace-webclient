@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { MathNode, parse, SymbolNode } from 'mathjs';
 import { Point2D, SymbolMap } from './index';
@@ -23,12 +23,14 @@ export class SymbolResolver {
         Object.keys(this.sdfg.attributes.symbols ?? []).forEach((s) => {
             if (this.sdfg.attributes.constants_prop !== undefined &&
                 Object.keys(this.sdfg.attributes.constants_prop).includes(s) &&
-                this.sdfg.attributes.constants_prop[s][0]['type'] === 'Scalar')
+                this.sdfg.attributes.constants_prop[s][0]['type'] ===
+                    'Scalar') {
                 this.symbol_value_map[s] = this.sdfg.attributes.constants_prop[
                     s
                 ][1];
-            else
+            } else {
                 this.symbol_value_map[s] = undefined;
+            }
         });
 
         this.init_overlay_popup_dialogue();

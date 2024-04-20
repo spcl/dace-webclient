@@ -1,10 +1,10 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 export class DataDimension {
 
     constructor(
         public readonly name: string,
-        public readonly value: number,
+        public readonly value: number
     ) {
     }
 

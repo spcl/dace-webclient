@@ -6,11 +6,9 @@ import {
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGNode,
-    JsonSDFGState
+    JsonSDFGState,
 } from '../../index';
-import {
-    SDFGElementType
-} from '../../renderer/renderer_elements';
+import { SDFGElementType } from '../../renderer/renderer_elements';
 
 
 /**
@@ -25,9 +23,8 @@ export function memletTreeNested(
     visitedEdges: JsonSDFGEdge[] = []
 ): any[] {
     if (visitedEdges.includes(edge) ||
-        edge.attributes.data.attributes.shortcut) {
+        edge.attributes.data.attributes.shortcut)
         return [];
-    }
 
     visitedEdges.push(edge);
 
@@ -204,13 +201,13 @@ export function memletTreeRecursive(
             const state: JsonSDFGState = block as JsonSDFGState;
             state.edges.forEach((e: JsonSDFGEdge) => {
                 const tree = memletTreeNested(sdfg, state, e, visitedEdges);
-                if (tree.length > 1) {
+                if (tree.length > 1)
                     trees.push(tree);
-                }
             });
 
             state.nodes.forEach((n: JsonSDFGNode) => {
-                if (n.type == SDFGElementType.NestedSDFG && n.attributes.sdfg) {
+                if (n.type === SDFGElementType.NestedSDFG &&
+                    n.attributes.sdfg) {
                     const t = memletTreeRecursive(n.attributes.sdfg, sdfg);
                     trees = trees.concat(t);
                 }
@@ -227,7 +224,7 @@ export function memletTreeRecursive(
 
 /**
  * Returns all memlet trees as sets for the given graph.
- * 
+ *
  * @param {JsonSDFG} sdfg The top level SDFG.
  */
 export function memletTreeComplete(sdfg: JsonSDFG): any[] {

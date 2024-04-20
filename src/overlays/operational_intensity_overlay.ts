@@ -6,7 +6,7 @@ import {
     Edge,
     NestedSDFG,
     SDFGElement,
-    SDFGNode
+    SDFGNode,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
 import { getTempColorHslString, get_element_uuid } from '../utils/utils';
@@ -51,10 +51,11 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
 
         const flops_string = this.flops_map[get_element_uuid(node)];
         let flops = undefined;
-        if (flops_string !== undefined)
-            flops = this.symbol_resolver.parse_symbol_expression(
+        if (flops_string !== undefined) {
+            flops = this.symbolResolver.parse_symbol_expression(
                 flops_string, symbol_map
             );
+        }
 
         node.data.flops_string = flops_string;
         node.data.flops = flops;
@@ -84,10 +85,11 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                 volume = edge.attributes.data.volume;
             }
 
-            if (volume_string !== undefined)
-                volume = this.symbol_resolver.parse_symbol_expression(
+            if (volume_string !== undefined) {
+                volume = this.symbolResolver.parse_symbol_expression(
                     volume_string, symbol_map
                 );
+            }
 
             edge.attributes.data.volume = volume;
 
@@ -139,7 +141,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol: string) => {
                             nested_symbols_map[symbol] =
-                                this.symbol_resolver.parse_symbol_expression(
+                                this.symbolResolver.parse_symbol_expression(
                                     mapping[symbol],
                                     symbol_map
                                 );
@@ -179,7 +181,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         const flops_values: number[] = [];
         this.calculate_opint_graph(
             graph,
-            this.symbol_resolver.get_symbol_value_map(),
+            this.symbolResolver.get_symbol_value_map(),
             flops_values
         );
 
@@ -225,7 +227,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
             return;
 
         // Calculate the severity color.
-        const color = getTempColorHslString(this.get_severity_value(opint));
+        const color = getTempColorHslString(this.getSeverityValue(opint));
 
         node.shade(this.renderer, ctx, color);
     }
@@ -310,9 +312,9 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                         get_element_uuid(foreground_elem)
                     ];
                     if (flops_string) {
-                        this.symbol_resolver.parse_symbol_expression(
+                        this.symbolResolver.parse_symbol_expression(
                             flops_string,
-                            this.symbol_resolver.get_symbol_value_map(),
+                            this.symbolResolver.get_symbol_value_map(),
                             true,
                             () => {
                                 this.clear_cached_values();

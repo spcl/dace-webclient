@@ -21,7 +21,7 @@ import {
     SDFVTooltipFunc,
     SimpleRect,
     checkCompatSave,
-    stringify_sdfg
+    stringify_sdfg,
 } from '../index';
 import { SMLayouter } from '../layouter/state_machine/sm_layouter';
 import { LViewLayouter } from '../local_view/lview_layouter';
@@ -33,18 +33,16 @@ import { SDFV, reload_file } from '../sdfv';
 import {
     boundingBox,
     calculateBoundingBox,
-    calculateEdgeBoundingBox
+    calculateEdgeBoundingBox,
 } from '../utils/bounding_box';
 import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { memletTreeComplete } from '../utils/sdfg/memlet_trees';
 import {
     check_and_redirect_edge, deletePositioningInfo, deleteSDFGNodes,
     deleteCFGBlocks, findExitForEntry, findGraphElementByUUID,
-    getPositioningInfo, getGraphElementUUID, findRootCFG
+    getPositioningInfo, getGraphElementUUID, findRootCFG,
 } from '../utils/sdfg/sdfg_utils';
-import {
-    traverseSDFGScopes
-} from '../utils/sdfg/traversal';
+import { traverseSDFGScopes } from '../utils/sdfg/traversal';
 import { SDFVSettings } from '../utils/sdfv_settings';
 import { deepCopy, intersectRect, showErrorModal } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
@@ -62,7 +60,7 @@ import {
     Tasklet,
     drawSDFG,
     offset_sdfg,
-    offset_state
+    offset_state,
 } from './renderer_elements';
 
 // External, non-typescript libraries which are presented as previously loaded
@@ -156,6 +154,7 @@ export interface SDFGRendererEvent {
     ) => void;
 }
 
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 export interface SDFGRenderer {
 
     on<U extends keyof SDFGRendererEvent>(
@@ -168,6 +167,7 @@ export interface SDFGRenderer {
 
 }
 
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 export class SDFGRenderer extends EventEmitter {
 
     protected cfgList: CFGListType = {};
@@ -395,10 +395,11 @@ export class SDFGRenderer extends EventEmitter {
                     this.movemode_btn.classList.add('selected');
                 if (this.interaction_info_box)
                     this.interaction_info_box.style.display = 'block';
-                if (this.interaction_info_text)
+                if (this.interaction_info_text) {
                     this.interaction_info_text.innerHTML =
                         'Middle Mouse: Pan view<br>' +
                         'Right Click: Reset position';
+                }
                 break;
             case 'select':
                 if (this.selectmode_btn)
@@ -406,14 +407,15 @@ export class SDFGRenderer extends EventEmitter {
                 if (this.interaction_info_box)
                     this.interaction_info_box.style.display = 'block';
                 if (this.interaction_info_text) {
-                    if (this.ctrl_key_selection)
+                    if (this.ctrl_key_selection) {
                         this.interaction_info_text.innerHTML =
                             'Middle Mouse: Pan view';
-                    else
+                    } else {
                         this.interaction_info_text.innerHTML =
                             'Shift: Add to selection<br>' +
                             'Ctrl: Remove from selection<br>' +
                             'Middle Mouse: Pan view';
+                    }
                 }
                 break;
             case 'add':
@@ -421,16 +423,17 @@ export class SDFGRenderer extends EventEmitter {
                     this.interaction_info_box.style.display = 'block';
                 if (this.interaction_info_text) {
                     if (this.add_type === 'Edge') {
-                        if (this.add_edge_start)
+                        if (this.add_edge_start) {
                             this.interaction_info_text.innerHTML =
                                 'Left Click: Select second element (to)<br>' +
                                 'Middle Mouse: Pan view<br>' +
                                 'Right Click / Esc: Abort';
-                        else
+                        } else {
                             this.interaction_info_text.innerHTML =
                                 'Left Click: Select first element (from)<br>' +
                                 'Middle Mouse: Pan view<br>' +
                                 'Right Click / Esc: Abort';
+                        }
                     } else {
                         this.interaction_info_text.innerHTML =
                             'Left Click: Place element<br>' +
@@ -455,7 +458,6 @@ export class SDFGRenderer extends EventEmitter {
         background: string | null,
         mode_buttons: ModeButtons | undefined | null
     ): void {
-
         this.canvas = document.createElement('canvas');
         this.canvas.classList.add('sdfg_canvas');
         if (background)
@@ -507,7 +509,7 @@ export class SDFGRenderer extends EventEmitter {
                     position: 'absolute',
                     top: '10px',
                     left: '10px',
-                }
+                },
             });
             this.container.appendChild(this.toolbar[0]);
 
@@ -651,11 +653,10 @@ export class SDFGRenderer extends EventEmitter {
                 html: '<i class="material-icons">unfold_less</i>',
                 title: 'Collapse next level (Shift+click to collapse all)',
                 click: (e: MouseEvent) => {
-                    if (e.shiftKey) {
+                    if (e.shiftKey)
                         this.collapseAll();
-                    } else {
+                    else
                         this.collapseNextLevel();
-                    }
                 },
             }).appendTo(this.toolbar);
 
@@ -665,11 +666,10 @@ export class SDFGRenderer extends EventEmitter {
                 html: '<i class="material-icons">unfold_more</i>',
                 title: 'Expand next level (Shift+click to expand all)',
                 click: (e: MouseEvent) => {
-                    if (e.shiftKey) {
+                    if (e.shiftKey)
                         this.expandAll();
-                    } else {
+                    else
                         this.expandNextLevel();
-                    }
                 },
             }).appendTo(this.toolbar);
 
@@ -733,7 +733,7 @@ export class SDFGRenderer extends EventEmitter {
             }
 
             // Enter pan mode
-            if (this.panmode_btn)
+            if (this.panmode_btn) {
                 this.panmode_btn.onclick = () => {
                     this.mouse_mode = 'pan';
                     this.add_type = null;
@@ -742,6 +742,7 @@ export class SDFGRenderer extends EventEmitter {
                     this.add_edge_start_conn = null;
                     this.update_toggle_buttons();
                 };
+            }
 
             // Enter object moving mode
             if (this.movemode_btn) {
@@ -766,7 +767,7 @@ export class SDFGRenderer extends EventEmitter {
             }
 
             // Enter box selection mode
-            if (this.selectmode_btn)
+            if (this.selectmode_btn) {
                 this.selectmode_btn.onclick = (
                     _: MouseEvent, ctrl_click: boolean | undefined = undefined
                 ): void => {
@@ -785,6 +786,7 @@ export class SDFGRenderer extends EventEmitter {
                     );
                     this.update_toggle_buttons();
                 };
+            }
 
             // React to ctrl and shift key presses
             document.addEventListener('keydown', (e) => this.onKeyEvent(e));
@@ -900,8 +902,8 @@ export class SDFGRenderer extends EventEmitter {
             this.bgcolor = window.getComputedStyle(this.canvas).backgroundColor;
 
         // Create the initial SDFG layout
-        // Loading animation already started in the file_read_complete function in sdfv.ts
-        // to also include the JSON parsing step.
+        // Loading animation already started in the file_read_complete function
+        // in sdfv.ts to also include the JSON parsing step.
         this.updateCFGList();
         this.relayout();
 
@@ -1050,10 +1052,11 @@ export class SDFGRenderer extends EventEmitter {
         // Update info box
         if (this.selected_elements.length === 1) {
             const uuid = getGraphElementUUID(this.selected_elements[0]);
-            if (this.graph)
+            if (this.graph) {
                 this.sdfv_instance.fill_info(
                     findGraphElementByUUID(this.cfgList, uuid)
                 );
+            }
         }
 
         if (layout) {
@@ -1063,7 +1066,7 @@ export class SDFGRenderer extends EventEmitter {
             setTimeout(() => {
                 this.relayout();
             }, 10);
-            
+
             this.draw_async();
         }
     }
@@ -1088,8 +1091,16 @@ export class SDFGRenderer extends EventEmitter {
 
         // Mouse handler event types
         for (const evtype of [
-            'mousedown', 'mousemove', 'mouseup', 'touchstart', 'touchmove',
-            'touchend', 'wheel', 'click', 'dblclick', 'contextmenu'
+            'mousedown',
+            'mousemove',
+            'mouseup',
+            'touchstart',
+            'touchmove',
+            'touchend',
+            'wheel',
+            'click',
+            'dblclick',
+            'contextmenu',
         ]) {
             canvas?.addEventListener(evtype, x => {
                 const cancelled = this.on_mouse_event(
@@ -1120,9 +1131,8 @@ export class SDFGRenderer extends EventEmitter {
         this.all_memlet_trees = [];
         for (const tree of this.all_memlet_trees_sdfg) {
             const s = new Set<any>();
-            for (const edge of tree) {
+            for (const edge of tree)
                 s.add(edge.attributes.data.edge);
-            }
             this.all_memlet_trees.push(s);
         }
     }
@@ -1133,16 +1143,16 @@ export class SDFGRenderer extends EventEmitter {
     public add_loading_animation() {
         const info_field = document.getElementById('task-info-field');
         if (info_field && info_field.innerHTML === '') {
-            const loaderDiv = document.createElement("div");
-            loaderDiv.classList.add("loader");
+            const loaderDiv = document.createElement('div');
+            loaderDiv.classList.add('loader');
             info_field.appendChild(loaderDiv);
         }
         const info_field_settings = document.getElementById(
             'task-info-field-settings'
         );
         if (info_field_settings && info_field_settings.innerHTML === '') {
-            const loaderDiv = document.createElement("div");
-            loaderDiv.classList.add("loader");
+            const loaderDiv = document.createElement('div');
+            loaderDiv.classList.add('loader');
             info_field_settings.appendChild(loaderDiv);
         }
     }
@@ -1175,15 +1185,13 @@ export class SDFGRenderer extends EventEmitter {
 
         // Remove loading animation
         const info_field = document.getElementById('task-info-field');
-        if (info_field) {
-            info_field.innerHTML = "";
-        }
+        if (info_field)
+            info_field.innerHTML = '';
         const info_field_settings = document.getElementById(
             'task-info-field-settings'
         );
-        if (info_field_settings) {
-            info_field_settings.innerHTML = "";
-        }
+        if (info_field_settings)
+            info_field_settings.innerHTML = '';
 
         return this.graph;
     }
@@ -1207,9 +1215,8 @@ export class SDFGRenderer extends EventEmitter {
                         scope_dx += sp.scope_dx;
                         scope_dy += sp.scope_dy;
                     }
-                    if (scope_entry_node) {
+                    if (scope_entry_node)
                         addScopeMovement(scope_entry_node);
-                    }
                 }
             }
 
@@ -1228,12 +1235,13 @@ export class SDFGRenderer extends EventEmitter {
 
             if (dx || dy) {
                 // Move the element
-                if (this.graph)
+                if (this.graph) {
                     this.canvas_manager?.translate_element(
                         node, { x: node.x, y: node.y },
                         { x: node.x + dx, y: node.y + dy }, this.graph,
                         this.cfgList, this.state_parent_list, undefined, false
                     );
+                }
             }
 
             // Move edges (outgoing only)
@@ -1262,13 +1270,14 @@ export class SDFGRenderer extends EventEmitter {
                 }
                 if (final_pos_d) {
                     // Move the element
-                    if (this.graph)
+                    if (this.graph) {
                         this.canvas_manager?.translate_element(
                             edge, { x: 0, y: 0 },
                             { x: 0, y: 0 }, this.graph, this.cfgList,
                             this.state_parent_list, undefined, false, false,
                             final_pos_d
                         );
+                    }
                 }
             });
             return true;
@@ -1290,11 +1299,12 @@ export class SDFGRenderer extends EventEmitter {
         }
 
         let paddingAbs = 0;
-        if (padding > 0 && this.canvas)
+        if (padding > 0 && this.canvas) {
             paddingAbs = Math.min(
                 (this.canvas.width / 100) * padding,
                 (this.canvas.height / 100) * padding
             );
+        }
 
         const bb = boundingBox(elements, paddingAbs);
         this.canvas_manager?.set_view(bb, animate);
@@ -1390,7 +1400,7 @@ export class SDFGRenderer extends EventEmitter {
             this.emit('collapse_state_changed', false, true);
 
             this.add_loading_animation();
-            // Use timeout function with low delay to force the browser 
+            // Use timeout function with low delay to force the browser
             // to reload the dom with the above loader element.
             setTimeout(() => {
                 this.relayout();
@@ -1412,7 +1422,7 @@ export class SDFGRenderer extends EventEmitter {
         this.emit('collapse_state_changed', true, true);
 
         this.add_loading_animation();
-        // Use timeout function with low delay to force the browser 
+        // Use timeout function with low delay to force the browser
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
@@ -1438,7 +1448,7 @@ export class SDFGRenderer extends EventEmitter {
         this.emit('collapse_state_changed', false, true);
 
         this.add_loading_animation();
-        // Use timeout function with low delay to force the browser 
+        // Use timeout function with low delay to force the browser
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
@@ -1459,7 +1469,7 @@ export class SDFGRenderer extends EventEmitter {
         this.emit('collapse_state_changed', false, true);
 
         this.add_loading_animation();
-        // Use timeout function with low delay to force the browser 
+        // Use timeout function with low delay to force the browser
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
@@ -1478,12 +1488,12 @@ export class SDFGRenderer extends EventEmitter {
         this.emit('element_position_changed', 'reset');
 
         this.add_loading_animation();
-        // Use timeout function with low delay to force the browser 
+        // Use timeout function with low delay to force the browser
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
         }, 10);
-        
+
         this.draw_async();
     }
 
@@ -1531,11 +1541,11 @@ export class SDFGRenderer extends EventEmitter {
     public save_as_pdf(save_all = false): void {
         this.add_loading_animation();
 
-        // Use setTimeout to force browser to update the DOM with the above loading animation
+        // Use setTimeout to force browser to update the DOM with the above
+        // loading animation.
         setTimeout(() => {
-            
             const stream = blobStream();
-    
+
             // Compute document size
             const curx = this.canvas_manager?.mapPixelToCoordsX(0);
             const cury = this.canvas_manager?.mapPixelToCoordsY(0);
@@ -1564,19 +1574,17 @@ export class SDFGRenderer extends EventEmitter {
                 const curh = (endy ? endy : 0) - (cury ? cury : 0);
                 size = [curw, curh];
             }
-    
-            const ctx = new canvas2pdf.PdfContext(stream, {
-                size: size
-            });
+
+            const ctx = new canvas2pdf.PdfContext(stream, { size: size });
             const oldctx = this.ctx;
             this.ctx = ctx;
-            
-            // Necessary for "what you see is what you get" in the exported pdf file
+
+            // Necessary for "what you see is what you get" in the exported pdf
+            // file.
             if (!save_all && (oldctx as any).lod) {
                 // User wants to save the view "as is" with details hidden
                 (this.ctx as any).lod = true;
-            }
-            else {
+            } else {
                 // User wants to save all details in the view
                 (this.ctx as any).lod = false;
             }
@@ -1584,23 +1592,25 @@ export class SDFGRenderer extends EventEmitter {
             // Center on saved region
             if (!save_all)
                 this.ctx?.translate(-(curx ? curx : 0), -(cury ? cury : 0));
-    
+
             this.draw_async();
 
             ctx.stream.on('finish', () => {
                 const name = this.sdfg.attributes.name;
-                this.save(name + '.pdf', ctx.stream.toBlobURL('application/pdf'));
+                this.save(
+                    name + '.pdf', ctx.stream.toBlobURL('application/pdf')
+                );
                 this.ctx = oldctx;
                 this.draw_async();
                 // Remove loading animation
                 const info_field = document.getElementById('task-info-field');
-                if (info_field) {
-                    info_field.innerHTML = "";
-                }
-                const info_field_settings = document.getElementById('task-info-field-settings');
-                if (info_field_settings) {
-                    info_field_settings.innerHTML = "";
-                }
+                if (info_field)
+                    info_field.innerHTML = '';
+                const info_field_settings = document.getElementById(
+                    'task-info-field-settings'
+                );
+                if (info_field_settings)
+                    info_field_settings.innerHTML = '';
             });
         }, 10);
     }
@@ -1701,7 +1711,7 @@ export class SDFGRenderer extends EventEmitter {
             targetHeight = Math.floor(this.canvas.height * maxPercentage);
         if (targetWidth > this.canvas.width * maxPercentage)
             targetWidth = Math.floor(this.canvas.width * maxPercentage);
-        
+
         // Prevent forced style reflow if nothing changed
         // Can save about 0.5ms of computation
         if (this.minimap_canvas.height !== targetHeight) {
@@ -1739,7 +1749,7 @@ export class SDFGRenderer extends EventEmitter {
 
         // Don't draw Interstate edges in the minimap:
         // Small optimization thats can save ~1ms in computation
-        // The performance problem comes from the edges and their 
+        // The performance problem comes from the edges and their
         // labels which are also drawn.
 
         // this.graph.edges().forEach(x => {
@@ -1803,7 +1813,7 @@ export class SDFGRenderer extends EventEmitter {
             x: curx ? curx : 0,
             y: cury ? cury : 0,
             w: curw,
-            h: curh
+            h: curh,
         };
 
         this.on_pre_draw();
@@ -2035,8 +2045,12 @@ export class SDFGRenderer extends EventEmitter {
         x: number, y: number, w: number, h: number
     ): { [key: string]: GraphElementInfo[] } {
         const elements: any = {
-            states: [], nodes: [], connectors: [],
-            edges: [], isedges: [], controlFlowRegions: [],
+            states: [],
+            nodes: [],
+            connectors: [],
+            edges: [],
+            isedges: [],
+            controlFlowRegions: [],
             controlFlowBlocks: [],
         };
         this.doForIntersectedElements(
@@ -2117,7 +2131,7 @@ export class SDFGRenderer extends EventEmitter {
                             // Connectors
                             node.in_connectors.forEach(
                                 (c: Connector, i: number) => {
-                                    if (c.intersect(x, y, w, h))
+                                    if (c.intersect(x, y, w, h)) {
                                         func(
                                             'connectors',
                                             {
@@ -2127,15 +2141,16 @@ export class SDFGRenderer extends EventEmitter {
                                                 cfgId: cfg.cfg_list_id,
                                                 stateId: blockId,
                                                 connector: i,
-                                                conntype: 'in'
+                                                conntype: 'in',
                                             },
                                             c
                                         );
+                                    }
                                 }
                             );
                             node.out_connectors.forEach(
                                 (c: Connector, i: number) => {
-                                    if (c.intersect(x, y, w, h))
+                                    if (c.intersect(x, y, w, h)) {
                                         func(
                                             'connectors',
                                             {
@@ -2145,10 +2160,11 @@ export class SDFGRenderer extends EventEmitter {
                                                 cfgId: cfg.cfg_list_id,
                                                 stateId: blockId,
                                                 connector: i,
-                                                conntype: 'out'
+                                                conntype: 'out',
                                             },
                                             c
                                         );
+                                    }
                                 }
                             );
                         });
@@ -2233,10 +2249,11 @@ export class SDFGRenderer extends EventEmitter {
 
                         // If nested SDFG, traverse recursively
                         if (node.type === SDFGElementType.NestedSDFG &&
-                            node.attributes.sdfg)
+                            node.attributes.sdfg) {
                             doRecursive(
                                 node.attributes.sdfg, node.attributes.sdfg
                             );
+                        }
                     });
 
                     // Edges
@@ -2332,12 +2349,14 @@ export class SDFGRenderer extends EventEmitter {
                         );
 
                         // If nested SDFG, traverse recursively
-                        if (node.data.node.type === SDFGElementType.NestedSDFG)
+                        if (node.data.node.type ===
+                            SDFGElementType.NestedSDFG) {
                             doRecursive(
                                 node.data.graph,
                                 node.data.node.attributes.sdfg,
                                 node.data.node.attributes.sdfg
                             );
+                        }
 
                         // Connectors
                         node.in_connectors.forEach(
@@ -2350,7 +2369,7 @@ export class SDFGRenderer extends EventEmitter {
                                         cfgId: cfg.cfg_list_id,
                                         stateId: blockId,
                                         connector: i,
-                                        conntype: 'in'
+                                        conntype: 'in',
                                     }, c
                                 );
                             }
@@ -2441,9 +2460,10 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     public getNestedMemletTree(edge: Edge): Set<Edge> {
-        for (const tree of this.all_memlet_trees)
+        for (const tree of this.all_memlet_trees) {
             if (tree.has(edge))
                 return tree;
+        }
         return new Set<Edge>();
     }
 
@@ -2548,10 +2568,11 @@ export class SDFGRenderer extends EventEmitter {
                     continue;
                 } else if (e instanceof Memlet) {
                     const state: JsonSDFGState = e.parentElem?.data.state;
-                    if (state)
+                    if (state) {
                         state.edges = state.edges.filter(
                             (_, ind: number) => ind !== e.id
                         );
+                    }
                 } else if (e instanceof InterstateEdge) {
                     if (!e.parentElem ||
                           (e.parentElem && e.parentElem instanceof SDFG)) {
@@ -2566,11 +2587,10 @@ export class SDFGRenderer extends EventEmitter {
                     }
                 } else if (e instanceof State) {
                     if (e.parentElem &&
-                        e.parentElem instanceof ControlFlowRegion) {
+                        e.parentElem instanceof ControlFlowRegion)
                         deleteCFGBlocks(e.parentElem.data.block, [e.id]);
-                    } else {
+                    else
                         deleteCFGBlocks(e.sdfg, [e.id]);
-                    }
                 } else {
                     deleteSDFGNodes(e.sdfg, e.parent_id!, [e.id]);
                 }
@@ -2597,8 +2617,8 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     // Checks if pan mouse movement is in the bounds of the graph.
-    // Takes the current visible_rect as input and computes if its center is 
-    // within the graph bounds. The pan mouse movement (movX, movY) is 
+    // Takes the current visible_rect as input and computes if its center is
+    // within the graph bounds. The pan mouse movement (movX, movY) is
     // corrected accordingly to have a smooth view pan blocking.
     // Returns: corrected movement x/y coordinates to input into
     // this.canvas_manager?.translate()
@@ -2607,7 +2627,7 @@ export class SDFGRenderer extends EventEmitter {
     ) {
         const visible_rectCenter = {
             x: (visible_rect.x + (visible_rect.w / 2)),
-            y: (visible_rect.y + (visible_rect.h / 2))
+            y: (visible_rect.y + (visible_rect.h / 2)),
         };
 
         const graphLimits = {
@@ -2635,19 +2655,17 @@ export class SDFGRenderer extends EventEmitter {
         // Take uncorrected mouse event movement as default
         const correctedMovement = {
             x: movX,
-            y: movY
+            y: movY,
         };
 
         // Correct mouse movement if necessary
-        if ((outofboundsX === -1 && correctedMovement.x > 0) || 
-            (outofboundsX === 1 && correctedMovement.x < 0)) {
+        if ((outofboundsX === -1 && correctedMovement.x > 0) ||
+            (outofboundsX === 1 && correctedMovement.x < 0))
             correctedMovement.x = 0;
-        }
-        if ((outofboundsY === -1 && correctedMovement.y > 0) || 
-            (outofboundsY === 1 && correctedMovement.y < 0)) {
+        if ((outofboundsY === -1 && correctedMovement.y > 0) ||
+            (outofboundsY === 1 && correctedMovement.y < 0))
             correctedMovement.y = 0;
-        }
-        
+
         return correctedMovement;
     }
 
@@ -2687,7 +2705,7 @@ export class SDFGRenderer extends EventEmitter {
             const old_mousepos = this.mousepos;
             this.mousepos = {
                 x: comp_x_func(event),
-                y: comp_y_func(event)
+                y: comp_y_func(event),
             };
             this.realmousepos = { x: event.clientX, y: event.clientY };
 
@@ -2742,7 +2760,7 @@ export class SDFGRenderer extends EventEmitter {
 
                         const move_entire_edge = elements_to_move.length > 1;
                         for (const el of elements_to_move) {
-                            if (old_mousepos)
+                            if (old_mousepos) {
                                 this.canvas_manager?.translate_element(
                                     el, old_mousepos, this.mousepos,
                                     this.graph, this.cfgList,
@@ -2751,6 +2769,7 @@ export class SDFGRenderer extends EventEmitter {
                                     true,
                                     move_entire_edge
                                 );
+                            }
                         }
 
                         dirty = true;
@@ -2780,12 +2799,10 @@ export class SDFGRenderer extends EventEmitter {
                     // Mark for redraw
                     dirty = true;
                 } else {
-                    
                     // Mouse move in panning mode
                     if (this.visible_rect) {
-
                         // Check if mouse panning is in bounds (near graph)
-                        // and restrict/correct it 
+                        // and restrict/correct it.
                         const correctedMovement = this.pan_movement_in_bounds(
                             this.visible_rect, event.movementX, event.movementY
                         );
@@ -2797,15 +2814,13 @@ export class SDFGRenderer extends EventEmitter {
                         // Mark for redraw
                         dirty = true;
                     }
-                    
                 }
             } else if (this.drag_start && event.buttons & 4) {
                 // Pan the view with the middle mouse button
                 this.dragging = true;
                 if (this.visible_rect) {
-
                     // Check if mouse panning is in bounds (near graph)
-                    // and restrict/correct it 
+                    // and restrict/correct it.
                     const correctedMovement = this.pan_movement_in_bounds(
                         this.visible_rect, event.movementX, event.movementY
                     );
@@ -2828,12 +2843,17 @@ export class SDFGRenderer extends EventEmitter {
                 this.drag_start = event;
             } else if (event.touches.length === 1) { // Move/drag
                 if (this.visible_rect) {
-
-                    const movX = event.touches[0].clientX - this.drag_start.touches[0].clientX;
-                    const movY = event.touches[0].clientY - this.drag_start.touches[0].clientY;
+                    const movX = (
+                        event.touches[0].clientX -
+                        this.drag_start.touches[0].clientX
+                    );
+                    const movY = (
+                        event.touches[0].clientY -
+                        this.drag_start.touches[0].clientY
+                    );
 
                     // Check if panning is in bounds (near graph)
-                    // and restrict/correct it 
+                    // and restrict/correct it.
                     const correctedMovement = this.pan_movement_in_bounds(
                         this.visible_rect, movX, movY
                     );
@@ -2867,13 +2887,12 @@ export class SDFGRenderer extends EventEmitter {
                 const newCenter = [(x1 + x2) / 2.0, (y1 + y2) / 2.0];
 
                 if (this.visible_rect) {
-
                     // First, translate according to movement of center point
                     const movX = newCenter[0] - oldCenter[0];
                     const movY = newCenter[1] - oldCenter[1];
 
                     // Check if movement is in bounds (near graph)
-                    // and restrict/correct it 
+                    // and restrict/correct it.
                     const correctedMovement = this.pan_movement_in_bounds(
                         this.visible_rect, movX, movY
                     );
@@ -2906,7 +2925,7 @@ export class SDFGRenderer extends EventEmitter {
                     const movY = -event.deltaY;
 
                     // Check if scroll is in bounds (near graph)
-                    // and restrict/correct it 
+                    // and restrict/correct it.
                     const correctedMovement = this.pan_movement_in_bounds(
                         this.visible_rect, movX, movY
                     );
@@ -2969,9 +2988,9 @@ export class SDFGRenderer extends EventEmitter {
                 } else {
                     // Hovering over an element while not in any specific mode.
                     if ((foreground_elem.data.state &&
-                        foreground_elem.data.state.attributes.is_collapsed) ||
+                         foreground_elem.data.state.attributes.is_collapsed) ||
                         (foreground_elem.data.node &&
-                            foreground_elem.data.node.attributes.is_collapsed)) {
+                         foreground_elem.data.node.attributes.is_collapsed)) {
                         // This is a collapsed node or state, show with the
                         // cursor shape that this can be expanded.
                         this.canvas.style.cursor = 'alias';
@@ -2986,14 +3005,15 @@ export class SDFGRenderer extends EventEmitter {
 
         this.tooltip = null;
 
-        // Only do highlighting re-computation if view is close enough to actually see the 
-        // highlights. Done by points-per-pixel metric using SDFV.NODE_LOD as the threshold.
-        // Hence, the highlights only update/become visible if there are nodes visible to hover over.
-        // This creatly reduces CPU utilization when moving/hovering the mouse over large graphs.
+        // Only do highlighting re-computation if view is close enough to
+        // actually see the highlights. Done by points-per-pixel metric using
+        // SDFV.NODE_LOD as the threshold. Hence, the highlights only
+        // update/become visible if there are nodes visible to hover over. This
+        // creatly reduces CPU utilization when moving/hovering the mouse over
+        // large graphs.
         if (this.canvas_manager) {
             const ppp = this.canvas_manager.points_per_pixel();
             if (ppp < SDFV.NODE_LOD) {
-
                 // Global change boolean. Determines if repaint necessary.
                 let highlighting_changed = false;
 
@@ -3007,14 +3027,13 @@ export class SDFGRenderer extends EventEmitter {
                         // Local change boolean, for each visible element
                         // checked. Prevents recursion if nothing changed.
                         let hover_changed = false;
-        
+
                         // Change hover status
                         if (intersected && !obj.hovered) {
                             obj.hovered = true;
                             highlighting_changed = true;
                             hover_changed = true;
-                        }
-                        else if (!intersected && obj.hovered) {
+                        } else if (!intersected && obj.hovered) {
                             obj.hovered = false;
                             highlighting_changed = true;
                             hover_changed = true;
@@ -3025,58 +3044,56 @@ export class SDFGRenderer extends EventEmitter {
                             if (obj.hovered && hover_changed) {
                                 const tree = this.getNestedMemletTree(obj);
                                 tree.forEach(te => {
-                                    if (te !== obj && te !== undefined) {
+                                    if (te !== obj && te !== undefined)
                                         te.highlighted = true;
-                                    }
                                 });
-                            }
-                            else if (!obj.hovered && hover_changed) {
+                            } else if (!obj.hovered && hover_changed) {
                                 const tree = this.getNestedMemletTree(obj);
                                 tree.forEach(te => {
-                                    if (te !== obj && te !== undefined) {
+                                    if (te !== obj && te !== undefined)
                                         te.highlighted = false;
-                                    }
                                 });
                             }
                         }
-        
-                        // Highlight all access nodes with the same name in the same
-                        // nested sdfg
+
+                        // Highlight all access nodes with the same name in the
+                        // same nested sdfg.
                         if (obj instanceof AccessNode) {
                             if (obj.hovered && hover_changed) {
                                 traverseSDFGScopes(
                                     this.cfgList[obj.sdfg.cfg_list_id].graph!,
                                     (node: any) => {
-                                        // If node is a state, then visit sub-scope
+                                        // If node is a state, then visit
+                                        // sub-scope.
                                         if (node instanceof State)
                                             return true;
                                         if (node instanceof AccessNode &&
-                                            node.data.node.label === obj.data.node.label) {
+                                            node.data.node.label ===
+                                            obj.data.node.label)
                                             node.highlighted = true;
-                                        }
                                         // No need to visit sub-scope
                                         return false;
                                     }
                                 );
-                            }
-                            else if (!obj.hovered && hover_changed) {
+                            } else if (!obj.hovered && hover_changed) {
                                 traverseSDFGScopes(
                                     this.cfgList[obj.sdfg.cfg_list_id].graph!,
                                     (node: any) => {
-                                        // If node is a state, then visit sub-scope
+                                        // If node is a state, then visit
+                                        // sub-scope.
                                         if (node instanceof State)
                                             return true;
                                         if (node instanceof AccessNode &&
-                                            node.data.node.label === obj.data.node.label) {
+                                            node.data.node.label ===
+                                            obj.data.node.label)
                                             node.highlighted = false;
-                                        }
                                         // No need to visit sub-scope
                                         return false;
                                     }
                                 );
                             }
                         }
-        
+
                         if (obj instanceof Connector) {
                             // Highlight all access nodes with the same name as
                             // the hovered connector in the nested sdfg.
@@ -3091,9 +3108,9 @@ export class SDFGRenderer extends EventEmitter {
                                             return true;
 
                                         if (node instanceof AccessNode &&
-                                            node.data.node.label === obj.label()) {
+                                            node.data.node.label ===
+                                            obj.label())
                                             node.highlighted = true;
-                                        }
                                         // No need to visit sub-scope
                                         return false;
                                     });
@@ -3109,47 +3126,48 @@ export class SDFGRenderer extends EventEmitter {
                                             return true;
 
                                         if (node instanceof AccessNode &&
-                                            node.data.node.label === obj.label()) {
+                                            node.data.node.label ===
+                                            obj.label())
                                             node.highlighted = false;
-                                        }
                                         // No need to visit sub-scope
                                         return false;
                                     });
                                 }
                             }
-        
-                            // Similarly, highlight any identifiers in a connector's
-                            // tasklet, if applicable.
+
+                            // Similarly, highlight any identifiers in a
+                            // connector's tasklet, if applicable.
                             if (obj.hovered && hover_changed) {
-                                if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
+                                if (obj.linkedElem && obj.linkedElem instanceof
+                                    Tasklet) {
                                     if (obj.connectorType === 'in') {
-                                        for (const token of obj.linkedElem.inputTokens) {
-                                            if (token.token === obj.data.name) {
+                                        for (const token of
+                                            obj.linkedElem.inputTokens) {
+                                            if (token.token === obj.data.name)
                                                 token.highlighted = true;
-                                            }
                                         }
                                     } else {
-                                        for (const token of obj.linkedElem.outputTokens) {
-                                            if (token.token === obj.data.name) {
+                                        for (const token of
+                                            obj.linkedElem.outputTokens) {
+                                            if (token.token === obj.data.name)
                                                 token.highlighted = true;
-                                            }
                                         }
                                     }
                                 }
-                            }
-                            else if (!obj.hovered && hover_changed) {
-                                if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
+                            } else if (!obj.hovered && hover_changed) {
+                                if (obj.linkedElem && obj.linkedElem instanceof
+                                    Tasklet) {
                                     if (obj.connectorType === 'in') {
-                                        for (const token of obj.linkedElem.inputTokens) {
-                                            if (token.token === obj.data.name) {
+                                        for (const token of
+                                            obj.linkedElem.inputTokens) {
+                                            if (token.token === obj.data.name)
                                                 token.highlighted = false;
-                                            }
                                         }
                                     } else {
-                                        for (const token of obj.linkedElem.outputTokens) {
-                                            if (token.token === obj.data.name) {
+                                        for (const token of
+                                            obj.linkedElem.outputTokens) {
+                                            if (token.token === obj.data.name)
                                                 token.highlighted = false;
-                                            }
                                         }
                                     }
                                 }
@@ -3158,9 +3176,8 @@ export class SDFGRenderer extends EventEmitter {
                     }
                 );
 
-                if (highlighting_changed) {
+                if (highlighting_changed)
                     dirty = true;
-                }
             }
         }
 
@@ -3189,21 +3206,23 @@ export class SDFGRenderer extends EventEmitter {
 
                 // If a scope exit node, use entry instead
                 if (sdfg_elem.type.endsWith('Exit') &&
-                    foreground_elem.parent_id !== null)
+                    foreground_elem.parent_id !== null) {
                     sdfg_elem = sdfg.nodes[foreground_elem.parent_id].nodes[
                         sdfg_elem.scope_entry
                     ];
+                }
             } else {
                 sdfg_elem = null;
             }
 
             // Toggle collapsed state
             if (foreground_elem.COLLAPSIBLE) {
-                if ('is_collapsed' in sdfg_elem.attributes)
+                if ('is_collapsed' in sdfg_elem.attributes) {
                     sdfg_elem.attributes.is_collapsed =
                         !sdfg_elem.attributes.is_collapsed;
-                else
+                } else {
                     sdfg_elem.attributes['is_collapsed'] = true;
+                }
 
                 this.emit('collapse_state_changed');
 
@@ -3270,9 +3289,8 @@ export class SDFGRenderer extends EventEmitter {
                     multi_selection_changed = true;
                 }
 
-                if (this.mouse_mode === 'move') {
+                if (this.mouse_mode === 'move')
                     this.emit('element_position_changed', 'manual_move');
-                }
             } else {
                 if (this.mouse_mode === 'add') {
                     if (check_valid_add_position(
@@ -3316,7 +3334,7 @@ export class SDFGRenderer extends EventEmitter {
                             );
                         } else {
                             this.add_position = this.mousepos;
-                            if (this.add_type)
+                            if (this.add_type) {
                                 this.emit(
                                     'add_element',
                                     this.add_type,
@@ -3324,12 +3342,13 @@ export class SDFGRenderer extends EventEmitter {
                                         foreground_elem
                                     )
                                 );
+                            }
                         }
 
                         if (!event.ctrlKey && !(
-                                this.add_type === SDFGElementType.Edge &&
-                                this.add_edge_start
-                            )) {
+                            this.add_type === SDFGElementType.Edge &&
+                            this.add_edge_start
+                        )) {
                             // Cancel add mode.
                             if (this.panmode_btn?.onclick)
                                 this.panmode_btn.onclick(event);
@@ -3419,7 +3438,7 @@ export class SDFGRenderer extends EventEmitter {
                             ) {
                                 new_points[j] = {
                                     dx: - position.points[j].dx,
-                                    dy: - position.points[j].dy
+                                    dy: - position.points[j].dy,
                                 };
                                 // Reset the point movement
                                 position.points[j].dx = 0;
@@ -3475,13 +3494,11 @@ export class SDFGRenderer extends EventEmitter {
                         this.relayout();
                     }, 10);
                 }
-                
+
                 this.draw_async();
 
-                if (element_moved) {
+                if (element_moved)
                     this.emit('element_position_changed', 'manual_move');
-                }
-
             } else if (this.mouse_mode === 'add') {
                 // Cancel add mode
                 if (this.panmode_btn?.onclick)
@@ -3512,10 +3529,8 @@ export class SDFGRenderer extends EventEmitter {
             dirty = dirty || ol_manager_dirty;
         }
 
-        if (dirty) {
-
+        if (dirty)
             this.draw_async();
-        }
 
         if (element_focus_changed || selection_changed)
             this.emit('selection_changed', multi_selection_changed);
@@ -3681,11 +3696,10 @@ export class SDFGRenderer extends EventEmitter {
                 this.sdfv_instance.setLocalViewRenderer(lRenderer);
             }
         } catch (e) {
-            if (e instanceof LViewGraphParseError) {
+            if (e instanceof LViewGraphParseError)
                 showErrorModal(e.message);
-            } else {
+            else
                 throw e;
-            }
         }
     }
 
@@ -3732,8 +3746,7 @@ export class SDFGRenderer extends EventEmitter {
                 for (const blockId of cfgNode.data.block.nodes.keys()) {
                     const block = cfgNode.data.graph.node(blockId);
                     if (block instanceof ControlFlowRegion) {
-                        const nCfg: JsonSDFGControlFlowRegion = block.data.block;
-                        const nCfgId = nCfg.cfg_list_id;
+                        const nCfgId = block.data.block.cfg_list_id;
                         cfgs.add(nCfgId);
                         addCutoutCFG(ownCfgId, block);
                     } else {
@@ -3781,7 +3794,7 @@ export class SDFGRenderer extends EventEmitter {
         const rootSDFGId = findRootCFG(
             cfgs, this.cfgTree, this.cfgList, true
         );
-        const needToFlatten = rootSDFGId != rootCFGId;
+        const needToFlatten = rootSDFGId !== rootCFGId;
         if (rootSDFGId !== null && rootCFGId !== null) {
             const rootSDFG = this.cfgList[rootSDFGId].jsonObj;
             const rootCFG = this.cfgList[rootCFGId].jsonObj;
@@ -3816,8 +3829,8 @@ export class SDFGRenderer extends EventEmitter {
             // Set root SDFG as the new SDFG
             this.setSDFG(rootSDFG as JsonSDFG);
         }
-
     }
+
 }
 
 
@@ -3830,10 +3843,11 @@ function calculateNodeSize(
             label = node.label;
             if (SDFVSettings.showDataDescriptorSizes) {
                 const nodedesc = sdfg.attributes._arrays[label];
-                if (nodedesc && nodedesc.attributes.shape)
+                if (nodedesc && nodedesc.attributes.shape) {
                     label = ' ' + sdfg_property_to_string(
                         nodedesc.attributes.shape
                     );
+                }
             }
             break;
         default:
@@ -3897,7 +3911,9 @@ function relayoutStateMachine(
     // Layout the state machine as a dagre graph.
     const g: DagreGraph = new dagre.graphlib.Graph();
     g.setGraph({});
-    g.setDefaultEdgeLabel(() => { return {}; });
+    g.setDefaultEdgeLabel(() => {
+        return {};
+    });
 
     if (!parent)
         parent = new SDFG(sdfg);
@@ -4043,7 +4059,7 @@ function relayoutStateMachine(
             if (block.type === SDFGElementType.SDFGState) {
                 offset_state(block as JsonSDFGState, gBlock, {
                     x: topleft.x + BLOCK_MARGIN,
-                    y: topleft.y + BLOCK_MARGIN
+                    y: topleft.y + BLOCK_MARGIN,
                 });
             } else {
                 // Base spacing for the inside.
@@ -4091,7 +4107,9 @@ function relayoutSDFGState(
     g.setGraph(layoutOptions);
 
     // Set an object for the graph label.
-    g.setDefaultEdgeLabel(() => { return {}; });
+    g.setDefaultEdgeLabel(() => {
+        return {};
+    });
 
     // Add nodes to the graph. The first argument is the node id. The
     // second is metadata about the node (label, width, height),
@@ -4118,16 +4136,18 @@ function relayoutSDFGState(
         node.attributes.layout = {};
 
         // Set connectors prior to computing node size
-        node.attributes.layout.in_connectors = node.attributes.in_connectors ?? [];
+        node.attributes.layout.in_connectors =
+            node.attributes.in_connectors ?? [];
         if ('is_collapsed' in node.attributes && node.attributes.is_collapsed &&
             node.type !== SDFGElementType.NestedSDFG &&
-            node.type !== SDFGElementType.ExternalNestedSDFG)
+            node.type !== SDFGElementType.ExternalNestedSDFG) {
             node.attributes.layout.out_connectors = findExitForEntry(
                 state.nodes, node
             )?.attributes.out_connectors ?? [];
-        else
+        } else {
             node.attributes.layout.out_connectors =
                 node.attributes.out_connectors ?? [];
+        }
 
         const nodeSize = calculateNodeSize(sdfg, node, ctx);
         node.attributes.layout.width = nodeSize.width;
@@ -4289,7 +4309,8 @@ function relayoutSDFGState(
                 const redirectedEdge = check_and_redirect_edge(
                     shortCutEdge, drawnNodes, state
                 );
-                if (!redirectedEdge) return;
+                if (!redirectedEdge)
+                    return;
 
                 // Abort if shortcut edge already exists.
                 const edges = g.outEdges(redirectedEdge.src);
@@ -4299,9 +4320,8 @@ function relayoutSDFGState(
                             state.edges[
                                 parseInt(oe.name)
                             ].dst_connector === e.dst_connector
-                        ) {
+                        )
                             return;
-                        }
                     }
                 }
 
@@ -4341,10 +4361,9 @@ function relayoutSDFGState(
 
         // Offset nested SDFG.
         if (node.type === SDFGElementType.NestedSDFG && node.attributes.sdfg) {
-
             offset_sdfg(node.attributes.sdfg, gnode.data.graph, {
                 x: topleft.x + SDFV.LINEHEIGHT,
-                y: topleft.y + SDFV.LINEHEIGHT
+                y: topleft.y + SDFV.LINEHEIGHT,
             });
         }
         // Write back layout information.
@@ -4379,12 +4398,13 @@ function relayoutSDFGState(
 
     state.edges.forEach((edge: JsonSDFGEdge, id: number) => {
         const nedge = check_and_redirect_edge(edge, drawnNodes, state);
-        if (!nedge) return;
+        if (!nedge)
+            return;
         edge = nedge;
         const gedge = g.edge(edge.src, edge.dst, id.toString());
         if (!gedge || (omitAccessNodes &&
-            gedge.data.attributes.shortcut === false
-            || !omitAccessNodes && gedge.data.attributes.shortcut)) {
+            gedge.data.attributes.shortcut === false ||
+            !omitAccessNodes && gedge.data.attributes.shortcut)) {
             // If access nodes omitted, don't draw non-shortcut edges and
             // vice versa.
             return;

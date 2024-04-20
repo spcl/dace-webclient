@@ -1,8 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import {
-    DagreGraph
-} from '../../index';
+import { DagreGraph } from '../../index';
 
 /**
  * Receives a callback that accepts (node, parent graph) and returns a value.
@@ -11,7 +9,7 @@ import {
  * visited. The function also accepts an optional post-subscope callback (same
  * signature as `func`).
  **/
- export function traverseSDFGScopes(
+export function traverseSDFGScopes(
     sdfg: DagreGraph, func: CallableFunction,
     postSubscopeFunc?: CallableFunction
 ): void {
@@ -36,22 +34,25 @@ import {
                 if (node.type().endsWith('Entry') && node.parent_id !== null &&
                     node.id !== null) {
                     const state = node.parentElem?.data.state;
-                    if (state.scope_dict[node.id] !== undefined)
+                    if (state.scope_dict[node.id] !== undefined) {
                         scopesRecursive(
                             graph, state.scope_dict[node.id], processedNodes
                         );
+                    }
                 }
 
                 // Traverse states or nested SDFGs
                 if (node.data.graph) {
                     const state = node.data.state;
                     if (state !== undefined &&
-                        state.scope_dict[-1] !== undefined)
+                        state.scope_dict[-1] !== undefined) {
                         scopesRecursive(node.data.graph, state.scope_dict[-1]);
-                    else // No scope_dict, traverse all nodes as a flat hierarchy
+                    } else {
+                        // No scope_dict, traverse all nodes as a flat hierarchy
                         scopesRecursive(
                             node.data.graph, node.data.graph.nodes()
                         );
+                    }
                 }
             }
 

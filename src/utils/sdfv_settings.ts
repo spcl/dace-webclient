@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import $ from 'jquery';
 
@@ -75,8 +75,8 @@ export class SDFVSettings {
         }).append($('<h6>', {
             text: 'View Settings',
             css: {
-                'font-weight': 'bold'
-            }
+                'font-weight': 'bold',
+            },
         }));
         $('<div>', {
             class: 'row',
@@ -116,8 +116,8 @@ export class SDFVSettings {
         })).append($('<h6>', {
             text: 'Mouse Settings',
             css: {
-                'font-weight': 'bold'
-            }
+                'font-weight': 'bold',
+            },
         }));
         $('<div>', {
             class: 'row',
@@ -135,19 +135,20 @@ export class SDFVSettings {
         })).append($('<h6>', {
             text: 'Performance Settings',
             css: {
-                'font-weight': 'bold'
-            }
+                'font-weight': 'bold',
+            },
         }));
         $('<div>', {
             class: 'row',
         }).appendTo(root).append(performanceSettingsTitle);
 
-        // TODO: Remove this setting as disabling the adaptive content hiding can cause
-        // massive performance issues. TODO: add sliders for LOD thresholds of sdfv.ts 
-        // into an advanced settings menu.
+        // TODO: Remove this setting as disabling the adaptive content hiding
+        // can cause massive performance issues. TODO: add sliders for LOD
+        // thresholds of sdfv.ts into an advanced settings menu.
         this.addToggle(
-            root, 'Adaptively hide content when zooming out (Warning: turning this off can cause\
-                huge performance issues on big graphs)',
+            root,
+            'Adaptively hide content when zooming out (Warning: turning this \
+                off can cause huge performance issues on big graphs)',
             'adaptiveContentHiding', false, (value: boolean) => {
                 if (this.renderer)
                     (this.renderer.get_context() as any).lod = value;
@@ -183,7 +184,7 @@ export class SDFVSettings {
             text: 'Settings',
         })).append($('<div>', {
             id: 'task-info-field-settings',
-            style: 'margin-left: 15px;'
+            style: 'margin-left: 15px;',
         })).append($('<button>', {
             type: 'button',
             class: 'btn-close',
@@ -227,8 +228,7 @@ export class SDFVSettings {
 
     public show(renderer?: SDFGRenderer): void {
         if (!this.modal)
-            this.modal = new Modal(this.constructModal()[0], {
-            });
+            this.modal = new Modal(this.constructModal()[0], {});
 
         if (renderer)
             this.renderer = renderer;
@@ -322,4 +322,5 @@ export class SDFVSettings {
             'curvedEdges'
         ] as boolean;
     }
+
 }

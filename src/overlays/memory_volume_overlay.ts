@@ -9,7 +9,7 @@ import {
     NestedSDFG,
     SDFGElement,
     SDFGNode,
-    State
+    State,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
 import { getTempColorHslString } from '../utils/utils';
@@ -49,11 +49,12 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
             }
         }
         let volume = undefined;
-        if (volumeString !== undefined)
-            volume = this.symbol_resolver.parse_symbol_expression(
+        if (volumeString !== undefined) {
+            volume = this.symbolResolver.parse_symbol_expression(
                 volumeString,
                 symbolMap
             );
+        }
 
         edge.data.volume = volume;
 
@@ -75,32 +76,36 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 if (stateGraph) {
                     stateGraph.edges().forEach((e: number) => {
                         const edge = stateGraph.edge(e);
-                        if (edge instanceof Edge)
+                        if (edge instanceof Edge) {
                             this.calculateVolumeEdge(
                                 edge,
                                 symbolMaps,
                                 volumes
                             );
+                        }
                     });
 
                     stateGraph.nodes().forEach((v: number) => {
                         const node = stateGraph.node(v);
                         if (node instanceof NestedSDFG) {
                             const nested_symbols_map: SymbolMap = {};
-                            const mapping = node.data.node.attributes.symbol_mapping ?? {};
+                            const mapping =
+                                node.data.node.attributes.symbol_mapping ?? {};
                             // Translate the symbol mappings for the nested SDFG
                             // based on the mapping described on the node.
                             Object.keys(mapping).forEach((symbol) => {
                                 nested_symbols_map[symbol] =
-                                    this.symbol_resolver.parse_symbol_expression(
+                                    this.symbolResolver.parse_symbol_expression(
                                         mapping[symbol],
                                         symbolMaps
                                     );
                             });
                             // Merge in the parent mappings.
                             Object.keys(symbolMaps).forEach((symbol) => {
-                                if (!(symbol in nested_symbols_map))
-                                    nested_symbols_map[symbol] = symbolMaps[symbol];
+                                if (!(symbol in nested_symbols_map)) {
+                                    nested_symbols_map[symbol] =
+                                        symbolMaps[symbol];
+                                }
                             });
 
                             this.calculateVolumeGraph(
@@ -126,7 +131,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         const volume_values: number[] = [];
         this.calculateVolumeGraph(
             graph,
-            this.symbol_resolver.get_symbol_value_map(),
+            this.symbolResolver.get_symbol_value_map(),
             volume_values
         );
 
@@ -154,7 +159,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
             // Calculate the severity color.
             const color = getTempColorHslString(
-                this.get_severity_value(volume)
+                this.getSeverityValue(volume)
             );
 
             edge.shade(this.renderer, ctx, color);
@@ -179,8 +184,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
             if ((ctx as any).lod && !block.intersect(
                 visibleRect.x, visibleRect.y,
                 visibleRect.w, visibleRect.h
-            ) || block.data.state?.attributes.is_collapsed ||
-            block.data.block?.attributes.is_collapsed)
+            ) || block.attributes()?.is_collapsed)
                 return;
 
             if (block instanceof State) {
@@ -204,10 +208,11 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
                         if (node instanceof NestedSDFG &&
                             node.attributes().sdfg &&
-                            node.attributes().sdfg.type !== 'SDFGShell')
+                            node.attributes().sdfg.type !== 'SDFGShell') {
                             this.recursivelyShadeCFG(
                                 node.data.graph, ctx, ppp, visibleRect
                             );
+                        }
                     });
 
                     state_graph.edges().forEach((e: any) => {
@@ -250,9 +255,9 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 foreground_elem instanceof Edge) {
                 if (foreground_elem.data.volume === undefined) {
                     if (foreground_elem.data.attributes.volume) {
-                        this.symbol_resolver.parse_symbol_expression(
+                        this.symbolResolver.parse_symbol_expression(
                             foreground_elem.data.attributes.volume,
-                            this.symbol_resolver.get_symbol_value_map(),
+                            this.symbolResolver.get_symbol_value_map(),
                             true,
                             () => {
                                 const graph = this.renderer.get_graph();

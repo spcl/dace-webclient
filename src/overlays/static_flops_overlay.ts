@@ -6,7 +6,7 @@ import {
     Edge,
     NestedSDFG,
     SDFGElement,
-    SDFGNode
+    SDFGNode,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
 import { getTempColorHslString, get_element_uuid } from '../utils/utils';
@@ -43,11 +43,12 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
     ): number | undefined {
         const flops_string = this.flops_map[get_element_uuid(node)];
         let flops = undefined;
-        if (flops_string !== undefined)
-            flops = this.symbol_resolver.parse_symbol_expression(
+        if (flops_string !== undefined) {
+            flops = this.symbolResolver.parse_symbol_expression(
                 flops_string,
                 symbol_map
             );
+        }
 
         node.data.flops_string = flops_string;
         node.data.flops = flops;
@@ -76,7 +77,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol: string) => {
                             nested_symbols_map[symbol] =
-                                this.symbol_resolver.parse_symbol_expression(
+                                this.symbolResolver.parse_symbol_expression(
                                     mapping[symbol],
                                     symbol_map
                                 );
@@ -116,7 +117,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         const flops_values: number[] = [];
         this.calculate_flops_graph(
             graph,
-            this.symbol_resolver.get_symbol_value_map(),
+            this.symbolResolver.get_symbol_value_map(),
             flops_values
         );
 
@@ -148,20 +149,22 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         if (flops_string !== undefined && mousepos &&
             node.intersect(mousepos.x, mousepos.y)) {
             // Show the computed FLOPS value if applicable.
-            if (isNaN(flops_string) && flops !== undefined)
+            if (isNaN(flops_string) && flops !== undefined) {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
+                    if (tt_cont) {
                         tt_cont.innerText = (
                             'FLOPS: ' + flops_string + ' (' + flops + ')'
                         );
+                    }
                 });
-            else
+            } else {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
                     if (tt_cont)
                         tt_cont.innerText = 'FLOPS: ' + flops_string;
                 });
+            }
         }
 
         if (flops === undefined) {
@@ -181,7 +184,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
             return;
 
         // Calculate the severity color.
-        const color = getTempColorHslString(this.get_severity_value(flops));
+        const color = getTempColorHslString(this.getSeverityValue(flops));
 
         node.shade(this.renderer, ctx, color);
     }
@@ -266,9 +269,9 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
                         get_element_uuid(foreground_elem)
                     ];
                     if (flops_string) {
-                        this.symbol_resolver.parse_symbol_expression(
+                        this.symbolResolver.parse_symbol_expression(
                             flops_string,
-                            this.symbol_resolver.get_symbol_value_map(),
+                            this.symbolResolver.get_symbol_value_map(),
                             true,
                             () => {
                                 this.clear_cached_flops_values();

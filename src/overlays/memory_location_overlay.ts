@@ -9,7 +9,7 @@ import {
     NestedSDFG,
     SDFGElement,
     SDFGNode,
-    State
+    State,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
 import { KELLY_COLORS } from '../utils/utils';
@@ -86,7 +86,7 @@ const SCOPEDEFAULT_STORAGE =
         [ScheduleType.GPU_ThreadBlock, StorageType.Register],
         [ScheduleType.GPU_ThreadBlock_Dynamic, StorageType.Register],
         [ScheduleType.FPGA_Device, StorageType.FPGA_Global],
-        [ScheduleType.SVE_Map, StorageType.CPU_Heap]
+        [ScheduleType.SVE_Map, StorageType.CPU_Heap],
     ]);
 
 // Maps from ScheduleType to default ScheduleType for sub-scopes.
@@ -105,7 +105,7 @@ const SCOPEDEFAULT_SCHEDULE =
         [ScheduleType.GPU_ThreadBlock, ScheduleType.Sequential],
         [ScheduleType.GPU_ThreadBlock_Dynamic, ScheduleType.Sequential],
         [ScheduleType.FPGA_Device, ScheduleType.FPGA_Device],
-        [ScheduleType.SVE_Map, ScheduleType.Sequential]
+        [ScheduleType.SVE_Map, ScheduleType.Sequential],
     ]);
 
 const STYPE_COLOR = new Map<StorageType, number>([
@@ -209,12 +209,13 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
             this.renderer.set_tooltip(() => {
                 const ttContainer = this.renderer.get_tooltip_container();
                 if (ttContainer) {
-                    if (storageType.originalType)
+                    if (storageType.originalType) {
                         ttContainer.innerHTML = 'Location: ' +
                             storageType.originalType + ' &rarr; ' +
                             storageType.type;
-                    else
+                    } else {
                         ttContainer.innerHTML = 'Location: ' + storageType.type;
+                    }
                 }
             });
         }

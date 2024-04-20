@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { GraphEdge } from 'dagre';
 import { Edge, SDFGElement } from '../renderer/renderer_elements';

@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import dagre from 'dagre';
 import { Edge } from './elements/edge';
@@ -15,7 +15,9 @@ export class LViewLayouter {
         g.setGraph({
             ranksep: 100,
         });
-        g.setDefaultEdgeLabel(() => { return {}; });
+        g.setDefaultEdgeLabel(() => {
+            return {};
+        });
 
         graph.nodes.forEach((node: Node) => {
             if (node instanceof MapNode) {

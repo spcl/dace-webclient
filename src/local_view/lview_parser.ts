@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import $ from 'jquery';
 import { DagreGraph, JsonSDFG } from '..';
@@ -12,7 +12,7 @@ import {
     State,
     Tasklet,
 } from '../renderer/renderer_elements';
-import { sdfg_property_to_string, sdfg_range_elem_to_string } from '../utils/sdfg/display';
+import { sdfg_property_to_string } from '../utils/sdfg/display';
 import {
     AccessMode,
     DataContainer,
@@ -57,7 +57,7 @@ export class LViewParser {
             const start = this.parseSymbolic(rng.start, symbolMap);
             const end = this.parseSymbolic(rng.end, symbolMap);
             const step = this.parseSymbolic(rng.step, symbolMap);
-            
+
             ranges.push({
                 itvar: rParams[i],
                 start: start,
@@ -65,7 +65,7 @@ export class LViewParser {
                 step: step,
             });
         }
-        
+
         const innerGraph = new Graph(renderer);
         const mapScopeDict = state.data.state.scope_dict[elem.id];
         if (mapScopeDict) {
@@ -160,7 +160,7 @@ export class LViewParser {
                     sdfgContainer.attributes.start_offset ?? 0,
                     sdfgContainer.attributes.alignment ?? 0,
                     storageType?.type,
-                    strides,
+                    strides
                 );
                 graph.dataContainers.set(name, container);
             } else if (container.storage === undefined) {
@@ -204,7 +204,9 @@ export class LViewParser {
         );
         const ranges = attributes.other_subset ?
             attributes.other_subset.ranges : attributes.subset?.ranges;
-        const volume = this.parseSymbolic(attributes.num_accesses ?? 0, symbolMap);
+        const volume = this.parseSymbolic(
+            attributes.num_accesses ?? 0, symbolMap
+        );
         if (dataContainer && ranges) {
             if (volume === 1) {
                 const accessIdx = [];
@@ -287,7 +289,7 @@ export class LViewParser {
             edge.data.attributes.lview_edge = elem;
             return elem;
         }
-        
+
         return null;
     }
 
@@ -296,18 +298,19 @@ export class LViewParser {
         symbolMap: Map<string, number>, renderer?: LViewRenderer
     ): Element | null {
         if (el instanceof SDFGNode) {
-            if (el instanceof AccessNode)
+            if (el instanceof AccessNode) {
                 return this.parseAccessNode(
                     el, graph, state, symbolMap, renderer
                 );
-            else if (el instanceof MapEntry)
+            } else if (el instanceof MapEntry) {
                 return this.parseMap(
                     el, graph, state, sdfg, symbolMap, renderer
                 );
-            else if (el instanceof Tasklet)
+            } else if (el instanceof Tasklet) {
                 return this.parseTasklet(
                     graph, el, state, sdfg, symbolMap, renderer
                 );
+            }
         }
         return null;
     }

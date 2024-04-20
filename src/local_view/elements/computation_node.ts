@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import CoffeeQuate from 'coffeequate';
 import * as math from 'mathjs';
@@ -9,7 +9,7 @@ import {
     AccessMap,
     ConcreteDataAccess,
     DataContainer,
-    SymbolicDataAccess
+    SymbolicDataAccess,
 } from './data_container';
 import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from './element';
 import { Node } from './node';
@@ -29,7 +29,7 @@ export class ComputationNode extends Node {
         public readonly accessOrder: SymbolicDataAccess[],
         public readonly farText: string | undefined = undefined,
         public drawBorder: boolean = true,
-        renderer?: LViewRenderer,
+        renderer?: LViewRenderer
     ) {
         super(parentGraph, id, renderer);
 
@@ -100,12 +100,12 @@ export class ComputationNode extends Node {
      * For a given symbol scope, this method appends all data accesses to an
      * index map, which are related to accesses to the given source container
      * under that symbol scope.
-     * 
+     *
      * For example:
      * - On a computation node calculating C[i, j] = A[i, j] + B[i, j].
      * - Given A as the source container and a symbol scope of { i: 1, j: 3 }.
      * - Appends the accesses to C[1, 3] and B[1, 3] to the provided index map.
-     * 
+     *
      * Unknown / undefined symbols under the provided scope are taken all the
      * way from their minium to their maximum value. In the example above,
      * if i is in [0:N] and j is in [0:M], if the provided scope is only
@@ -135,13 +135,14 @@ export class ComputationNode extends Node {
                     idx.push(res);
                 }
                 const prev = idxMap.get(access.dataContainer);
-                if (prev !== undefined)
+                if (prev !== undefined) {
                     prev.push([access.accessMode, idx]);
-                else
+                } else {
                     idxMap.set(
                         access.dataContainer,
                         [[access.accessMode, idx]]
                     );
+                }
             }
         }
     }
@@ -181,11 +182,12 @@ export class ComputationNode extends Node {
                     const variables = equation.getAllVariables();
                     if (variables.length === 1) {
                         const solutions = equation.solve(variables[0]);
-                        if (solutions.length === 1)
+                        if (solutions.length === 1) {
                             scope.set(
                                 variables[0],
                                 math.evaluate(solutions[0].toString())
                             );
+                        }
                     }
                 }
             });

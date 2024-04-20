@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
     CFGListType,
@@ -7,7 +7,7 @@ import {
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGNode,
-    JsonSDFGState
+    JsonSDFGState,
 } from '../../index';
 import {
     ControlFlowRegion,
@@ -15,7 +15,7 @@ import {
     SDFGElement,
     SDFGElementType,
     SDFGNode,
-    State
+    State,
 } from '../../renderer/renderer_elements';
 
 export function findExitForEntry(
@@ -23,7 +23,7 @@ export function findExitForEntry(
 ): JsonSDFGNode | null {
     for (const n of nodes) {
         if (n.type.endsWith('Exit') && n.scope_entry &&
-            parseInt(n.scope_entry) == entryNode.id)
+            parseInt(n.scope_entry) === entryNode.id)
             return n;
     }
     console.warn('Did not find corresponding exit');
@@ -160,7 +160,7 @@ export function initialize_positioning_info(elem: any): any {
         position = {
             points: points ? points : [],
             scope_dx: 0,
-            scope_dy: 0
+            scope_dy: 0,
         };
 
         for (let i = 0; elem.points && i < elem.points.length; i++)
@@ -234,12 +234,13 @@ export function findRootCFG(
         const path: Array<number> = [];
         makeCFGPath(sid, path);
 
-        if (commonCFGs === null)
+        if (commonCFGs === null) {
             commonCFGs = path;
-        else
+        } else {
             commonCFGs = [...commonCFGs].filter(
                 (x: number) => path.includes(x)
             );
+        }
     }
 
     // Return the first one (greatest common denominator).
@@ -288,7 +289,7 @@ export function deleteSDFGNodes(
 
     state.nodes = state.nodes.filter((_v, ind: number) => predicate(ind));
     state.edges = state.edges.filter((e: JsonSDFGEdge) => (
-            predicate(parseInt(e.src)) && predicate(parseInt(e.dst))
+        predicate(parseInt(e.src)) && predicate(parseInt(e.dst))
     ));
 
     // Remap node and edge indices.
@@ -347,9 +348,8 @@ export function deleteCFGBlocks(
         e.dst = mapping[e.dst];
     });
     if (mapping[cfg.start_block] === '-1' ||
-        mapping[cfg.start_block] === undefined) {
+        mapping[cfg.start_block] === undefined)
         cfg.start_block = 0;
-    } else {
+    else
         cfg.start_block = parseInt(mapping[cfg.start_block]);
-    }
 }

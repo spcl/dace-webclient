@@ -1,3 +1,5 @@
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { DagreGraph } from '../..';
 import * as dagre from 'dagre';
 import { allBackedges } from '../graphlib/algorithms/cycles';
@@ -7,6 +9,7 @@ import {
 } from '../graphlib/algorithms/dominance';
 import { DiGraph } from '../graphlib/di_graph';
 
+/* eslint-disable @typescript-eslint/no-var-requires */
 const dagreOrder = require('dagre/lib/order');
 
 const ARTIFICIAL_START = '__smlayouter_artifical_start';
@@ -220,7 +223,7 @@ export class SMLayouter {
      *      Add a 'lane' to the left of the laid out graph where all back-edges
      *      are routed upwards in the vertical layout. Ensures that the number
      *      of crossings is reduced to a minimum.
-     * 
+     *
      * Note: This operates in-place on the layout graph.
      * @see {@link SMLayouter.doRanking}
      * @see {@link SMLayouter.normalizeEdges}
@@ -268,11 +271,12 @@ export class SMLayouter {
             if (!routedEdges.has(edgeData))
                 unrouted.add(edgeData);
         }
-        if (unrouted.size > 0)
+        if (unrouted.size > 0) {
             console.warn(
                 'The following edges were not routed:',
                 unrouted
             );
+        }
     }
 
     private propagate(
@@ -312,9 +316,10 @@ export class SMLayouter {
                 scopes.push([ScopeType.BRANCH, rank, mergeNodeRank]);
             }
 
-            for (const s of successors)
+            for (const s of successors) {
                 if (s !== mergeNode)
                     q.push([s, rank + 1]);
+            }
         }
     }
 
@@ -323,12 +328,14 @@ export class SMLayouter {
         oNode: string
     ): void {
         let exitCandidates = new Set<string>();
-        for (const n of successors)
+        for (const n of successors) {
             if (n !== oNode && !this.allDom.get(n)?.has(oNode))
                 exitCandidates.add(n);
-        for (const n of this.graph.successorsIter(oNode))
+        }
+        for (const n of this.graph.successorsIter(oNode)) {
             if (n !== node)
                 exitCandidates.add(n);
+        }
 
         if (exitCandidates.size < 1) {
             throw new Error('No exit candidates found.');
@@ -405,11 +412,12 @@ export class SMLayouter {
                 const successors: string[] = [];
                 for (const s of this.graph.successorsIter(node)) {
                     let foundAsBackedge = false;
-                    for (const sBe of this.backedgesCombined)
+                    for (const sBe of this.backedgesCombined) {
                         if (sBe[1] === s && sBe[0] === node) {
                             foundAsBackedge = true;
                             break;
                         }
+                    }
                     if (!foundAsBackedge)
                         successors.push(s);
                 }
@@ -522,7 +530,7 @@ export class SMLayouter {
 
             // If the edge spans only one rank or is within the same rank,
             // nothing needs to be done.
-            if (srcRank === dstRank - 1 || srcRank == dstRank)
+            if (srcRank === dstRank - 1 || srcRank === dstRank)
                 continue;
 
             // We also don't want to handle back edges here.

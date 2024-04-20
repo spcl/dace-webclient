@@ -6,7 +6,7 @@ import {
     Edge,
     NestedSDFG,
     SDFGElement,
-    SDFGNode
+    SDFGNode,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
 import { getTempColorHslString, get_element_uuid } from '../utils/utils';
@@ -15,7 +15,8 @@ import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
 
     public static readonly type: OverlayType = OverlayType.NODE;
-    public readonly olClass: typeof GenericSdfgOverlay = SimulatedOperationalIntensityOverlay;
+    public readonly olClass: typeof GenericSdfgOverlay =
+        SimulatedOperationalIntensityOverlay;
 
     private op_in_map: { [uuids: string]: any } = {};
 
@@ -23,7 +24,8 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         super(renderer);
 
         this.renderer.emit(
-            'backend_data_requested', 'op_in', 'SimulatedOperationalIntensityOverlay'
+            'backend_data_requested', 'op_in',
+            'SimulatedOperationalIntensityOverlay'
         );
     }
 
@@ -43,12 +45,13 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
     ): number | undefined {
         const op_in_string = this.op_in_map[get_element_uuid(node)];
         let op_in = undefined;
-        if (op_in_string !== undefined)
-            op_in = this.symbol_resolver.parse_symbol_expression(
+        if (op_in_string !== undefined) {
+            op_in = this.symbolResolver.parse_symbol_expression(
                 op_in_string,
                 symbol_map,
                 false
             );
+        }
 
         node.data.op_in_string = op_in_string;
         node.data.op_in = op_in;
@@ -77,7 +80,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol: string) => {
                             nested_symbols_map[symbol] =
-                                this.symbol_resolver.parse_symbol_expression(
+                                this.symbolResolver.parse_symbol_expression(
                                     mapping[symbol],
                                     symbol_map
                                 );
@@ -117,7 +120,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         const op_in_values: number[] = [];
         this.calculate_op_in_graph(
             graph,
-            this.symbol_resolver.get_symbol_value_map(),
+            this.symbolResolver.get_symbol_value_map(),
             op_in_values
         );
 
@@ -149,20 +152,25 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         if (op_in_string !== undefined && mousepos &&
             node.intersect(mousepos.x, mousepos.y)) {
             // Show the computed op_in value if applicable.
-            if (isNaN(op_in_string) && op_in !== undefined)
+            if (isNaN(op_in_string) && op_in !== undefined) {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
+                    if (tt_cont) {
                         tt_cont.innerText = (
-                            'Operational Intensity: ' + op_in_string + ' (' + op_in + ')'
+                            'Operational Intensity: ' + op_in_string + ' (' +
+                                op_in + ')'
                         );
+                    }
                 });
-            else
+            } else {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
-                        tt_cont.innerText = 'Operational Intensity: ' + op_in_string;
+                    if (tt_cont) {
+                        tt_cont.innerText = 'Operational Intensity: ' +
+                            op_in_string;
+                    }
                 });
+            }
         }
 
         if (op_in === undefined) {
@@ -182,7 +190,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
             return;
 
         // Calculate the severity color.
-        const color = getTempColorHslString(1 - this.get_severity_value(op_in));
+        const color = getTempColorHslString(1 - this.getSeverityValue(op_in));
 
         node.shade(this.renderer, ctx, color);
     }
@@ -267,9 +275,9 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
                         get_element_uuid(foreground_elem)
                     ];
                     if (op_in_string) {
-                        this.symbol_resolver.parse_symbol_expression(
+                        this.symbolResolver.parse_symbol_expression(
                             op_in_string,
-                            this.symbol_resolver.get_symbol_value_map(),
+                            this.symbolResolver.get_symbol_value_map(),
                             true,
                             () => {
                                 this.clear_cached_op_in_values();
