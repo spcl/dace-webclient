@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
+    ControlFlowBlock,
     Edge,
     EntryNode,
     SDFGElement,
@@ -354,7 +355,7 @@ export class CanvasManager {
         const in_edges: any[] = [];
 
         // Find the parent graph in the list of available SDFGs
-        let parent_graph = cfg_list[el.sdfg.cfg_list_id].graph;
+        let parent_graph = cfg_list[el.cfg!.cfg_list_id].graph;
         let parent_element: SDFGElement | null = null;
 
         if (
@@ -365,7 +366,7 @@ export class CanvasManager {
             // we're currently in a nested SDFG. If we're also moving a state,
             // this means that its parent element is found in the list of
             // parents to states (state_parent_list)
-            parent_element = state_parent_list[el.sdfg.cfg_list_id];
+            parent_element = state_parent_list[el.cfg!.cfg_list_id];
         } else if (el.parent_id !== null && parent_graph) {
             // If the parent_id isn't null and there is a parent graph, we can
             // look up the parent node via the element's parent_id
@@ -531,29 +532,50 @@ export class CanvasManager {
             return;
         }
 
-        // Move a node together with its connectors if it has any
-        function move_node_and_connectors(node: SDFGNode) {
+        // Move a node together with its connectors if it has any.
+        function moveNode(node: SDFGNode | ControlFlowBlock) {
             node.x += dx;
             node.y += dy;
-            if (node.data.node &&
-                node.data.node.type === SDFGElementType.NestedSDFG)
-                translate_recursive(node.data.graph);
-            if (node.in_connectors) {
-                node.in_connectors.forEach(c => {
-                    c.x += dx;
-                    c.y += dy;
+            if (node instanceof SDFGNode) {
+                if (node.data.node &&
+                    node.data.node.type === SDFGElementType.NestedSDFG)
+                    translateRecursive(node.data.graph);
+                if (node.in_connectors) {
+                    node.in_connectors.forEach(c => {
+                        c.x += dx;
+                        c.y += dy;
+                    });
+                }
+                if (node.out_connectors) {
+                    node.out_connectors.forEach(c => {
+                        c.x += dx;
+                        c.y += dy;
+                    });
+                }
+            } else if (!node.attributes().is_collapsed) {
+                // We're moving a control flow block, move all its contents too.
+                const nGraph = node.data.graph;
+                nGraph.nodes().forEach((node_id: string) => {
+                    const nNode = nGraph.node(node_id);
+                    moveNode(nNode);
                 });
-            }
-            if (node.out_connectors) {
-                node.out_connectors.forEach(c => {
-                    c.x += dx;
-                    c.y += dy;
+
+                // Drag all the edges along
+                nGraph.edges().forEach((edge_id: number) => {
+                    const edge = nGraph.edge(edge_id);
+                    edge.x += dx;
+                    edge.y += dy;
+                    edge.points.forEach((point: Point2D) => {
+                        point.x += dx;
+                        point.y += dy;
+                    });
+                    updateEdgeBoundingBox(edge);
                 });
             }
         }
 
         // Allow recursive translation of nested SDFGs
-        function translate_recursive(ng: DagreGraph) {
+        function translateRecursive(ng: DagreGraph) {
             ng.nodes().forEach((state_id: string) => {
                 const state = ng.node(state_id);
                 state.x += dx;
@@ -562,7 +584,7 @@ export class CanvasManager {
                 if (g) {
                     g.nodes().forEach((node_id: string) => {
                         const node = g.node(node_id);
-                        move_node_and_connectors(node);
+                        moveNode(node);
                     });
 
                     g.edges().forEach((edge_id: number) => {
@@ -589,10 +611,9 @@ export class CanvasManager {
             });
         }
 
-        // Move the node
-        move_node_and_connectors(el);
+        moveNode(el);
 
-        // Store movement information in element (for relayouting)
+        // Store movement information in element (for relayouting).
         if (update_position_info) {
             let position = getPositioningInfo(el);
             if (!position)
@@ -602,7 +623,7 @@ export class CanvasManager {
             position.dy += dy;
 
             // Store movement information if EntryNode for other nodes of the
-            // same scope
+            // same scope.
             if (el instanceof EntryNode &&
                 el.data.node.attributes.is_collapsed) {
                 if (!position.scope_dx) {
@@ -613,27 +634,6 @@ export class CanvasManager {
                 position.scope_dx += dx;
                 position.scope_dy += dy;
             }
-        }
-
-        if (el.data.state && !el.data.state.attributes.is_collapsed) {
-            // We're moving a state, move all its contained elements
-            const graph = el.data.graph;
-            graph.nodes().forEach((node_id: string) => {
-                const node = graph.node(node_id);
-                move_node_and_connectors(node);
-            });
-
-            // Drag all the edges along
-            graph.edges().forEach((edge_id: number) => {
-                const edge = graph.edge(edge_id);
-                edge.x += dx;
-                edge.y += dy;
-                edge.points.forEach((point: Point2D) => {
-                    point.x += dx;
-                    point.y += dy;
-                });
-                updateEdgeBoundingBox(edge);
-            });
         }
 
         // Move the connected edges along with the element

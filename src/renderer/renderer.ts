@@ -2585,7 +2585,7 @@ export class SDFGRenderer extends EventEmitter {
                             (_: any, ind: number) => ind !== e.id
                         );
                     }
-                } else if (e instanceof State) {
+                } else if (e instanceof ControlFlowBlock) {
                     if (e.parentElem &&
                         e.parentElem instanceof ControlFlowRegion)
                         deleteCFGBlocks(e.parentElem.data.block, [e.id]);

@@ -244,12 +244,7 @@ export class ControlFlowBlock extends SDFGElement {
 
 }
 
-export class BasicBlock extends SDFGElement {
-
-    public get COLLAPSIBLE(): boolean {
-        return true;
-    }
-
+export class BasicBlock extends ControlFlowBlock {
 }
 
 export class ControlFlowRegion extends ControlFlowBlock {
