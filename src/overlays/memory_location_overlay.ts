@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { DagreGraph, Point2D, SimpleRect } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
@@ -245,8 +245,7 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
 
             if (((ctx as any).lod && (ppp >= SDFV.STATE_LOD ||
                 block.width / ppp <= SDFV.STATE_LOD)) ||
-                block.data.state?.attributes.is_collapsed ||
-                block.data.block?.attributes.is_collapsed) {
+                block.attributes()?.is_collapsed) {
                 // The block is collapsed or invisible, so we don't need to
                 // traverse its insides.
                 return;

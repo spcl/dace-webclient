@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { DagreGraph, JsonSDFG, Point2D, SimpleRect } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
