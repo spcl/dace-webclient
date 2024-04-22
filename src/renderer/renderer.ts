@@ -3574,6 +3574,10 @@ export class SDFGRenderer extends EventEmitter {
         return this.sdfg;
     }
 
+    public getCFGList(): CFGListType {
+        return this.cfgList;
+    }
+
     public get_graph(): DagreGraph | null {
         return this.graph;
     }

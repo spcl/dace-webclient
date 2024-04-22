@@ -1,6 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph } from '../../index';
+import { DagreGraph, SDFGNode } from '../../index';
 
 /**
  * Receives a callback that accepts (node, parent graph) and returns a value.
@@ -10,8 +10,8 @@ import { DagreGraph } from '../../index';
  * signature as `func`).
  **/
 export function traverseSDFGScopes(
-    sdfg: DagreGraph, func: CallableFunction,
-    postSubscopeFunc?: CallableFunction
+    sdfg: DagreGraph, func: (gNode: SDFGNode, g: DagreGraph) => boolean,
+    postSubscopeFunc?: (gNode: SDFGNode, g: DagreGraph) => void
 ): void {
     function scopesRecursive(
         graph: DagreGraph, nodes: string[], processedNodes?: Set<string>
