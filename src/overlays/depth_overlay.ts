@@ -1,6 +1,12 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph, Point2D, SimpleRect, SymbolMap } from '../index';
+import {
+    DagreGraph,
+    Point2D,
+    SimpleRect,
+    SymbolMap,
+    getGraphElementUUID,
+} from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     Edge,
@@ -9,7 +15,7 @@ import {
     SDFGNode,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { getTempColorHslString, get_element_uuid } from '../utils/utils';
+import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class DepthOverlay extends GenericSdfgOverlay {
@@ -41,7 +47,7 @@ export class DepthOverlay extends GenericSdfgOverlay {
     public calculate_depth_node(
         node: SDFGNode, symbol_map: SymbolMap, depth_values: number[]
     ): number | undefined {
-        const depth_string = this.depth_map[get_element_uuid(node)];
+        const depth_string = this.depth_map[getGraphElementUUID(node)];
         let depth = undefined;
         if (depth_string !== undefined) {
             depth = this.symbolResolver.parse_symbol_expression(
@@ -266,7 +272,7 @@ export class DepthOverlay extends GenericSdfgOverlay {
                 !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.depth === undefined) {
                     const depth_string = this.depth_map[
-                        get_element_uuid(foreground_elem)
+                        getGraphElementUUID(foreground_elem)
                     ];
                     if (depth_string) {
                         this.symbolResolver.parse_symbol_expression(

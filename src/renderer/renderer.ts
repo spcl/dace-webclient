@@ -1054,7 +1054,7 @@ export class SDFGRenderer extends EventEmitter {
             const uuid = getGraphElementUUID(this.selected_elements[0]);
             if (this.graph) {
                 this.sdfv_instance.fill_info(
-                    findGraphElementByUUID(this.cfgList, uuid)
+                    findGraphElementByUUID(this.cfgList, this.cfgTree, uuid)
                 );
             }
         }
@@ -1920,7 +1920,8 @@ export class SDFGRenderer extends EventEmitter {
                 }
                 const sdfg_id = error.sdfg_id ?? 0;
                 const problemElem = findGraphElementByUUID(
-                    this.cfgList, sdfg_id + '/' + state_id + '/' + el_id + '/-1'
+                    this.cfgList, this.cfgTree,
+                    sdfg_id + '/' + state_id + '/' + el_id + '/-1'
                 );
                 if (problemElem) {
                     if (problemElem && problemElem instanceof SDFGElement)
@@ -3576,6 +3577,10 @@ export class SDFGRenderer extends EventEmitter {
 
     public getCFGList(): CFGListType {
         return this.cfgList;
+    }
+
+    public getCFGTree(): { [key: number]: number} {
+        return this.cfgTree;
     }
 
     public get_graph(): DagreGraph | null {

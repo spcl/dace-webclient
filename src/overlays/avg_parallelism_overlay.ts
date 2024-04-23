@@ -1,6 +1,12 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph, Point2D, SimpleRect, SymbolMap } from '../index';
+import {
+    DagreGraph,
+    Point2D,
+    SimpleRect,
+    SymbolMap,
+    getGraphElementUUID,
+} from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     ControlFlowBlock,
@@ -12,7 +18,7 @@ import {
     State,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { getTempColorHslString, get_element_uuid } from '../utils/utils';
+import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class AvgParallelismOverlay extends GenericSdfgOverlay {
@@ -45,7 +51,7 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
         node: SDFGNode, symbol_map: SymbolMap, avg_parallelism_values: number[]
     ): number | undefined {
         const avg_parallelism_string = this.avg_parallelism_map[
-            get_element_uuid(node)
+            getGraphElementUUID(node)
         ];
         let avg_parallelism = undefined;
         if (avg_parallelism_string !== undefined) {
@@ -285,7 +291,7 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
                 !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.avg_parallelism === undefined) {
                     const avg_parallelism_string = this.avg_parallelism_map[
-                        get_element_uuid(foreground_elem)
+                        getGraphElementUUID(foreground_elem)
                     ];
                     if (avg_parallelism_string) {
                         this.symbolResolver.parse_symbol_expression(

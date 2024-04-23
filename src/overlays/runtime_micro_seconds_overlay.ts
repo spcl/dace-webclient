@@ -1,11 +1,11 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Node } from 'dagre';
-import { DagreGraph, SimpleRect } from '../index';
+import { DagreGraph, SimpleRect, getGraphElementUUID } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { getTempColorHslString, get_element_uuid } from '../utils/utils';
+import { getTempColorHslString } from '../utils/utils';
 import {
     GenericSdfgOverlay,
     OverlayType,
@@ -66,7 +66,7 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
     }
 
     public shade_node(node: SDFGNode, ctx: CanvasRenderingContext2D): void {
-        const rt_summary = this.runtime_map[get_element_uuid(node)];
+        const rt_summary = this.runtime_map[getGraphElementUUID(node)];
 
         if (rt_summary === undefined)
             return;

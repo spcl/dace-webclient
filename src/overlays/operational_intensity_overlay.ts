@@ -1,6 +1,12 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph, Point2D, SimpleRect, SymbolMap } from '../index';
+import {
+    DagreGraph,
+    Point2D,
+    SimpleRect,
+    SymbolMap,
+    getGraphElementUUID,
+} from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     Edge,
@@ -9,7 +15,7 @@ import {
     SDFGNode,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { getTempColorHslString, get_element_uuid } from '../utils/utils';
+import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class OperationalIntensityOverlay extends GenericSdfgOverlay {
@@ -49,7 +55,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         if (node.parent_id === undefined || node.parent_id === null)
             return;
 
-        const flops_string = this.flops_map[get_element_uuid(node)];
+        const flops_string = this.flops_map[getGraphElementUUID(node)];
         let flops = undefined;
         if (flops_string !== undefined) {
             flops = this.symbolResolver.parse_symbol_expression(
@@ -309,7 +315,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                 !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.flops === undefined) {
                     const flops_string = this.flops_map[
-                        get_element_uuid(foreground_elem)
+                        getGraphElementUUID(foreground_elem)
                     ];
                     if (flops_string) {
                         this.symbolResolver.parse_symbol_expression(

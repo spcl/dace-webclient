@@ -76,7 +76,7 @@ export function getGraphElementUUID(element: SDFGElement | null): string {
         );
     }
     return (
-        undefined_val + '/' +
+        cfgId + '/' +
         undefined_val + '/' +
         undefined_val + '/' +
         undefined_val
@@ -107,8 +107,8 @@ export function check_and_redirect_edge(
 }
 
 export function findGraphElementByUUID(
-    cfgList: CFGListType, uuid: string
-): SDFGElement | DagreGraph | null {
+    cfgList: CFGListType, cfgTree: { [key: number]: number },  uuid: string
+): SDFGElement | null {
     const uuidParts = uuid.split('/');
 
     const cfgId = uuidParts[0];
@@ -139,9 +139,14 @@ export function findGraphElementByUUID(
         return element;
     if (state)
         return state;
-    if (graph)
-        return graph;
-    return null;
+
+    const parentCfgId = cfgTree[Number(cfgId)];
+    if (parentCfgId === undefined || parentCfgId === null)
+        return null;
+    const parentCfg = cfgList[parentCfgId].graph;
+    if (!parentCfg)
+        return null;
+    return parentCfg.node(cfgList[cfgId].jsonObj.id.toString()) ?? null;
 }
 
 /**

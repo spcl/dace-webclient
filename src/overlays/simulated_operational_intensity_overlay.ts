@@ -1,6 +1,12 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph, Point2D, SimpleRect, SymbolMap } from '../index';
+import {
+    DagreGraph,
+    Point2D,
+    SimpleRect,
+    SymbolMap,
+    getGraphElementUUID,
+} from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     Edge,
@@ -9,7 +15,7 @@ import {
     SDFGNode,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { getTempColorHslString, get_element_uuid } from '../utils/utils';
+import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
@@ -43,7 +49,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
     public calculate_op_in_node(
         node: SDFGNode, symbol_map: SymbolMap, op_in_values: number[]
     ): number | undefined {
-        const op_in_string = this.op_in_map[get_element_uuid(node)];
+        const op_in_string = this.op_in_map[getGraphElementUUID(node)];
         let op_in = undefined;
         if (op_in_string !== undefined) {
             op_in = this.symbolResolver.parse_symbol_expression(
@@ -272,7 +278,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
                 !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.op_in === undefined) {
                     const op_in_string = this.op_in_map[
-                        get_element_uuid(foreground_elem)
+                        getGraphElementUUID(foreground_elem)
                     ];
                     if (op_in_string) {
                         this.symbolResolver.parse_symbol_expression(
