@@ -1,21 +1,28 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
+import {
+    DagreGraph,
+    Point2D,
+    SimpleRect,
+    SymbolMap,
+    getGraphElementUUID,
+} from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     Edge,
     NestedSDFG,
     SDFGElement,
-    SDFGNode
+    SDFGNode,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { getTempColorHslString, get_element_uuid } from '../utils/utils';
+import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
 
     public static readonly type: OverlayType = OverlayType.NODE;
-    public readonly olClass: typeof GenericSdfgOverlay = SimulatedOperationalIntensityOverlay;
+    public readonly olClass: typeof GenericSdfgOverlay =
+        SimulatedOperationalIntensityOverlay;
 
     private op_in_map: { [uuids: string]: any } = {};
 
@@ -23,14 +30,13 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         super(renderer);
 
         this.renderer.emit(
-            'backend_data_requested', 'op_in', 'SimulatedOperationalIntensityOverlay'
+            'backend_data_requested', 'op_in',
+            'SimulatedOperationalIntensityOverlay'
         );
     }
 
     public clear_cached_op_in_values(): void {
-        this.renderer.for_all_elements(0, 0, 0, 0, (
-            _type: string, _e: Event, obj: any
-        ) => {
+        this.renderer.doForAllGraphElements((_group, _info, obj) => {
             if (obj.data) {
                 if (obj.data.op_in !== undefined)
                     obj.data.op_in = undefined;
@@ -43,14 +49,15 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
     public calculate_op_in_node(
         node: SDFGNode, symbol_map: SymbolMap, op_in_values: number[]
     ): number | undefined {
-        const op_in_string = this.op_in_map[get_element_uuid(node)];
+        const op_in_string = this.op_in_map[getGraphElementUUID(node)];
         let op_in = undefined;
-        if (op_in_string !== undefined)
-            op_in = this.symbol_resolver.parse_symbol_expression(
+        if (op_in_string !== undefined) {
+            op_in = this.symbolResolver.parse_symbol_expression(
                 op_in_string,
                 symbol_map,
                 false
             );
+        }
 
         node.data.op_in_string = op_in_string;
         node.data.op_in = op_in;
@@ -62,7 +69,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
     }
 
     public calculate_op_in_graph(
-        g: DagreSDFG, symbol_map: SymbolMap, op_in_values: number[]
+        g: DagreGraph, symbol_map: SymbolMap, op_in_values: number[]
     ): void {
         g.nodes().forEach(v => {
             const state = g.node(v);
@@ -79,7 +86,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol: string) => {
                             nested_symbols_map[symbol] =
-                                this.symbol_resolver.parse_symbol_expression(
+                                this.symbolResolver.parse_symbol_expression(
                                     mapping[symbol],
                                     symbol_map
                                 );
@@ -112,14 +119,14 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         });
     }
 
-    public recalculate_op_in_values(graph: DagreSDFG): void {
+    public recalculate_op_in_values(graph: DagreGraph): void {
         this.heatmap_scale_center = 5;
         this.heatmap_hist_buckets = [];
 
         const op_in_values: number[] = [];
         this.calculate_op_in_graph(
             graph,
-            this.symbol_resolver.get_symbol_value_map(),
+            this.symbolResolver.get_symbol_value_map(),
             op_in_values
         );
 
@@ -151,20 +158,25 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         if (op_in_string !== undefined && mousepos &&
             node.intersect(mousepos.x, mousepos.y)) {
             // Show the computed op_in value if applicable.
-            if (isNaN(op_in_string) && op_in !== undefined)
+            if (isNaN(op_in_string) && op_in !== undefined) {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
+                    if (tt_cont) {
                         tt_cont.innerText = (
-                            'Operational Intensity: ' + op_in_string + ' (' + op_in + ')'
+                            'Operational Intensity: ' + op_in_string + ' (' +
+                                op_in + ')'
                         );
+                    }
                 });
-            else
+            } else {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
-                        tt_cont.innerText = 'Operational Intensity: ' + op_in_string;
+                    if (tt_cont) {
+                        tt_cont.innerText = 'Operational Intensity: ' +
+                            op_in_string;
+                    }
                 });
+            }
         }
 
         if (op_in === undefined) {
@@ -184,13 +196,13 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
             return;
 
         // Calculate the severity color.
-        const color = getTempColorHslString(1 - this.get_severity_value(op_in));
+        const color = getTempColorHslString(1 - this.getSeverityValue(op_in));
 
         node.shade(this.renderer, ctx, color);
     }
 
     public recursively_shade_sdfg(
-        graph: DagreSDFG,
+        graph: DagreGraph,
         ctx: CanvasRenderingContext2D,
         ppp: number,
         visible_rect: SimpleRect
@@ -266,12 +278,12 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
                 !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.op_in === undefined) {
                     const op_in_string = this.op_in_map[
-                        get_element_uuid(foreground_elem)
+                        getGraphElementUUID(foreground_elem)
                     ];
                     if (op_in_string) {
-                        this.symbol_resolver.parse_symbol_expression(
+                        this.symbolResolver.parse_symbol_expression(
                             op_in_string,
-                            this.symbol_resolver.get_symbol_value_map(),
+                            this.symbolResolver.get_symbol_value_map(),
                             true,
                             () => {
                                 this.clear_cached_op_in_values();

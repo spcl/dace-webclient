@@ -1,3 +1,5 @@
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { DiGraph } from '../di_graph';
 import { stronglyConnectedComponents } from './components';
 
@@ -34,7 +36,6 @@ export class NodeCycle<NodeT> {
 export function* simpleCycles(
     g: DiGraph<unknown, unknown>
 ): Generator<[string[], [string, string][]]> {
-
     function _unblock(
         thisnode: string, blocked: Set<string>, B: Map<string, Set<string>>
     ): void {
@@ -54,9 +55,10 @@ export function* simpleCycles(
 
     const subGraph = g.copy();
     const sccs: Set<string>[] = [];
-    for (const scc of stronglyConnectedComponents(subGraph))
+    for (const scc of stronglyConnectedComponents(subGraph)) {
         if (scc.size > 1)
             sccs.push(scc);
+    }
 
     for (const node of subGraph.nodes()) {
         const selfEdge: [string, string] = [node, node];
@@ -79,7 +81,10 @@ export function* simpleCycles(
             blocked.add(startNode);
             const B = new Map<string, Set<string>>();
             const stack: [string, string[]][] = [
-                [startNode, sccGraph.neighbors(startNode)]
+                [
+                    startNode,
+                    sccGraph.neighbors(startNode),
+                ],
             ];
 
             while (stack.length > 0) {

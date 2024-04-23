@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 /**
  * Returns a function taking a number from 0 to 1 which linearly interpolates
@@ -12,7 +12,7 @@ export function lerpMatrix(
     function decompose(m: DOMMatrix): any {
         const scale = [
             Math.sqrt(m.a * m.a + m.b * m.b),
-            Math.sqrt(m.c * m.c + m.d * m.d)
+            Math.sqrt(m.c * m.c + m.d * m.d),
         ];
 
         const det = m.a * m.d - m.b * m.c;
@@ -62,11 +62,10 @@ export function lerpMatrix(
         }
 
         if (Math.abs(d1Angle - d2Angle) > 180) {
-            if (d1Angle > d2Angle) {
+            if (d1Angle > d2Angle)
                 d1Angle -= 360;
-            } else {
+            else
                 d2Angle -= 360;
-            }
         }
 
 

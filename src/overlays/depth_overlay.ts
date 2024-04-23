@@ -1,15 +1,21 @@
-// Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
+import {
+    DagreGraph,
+    Point2D,
+    SimpleRect,
+    SymbolMap,
+    getGraphElementUUID,
+} from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     Edge,
     NestedSDFG,
     SDFGElement,
-    SDFGNode
+    SDFGNode,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { getTempColorHslString, get_element_uuid } from '../utils/utils';
+import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class DepthOverlay extends GenericSdfgOverlay {
@@ -28,9 +34,7 @@ export class DepthOverlay extends GenericSdfgOverlay {
     }
 
     public clear_cached_depth_values(): void {
-        this.renderer.for_all_elements(0, 0, 0, 0, (
-            _type: string, _e: Event, obj: any
-        ) => {
+        this.renderer.doForAllGraphElements((_group, _info, obj: any) => {
             if (obj.data) {
                 if (obj.data.depth !== undefined)
                     obj.data.depth = undefined;
@@ -43,13 +47,14 @@ export class DepthOverlay extends GenericSdfgOverlay {
     public calculate_depth_node(
         node: SDFGNode, symbol_map: SymbolMap, depth_values: number[]
     ): number | undefined {
-        const depth_string = this.depth_map[get_element_uuid(node)];
+        const depth_string = this.depth_map[getGraphElementUUID(node)];
         let depth = undefined;
-        if (depth_string !== undefined)
-            depth = this.symbol_resolver.parse_symbol_expression(
+        if (depth_string !== undefined) {
+            depth = this.symbolResolver.parse_symbol_expression(
                 depth_string,
                 symbol_map
             );
+        }
 
         node.data.depth_string = depth_string;
         node.data.depth = depth;
@@ -61,7 +66,7 @@ export class DepthOverlay extends GenericSdfgOverlay {
     }
 
     public calculate_depth_graph(
-        g: DagreSDFG, symbol_map: SymbolMap, depth_values: number[]
+        g: DagreGraph, symbol_map: SymbolMap, depth_values: number[]
     ): void {
         g.nodes().forEach(v => {
             const state = g.node(v);
@@ -78,7 +83,7 @@ export class DepthOverlay extends GenericSdfgOverlay {
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol: string) => {
                             nested_symbols_map[symbol] =
-                                this.symbol_resolver.parse_symbol_expression(
+                                this.symbolResolver.parse_symbol_expression(
                                     mapping[symbol],
                                     symbol_map
                                 );
@@ -111,14 +116,14 @@ export class DepthOverlay extends GenericSdfgOverlay {
         });
     }
 
-    public recalculate_depth_values(graph: DagreSDFG): void {
+    public recalculate_depth_values(graph: DagreGraph): void {
         this.heatmap_scale_center = 5;
         this.heatmap_hist_buckets = [];
 
         const depth_values: number[] = [];
         this.calculate_depth_graph(
             graph,
-            this.symbol_resolver.get_symbol_value_map(),
+            this.symbolResolver.get_symbol_value_map(),
             depth_values
         );
 
@@ -150,20 +155,22 @@ export class DepthOverlay extends GenericSdfgOverlay {
         if (depth_string !== undefined && mousepos &&
             node.intersect(mousepos.x, mousepos.y)) {
             // Show the computed Depth value if applicable.
-            if (isNaN(depth_string) && depth !== undefined)
+            if (isNaN(depth_string) && depth !== undefined) {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
+                    if (tt_cont) {
                         tt_cont.innerText = (
                             'Depth: ' + depth_string + ' (' + depth + ')'
                         );
+                    }
                 });
-            else
+            } else {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
                     if (tt_cont)
                         tt_cont.innerText = 'Depth: ' + depth_string;
                 });
+            }
         }
 
         if (depth === undefined) {
@@ -183,13 +190,13 @@ export class DepthOverlay extends GenericSdfgOverlay {
             return;
 
         // Calculate the severity color.
-        const color = getTempColorHslString(this.get_severity_value(depth));
+        const color = getTempColorHslString(this.getSeverityValue(depth));
 
         node.shade(this.renderer, ctx, color);
     }
 
     public recursively_shade_sdfg(
-        graph: DagreSDFG,
+        graph: DagreGraph,
         ctx: CanvasRenderingContext2D,
         ppp: number,
         visible_rect: SimpleRect
@@ -265,12 +272,12 @@ export class DepthOverlay extends GenericSdfgOverlay {
                 !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.depth === undefined) {
                     const depth_string = this.depth_map[
-                        get_element_uuid(foreground_elem)
+                        getGraphElementUUID(foreground_elem)
                     ];
                     if (depth_string) {
-                        this.symbol_resolver.parse_symbol_expression(
+                        this.symbolResolver.parse_symbol_expression(
                             depth_string,
-                            this.symbol_resolver.get_symbol_value_map(),
+                            this.symbolResolver.get_symbol_value_map(),
                             true,
                             () => {
                                 this.clear_cached_depth_values();

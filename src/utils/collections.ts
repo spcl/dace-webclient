@@ -1,10 +1,10 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 class ListNode<T> {
 
     constructor(
         public value: T,
-        public next?: ListNode<T>,
+        public next?: ListNode<T>
     ) {
     }
 
@@ -52,7 +52,7 @@ export class AccessStack<T> extends LinkedStack<T> {
      * Move a value to the top if it exists, and return its previous depth.
      * If the value is not in the stack, return -1 and push the value to
      * the stack.
-     * @param value 
+     * @param value
      */
     public touch(value: T): number {
         let depth = 0;

@@ -1,3 +1,5 @@
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { GraphI } from './graph_types';
 
 export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
@@ -6,7 +8,7 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
     protected adjacencyList: Map<string, Map<string, EdgeT | null>> = new Map();
 
     public constructor(
-        public name: string = '',
+        public name: string = ''
     ) {
         return;
     }
@@ -118,9 +120,10 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
     public* edgesIter(): Generator<[string, string]> {
         const taken = new Set<[string, string]>();
         for (const [src, adj] of this.adjacencyList.entries()) {
-            for (const dst of adj.keys())
+            for (const dst of adj.keys()) {
                 if (!taken.has([dst, src]) && !taken.has([src, dst]))
                     yield [src, dst];
+            }
         }
     }
 
@@ -136,11 +139,12 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
 
     public* adjListIter(): Generator<string | [string, string]> {
         for (const [src, adj] of this.adjacencyList.entries()) {
-            if (adj.size)
+            if (adj.size) {
                 for (const dst of adj)
                     yield [src, dst[0]];
-            else
+            } else {
                 yield src;
+            }
         }
     }
 

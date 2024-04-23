@@ -1,15 +1,15 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Node } from 'dagre';
-import { DagreSDFG, SimpleRect } from '../index';
+import { DagreGraph, SimpleRect, getGraphElementUUID } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { getTempColorHslString, get_element_uuid } from '../utils/utils';
+import { getTempColorHslString } from '../utils/utils';
 import {
     GenericSdfgOverlay,
     OverlayType,
-    RuntimeReportOverlay
+    RuntimeReportOverlay,
 } from './generic_sdfg_overlay';
 
 
@@ -20,7 +20,7 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
         RuntimeMicroSecondsOverlay;
 
     protected criterium: string = 'mean';
-    private runtime_map: { [uuids: string]: any } = {}
+    private runtime_map: { [uuids: string]: any } = {};
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
@@ -66,7 +66,7 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
     }
 
     public shade_node(node: SDFGNode, ctx: CanvasRenderingContext2D): void {
-        const rt_summary = this.runtime_map[get_element_uuid(node)];
+        const rt_summary = this.runtime_map[getGraphElementUUID(node)];
 
         if (rt_summary === undefined)
             return;
@@ -74,19 +74,19 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
         const mousepos = this.renderer.get_mousepos();
         if (mousepos && node.intersect(mousepos.x, mousepos.y)) {
             // Show the measured runtime.
-            if (rt_summary['min'] === rt_summary['max'])
+            if (rt_summary['min'] === rt_summary['max']) {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
+                    if (tt_cont) {
                         tt_cont.innerText = this.pretty_print_micros(
                             rt_summary['min']
                         );
+                    }
                 });
-
-            else
+            } else {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
+                    if (tt_cont) {
                         tt_cont.innerText = (
                             'Min: ' +
                             this.pretty_print_micros(rt_summary['min']) +
@@ -99,18 +99,20 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
                             '\nCount: ' +
                             rt_summary['count']
                         );
+                    }
                 });
+            }
         }
 
         // Calculate the severity color.
         const micros = rt_summary[this.criterium];
-        const color = getTempColorHslString(this.get_severity_value(micros));
+        const color = getTempColorHslString(this.getSeverityValue(micros));
 
         node.shade(this.renderer, ctx, color);
     }
 
     public recursively_shade_sdfg(
-        graph: DagreSDFG,
+        graph: DagreGraph,
         ctx: CanvasRenderingContext2D,
         ppp: number,
         visible_rect: SimpleRect

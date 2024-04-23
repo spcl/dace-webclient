@@ -1,6 +1,13 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { Edge, EntryNode, SDFGElement, SDFGElementType, SDFGNode } from './renderer_elements';
+import {
+    ControlFlowBlock,
+    Edge,
+    EntryNode,
+    SDFGElement,
+    SDFGElementType,
+    SDFGNode,
+} from './renderer_elements';
 import { lerpMatrix } from '../utils/lerp_matrix';
 import { updateEdgeBoundingBox } from '../utils/bounding_box';
 import {
@@ -8,7 +15,7 @@ import {
     initialize_positioning_info,
 } from '../utils/sdfg/sdfg_utils';
 import { SDFGRenderer, CFGListType } from './renderer';
-import { DagreSDFG, intersectRect, Point2D } from '../index';
+import { DagreGraph, intersectRect, Point2D } from '../index';
 
 const animation_duration = 1000;
 
@@ -17,8 +24,10 @@ const animation_function = (t: number) => 1 - Math.pow(1 - t, 3);
 
 let _canvas_manager_counter = 0;
 
+/**
+ * Manages translation and scaling of canvas rendering.
+ */
 export class CanvasManager {
-    // Manages translation and scaling of canvas rendering
 
     private anim_id: number | null = null;
     private prev_time: number | null = null;
@@ -74,12 +83,12 @@ export class CanvasManager {
     public alreadyAnimatingTo(new_transform: DOMMatrix): boolean {
         if (this.animation_target) {
             let result = true;
-            result = result && (this.animation_target.a == new_transform.a);
-            result = result && (this.animation_target.b == new_transform.b);
-            result = result && (this.animation_target.c == new_transform.c);
-            result = result && (this.animation_target.d == new_transform.d);
-            result = result && (this.animation_target.e == new_transform.e);
-            result = result && (this.animation_target.f == new_transform.f);
+            result = result && (this.animation_target.a === new_transform.a);
+            result = result && (this.animation_target.b === new_transform.b);
+            result = result && (this.animation_target.c === new_transform.c);
+            result = result && (this.animation_target.d === new_transform.d);
+            result = result && (this.animation_target.e === new_transform.e);
+            result = result && (this.animation_target.f === new_transform.f);
             return result;
         } else {
             return false;
@@ -203,13 +212,12 @@ export class CanvasManager {
     }
 
     public removeDrawable(drawable: unknown): void {
-        this.drawables = this.drawables.filter(x => x != drawable);
+        this.drawables = this.drawables.filter(x => x !== drawable);
     }
 
     public clearDrawables(): void {
-        for (const x of this.drawables) {
+        for (const x of this.drawables)
             x.destroy();
-        }
         this.drawables = [];
         this.indices = [];
     }
@@ -220,8 +228,8 @@ export class CanvasManager {
             return true;
 
         const topleft = ctx.getImageData(0, 0, 1, 1).data;
-        if (topleft[0] != 0 || topleft[1] != 0 || topleft[2] != 0 ||
-            topleft[3] != 255)
+        if (topleft[0] !== 0 || topleft[1] !== 0 || topleft[2] !== 0 ||
+            topleft[3] !== 255)
             return false;
 
         const pixelBuffer = new Uint32Array(
@@ -235,9 +243,8 @@ export class CanvasManager {
 
     public scale(diff: number, x: number = 0, y: number = 0): void {
         this.stopAnimation();
-        if (this.request_scale || this.contention > 0) {
+        if (this.request_scale || this.contention > 0)
             return;
-        }
         this.contention++;
         this.request_scale = true;
         if (this.isBlank()) {
@@ -265,7 +272,7 @@ export class CanvasManager {
     public set_view(rect: DOMRect, animate: boolean = false): void {
         const canvas_w = this.canvas.width;
         const canvas_h = this.canvas.height;
-        if (canvas_w == 0 || canvas_h == 0)
+        if (canvas_w === 0 || canvas_h === 0)
             return;
 
         let scale = 1, tx = 0, ty = 0;
@@ -333,7 +340,7 @@ export class CanvasManager {
         el: SDFGElement,
         old_mousepos: Point2D,
         new_mousepos: Point2D,
-        entire_graph: DagreSDFG,
+        entire_graph: DagreGraph,
         cfg_list: CFGListType,
         state_parent_list: any[],
         drag_start: any,
@@ -348,22 +355,22 @@ export class CanvasManager {
         const in_edges: any[] = [];
 
         // Find the parent graph in the list of available SDFGs
-        let parent_graph = cfg_list[el.sdfg.cfg_list_id];
+        let parent_graph = cfg_list[el.cfg!.cfg_list_id].graph;
         let parent_element: SDFGElement | null = null;
 
         if (
             entire_graph !== parent_graph &&
-            (el.data.state || el.data.type == 'InterstateEdge')
+            (el.data.state || el.data.type === 'InterstateEdge')
         ) {
             // If the parent graph and the entire SDFG shown are not the same,
             // we're currently in a nested SDFG. If we're also moving a state,
             // this means that its parent element is found in the list of
             // parents to states (state_parent_list)
-            parent_element = state_parent_list[el.sdfg.cfg_list_id];
+            parent_element = state_parent_list[el.cfg!.cfg_list_id];
         } else if (el.parent_id !== null && parent_graph) {
             // If the parent_id isn't null and there is a parent graph, we can
             // look up the parent node via the element's parent_id
-            parent_element = parent_graph.node(el.parent_id);
+            parent_element = parent_graph.node(el.parent_id.toString());
             // If our parent element is a state, we want the state's graph
             if (parent_element && parent_element.data.state)
                 parent_graph = parent_element.data.graph;
@@ -371,10 +378,10 @@ export class CanvasManager {
 
         if (parent_graph && !(el instanceof Edge)) {
             // Find all the edges connected to the moving node
-            parent_graph.outEdges(el.id).forEach((edge_id: number) => {
+            parent_graph.outEdges(el.id.toString())?.forEach(edge_id => {
                 out_edges.push(parent_graph.edge(edge_id));
             });
-            parent_graph.inEdges(el.id).forEach((edge_id: number) => {
+            parent_graph.inEdges(el.id.toString())?.forEach(edge_id => {
                 in_edges.push(parent_graph.edge(edge_id));
             });
         }
@@ -397,7 +404,7 @@ export class CanvasManager {
                     el.get_points().forEach((p, i) => {
                         // Only allow dragging if the memlet has more than two
                         // points
-                        if (i == 0 || i == el.get_points().length - 1)
+                        if (i === 0 || i === el.get_points().length - 1)
                             return;
                         const ddx = p.x - drag_start.cx;
                         const ddy = p.y - drag_start.cy;
@@ -445,37 +452,33 @@ export class CanvasManager {
                     const target_x = points[pt].x + dx;
                     const target_y = points[pt].y + dy;
                     if (target_x <= min_x ||
-                        new_mousepos.x <= parent_left_border) {
+                        new_mousepos.x <= parent_left_border)
                         dx = min_x - points[pt].x;
-                    } else if (target_x >= max_x ||
-                        new_mousepos.x >= parent_right_border) {
+                    else if (target_x >= max_x ||
+                        new_mousepos.x >= parent_right_border)
                         dx = max_x - points[pt].x;
-                    }
                     if (target_y <= min_y ||
-                        new_mousepos.y <= parent_top_border) {
+                        new_mousepos.y <= parent_top_border)
                         dy = min_y - points[pt].y;
-                    } else if (target_y >= max_y ||
-                        new_mousepos.y >= parent_bottom_border) {
+                    else if (target_y >= max_y ||
+                        new_mousepos.y >= parent_bottom_border)
                         dy = max_y - points[pt].y;
-                    }
                 }
             } else {
                 const target_x = el.x + dx;
                 const target_y = el.y + dy;
                 if (target_x <= min_x ||
-                    new_mousepos.x <= parent_left_border) {
+                    new_mousepos.x <= parent_left_border)
                     dx = min_x - el.x;
-                } else if (target_x >= max_x ||
-                    new_mousepos.x >= parent_right_border) {
+                else if (target_x >= max_x ||
+                    new_mousepos.x >= parent_right_border)
                     dx = max_x - el.x;
-                }
                 if (target_y <= min_y ||
-                    new_mousepos.y <= parent_top_border) {
+                    new_mousepos.y <= parent_top_border)
                     dy = min_y - el.y;
-                } else if (target_y >= max_y ||
-                    new_mousepos.y >= parent_bottom_border) {
+                else if (target_y >= max_y ||
+                    new_mousepos.y >= parent_bottom_border)
                     dy = max_y - el.y;
-                }
             }
         }
 
@@ -499,15 +502,14 @@ export class CanvasManager {
                 if (update_position_info) {
                     if (!position.points) {
                         position.points = Array(points.length);
-                        for (let i = 0; i < points.length; i++) {
-                            position.points[i] = {dx: 0, dy: 0};
-                        }
+                        for (let i = 0; i < points.length; i++)
+                            position.points[i] = { dx: 0, dy: 0 };
                     }
 
                     position.points[pt].dx += dx;
                     position.points[pt].dy += dy;
                 }
-            } else if (pt == -2) {
+            } else if (pt === -2) {
                 // Don't update first and last point (the connectors)
                 for (let i = 1; i < points.length - 1; i++) {
                     points[i].x += dx;
@@ -520,7 +522,7 @@ export class CanvasManager {
                         position.points[i].dy += dy;
                     }
                 }
-            } else if (pt == -3 && edge_dpoints) {
+            } else if (pt === -3 && edge_dpoints) {
                 for (let i = 1; i < points.length - 1; i++) {
                     points[i].x += edge_dpoints[i].dx;
                     points[i].y += edge_dpoints[i].dy;
@@ -530,27 +532,50 @@ export class CanvasManager {
             return;
         }
 
-        // Move a node together with its connectors if it has any
-        function move_node_and_connectors(node: SDFGNode) {
+        // Move a node together with its connectors if it has any.
+        function moveNode(node: SDFGNode | ControlFlowBlock) {
             node.x += dx;
             node.y += dy;
-            if (node.data.node &&
-                node.data.node.type === SDFGElementType.NestedSDFG)
-                translate_recursive(node.data.graph);
-            if (node.in_connectors)
-                node.in_connectors.forEach(c => {
-                    c.x += dx;
-                    c.y += dy;
+            if (node instanceof SDFGNode) {
+                if (node.data.node &&
+                    node.data.node.type === SDFGElementType.NestedSDFG)
+                    translateRecursive(node.data.graph);
+                if (node.in_connectors) {
+                    node.in_connectors.forEach(c => {
+                        c.x += dx;
+                        c.y += dy;
+                    });
+                }
+                if (node.out_connectors) {
+                    node.out_connectors.forEach(c => {
+                        c.x += dx;
+                        c.y += dy;
+                    });
+                }
+            } else if (!node.attributes().is_collapsed) {
+                // We're moving a control flow block, move all its contents too.
+                const nGraph = node.data.graph;
+                nGraph.nodes().forEach((node_id: string) => {
+                    const nNode = nGraph.node(node_id);
+                    moveNode(nNode);
                 });
-            if (node.out_connectors)
-                node.out_connectors.forEach(c => {
-                    c.x += dx;
-                    c.y += dy;
+
+                // Drag all the edges along
+                nGraph.edges().forEach((edge_id: number) => {
+                    const edge = nGraph.edge(edge_id);
+                    edge.x += dx;
+                    edge.y += dy;
+                    edge.points.forEach((point: Point2D) => {
+                        point.x += dx;
+                        point.y += dy;
+                    });
+                    updateEdgeBoundingBox(edge);
                 });
+            }
         }
 
         // Allow recursive translation of nested SDFGs
-        function translate_recursive(ng: DagreSDFG) {
+        function translateRecursive(ng: DagreGraph) {
             ng.nodes().forEach((state_id: string) => {
                 const state = ng.node(state_id);
                 state.x += dx;
@@ -559,7 +584,7 @@ export class CanvasManager {
                 if (g) {
                     g.nodes().forEach((node_id: string) => {
                         const node = g.node(node_id);
-                        move_node_and_connectors(node);
+                        moveNode(node);
                     });
 
                     g.edges().forEach((edge_id: number) => {
@@ -586,10 +611,9 @@ export class CanvasManager {
             });
         }
 
-        // Move the node
-        move_node_and_connectors(el);
+        moveNode(el);
 
-        // Store movement information in element (for relayouting)
+        // Store movement information in element (for relayouting).
         if (update_position_info) {
             let position = getPositioningInfo(el);
             if (!position)
@@ -599,7 +623,7 @@ export class CanvasManager {
             position.dy += dy;
 
             // Store movement information if EntryNode for other nodes of the
-            // same scope
+            // same scope.
             if (el instanceof EntryNode &&
                 el.data.node.attributes.is_collapsed) {
                 if (!position.scope_dx) {
@@ -610,27 +634,6 @@ export class CanvasManager {
                 position.scope_dx += dx;
                 position.scope_dy += dy;
             }
-        }
-
-        if (el.data.state && !el.data.state.attributes.is_collapsed) {
-            // We're moving a state, move all its contained elements
-            const graph = el.data.graph;
-            graph.nodes().forEach((node_id: string) => {
-                const node = graph.node(node_id);
-                move_node_and_connectors(node);
-            });
-
-            // Drag all the edges along
-            graph.edges().forEach((edge_id: number) => {
-                const edge = graph.edge(edge_id);
-                edge.x += dx;
-                edge.y += dy;
-                edge.points.forEach((point: Point2D) => {
-                    point.x += dx;
-                    point.y += dy;
-                });
-                updateEdgeBoundingBox(edge);
-            });
         }
 
         // Move the connected edges along with the element
@@ -656,7 +659,7 @@ export class CanvasManager {
             // Also update destination point of edge
             if (edge.dst_connector !== null) {
                 const e = parent_element?.data?.state?.edges[edge.id];
-                const dst_el = parent_graph.node(e?.dst);
+                const dst_el = parent_graph?.node(e?.dst);
                 if (dst_el) {
                     for (let i = 0; i < dst_el.in_connectors.length; i++) {
                         const dst_name = dst_el.in_connectors[i].data.name;
@@ -693,7 +696,7 @@ export class CanvasManager {
             // Also update source point of edge
             if (edge.src_connector !== null) {
                 const e = parent_element?.data?.state?.edges[edge.id];
-                const src_el = parent_graph.node(e?.src);
+                const src_el = parent_graph?.node(e?.src);
                 if (src_el) {
                     for (let i = 0; i < src_el.out_connectors.length; i++) {
                         const out_name = src_el.out_connectors[i].data.name;
@@ -737,9 +740,8 @@ export class CanvasManager {
     }
 
     public animation_step(now: number): void {
-        if (this.animation === null) {
+        if (this.animation === null)
             return;
-        }
 
         if (this.animation_start === null) {
             this.animation_start = now;
@@ -790,9 +792,8 @@ export class CanvasManager {
         this.renderer.draw(dt);
         this.contention -= 1;
 
-        if (this.animation_end !== null && now < this.animation_end) {
+        if (this.animation_end !== null && now < this.animation_end)
             this.draw_async();
-        }
     }
 
     public draw_async(): void {

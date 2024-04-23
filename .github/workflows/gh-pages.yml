@@ -27,7 +27,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     strategy:
       matrix:
-        node-version: [18.4]
+        node-version: [18.12]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

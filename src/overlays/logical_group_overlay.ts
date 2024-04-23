@@ -1,6 +1,6 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreSDFG, JsonSDFG, Point2D, SimpleRect } from '../index';
+import { DagreGraph, JsonSDFG, Point2D, SimpleRect } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     NestedSDFG,
@@ -34,15 +34,15 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         this.renderer.draw_async();
     }
 
-    public shade_node(
+    public shadeNode(
         node: SDFGNode, groups: LogicalGroup[], ctx: CanvasRenderingContext2D
     ): void {
-        const all_groups: LogicalGroup[] = [];
+        const allGroups: LogicalGroup[] = [];
         if (node instanceof State) {
             groups.forEach(group => {
                 if (group.states.includes(node.id)) {
                     node.shade(this.renderer, ctx, group.color, 0.3);
-                    all_groups.push(group);
+                    allGroups.push(group);
                 }
             });
         } else {
@@ -50,26 +50,26 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
                 group.nodes.forEach(n => {
                     if (n[0] === node.parent_id && n[1] === node.id) {
                         node.shade(this.renderer, ctx, group.color, 0.3);
-                        all_groups.push(group);
+                        allGroups.push(group);
                     }
                 });
             });
         }
 
         const mousepos = this.renderer.get_mousepos();
-        if (all_groups.length > 0 && mousepos &&
+        if (allGroups.length > 0 && mousepos &&
             node.intersect(mousepos.x, mousepos.y)) {
             // Show the corresponding group.
             this.renderer.set_tooltip(() => {
                 const tt_cont = this.renderer.get_tooltip_container();
                 if (tt_cont) {
-                    if (all_groups.length === 1) {
-                        tt_cont.innerText = 'Group: ' + all_groups[0].name;
+                    if (allGroups.length === 1) {
+                        tt_cont.innerText = 'Group: ' + allGroups[0].name;
                     } else {
                         let group_string = 'Groups: ';
-                        all_groups.forEach((group, i) => {
+                        allGroups.forEach((group, i) => {
                             group_string += group.name;
-                            if (i < all_groups.length - 1)
+                            if (i < allGroups.length - 1)
                                 group_string += ', ';
                         });
                         tt_cont.innerText = group_string;
@@ -79,8 +79,8 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         }
     }
 
-    public recursivelyShadeSDFG(
-        sdfg: JsonSDFG, graph: DagreSDFG, ctx: CanvasRenderingContext2D,
+    public recursivelyShadeCFG(
+        sdfg: JsonSDFG, graph: DagreGraph, ctx: CanvasRenderingContext2D,
         ppp: number, visibleRect: SimpleRect
     ): void {
         // First go over visible states, skipping invisible ones. We only draw
@@ -91,7 +91,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         if (sdfgGroups === undefined)
             return;
 
-        graph.nodes().forEach(v => {
+        graph?.nodes().forEach(v => {
             const block = graph.node(v);
 
             // If the node's invisible, we skip it.
@@ -105,7 +105,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
                 block.width / ppp <= SDFV.STATE_LOD)) ||
                 block.attributes().is_collapsed
             ) {
-                this.shade_node(block, sdfgGroups, ctx);
+                this.shadeNode(block, sdfgGroups, ctx);
             } else {
                 if (block.type() === SDFGElementType.SDFGState) {
                     const stateGraph = block.data.graph;
@@ -116,30 +116,30 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
                             // Skip the node if it's not visible.
                             if ((ctx as any).lod && !node.intersect(
                                 visibleRect.x,
-                                visibleRect.y, visibleRect.w, visibleRect.h)
-                            )
+                                visibleRect.y, visibleRect.w, visibleRect.h
+                            ))
                                 return;
 
                             if (node.attributes().is_collapsed ||
                                 ((ctx as any).lod && ppp >= SDFV.NODE_LOD)) {
-                                this.shade_node(node, sdfgGroups, ctx);
+                                this.shadeNode(node, sdfgGroups, ctx);
                             } else {
                                 if (node instanceof NestedSDFG &&
                                     node.attributes().sdfg &&
                                     node.attributes().sdfg.type !== 'SDFGShell'
                                 ) {
-                                    this.recursivelyShadeSDFG(
+                                    this.recursivelyShadeCFG(
                                         node.data.node.attributes.sdfg,
                                         node.data.graph, ctx, ppp, visibleRect
                                     );
                                 } else {
-                                    this.shade_node(node, sdfgGroups, ctx);
+                                    this.shadeNode(node, sdfgGroups, ctx);
                                 }
                             }
                         });
                     }
                 } else {
-                    this.recursivelyShadeSDFG(
+                    this.recursivelyShadeCFG(
                         sdfg, block.data.graph, ctx, ppp, visibleRect
                     );
                 }
@@ -153,10 +153,11 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         const ppp = this.renderer.get_canvas_manager()?.points_per_pixel();
         const context = this.renderer.get_context();
         const visible_rect = this.renderer.get_visible_rect();
-        if (graph && ppp !== undefined && context && visible_rect)
-            this.recursivelyShadeSDFG(
+        if (graph && ppp !== undefined && context && visible_rect) {
+            this.recursivelyShadeCFG(
                 sdfg, graph, context, ppp, visible_rect
             );
+        }
     }
 
     public on_mouse_event(

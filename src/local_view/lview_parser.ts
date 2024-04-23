@@ -1,7 +1,7 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import $ from 'jquery';
-import { DagreSDFG, JsonSDFG } from '..';
+import { DagreGraph, JsonSDFG } from '..';
 import {
     AccessNode,
     Edge,
@@ -12,7 +12,7 @@ import {
     State,
     Tasklet,
 } from '../renderer/renderer_elements';
-import { sdfg_property_to_string, sdfg_range_elem_to_string } from '../utils/sdfg/display';
+import { sdfg_property_to_string } from '../utils/sdfg/display';
 import {
     AccessMode,
     DataContainer,
@@ -45,7 +45,7 @@ export class LViewParser {
     }
 
     private static parseMap(
-        elem: MapEntry, graph: Graph, state: State, sdfg: DagreSDFG,
+        elem: MapEntry, graph: Graph, state: State, sdfg: DagreGraph,
         symbolMap: Map<string, number>, renderer?: LViewRenderer
     ): MapNode {
         const rRanges = elem.data.node.attributes.range.ranges;
@@ -57,7 +57,7 @@ export class LViewParser {
             const start = this.parseSymbolic(rng.start, symbolMap);
             const end = this.parseSymbolic(rng.end, symbolMap);
             const step = this.parseSymbolic(rng.step, symbolMap);
-            
+
             ranges.push({
                 itvar: rParams[i],
                 start: start,
@@ -65,7 +65,7 @@ export class LViewParser {
                 step: step,
             });
         }
-        
+
         const innerGraph = new Graph(renderer);
         const mapScopeDict = state.data.state.scope_dict[elem.id];
         if (mapScopeDict) {
@@ -160,7 +160,7 @@ export class LViewParser {
                     sdfgContainer.attributes.start_offset ?? 0,
                     sdfgContainer.attributes.alignment ?? 0,
                     storageType?.type,
-                    strides,
+                    strides
                 );
                 graph.dataContainers.set(name, container);
             } else if (container.storage === undefined) {
@@ -204,7 +204,9 @@ export class LViewParser {
         );
         const ranges = attributes.other_subset ?
             attributes.other_subset.ranges : attributes.subset?.ranges;
-        const volume = this.parseSymbolic(attributes.num_accesses ?? 0, symbolMap);
+        const volume = this.parseSymbolic(
+            attributes.num_accesses ?? 0, symbolMap
+        );
         if (dataContainer && ranges) {
             if (volume === 1) {
                 const accessIdx = [];
@@ -226,7 +228,7 @@ export class LViewParser {
     }
 
     private static parseTasklet(
-        graph: Graph, el: Tasklet, state: State, sdfg: DagreSDFG,
+        graph: Graph, el: Tasklet, state: State, sdfg: DagreGraph,
         symbolMap: Map<string, number>, renderer?: LViewRenderer
     ): ComputationNode {
         const label = el.attributes().code?.string_data;
@@ -264,7 +266,7 @@ export class LViewParser {
 
     private static parseEdge(
         graph: Graph, el: { name: string, v: string, w: string }, state: State,
-        sdfg: DagreSDFG, symbolMap: Map<string, number>,
+        sdfg: DagreGraph, symbolMap: Map<string, number>,
         renderer?: LViewRenderer
     ): Element | null {
         let src: SDFGNode = state.data.graph.node(el.v);
@@ -287,33 +289,34 @@ export class LViewParser {
             edge.data.attributes.lview_edge = elem;
             return elem;
         }
-        
+
         return null;
     }
 
     private static parseElement(
-        graph: Graph, el: SDFGElement, state: State, sdfg: DagreSDFG,
+        graph: Graph, el: SDFGElement, state: State, sdfg: DagreGraph,
         symbolMap: Map<string, number>, renderer?: LViewRenderer
     ): Element | null {
         if (el instanceof SDFGNode) {
-            if (el instanceof AccessNode)
+            if (el instanceof AccessNode) {
                 return this.parseAccessNode(
                     el, graph, state, symbolMap, renderer
                 );
-            else if (el instanceof MapEntry)
+            } else if (el instanceof MapEntry) {
                 return this.parseMap(
                     el, graph, state, sdfg, symbolMap, renderer
                 );
-            else if (el instanceof Tasklet)
+            } else if (el instanceof Tasklet) {
                 return this.parseTasklet(
                     graph, el, state, sdfg, symbolMap, renderer
                 );
+            }
         }
         return null;
     }
 
     private static parseState(
-        state: State, sdfg: DagreSDFG, symbolMap: Map<string, number>,
+        state: State, sdfg: DagreGraph, symbolMap: Map<string, number>,
         renderer?: LViewRenderer
     ): Graph {
         const graph = new Graph(renderer);
@@ -446,7 +449,7 @@ export class LViewParser {
     }
 
     public static async parseGraph(
-        sdfg: DagreSDFG, renderer?: LViewRenderer
+        sdfg: DagreGraph, renderer?: LViewRenderer
     ): Promise<Graph | null> {
         const state = sdfg.node('0');
         if (state) {

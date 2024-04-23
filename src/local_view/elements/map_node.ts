@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Polygon, Rectangle } from '@pixi/math';
 import $ from 'jquery';
@@ -60,7 +60,7 @@ export class MapNode extends Node {
         public readonly innerGraph: Graph,
         private readonly overrideWidth?: number,
         private readonly overrideHeight?: number,
-        renderer?: LViewRenderer,
+        renderer?: LViewRenderer
     ) {
         super(parentGraph, id, renderer);
 
@@ -91,11 +91,12 @@ export class MapNode extends Node {
         else
             this._width = this.innerGraph.width + (2 * this.nestingPadding);
 
-        if (this.overrideHeight !== undefined)
+        if (this.overrideHeight !== undefined) {
             this._height = this.overrideHeight;
-        else
+        } else {
             this._height = this.innerGraph.height + this.headerHeight +
                 (2 * this.nestingPadding);
+        }
 
         // Construct the labels and sliders for each dimension.
         let maxLabelWidth = 0;
@@ -120,7 +121,7 @@ export class MapNode extends Node {
                 maxLabelWidth,
                 this._width / this.ranges.length
             );
-            
+
             this._width = (this.labelWidth * this.ranges.length);
         }
 
@@ -169,9 +170,12 @@ export class MapNode extends Node {
 
         const buttonRadius = this.buttonSize / 4;
         const playPolygon = new Polygon([
-            this.buttonSize / 4, this.buttonSize / 4,
-            3 * this.buttonSize / 4, this.buttonSize / 2,
-            this.buttonSize / 4, 3 * this.buttonSize / 4,
+            this.buttonSize / 4,
+            this.buttonSize / 4,
+            3 * this.buttonSize / 4,
+            this.buttonSize / 2,
+            this.buttonSize / 4,
+            3 * this.buttonSize / 4,
         ]);
         this.playButton = new Button(
             () => {
@@ -249,19 +253,21 @@ export class MapNode extends Node {
     }
 
     public recalculateSize(): void {
-        if (this.overrideWidth !== undefined)
+        if (this.overrideWidth !== undefined) {
             this._width = this.overrideWidth;
-        else
+        } else {
             this._width = Math.max(
                 this.labelWidth * this.ranges.length,
                 this.innerGraph.width + 2 * this.nestingPadding
             );
+        }
 
-        if (this.overrideHeight !== undefined)
+        if (this.overrideHeight !== undefined) {
             this._height = this.overrideHeight;
-        else
+        } else {
             this._height = this.innerGraph.height + this.headerHeight +
                 2 * this.nestingPadding;
+        }
 
         this.labelWidth = this._width / this.ranges.length;
         for (let i = 0; i < this.labels.length; i++) {
@@ -296,12 +302,12 @@ export class MapNode extends Node {
         }
 
         const updateParameters = true;
-        const [accessMap, orderedAccesses] = this.innerGraph.getAccessesFor(
+        const accessMapRet = this.innerGraph.getAccessesFor(
             scope, updateParameters
         );
-        
+
         this.clearAccessMarkings();
-        this.showAccesses(accessMap);
+        this.showAccesses(accessMapRet[0]);
     }
 
     private recursiveSimulate(
@@ -320,10 +326,11 @@ export class MapNode extends Node {
             typeof(nRange.step) === 'string')
             return;
 
-        if (nRange.step === 0)
+        if (nRange.step === 0) {
             throw new LViewGraphParseError(
                 'This graph cannot be simulated due to a map step of 0'
             );
+        }
         const cond = nRange.step > 0 ?
             (i: number) => i <= +nRange.end : (i: number) => i >= +nRange.end;
         for (let i = nRange.start; cond(i); i += nRange.step) {
@@ -366,7 +373,7 @@ export class MapNode extends Node {
                         if (cl && cl.length > 0) {
                             const start = cl[0];
                             const distance = lineStack.touch(start);
-                            
+
                             const tile =
                                 node.getTileAt(access.index as number[]);
                             const prev = tile?.stackDistances.get(distance);
@@ -382,14 +389,15 @@ export class MapNode extends Node {
 
                             const mnPrev =
                                 MemoryNode.reuseDistanceHistogram.get(distance);
-                            if (mnPrev !== undefined)
+                            if (mnPrev !== undefined) {
                                 MemoryNode.reuseDistanceHistogram.set(
                                     distance, mnPrev + 1
                                 );
-                            else
+                            } else {
                                 MemoryNode.reuseDistanceHistogram.set(
                                     distance, 1
                                 );
+                            }
 
                             if (distance < 0 || distance >= distThreshold) {
                                 if (tile) {
@@ -399,14 +407,15 @@ export class MapNode extends Node {
                                         );
                                     if (missPrev !== undefined &&
                                         missPrev >= 0) {
-                                        if (missPrev > 1)
+                                        if (missPrev > 1) {
                                             MemoryNode.missesHistogram.set(
                                                 tile.totalMisses, missPrev - 1
                                             );
-                                        else
+                                        } else {
                                             MemoryNode.missesHistogram.delete(
                                                 tile.totalMisses
                                             );
+                                        }
                                     }
                                     tile.totalMisses++;
 
@@ -414,14 +423,15 @@ export class MapNode extends Node {
                                         MemoryNode.missesHistogram.get(
                                             tile.totalMisses
                                         );
-                                    if (nMissPrev !== undefined)
+                                    if (nMissPrev !== undefined) {
                                         MemoryNode.missesHistogram.set(
                                             tile.totalMisses, nMissPrev + 1
                                         );
-                                    else
+                                    } else {
                                         MemoryNode.missesHistogram.set(
                                             tile.totalMisses, 1
                                         );
+                                    }
                                 }
                             }
                         }
@@ -552,16 +562,26 @@ export class MapNode extends Node {
         this.lineStyle(DEFAULT_LINE_STYLE);
         this.beginFill(0xffffff, 0.95);
         this.drawPolygon([
-            0, this.headerHeight,
-            0, this.headerHeight / 2,
-            this.headerHeight / 2, 0,
-            this._width - (this.headerHeight / 2), 0,
-            this._width, this.headerHeight / 2,
-            this._width, this.headerHeight,
-            this._width, this._height,
-            0, this._height,
-            0, this.headerHeight,
-            this._width, this.headerHeight,
+            0,
+            this.headerHeight,
+            0,
+            this.headerHeight / 2,
+            this.headerHeight / 2,
+            0,
+            this._width - (this.headerHeight / 2),
+            0,
+            this._width,
+            this.headerHeight / 2,
+            this._width,
+            this.headerHeight,
+            this._width,
+            this._height,
+            0,
+            this._height,
+            0,
+            this.headerHeight,
+            this._width,
+            this.headerHeight,
         ]);
         this.endFill();
 
@@ -686,7 +706,7 @@ export class MapNode extends Node {
                     vals.push(i);
                 rangeValuesMap.push([range.itvar, vals]);
             } else {
-                let errMsg = `Failed to get accesses for the scope: {`;
+                let errMsg = 'Failed to get accesses for the scope: {';
                 let sep = '';
                 for (const [k, v] of scope) {
                     errMsg += sep + k + ': ' + v.toString();
@@ -727,7 +747,7 @@ export class MapNode extends Node {
     }
 
     public getRelatedAccesses(
-        source: DataContainer, index: number[], origin?: Node
+        source: DataContainer, index: number[], _origin?: Node
     ): AccessMap<(number | undefined)[]> {
         return this.innerGraph.getRelatedAccesses(source, index);
     }
@@ -740,21 +760,23 @@ export class MapNode extends Node {
     }
 
     public get unscaledWidth(): number {
-        if (this.overrideWidth)
+        if (this.overrideWidth) {
             return this.overrideWidth;
-        else
+        } else {
             return Math.max(
                 this.labelWidth * this.ranges.length,
                 this.innerGraph.width + 2 * this.nestingPadding
             );
+        }
     }
 
     public get unscaledHeight(): number {
-        if (this.overrideHeight)
+        if (this.overrideHeight) {
             return this.overrideHeight;
-        else
+        } else {
             return this.innerGraph.height + this.headerHeight +
                 2 * this.nestingPadding;
+        }
     }
 
 }
