@@ -1,3 +1,5 @@
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { DiGraph } from '../di_graph';
 
 export function* stronglyConnectedComponents(
@@ -33,14 +35,15 @@ export function* stronglyConnectedComponents(
                     lowlink.set(v, preorder.get(v)!);
                     for (const w of g.neighborsIter(v)) {
                         if (!sccFound.has(w)) {
-                            if (preorder.get(w)! > preorder.get(v)!)
+                            if (preorder.get(w)! > preorder.get(v)!) {
                                 lowlink.set(v, Math.min(
                                     lowlink.get(v)!, lowlink.get(w)!
                                 ));
-                            else
+                            } else {
                                 lowlink.set(v, Math.min(
                                     lowlink.get(v)!, preorder.get(w)!
                                 ));
+                            }
                         }
                     }
                     queue.pop();

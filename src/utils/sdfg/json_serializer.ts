@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Edge, JsonSDFG } from '../../index';
 import { gunzipSync } from 'zlib';
@@ -8,11 +8,11 @@ const propertyReplacements_0_16_0: { [key: string]: {
     replaceWith: string,
     recursive: boolean,
 }} = {
-    'start_state': {
+    'start_block': {
         replaceWith: 'start_block',
         recursive: false,
     },
-    'sdfg_list_id': {
+    'cfg_list_id': {
         replaceWith: 'cfg_list_id',
         recursive: true,
     },
@@ -70,9 +70,12 @@ export function read_or_decompress(
     json: string | ArrayBuffer
 ): [string, boolean] {
     try {
-        return [new TextDecoder().decode(
-            gunzipSync(Buffer.from(json as Uint8Array))
-        ), true];
+        return [
+            new TextDecoder().decode(
+                gunzipSync(Buffer.from(json as Uint8Array))
+            ),
+            true,
+        ];
     } catch {
         if (typeof json !== 'string') {
             const enc = new TextDecoder('utf-8');
@@ -92,9 +95,8 @@ export function stringify_sdfg(sdfg: JsonSDFG): string {
 }
 
 function reviver(name: string, val: unknown) {
-    if (name === 'sdfg' && val && typeof val === 'string' && val[0] === '{') {
+    if (name === 'sdfg' && val && typeof val === 'string' && val[0] === '{')
         return JSON.parse(val, reviver);
-    }
     return val;
 }
 

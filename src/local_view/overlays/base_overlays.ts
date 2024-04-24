@@ -1,11 +1,11 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { LViewRenderer } from '../lview_renderer';
 
 export abstract class BaseOverlay {
 
     public constructor(
-        public readonly renderer: LViewRenderer,
+        public readonly renderer: LViewRenderer
     ) {
     }
 

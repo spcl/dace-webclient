@@ -1,11 +1,11 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
     MapExit,
     NestedSDFG,
     SDFGElement,
     SDFGNode,
-    State
+    State,
 } from '../renderer/renderer_elements';
 import { Point2D } from '..';
 import { rgb2hex } from '@pixi/utils';
@@ -45,12 +45,12 @@ export function equals<T>(a: T, b: T): boolean {
 }
 
 export function deepCopy<T>(obj: T): T {
-    if (typeof obj !== 'object' || obj === null) return obj;
-    if (Array.isArray(obj)) {
+    if (typeof obj !== 'object' || obj === null)
+        return obj;
+    if (Array.isArray(obj))
         return obj.map(o => deepCopy(o)) as any;
-    } else {
+    else
         return Object.fromEntries(deepCopy([...Object.entries(obj)])) as any;
-    }
 }
 
 /**
@@ -91,7 +91,8 @@ export function assignIfNotExists<T, E>(
 ): T & Omit<E, keyof T> {
     const o = obj as any;
     for (const [key, val] of Object.entries(other as any)) {
-        if (!(key in (obj as any))) o[key] = val;
+        if (!(key in (obj as any)))
+            o[key] = val;
     }
     return o;
 }
@@ -103,7 +104,8 @@ export function assignIfNotExists<T, E>(
  * ({x, y, width, height}) if it were pointing at the rectangle's center.
  */
 export function intersectRect(
-    rect: { x: number, y: number, height: number, width: number }, point: Point2D
+    rect: { x: number, y: number, height: number, width: number },
+    point: Point2D
 ): Point2D {
     const x = rect.x;
     const y = rect.y;
@@ -115,10 +117,11 @@ export function intersectRect(
     let w = rect.width / 2;
     let h = rect.height / 2;
 
-    if (!dx && !dy)
+    if (!dx && !dy) {
         throw new Error(
             'Not possible to find intersection inside of the rectangle'
         );
+    }
 
     let sx, sy;
     if (Math.abs(dy) * w > Math.abs(dx) * h) {
@@ -137,50 +140,8 @@ export function intersectRect(
 
     return {
         x: x + sx,
-        y: y + sy
+        y: y + sy,
     };
-}
-
-export function get_element_uuid(element: SDFGElement): string {
-    const undefined_val = -1;
-    if (element instanceof State) {
-        return (
-            element.sdfg.cfg_list_id + '/' +
-            element.id + '/' +
-            undefined_val + '/' +
-            undefined_val
-        );
-    } else if (element instanceof NestedSDFG) {
-        const sdfg_id = element.data.node.attributes.sdfg.cfg_list_id;
-        return (
-            sdfg_id + '/' +
-            undefined_val + '/' +
-            undefined_val + '/' +
-            undefined_val
-        );
-    } else if (element instanceof MapExit) {
-        // For MapExit nodes, we want to get the uuid of the corresponding
-        // entry node instead.
-        return (
-            element.sdfg.cfg_list_id + '/' +
-            element.parent_id + '/' +
-            element.data.node.scope_entry + '/' +
-            undefined_val
-        );
-    } else if (element instanceof SDFGNode) {
-        return (
-            element.sdfg.cfg_list_id + '/' +
-            element.parent_id + '/' +
-            element.id + '/' +
-            undefined_val
-        );
-    }
-    return (
-        undefined_val + '/' +
-        undefined_val + '/' +
-        undefined_val + '/' +
-        undefined_val
-    );
 }
 
 export function hsl2rgb(h: number, s: number, l: number): number[] {
@@ -201,7 +162,7 @@ function tempColor(badness: number): [number, number, number] {
         badness = 1;
 
     // The hue of the green-red spectrum must lie between 0 and 120, so we map
-    // the 'badness' to that interval (inverted, since green=120 hue and 
+    // the 'badness' to that interval (inverted, since green=120 hue and
     // red=0 hue).
     const maxHue = 120;
     let saturation = 1.0;

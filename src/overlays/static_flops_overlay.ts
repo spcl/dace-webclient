@@ -1,15 +1,21 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreSDFG, Point2D, SimpleRect, SymbolMap } from '../index';
+import {
+    DagreGraph,
+    Point2D,
+    SimpleRect,
+    SymbolMap,
+    getGraphElementUUID,
+} from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import {
     Edge,
     NestedSDFG,
     SDFGElement,
-    SDFGNode
+    SDFGNode,
 } from '../renderer/renderer_elements';
 import { SDFV } from '../sdfv';
-import { getTempColorHslString, get_element_uuid } from '../utils/utils';
+import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class StaticFlopsOverlay extends GenericSdfgOverlay {
@@ -28,9 +34,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
     }
 
     public clear_cached_flops_values(): void {
-        this.renderer.for_all_elements(0, 0, 0, 0, (
-            _type: string, _e: Event, obj: any
-        ) => {
+        this.renderer.doForAllGraphElements((_group, _info, obj) => {
             if (obj.data) {
                 if (obj.data.flops !== undefined)
                     obj.data.flops = undefined;
@@ -43,13 +47,14 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
     public calculate_flops_node(
         node: SDFGNode, symbol_map: SymbolMap, flops_values: number[]
     ): number | undefined {
-        const flops_string = this.flops_map[get_element_uuid(node)];
+        const flops_string = this.flops_map[getGraphElementUUID(node)];
         let flops = undefined;
-        if (flops_string !== undefined)
-            flops = this.symbol_resolver.parse_symbol_expression(
+        if (flops_string !== undefined) {
+            flops = this.symbolResolver.parse_symbol_expression(
                 flops_string,
                 symbol_map
             );
+        }
 
         node.data.flops_string = flops_string;
         node.data.flops = flops;
@@ -61,7 +66,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
     }
 
     public calculate_flops_graph(
-        g: DagreSDFG, symbol_map: SymbolMap, flops_values: number[]
+        g: DagreGraph, symbol_map: SymbolMap, flops_values: number[]
     ): void {
         g.nodes().forEach(v => {
             const state = g.node(v);
@@ -78,7 +83,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
                         // based on the mapping described on the node.
                         Object.keys(mapping).forEach((symbol: string) => {
                             nested_symbols_map[symbol] =
-                                this.symbol_resolver.parse_symbol_expression(
+                                this.symbolResolver.parse_symbol_expression(
                                     mapping[symbol],
                                     symbol_map
                                 );
@@ -111,14 +116,14 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         });
     }
 
-    public recalculate_flops_values(graph: DagreSDFG): void {
+    public recalculate_flops_values(graph: DagreGraph): void {
         this.heatmap_scale_center = 5;
         this.heatmap_hist_buckets = [];
 
         const flops_values: number[] = [];
         this.calculate_flops_graph(
             graph,
-            this.symbol_resolver.get_symbol_value_map(),
+            this.symbolResolver.get_symbol_value_map(),
             flops_values
         );
 
@@ -150,20 +155,22 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         if (flops_string !== undefined && mousepos &&
             node.intersect(mousepos.x, mousepos.y)) {
             // Show the computed FLOPS value if applicable.
-            if (isNaN(flops_string) && flops !== undefined)
+            if (isNaN(flops_string) && flops !== undefined) {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
+                    if (tt_cont) {
                         tt_cont.innerText = (
                             'FLOPS: ' + flops_string + ' (' + flops + ')'
                         );
+                    }
                 });
-            else
+            } else {
                 this.renderer.set_tooltip(() => {
                     const tt_cont = this.renderer.get_tooltip_container();
                     if (tt_cont)
                         tt_cont.innerText = 'FLOPS: ' + flops_string;
                 });
+            }
         }
 
         if (flops === undefined) {
@@ -183,13 +190,13 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
             return;
 
         // Calculate the severity color.
-        const color = getTempColorHslString(this.get_severity_value(flops));
+        const color = getTempColorHslString(this.getSeverityValue(flops));
 
         node.shade(this.renderer, ctx, color);
     }
 
     public recursively_shade_sdfg(
-        graph: DagreSDFG,
+        graph: DagreGraph,
         ctx: CanvasRenderingContext2D,
         ppp: number,
         visible_rect: SimpleRect
@@ -265,12 +272,12 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
                 !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.flops === undefined) {
                     const flops_string = this.flops_map[
-                        get_element_uuid(foreground_elem)
+                        getGraphElementUUID(foreground_elem)
                     ];
                     if (flops_string) {
-                        this.symbol_resolver.parse_symbol_expression(
+                        this.symbolResolver.parse_symbol_expression(
                             flops_string,
-                            this.symbol_resolver.get_symbol_value_map(),
+                            this.symbolResolver.get_symbol_value_map(),
                             true,
                             () => {
                                 this.clear_cached_flops_values();

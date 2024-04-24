@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Rectangle } from '@pixi/math';
 import $ from 'jquery';
@@ -49,7 +49,7 @@ class MemoryTile extends Graphics {
         public readonly elementY: number,
         public readonly elementWidth: number,
         public readonly elementHeight: number,
-        public readonly index: number[],
+        public readonly index: number[]
     ) {
         super();
 
@@ -106,12 +106,13 @@ class MemoryTile extends Graphics {
                 );
                 neighborAccesses.forEach((accesses, container) => {
                     const containerAccesses = relatedAccesses.get(container);
-                    if (containerAccesses)
+                    if (containerAccesses) {
                         relatedAccesses.set(container, containerAccesses.concat(
                             accesses
                         ));
-                    else
+                    } else {
                         relatedAccesses.set(container, accesses);
+                    }
                 });
             }
         }
@@ -123,16 +124,17 @@ class MemoryTile extends Graphics {
                 accesses.forEach((access) => {
                     nodes.forEach(node => {
                         const tiles: MemoryTile[] = [];
-                        if (asAccess)
+                        if (asAccess) {
                             node[1].applyToIdx(
                                 access[1], (t) => t.onMarkAccess(),
                                 undefined, undefined, tiles
                             );
-                        else
+                        } else {
                             node[1].applyToIdx(
                                 access[1], (t) => t.onMarkRelated(),
                                 undefined, undefined, tiles
                             );
+                        }
                         tiles.forEach(tile => {
                             if (asAccess)
                                 this.accessMarkedTiles.add(tile);
@@ -165,7 +167,8 @@ class MemoryTile extends Graphics {
                             (t: MemoryTile) => {
                                 if (!t.borderMarkingColors.includes(color))
                                     t.borderMarkingColors.push(color);
-                            });
+                            }
+                        );
                     });
 
                     if (!redrawNodes.includes(node))
@@ -201,12 +204,14 @@ class MemoryTile extends Graphics {
         const coldMisses = this.stackDistances.get(-1);
         const newData = {
             labels: [...allVals, 'Cold'],
-            datasets: [{
-                label: this.memoryNode.dataContainer.name +
-                    '[' + this.index.toString() + ']',
-                backgroundColor: '#00538A',
-                data: [...data, coldMisses === undefined ? 0 : coldMisses],
-            }],
+            datasets: [
+                {
+                    label: this.memoryNode.dataContainer.name +
+                        '[' + this.index.toString() + ']',
+                    backgroundColor: '#00538A',
+                    data: [...data, coldMisses === undefined ? 0 : coldMisses],
+                },
+            ],
         };
 
         this.memoryNode.renderer?.showReuseDistanceHist(newData);
@@ -245,7 +250,7 @@ class MemoryTile extends Graphics {
         this.draw();
     }
 
-    public onMouseOver(mouseEvent: InteractionEvent): void {
+    public onMouseOver(_mouseEvent: InteractionEvent): void {
         if (this.stackedAccesses > 0) {
             const globalPos = this.toGlobal({
                 x: this.elementX,
@@ -312,12 +317,13 @@ class MemoryTile extends Graphics {
         if (this.stackedAccesses > 0) {
             const prev = MemoryNode.accessHistogram.get(this.stackedAccesses);
             if (prev !== undefined) {
-                if (prev <= 1)
+                if (prev <= 1) {
                     MemoryNode.accessHistogram.delete(this.stackedAccesses);
-                else
+                } else {
                     MemoryNode.accessHistogram.set(
                         this.stackedAccesses, prev - 1
                     );
+                }
             }
         }
     }
@@ -407,7 +413,9 @@ class MemoryTile extends Graphics {
                 this.beginFill(0xA0A0FF);
         } else if (this.stackedAccesses > 0) {
             const keys = [...MemoryNode.accessHistogram.keys()];
-            keys.sort((a, b) => { return a - b; });
+            keys.sort((a, b) => {
+                return a - b;
+            });
             const idx = keys.indexOf(this.stackedAccesses);
             let badness = 0;
             if (idx < 0)
@@ -443,15 +451,11 @@ class MemoryTile extends Graphics {
                 switch (this.memoryNode.reuseDistanceMetric) {
                     case 'max':
                         v = max(this.stackDistancesFlattened);
-                        keys = [
-                            ...MemoryNode.maxReuseDistanceHistogram.keys()
-                        ];
+                        keys = [...MemoryNode.maxReuseDistanceHistogram.keys()];
                         break;
                     case 'min':
                         v = min(this.stackDistancesFlattened);
-                        keys = [
-                            ...MemoryNode.minReuseDistanceHistogram.keys()
-                        ];
+                        keys = [...MemoryNode.minReuseDistanceHistogram.keys()];
                         break;
                     case 'misses':
                         v = this.totalMisses;
@@ -460,13 +464,13 @@ class MemoryTile extends Graphics {
                     case 'median':
                     default:
                         v = median(this.stackDistancesFlattened);
-                        keys = [
-                            ...MemoryNode.reuseDistanceHistogram.keys()
-                        ];
+                        keys = [...MemoryNode.reuseDistanceHistogram.keys()];
                         break;
                 }
 
-                keys.sort((a, b) => { return a - b; });
+                keys.sort((a, b) => {
+                    return a - b;
+                });
                 let idx = -1;
                 for (let i = 0; i < keys.length; i++) {
                     const key = keys[i];
@@ -499,7 +503,7 @@ class MemoryTile extends Graphics {
             this.tint = 0xCCCCCC;
         else
             this.tint = 0xFFFFFF;
-        
+
         this.drawRect(
             this.elementX, this.elementY,
             this.elementWidth, this.elementHeight
@@ -547,7 +551,7 @@ export class MemoryNode extends Node {
         renderer?: LViewRenderer
     ) {
         super(parentGraph, id, renderer);
-        
+
         this._unscaledWidth = this.calcUnscaledWidthRecursive(
             this.dataContainer.dim.slice()
         );
@@ -582,53 +586,57 @@ export class MemoryNode extends Node {
     }
 
     private calcUnscaledWidthRecursive(dims: DataDimension[]): number {
-        if (dims.length === 1)
+        if (dims.length === 1) {
             return dims[0].value * (
                 this.tileSizeOverride !== undefined ?
                     this.tileSizeOverride : TILE_SIZE
             );
-        else if (dims.length === 2)
+        } else if (dims.length === 2) {
             return dims[1].value * (
                 this.tileSizeOverride !== undefined ?
                     this.tileSizeOverride : TILE_SIZE
             );
-        else if (dims.length % 2 === 0)
+        } else if (dims.length % 2 === 0) {
             return INTERNAL_PADDING + this.calcUnscaledWidthRecursive(
                 dims.slice(1)
             );
-        else
+        } else {
             return dims[0].value * (
                 INTERNAL_PADDING + this.calcUnscaledWidthRecursive(
                     dims.slice(1)
                 )
             );
+        }
     }
 
     private calcUnscaledHeightRecursive(dims: DataDimension[]): number {
-        if (dims.length === 1)
+        if (dims.length === 1) {
             return (
                 this.tileSizeOverride !== undefined ?
                     this.tileSizeOverride : TILE_SIZE
             );
-        else if (dims.length === 2)
+        } else if (dims.length === 2) {
             return dims[0].value * (
                 this.tileSizeOverride !== undefined ?
                     this.tileSizeOverride : TILE_SIZE
             );
-        else if (dims.length % 2 !== 0)
+        } else if (dims.length % 2 !== 0) {
             return INTERNAL_PADDING + this.calcUnscaledHeightRecursive(
                 dims.slice(1)
             );
-        else
+        } else {
             return dims[0].value * (
                 INTERNAL_PADDING + this.calcUnscaledHeightRecursive(
                     dims.slice(1)
                 )
             );
+        }
     }
 
     public clearAllAccesses(): void {
-        this.applyToAll(this.tiles, tile => { tile.onClearAccesses(); });
+        this.applyToAll(this.tiles, tile => {
+            tile.onClearAccesses();
+        });
     }
 
     public getTilingRegionsForIdx(idx: number[]): [
@@ -702,12 +710,11 @@ export class MemoryNode extends Node {
             else if (typeof(lineBytesRaw) === 'string')
                 lineBytes = parseInt(lineBytesRaw);
         }
-        
+
         if (lineBytes !== undefined && lineBytes > 0 &&
             idx.length === this.dataContainer.strides.length) {
-
             let flatIdx = this.dataContainer.startOffset;
-            
+
             for (let i = 0; i < idx.length; i++)
                 flatIdx += idx[i] * this.dataContainer.strides[i].value;
 
@@ -734,9 +741,9 @@ export class MemoryNode extends Node {
                 for (let j = 0; j < this.dataContainer.strides.length; j++) {
                     const stride = this.dataContainer.strides[j];
                     const dimIdx = Math.floor(remIdx / stride.value);
-                    
+
                     remIdx = remIdx % stride.value;
-                    
+
                     if (dimIdx >= this.dataContainer.dim[j].value) {
                         invalid = true;
                         break;
@@ -744,7 +751,7 @@ export class MemoryNode extends Node {
 
                     reconstructedIdx.push(dimIdx);
                 }
-                
+
                 if (!invalid) {
                     const targetTile = this.getTileAt(reconstructedIdx);
                     if (targetTile)
@@ -823,7 +830,7 @@ export class MemoryNode extends Node {
     ): void {
         const index = idx[i];
 
-        if (index !== undefined && typeof index === 'number'){
+        if (index !== undefined && typeof index === 'number') {
             if (index < 0 || index >= pivot.length)
                 return;
 
@@ -838,10 +845,11 @@ export class MemoryNode extends Node {
         } else {
             if (i < idx.length - 1) {
                 pivot.forEach(el => {
-                    if (el.descendants)
+                    if (el.descendants) {
                         this.applyToIdx(
                             idx, fun, i + 1, el.descendants, targets
                         );
+                    }
                 });
             } else {
                 pivot.forEach(el => {
@@ -898,7 +906,9 @@ export class MemoryNode extends Node {
     }
 
     public clearStackDistances(): void {
-        this.applyToAll(this.tiles, tile => { tile.stackDistances.clear(); });
+        this.applyToAll(this.tiles, tile => {
+            tile.stackDistances.clear();
+        });
     }
 
     public getTotalCacheMisses(): number {

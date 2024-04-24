@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { simplify } from 'mathjs';
 
@@ -7,9 +7,9 @@ export function sdfg_range_elem_to_string(
     settings: any = null
 ): string {
     let preview = '';
-    if (range.start == range.end && range.step == 1 && range.tile == 1)
+    if (range.start === range.end && range.step === 1 && range.tile === 1) {
         preview += sdfg_property_to_string(range.start, settings);
-    else {
+    } else {
         if (settings && settings.inclusive_ranges) {
             preview += sdfg_property_to_string(range.start, settings) + '..' +
                 sdfg_property_to_string(range.end, settings);
@@ -21,11 +21,11 @@ export function sdfg_range_elem_to_string(
             preview += sdfg_property_to_string(range.start, settings) + ':' +
                 endp1;
         }
-        if (range.step != 1) {
+        if (range.step !== 1) {
             preview += ':' + sdfg_property_to_string(range.step, settings);
-            if (range.tile != 1)
+            if (range.tile !== 1)
                 preview += ':' + sdfg_property_to_string(range.tile, settings);
-        } else if (range.tile != 1) {
+        } else if (range.tile !== 1) {
             preview += '::' + sdfg_property_to_string(range.tile, settings);
         }
     }
@@ -49,7 +49,8 @@ export function sdfg_property_to_string(
     prop: any,
     settings: any = null
 ): string {
-    if (prop === null || prop === undefined) return prop;
+    if (prop === null || prop === undefined)
+        return prop;
     if (typeof prop === 'boolean') {
         if (prop)
             return 'True';
@@ -57,18 +58,16 @@ export function sdfg_property_to_string(
     } else if (prop.type === 'Indices' || prop.type === 'subsets.Indices') {
         const indices = prop.indices;
         let preview = '[';
-        for (const index of indices) {
+        for (const index of indices)
             preview += sdfg_property_to_string(index, settings) + ', ';
-        }
         return preview.slice(0, -2) + ']';
     } else if (prop.type === 'Range' || prop.type === 'subsets.Range') {
         const ranges = prop.ranges;
 
         // Generate string from range
         let preview = '[';
-        for (const range of ranges) {
+        for (const range of ranges)
             preview += sdfg_range_elem_to_string(range, settings) + ', ';
-        }
         return preview.slice(0, -2) + ']';
     } else if (prop.type === 'LogicalGroup' && prop.color !== undefined &&
         prop.name !== undefined) {
@@ -77,18 +76,19 @@ export function sdfg_property_to_string(
     } else if (prop.language !== undefined) {
         // Code
         if (prop.string_data !== '' && prop.string_data !== undefined &&
-            prop.string_data !== null)
+            prop.string_data !== null) {
             return '<pre class="code"><code>' + prop.string_data.trim() +
                 '</code></pre><div class="clearfix"></div>';
+        }
         return '';
     } else if (prop.approx !== undefined && prop.main !== undefined) {
         // SymExpr
         return prop.main;
-    } else if (prop.constructor == Object) {
+    } else if (prop.constructor === Object) {
         // General dictionary
         return '<pre class="code"><code>' + JSON.stringify(prop, undefined, 4) +
             '</code></pre><div class="clearfix"></div>';
-    } else if (prop.constructor == Array) {
+    } else if (prop.constructor === Array) {
         // General array
         let result = '[ ';
         let first = true;
@@ -120,28 +120,31 @@ export function string_to_sdfg_typeclass(str: string): any {
                         argstring.substring(0, splitidx)
                     );
                     const count = argstring.substring(splitidx);
-                    if (dtype && count)
+                    if (dtype && count) {
                         return {
                             type: 'vector',
                             dtype: dtype,
                             elements: count,
                         };
+                    }
                 }
             }
         } else if (str.startsWith('pointer(')) {
             const argstring = str.substring(8, str.length - 1);
-            if (argstring)
+            if (argstring) {
                 return {
                     type: 'pointer',
                     dtype: string_to_sdfg_typeclass(argstring),
                 };
+            }
         } else if (str.startsWith('opaque(')) {
             const argstring = str.substring(7, str.length - 1);
-            if (argstring)
+            if (argstring) {
                 return {
                     type: 'opaque',
                     name: argstring,
                 };
+            }
         } else if (str.startsWith('callback(')) {
             const argstring = str.substring(9, str.length - 1);
             if (argstring) {
@@ -158,17 +161,19 @@ export function string_to_sdfg_typeclass(str: string): any {
                         );
 
                         const cb_args: any[] = [];
-                        if (cb_args_raw)
+                        if (cb_args_raw) {
                             cb_args_raw.forEach(raw_arg => {
                                 cb_args.push(string_to_sdfg_typeclass(raw_arg));
                             });
+                        }
 
-                        if (cb_args && ret_type)
+                        if (cb_args && ret_type) {
                             return {
                                 type: 'callback',
                                 arguments: cb_args,
                                 returntype: ret_type,
                             };
+                        }
                     }
                 }
             }
@@ -186,16 +191,18 @@ export function sdfg_typeclass_to_string(typeclass: any): string {
             switch (typeclass.type) {
                 case 'vector':
                     if (typeclass.elements !== undefined &&
-                        typeclass.dtype !== undefined)
+                        typeclass.dtype !== undefined) {
                         return 'vector(' + sdfg_typeclass_to_string(
                             typeclass.dtype
                         ) + ', ' + typeclass.elements + ')';
+                    }
                     break;
                 case 'pointer':
-                    if (typeclass.dtype !== undefined)
+                    if (typeclass.dtype !== undefined) {
                         return 'pointer(' + sdfg_typeclass_to_string(
                             typeclass.dtype
                         ) + ')';
+                    }
                     break;
                 case 'opaque':
                     if (typeclass.name !== undefined)
@@ -212,12 +219,13 @@ export function sdfg_typeclass_to_string(typeclass: any): string {
                                 str += ', ';
                         }
                         str += '], ';
-                        if (typeclass.returntype !== undefined)
+                        if (typeclass.returntype !== undefined) {
                             str += sdfg_typeclass_to_string(
                                 typeclass.returntype
                             );
-                        else
+                        } else {
                             str += 'None';
+                        }
                         str += ')';
                         return str;
                     }
