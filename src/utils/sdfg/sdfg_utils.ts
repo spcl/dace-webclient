@@ -120,25 +120,24 @@ export function findGraphElementByUUID(
         return null;
 
     const graph = cfgList[cfgId].graph;
-    if (graph === null)
-        return null;
+    if (graph) {
+        let state = null;
+        if (stateId !== '-1')
+            state = graph.node(stateId);
 
-    let state = null;
-    if (stateId !== '-1')
-        state = graph.node(stateId);
+        let element = null;
+        if (nodeId !== '-1' && state !== null && state.data.graph !== null)
+            element = state.data.graph.node(nodeId); // SDFG Dataflow graph node
+        else if (edgeId !== '-1' && state !== null && state.data.graph !== null)
+            element = state.data.graph.edge(edgeId); // Memlet
+        else if (edgeId !== '-1' && state === null)
+            element = graph.edge(edgeId as any); // Interstate edge
 
-    let element = null;
-    if (nodeId !== '-1' && state !== null && state.data.graph !== null)
-        element = state.data.graph.node(nodeId); // SDFG Dataflow graph node
-    else if (edgeId !== '-1' && state !== null && state.data.graph !== null)
-        element = state.data.graph.edge(edgeId); // Memlet
-    else if (edgeId !== '-1' && state === null)
-        element = graph.edge(edgeId as any); // Interstate edge
-
-    if (element)
-        return element;
-    if (state)
-        return state;
+        if (element)
+            return element;
+        if (state)
+            return state;
+    }
 
     const parentCfgId = cfgTree[Number(cfgId)];
     if (parentCfgId === undefined || parentCfgId === null)
