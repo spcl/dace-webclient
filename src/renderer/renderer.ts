@@ -3046,8 +3046,8 @@ export class SDFGRenderer extends EventEmitter {
                         if (obj.hovered && hover_changed) {
                             // Setting these to false will cause the summary symbol 
                             // not to be drawn in renderer_elements.ts
-                            obj.summarise_in_edges = false;
-                            obj.summarise_out_edges = false;
+                            obj.summarize_in_edges = false;
+                            obj.summarize_out_edges = false;
                             const state = obj.parentElem;
                             if (state && state instanceof State && state.data) {
                                 const state_json = state.data.state;
@@ -3063,8 +3063,8 @@ export class SDFGRenderer extends EventEmitter {
                             }
                         }
                         else if (!obj.hovered && hover_changed) {
-                            obj.summarise_in_edges = true;
-                            obj.summarise_out_edges = true;
+                            obj.summarize_in_edges = true;
+                            obj.summarize_out_edges = true;
                             const state = obj.parentElem;
                             if (state && state instanceof State && state.data) {
                                 const state_json = state.data.state;
@@ -4239,17 +4239,17 @@ function relayoutSDFGState(
             return;
         }
         
-        // Summarise edges for NestedSDFGs and ScopeNodes
+        // Summarize edges for NestedSDFGs and ScopeNodes
         if (gnode instanceof NestedSDFG || gnode instanceof ScopeNode) {
             const n_of_in_connectors = gnode.in_connectors.length;
             const n_of_out_connectors = gnode.out_connectors.length;
 
             if (n_of_in_connectors > 10) {
-                gnode.summarise_in_edges = true;
+                gnode.summarize_in_edges = true;
                 gnode.in_summary_has_effect = true;
             }
             if (n_of_out_connectors > 10) {
-                gnode.summarise_out_edges = true;
+                gnode.summarize_out_edges = true;
                 gnode.out_summary_has_effect = true;
             }
         }
@@ -4269,10 +4269,10 @@ function relayoutSDFGState(
             state.edges.forEach((edge: JsonSDFGEdge, id: number) => {
                 if (edge.dst === gnode.id.toString() && edge.dst_connector === c.data.name) {
                 
-                    // If in-edges are to be summarised, set Memlet.summarised
+                    // If in-edges are to be summarized, set Memlet.summarized
                     const gedge = g.edge(edge.src, edge.dst, id.toString()) as Memlet;
-                    if (gedge && gnode.summarise_in_edges) {
-                        gedge.summarised = true;
+                    if (gedge && gnode.summarize_in_edges) {
+                        gedge.summarized = true;
                     }
 
                     const source_node: SDFGNode = g.node(edge.src);
@@ -4313,14 +4313,14 @@ function relayoutSDFGState(
             }
         }
         
-        // For out_connectors set Memlet.summarised for all out-edges if needed
-        if (gnode.summarise_out_edges) {
+        // For out_connectors set Memlet.summarized for all out-edges if needed
+        if (gnode.summarize_out_edges) {
             for (const c of gnode.out_connectors) {
                 state.edges.forEach((edge: JsonSDFGEdge, id: number) => {
                     if (edge.src === gnode.id.toString() && edge.src_connector === c.data.name) {
                         const gedge = g.edge(edge.src, edge.dst, id.toString()) as Memlet;
                         if (gedge) {
-                            gedge.summarised = true;
+                            gedge.summarized = true;
                         }
                     }
                 });

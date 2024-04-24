@@ -60,8 +60,8 @@ export class SDFGElement {
     // These two fields get set in the layouter, depending on the number of in/out_connectors
     // of a node. They also get toggled in the mousehandler when the hover status changes.
     // Currently only used for NestedSDFGs and ScopeNodes.
-    public summarise_in_edges: boolean = false;
-    public summarise_out_edges: boolean = false;
+    public summarize_in_edges: boolean = false;
+    public summarize_out_edges: boolean = false;
     // Used in draw_edge_summary to decide if edge summary is applicable. Set in the layouter
     // only for NestedSDFGs and ScopeNodes. This prevents the summary to get toggled on
     // by the mousehandler when it is not applicable.
@@ -304,7 +304,7 @@ export class SDFGElement {
                 ctx.fill();
             }
     
-            if (this.summarise_in_edges && this.in_summary_has_effect) {
+            if (this.summarize_in_edges && this.in_summary_has_effect) {
                 // Find the left most and right most connector coordinates
                 if (this.in_connectors.length > 0) {
                     let min_connector_x = Number.MAX_SAFE_INTEGER;
@@ -324,7 +324,7 @@ export class SDFGElement {
                         topleft.y - 8, true);
                 }
             }
-            if (this.summarise_out_edges && this.out_summary_has_effect) {
+            if (this.summarize_out_edges && this.out_summary_has_effect) {
                 // Find the left most and right most connector coordinates
                 if (this.out_connectors.length > 0) {
                     let min_connector_x = Number.MAX_SAFE_INTEGER;
@@ -1229,7 +1229,7 @@ export class Memlet extends Edge {
 
     // Currently used for Memlets to decide if they need to be drawn or not.
     // Set in the layouter.
-    public summarised: boolean = false;
+    public summarized: boolean = false;
 
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
         // Draw memlet edges with quadratic curves through the arrow points.
@@ -2712,8 +2712,8 @@ function batchedDrawEdges(
             deferredEdges.push(edge);
             return;
         }
-        // Dont draw if Memlet is summarised
-        else if (edge instanceof Memlet && edge.summarised) {
+        // Dont draw if Memlet is summarized
+        else if (edge instanceof Memlet && edge.summarized) {
             return;
         }
 
