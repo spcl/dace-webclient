@@ -1035,6 +1035,10 @@ export class SDFGRenderer extends EventEmitter {
                     obj.attributes.sdfg) {
                     this.cfgTree[obj.attributes.sdfg.cfg_list_id] =
                         oInfo.sdfg.cfg_list_id;
+                    this.cfgList[obj.attributes.sdfg.cfg_list_id] = {
+                        jsonObj: obj.attributes.sdfg as JsonSDFG,
+                        graph: null,
+                    };
                 } else if (cfgId !== undefined && cfgId >= 0) {
                     this.cfgTree[cfgId] = oInfo.cfgId;
                     this.cfgList[cfgId] = {
