@@ -67,8 +67,14 @@ export class SDFV {
     public static STATE_LOD: number = 100; // 100
 
     public static DEFAULT_CANVAS_FONTSIZE: number = 10;
-    public static DEFAULT_MAX_FONTSIZE: number = 20; // 50
+    public static DEFAULT_MAX_FONTSIZE: number = 20; // 20
     public static DEFAULT_FAR_FONT_MULTIPLIER: number = 16; // 16
+
+    // Dagre layout options.
+    // Separation between ranks (vertically) in pixels.
+    public static RANKSEP: number = 70; // Dagre default: 50
+    // Separation between nodes (horizontally) in pixels.
+    public static NODESEP: number = 20; // Dagre default: 50
 
     protected renderer: SDFGRenderer | null = null;
     protected localViewRenderer: LViewRenderer | null = null;

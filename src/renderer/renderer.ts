@@ -4239,12 +4239,11 @@ function relayoutSDFGState(
     const g: DagreGraph = new dagre.graphlib.Graph({ multigraph: true });
 
     // Set layout options and a simpler algorithm for large graphs.
-    const layoutOptions: any = { ranksep: 30 };
+    const layoutOptions: any = { ranksep: SDFV.RANKSEP };
     if (state.nodes.length >= 1000)
         layoutOptions.ranker = 'longest-path';
 
-    layoutOptions.nodesep = 20; // default: 50
-    layoutOptions.ranksep = 70; // default: 50
+    layoutOptions.nodesep = SDFV.NODESEP;
     g.setGraph(layoutOptions);
 
     // Set an object for the graph label.
