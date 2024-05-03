@@ -88,8 +88,13 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         // In that case, we overlay the correct grouping color(s).
         // If it's expanded or zoomed in close enough, we traverse inside.
         const sdfgGroups = sdfg.attributes.logical_groups;
-        if (sdfgGroups === undefined)
+        if (sdfgGroups === undefined || sdfgGroups.length === 0) {    
             return;
+        }
+
+        if (!graph) {
+            return;
+        }
 
         graph?.nodes().forEach(v => {
             const block = graph.node(v);
@@ -101,8 +106,8 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
             ))
                 return;
 
-            if (((ctx as any).lod && (ppp >= SDFV.STATE_LOD ||
-                block.width / ppp <= SDFV.STATE_LOD)) ||
+            const blockppp = Math.sqrt(block.width * block.height) / ppp;
+            if (((ctx as any).lod && (blockppp < SDFV.STATE_LOD)) ||
                 block.attributes().is_collapsed
             ) {
                 this.shadeNode(block, sdfgGroups, ctx);
@@ -121,7 +126,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
                                 return;
 
                             if (node.attributes().is_collapsed ||
-                                ((ctx as any).lod && ppp >= SDFV.NODE_LOD)) {
+                                ((ctx as any).lod && ppp > SDFV.NODE_LOD)) {
                                 this.shadeNode(node, sdfgGroups, ctx);
                             } else {
                                 if (node instanceof NestedSDFG &&

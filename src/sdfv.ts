@@ -60,12 +60,21 @@ export class SDFV {
     public static NODE_LOD: number = 5.0; // 5.0
     // Points-per-pixel threshold for not drawing node text.
     public static TEXT_LOD: number = 1.5; // 1.5
-    // Pixel threshold for not drawing state contents.
+
+    // Pixel threshold for not drawing State and NestedSDFG contents.
+    // This threshold behaves differently than the ones above. The State's size is compared to this 
+    // threshold and if the State is smaller its contents are not drawn in the renderer.
     public static STATE_LOD: number = 100; // 100
 
     public static DEFAULT_CANVAS_FONTSIZE: number = 10;
-    public static DEFAULT_MAX_FONTSIZE: number = 20; // 50
+    public static DEFAULT_MAX_FONTSIZE: number = 20; // 20
     public static DEFAULT_FAR_FONT_MULTIPLIER: number = 16; // 16
+
+    // Dagre layout options.
+    // Separation between ranks (vertically) in pixels.
+    public static RANKSEP: number = 70; // Dagre default: 50
+    // Separation between nodes (horizontally) in pixels.
+    public static NODESEP: number = 20; // Dagre default: 50
 
     protected renderer: SDFGRenderer | null = null;
     protected localViewRenderer: LViewRenderer | null = null;
@@ -253,11 +262,10 @@ export class SDFV {
         const contents = $(contentsRaw);
         contents.html('');
 
-        if (elem instanceof Memlet && elem.parent_id && elem.id) {
-            const sdfg_edge = elem.parentElem?.data.state.edges[elem.id];
-            contents.append($('<h4>', {
-                html: 'Connectors: ' + sdfg_edge.src_connector + ' &rarr; ' +
-                    sdfg_edge.dst_connector,
+        if (elem instanceof Memlet) {
+            contents.append($('<p>', {
+                html: 'Connectors: ' + elem.src_connector + ' &rarr; ' +
+                    elem.dst_connector,
             }));
         }
         contents.append($('<hr>'));
@@ -545,7 +553,7 @@ function file_read_complete(sdfv: SDFV): void {
                 new SDFGRenderer(sdfv, sdfg, container, mouse_event)
             );
             sdfv.close_menu();
-        }, 20);
+        }, 10);
     }
 }
 

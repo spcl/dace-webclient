@@ -59,6 +59,19 @@ export class SDFGElement {
     public selected: boolean = false;
     public highlighted: boolean = false;
     public hovered: boolean = false;
+    
+    // Used to draw edge summary instead of all edges separately.
+    // Helps with rendering performance when too many edges would be drawn on the screen.
+    // These two fields get set in the layouter, depending on the number of in/out_connectors
+    // of a node. They also get toggled in the mousehandler when the hover status changes.
+    // Currently only used for NestedSDFGs and ScopeNodes.
+    public summarize_in_edges: boolean = false;
+    public summarize_out_edges: boolean = false;
+    // Used in draw_edge_summary to decide if edge summary is applicable. Set in the layouter
+    // only for NestedSDFGs and ScopeNodes. This prevents the summary to get toggled on
+    // by the mousehandler when it is not applicable.
+    public in_summary_has_effect: boolean = false;
+    public out_summary_has_effect: boolean = false;
 
     public x: number = 0;
     public y: number = 0;
@@ -213,7 +226,133 @@ export class SDFGElement {
     ): string {
         return renderer.getCssProperty(propertyName);
     }
+    
+    public draw_edge_summary(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
+    ): void {
+        
+        // Only draw if close enough
+        const canvas_manager = renderer.get_canvas_manager();
+        const ppp = canvas_manager?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.EDGE_LOD)) {
+            const topleft = this.topleft();
+            ctx.strokeStyle = this.strokeStyle(renderer);
+            ctx.fillStyle = ctx.strokeStyle;
+            
+            function draw_summary_symbol(ctx: CanvasRenderingContext2D,
+                min_connector_x: number, max_connector_x: number,
+                horizontal_line_level: number, draw_arrows_above_line: boolean
+            ): void {
 
+                // Draw horizontal line (looks better without)
+                // ctx.beginPath();
+                // ctx.moveTo(min_connector_x, horizontal_line_level);
+                // ctx.lineTo(max_connector_x, horizontal_line_level);
+                // ctx.closePath();
+                // ctx.stroke();
+
+                // Draw left arrow
+                const middle_of_line = (min_connector_x + max_connector_x) / 2;
+                const left_arrow_x = middle_of_line - 10;
+                const righ_arrow_x = middle_of_line + 10;
+                let arrow_start_y = horizontal_line_level + 2;
+                let arrow_end_y = horizontal_line_level + 8;
+                if (draw_arrows_above_line) {
+                    arrow_start_y = horizontal_line_level - 10;
+                    arrow_end_y = horizontal_line_level - 4;
+                }
+                const dot_height = (arrow_start_y + arrow_end_y) / 2;
+                // Arrow line
+                ctx.beginPath();
+                ctx.moveTo(left_arrow_x, arrow_start_y);
+                ctx.lineTo(left_arrow_x, arrow_end_y);
+                ctx.closePath();
+                ctx.stroke();
+                // Arrow head
+                ctx.beginPath();
+                ctx.moveTo(left_arrow_x, arrow_end_y + 2);
+                ctx.lineTo(left_arrow_x - 2, arrow_end_y);
+                ctx.lineTo(left_arrow_x + 2, arrow_end_y);
+                ctx.lineTo(left_arrow_x, arrow_end_y + 2);
+                ctx.closePath();
+                ctx.fill();
+                
+                // 3 dots
+                ctx.beginPath();
+                ctx.moveTo(middle_of_line - 5, dot_height)
+                ctx.lineTo(middle_of_line - 4, dot_height)
+                ctx.closePath();
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(middle_of_line - 0.5, dot_height)
+                ctx.lineTo(middle_of_line + 0.5, dot_height)
+                ctx.closePath();
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(middle_of_line + 4, dot_height)
+                ctx.lineTo(middle_of_line + 5, dot_height)
+                ctx.closePath();
+                ctx.stroke();
+
+                // Draw right arrow
+                // Arrow line
+                ctx.beginPath();
+                ctx.moveTo(righ_arrow_x, arrow_start_y);
+                ctx.lineTo(righ_arrow_x, arrow_end_y);
+                ctx.closePath();
+                ctx.stroke();
+                // Arrow head
+                ctx.beginPath();
+                ctx.moveTo(righ_arrow_x, arrow_end_y + 2);
+                ctx.lineTo(righ_arrow_x - 2, arrow_end_y);
+                ctx.lineTo(righ_arrow_x + 2, arrow_end_y);
+                ctx.lineTo(righ_arrow_x, arrow_end_y + 2);
+                ctx.closePath();
+                ctx.fill();
+            }
+    
+            if (this.summarize_in_edges && this.in_summary_has_effect) {
+                // Find the left most and right most connector coordinates
+                if (this.in_connectors.length > 0) {
+                    let min_connector_x = Number.MAX_SAFE_INTEGER;
+                    let max_connector_x = Number.MIN_SAFE_INTEGER;
+                    this.in_connectors.forEach((c: Connector) => {
+                        if (c.x < min_connector_x) {
+                            min_connector_x = c.x;
+                        }
+                        if (c.x > max_connector_x) {
+                            max_connector_x = c.x;
+                        }
+                    });
+
+                    // Draw the summary symbol above the node
+                    draw_summary_symbol(ctx, 
+                        min_connector_x, max_connector_x, 
+                        topleft.y - 8, true);
+                }
+            }
+            if (this.summarize_out_edges && this.out_summary_has_effect) {
+                // Find the left most and right most connector coordinates
+                if (this.out_connectors.length > 0) {
+                    let min_connector_x = Number.MAX_SAFE_INTEGER;
+                    let max_connector_x = Number.MIN_SAFE_INTEGER;
+                    this.out_connectors.forEach((c: Connector) => {
+                        if (c.x < min_connector_x) {
+                            min_connector_x = c.x;
+                        }
+                        if (c.x > max_connector_x) {
+                            max_connector_x = c.x;
+                        }
+                    });
+                    
+                    // Draw the summary symbol below the node
+                    draw_summary_symbol(ctx, 
+                        min_connector_x, max_connector_x, 
+                        topleft.y + this.height + 8, false);
+                }
+            }
+        }
+    }
 }
 
 // SDFG as an element (to support properties)
@@ -1115,7 +1254,11 @@ export abstract class Edge extends SDFGElement {
 
 }
 
-export class Memlet extends Edge {
+export class Memlet extends Edge {    
+
+    // Currently used for Memlets to decide if they need to be drawn or not.
+    // Set in the layouter.
+    public summarized: boolean = false;
 
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
         // Draw memlet edges with quadratic curves through the arrow points.
@@ -1385,7 +1528,7 @@ export class InterstateEdge extends Edge {
         const ppp = renderer.get_canvas_manager()?.points_per_pixel();
         if (ppp === undefined)
             return;
-        if ((ctx as any).lod && ppp >= SDFV.SCOPE_LOD)
+        if ((ctx as any).lod && ppp > SDFV.SCOPE_LOD)
             return;
 
         const labelLines = [];
@@ -1752,6 +1895,9 @@ export class ScopeNode extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D
     ): void {
+        
+        this.draw_edge_summary(renderer, ctx);
+        
         let draw_shape;
         if (this.data.node.attributes.is_collapsed) {
             draw_shape = () => {
@@ -2338,6 +2484,9 @@ export class NestedSDFG extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D
     ): void {
+        
+        this.draw_edge_summary(renderer, ctx);
+        
         if (this.data.node.attributes.is_collapsed) {
             const topleft = this.topleft();
             drawOctagon(ctx, topleft, this.width, this.height);
@@ -2604,6 +2753,10 @@ function batchedDrawEdges(
             deferredEdges.push(edge);
             return;
         }
+        // Dont draw if Memlet is summarized
+        else if (edge instanceof Memlet && edge.summarized) {
+            return;
+        }
 
         const lPoint = edge.points[edge.points.length - 1];
         if (visible_rect && lPoint.x >= visible_rect.x &&
@@ -2669,16 +2822,17 @@ export function drawStateContents(
         ))
             continue;
 
-        if (node instanceof NestedSDFG) {
-            if (lod && (
-                Math.sqrt(node.height * node.width) / ppp
-            ) < SDFV.STATE_LOD) {
+        // Simple draw for non-collapsed NestedSDFGs
+        if (node instanceof NestedSDFG && !node.data.node.attributes.is_collapsed) {
+            const nodeppp = Math.sqrt(node.width * node.height) / ppp;
+            if (lod && nodeppp < SDFV.STATE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
                 // SDFGRenderer.rendered_elements_count++;
                 continue;
             }
         } else {
+            // Simple draw node
             if (lod && ppp > SDFV.NODE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
@@ -2919,7 +3073,7 @@ export function drawAdaptiveText(
     if (ppp === undefined)
         return;
 
-    const is_far: boolean = (ctx as any).lod && ppp >= ppp_thres;
+    const is_far: boolean = (ctx as any).lod && ppp > ppp_thres;
     const label = is_far ? far_text : close_text;
 
     let font_size = Math.min(

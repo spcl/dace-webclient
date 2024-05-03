@@ -230,8 +230,8 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
             ))
                 return;
 
-            if (((ctx as any).lod && (ppp >= SDFV.STATE_LOD ||
-                block.width / ppp <= SDFV.STATE_LOD)) ||
+            const stateppp = Math.sqrt(block.width * block.height) / ppp;
+            if (((ctx as any).lod && (stateppp < SDFV.STATE_LOD)) ||
                 block.attributes()?.is_collapsed) {
                 this.shadeNode(block, ctx);
             } else if (block instanceof State) {
@@ -245,19 +245,19 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
                             visibleRect.y, visibleRect.w, visibleRect.h))
                             return;
 
-                        if (node.data.node.attributes.is_collapsed ||
-                            ((ctx as any).lod && ppp >= SDFV.NODE_LOD)) {
-                            this.shadeNode(node, ctx);
-                        } else {
-                            if (node instanceof NestedSDFG &&
-                                node.attributes().sdfg &&
-                                node.attributes().sdfg.type !== 'SDFGShell') {
+                        if (node instanceof NestedSDFG && !node.data.node.attributes.is_collapsed) {
+                            const nodeppp = Math.sqrt(node.width * node.height) / ppp;
+                            if ((ctx as any).lod && nodeppp < SDFV.STATE_LOD) {
+                                this.shadeNode(node, ctx);
+                            }
+                            else if (node.attributes().sdfg && node.attributes().sdfg.type !== 'SDFGShell') {
                                 this.recursivelyShadeCFG(
                                     node.data.graph, ctx, ppp, visibleRect
                                 );
-                            } else {
-                                this.shadeNode(node, ctx);
                             }
+                        }
+                        else {
+                            this.shadeNode(node, ctx);
                         }
                     });
                 }

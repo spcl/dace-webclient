@@ -215,8 +215,8 @@ export class DepthOverlay extends GenericSdfgOverlay {
             ))
                 return;
 
-            if (((ctx as any).lod && (ppp >= SDFV.STATE_LOD ||
-                state.width / ppp <= SDFV.STATE_LOD)) ||
+            const stateppp = Math.sqrt(state.width * state.height) / ppp;
+            if (((ctx as any).lod && (stateppp < SDFV.STATE_LOD)) ||
                 state.data.state.attributes.is_collapsed) {
                 this.shade_node(state, ctx);
             } else {
@@ -230,19 +230,19 @@ export class DepthOverlay extends GenericSdfgOverlay {
                             visible_rect.y, visible_rect.w, visible_rect.h))
                             return;
 
-                        if (node.data.node.attributes.is_collapsed ||
-                            ((ctx as any).lod && ppp >= SDFV.NODE_LOD)) {
-                            this.shade_node(node, ctx);
-                        } else {
-                            if (node instanceof NestedSDFG &&
-                                node.attributes().sdfg &&
-                                node.attributes().sdfg.type !== 'SDFGShell') {
+                        if (node instanceof NestedSDFG && !node.data.node.attributes.is_collapsed) {
+                            const nodeppp = Math.sqrt(node.width * node.height) / ppp;
+                            if ((ctx as any).lod && nodeppp < SDFV.STATE_LOD) {
+                                this.shade_node(node, ctx);
+                            }
+                            else if (node.attributes().sdfg && node.attributes().sdfg.type !== 'SDFGShell') {
                                 this.recursively_shade_sdfg(
                                     node.data.graph, ctx, ppp, visible_rect
                                 );
-                            } else {
-                                this.shade_node(node, ctx);
                             }
+                        }
+                        else {
+                            this.shade_node(node, ctx);
                         }
                     });
                 }

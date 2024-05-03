@@ -173,18 +173,17 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         graph.nodes().forEach(v => {
             const block: ControlFlowBlock = graph.node(v);
 
-            // If we're zoomed out enough that the contents aren't visible, we
-            // skip the state.
-            if ((ctx as any).lod && (
-                ppp >= SDFV.STATE_LOD || block.width / ppp < SDFV.STATE_LOD
-            ))
-                return;
-
             // If the node's invisible, we skip it.
             if ((ctx as any).lod && !block.intersect(
                 visibleRect.x, visibleRect.y,
                 visibleRect.w, visibleRect.h
             ) || block.attributes()?.is_collapsed)
+                return;
+
+            // If we're zoomed out enough that the contents aren't visible, we
+            // skip the state.
+            const stateppp = Math.sqrt(block.width * block.height) / ppp;
+            if ((ctx as any).lod && (stateppp < SDFV.STATE_LOD))
                 return;
 
             if (block instanceof State) {
@@ -203,7 +202,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                         // If we're zoomed out enough that the node's contents
                         // aren't visible or the node is collapsed, we skip it.
                         if (node.data.node.attributes.is_collapsed ||
-                            ((ctx as any).lod && ppp >= SDFV.NODE_LOD))
+                            ((ctx as any).lod && ppp > SDFV.NODE_LOD))
                             return;
 
                         if (node instanceof NestedSDFG &&
@@ -218,8 +217,12 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                     state_graph.edges().forEach((e: any) => {
                         const edge: Edge = state_graph.edge(e);
 
-                        if ((ctx as any).lod && !edge.intersect(visibleRect.x,
-                            visibleRect.y, visibleRect.w, visibleRect.h))
+                        // Skip if edge is invisible, or zoomed out far
+                        if ((ctx as any).lod 
+                            && (!edge.intersect(visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h)
+                            || ppp > SDFV.EDGE_LOD
+                            )
+                        )
                             return;
 
                         this.shadeEdge(edge, ctx);
