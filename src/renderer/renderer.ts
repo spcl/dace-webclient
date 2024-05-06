@@ -594,7 +594,8 @@ export class SDFGRenderer extends EventEmitter {
                 }).appendTo(this.toolbar).append(overlayDropdown);
 
                 const addOverlayToMenu = (
-                    txt: string, ol: typeof GenericSdfgOverlay, default_state: boolean
+                    txt: string, ol: typeof GenericSdfgOverlay,
+                    default_state: boolean
                 ) => {
                     const olItem = $('<li>', {
                         css: {
@@ -626,8 +627,12 @@ export class SDFGRenderer extends EventEmitter {
                 addOverlayToMenu('Logical groups', LogicalGroupOverlay, true);
 
                 // Add overlays that are turned off by default.
-                addOverlayToMenu('Storage locations', MemoryLocationOverlay, false);
-                addOverlayToMenu('Logical data movement volume', MemoryVolumeOverlay, false);
+                addOverlayToMenu(
+                    'Storage locations', MemoryLocationOverlay, false
+                );
+                addOverlayToMenu(
+                    'Logical data movement volume', MemoryVolumeOverlay, false
+                );
             }
 
             // Zoom to fit.
@@ -906,8 +911,8 @@ export class SDFGRenderer extends EventEmitter {
         this.updateCFGList();
 
         // Create the initial SDFG layout
-        // Loading animation already started in the file_read_complete function in sdfv.ts
-        // to also include the JSON parsing step.
+        // Loading animation already started in the file_read_complete function
+        // in sdfv.ts to also include the JSON parsing step.
         this.relayout();
 
         // Set mouse event handlers
@@ -2680,7 +2685,6 @@ export class SDFGRenderer extends EventEmitter {
     // Toggles collapsed state of foreground_elem if applicable.
     // Returns true if re-layout occured and re-draw is necessary.
     public toggle_element_collapse(foreground_elem: any): boolean {
-
         const sdfg = (foreground_elem ? foreground_elem.sdfg : null);
         let sdfg_elem = null;
         if (foreground_elem instanceof State) {
@@ -2971,9 +2975,8 @@ export class SDFGRenderer extends EventEmitter {
                 return false;
             }
         } else if (evtype === 'wheel') {
-            if (SDFVSettings.useVerticalScrollNavigation && !event.ctrlKey
-                || !SDFVSettings.useVerticalScrollNavigation && event.ctrlKey
-            ) {
+            if (SDFVSettings.useVerticalScrollNavigation && !event.ctrlKey ||
+                !SDFVSettings.useVerticalScrollNavigation && event.ctrlKey) {
                 // If vertical scroll navigation is turned on, use this to
                 // move the viewport up and down. If the control key is held
                 // down while scrolling, treat it as a typical zoom operation.
@@ -3095,7 +3098,7 @@ export class SDFGRenderer extends EventEmitter {
                             highlighting_changed = true;
                             hover_changed = true;
                         }
- 
+
                         // Highlight all edges of the memlet tree
                         if (obj instanceof Edge && obj.parent_id !== null) {
                             if (obj.hovered && hover_changed) {
@@ -3152,37 +3155,55 @@ export class SDFGRenderer extends EventEmitter {
                         }
 
                         if (obj instanceof Connector) {
-                            
                             // Highlight the incoming/outgoing Edge
                             const parent_node = obj.linkedElem;
-                            if (obj.hovered && (hover_changed || (!parent_node?.hovered))) {
+                            if (obj.hovered &&
+                                (hover_changed || (!parent_node?.hovered))) {
                                 const state = obj.linkedElem?.parentElem;
-                                if (state && state instanceof State && state.data) {
+                                if (state && state instanceof State &&
+                                    state.data) {
                                     const state_json = state.data.state;
                                     const state_graph = state.data.graph;
-                                    state_json.edges.forEach((edge: JsonSDFGEdge, id: number) => {
-                                        if (edge.src_connector === obj.data.name || edge.dst_connector === obj.data.name) {
-                                            const gedge = state_graph.edge(edge.src, edge.dst, id.toString()) as Memlet;
-                                            if (gedge) {
-                                                gedge.highlighted = true;
+                                    state_json.edges.forEach(
+                                        (edge: JsonSDFGEdge, id: number) => {
+                                            if (edge.src_connector ===
+                                                obj.data.name ||
+                                                edge.dst_connector ===
+                                                obj.data.name) {
+                                                const gedge = state_graph.edge(
+                                                    edge.src, edge.dst,
+                                                    id.toString()
+                                                ) as Memlet;
+                                                if (gedge)
+                                                    gedge.highlighted = true;
                                             }
                                         }
-                                    });
+                                    );
                                 }
                             }
                             if (!obj.hovered && hover_changed) {
-                                // Prevent de-highlighting of edge if parent is already hovered (to show all edges)
+                                // Prevent de-highlighting of edge if parent is
+                                // already hovered (to show all edges).
                                 if (parent_node && !parent_node.hovered) {
                                     const state = obj.linkedElem?.parentElem;
-                                    if (state && state instanceof State && state.data) {
+                                    if (state && state instanceof State &&
+                                        state.data) {
                                         const state_json = state.data.state;
                                         const state_graph = state.data.graph;
-                                        state_json.edges.forEach((edge: JsonSDFGEdge, id: number) => {
-                                            if (edge.src_connector === obj.data.name || edge.dst_connector === obj.data.name) {
-                                                const gedge = state_graph.edge(edge.src, edge.dst, id.toString()) as Memlet;
-                                                if (gedge) {
+                                        state_json.edges.forEach((
+                                            edge: JsonSDFGEdge,
+                                            id: number
+                                        ) => {
+                                            if (edge.src_connector ===
+                                                obj.data.name ||
+                                                edge.dst_connector ===
+                                                obj.data.name) {
+                                                const gedge = state_graph.edge(
+                                                    edge.src, edge.dst,
+                                                    id.toString()
+                                                ) as Memlet;
+                                                if (gedge)
                                                     gedge.highlighted = false;
-                                                }
                                             }
                                         });
                                     }
@@ -3190,8 +3211,8 @@ export class SDFGRenderer extends EventEmitter {
                             }
 
 
-                            // Highlight all access nodes with the same name as the
-                            // hovered connector in the nested sdfg
+                            // Highlight all access nodes with the same name as
+                            // the hovered connector in the nested sdfg.
                             if (obj.hovered && hover_changed) {
                                 const nGraph = obj.parentElem?.data.graph;
                                 if (nGraph) {
@@ -3268,40 +3289,49 @@ export class SDFGRenderer extends EventEmitter {
                                 }
                             }
                         }
-                        
-                        // Make all edges of a node visible and remove the edge summary symbol
+
+                        // Make all edges of a node visible and remove the edge
+                        // summary symbol.
                         if (obj.hovered && hover_changed) {
-                            // Setting these to false will cause the summary symbol 
-                            // not to be drawn in renderer_elements.ts
+                            // Setting these to false will cause the summary
+                            // symbol not to be drawn in renderer_elements.ts
                             obj.summarize_in_edges = false;
                             obj.summarize_out_edges = false;
                             const state = obj.parentElem;
                             if (state && state instanceof State && state.data) {
                                 const state_json = state.data.state;
                                 const state_graph = state.data.graph;
-                                state_json.edges.forEach((edge: JsonSDFGEdge, id: number) => {
-                                    if (edge.src === obj.id.toString() || edge.dst === obj.id.toString()) {
-                                        const gedge = state_graph.edge(edge.src, edge.dst, id.toString()) as Memlet;
-                                        if (gedge) {
-                                            gedge.highlighted = true;
+                                state_json.edges.forEach(
+                                    (edge: JsonSDFGEdge, id: number) => {
+                                        if (edge.src === obj.id.toString() ||
+                                            edge.dst === obj.id.toString()) {
+                                            const gedge = state_graph.edge(
+                                                edge.src, edge.dst,
+                                                id.toString()
+                                            ) as Memlet;
+                                            if (gedge)
+                                                gedge.highlighted = true;
                                         }
                                     }
-                                });
+                                );
                             }
-                        }
-                        else if (!obj.hovered && hover_changed) {
+                        } else if (!obj.hovered && hover_changed) {
                             obj.summarize_in_edges = true;
                             obj.summarize_out_edges = true;
                             const state = obj.parentElem;
                             if (state && state instanceof State && state.data) {
                                 const state_json = state.data.state;
                                 const state_graph = state.data.graph;
-                                state_json.edges.forEach((edge: JsonSDFGEdge, id: number) => {
-                                    if (edge.src === obj.id.toString() || edge.dst === obj.id.toString()) {
-                                        const gedge = state_graph.edge(edge.src, edge.dst, id.toString()) as Memlet;
-                                        if (gedge) {
+                                state_json.edges.forEach((
+                                    edge: JsonSDFGEdge, id: number
+                                ) => {
+                                    if (edge.src === obj.id.toString() ||
+                                        edge.dst === obj.id.toString()) {
+                                        const gedge = state_graph.edge(
+                                            edge.src, edge.dst, id.toString()
+                                        ) as Memlet;
+                                        if (gedge)
                                             gedge.highlighted = false;
-                                        }
                                     }
                                 });
                             }
@@ -3328,7 +3358,9 @@ export class SDFGRenderer extends EventEmitter {
         }
 
         if (evtype === 'dblclick') {
-            const relayout_happened = this.toggle_element_collapse(foreground_elem);
+            const relayout_happened = this.toggle_element_collapse(
+                foreground_elem
+            );
             if (relayout_happened) {
                 dirty = true;
                 element_focus_changed = true;
@@ -3603,12 +3635,12 @@ export class SDFGRenderer extends EventEmitter {
                 // Cancel add mode
                 if (this.panmode_btn?.onclick)
                     this.panmode_btn?.onclick(event);
-            }
-            else if (this.mouse_mode === 'pan') {
-
+            } else if (this.mouse_mode === 'pan') {
                 // Shift + Rightclick to toggle expand/collapse
                 if (event.shiftKey) {
-                    const relayout_happened = this.toggle_element_collapse(foreground_elem);
+                    const relayout_happened = this.toggle_element_collapse(
+                        foreground_elem
+                    );
                     if (relayout_happened) {
                         dirty = true;
                         element_focus_changed = true;
@@ -4516,7 +4548,6 @@ function relayoutSDFGState(
         }
     });
 
-    
     // Re-order in_connectors for the edges to not intertwine
     state.nodes.forEach((node: JsonSDFGNode, id: number) => {
         const gnode: any = g.node(id.toString());
@@ -4524,56 +4555,62 @@ function relayoutSDFGState(
             // Ignore nodes that should not be drawn.
             return;
         }
-        
-        // Summarize edges for NestedSDFGs and ScopeNodes
-        if (gnode instanceof NestedSDFG || gnode instanceof ScopeNode) {
-            const n_of_in_connectors = gnode.in_connectors.length;
-            const n_of_out_connectors = gnode.out_connectors.length;
 
-            if (n_of_in_connectors > 10) {
-                gnode.summarize_in_edges = true;
-                gnode.in_summary_has_effect = true;
-            }
-            if (n_of_out_connectors > 10) {
-                gnode.summarize_out_edges = true;
-                gnode.out_summary_has_effect = true;
+        // Summarize edges for NestedSDFGs and ScopeNodes
+        if (SDFVSettings.summarizeLargeNumbersOfEdges) {
+            if (gnode instanceof NestedSDFG || gnode instanceof ScopeNode) {
+                const n_of_in_connectors = gnode.in_connectors.length;
+                const n_of_out_connectors = gnode.out_connectors.length;
+
+                if (n_of_in_connectors > 10) {
+                    gnode.summarize_in_edges = true;
+                    gnode.in_summary_has_effect = true;
+                }
+                if (n_of_out_connectors > 10) {
+                    gnode.summarize_out_edges = true;
+                    gnode.out_summary_has_effect = true;
+                }
             }
         }
-        
         const SPACING = SDFV.LINEHEIGHT;
         const iConnLength = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
             node.attributes.layout.in_connectors
         ).length - SPACING;
         let iConnX = gnode.x - iConnLength / 2.0 + SDFV.LINEHEIGHT / 2.0;
 
-        // Dictionary that saves the x coordinates of each connector's source node or source connector.
-        // This is later used to reorder the in_connectors based on the sources' x coordinates.
-        let sources_x_coordinates: { [key: string]: number } = {};
-        
-        // For each in_connector, find the x coordinate of the source node connector
+        // Dictionary that saves the x coordinates of each connector's source
+        // node or source connector. This is later used to reorder the
+        // in_connectors based on the sources' x coordinates.
+        const sources_x_coordinates: { [key: string]: number } = {};
+
+        // For each in_connector, find the x coordinate of the source node
+        // connector.
         for (const c of gnode.in_connectors) {
             state.edges.forEach((edge: JsonSDFGEdge, id: number) => {
-                if (edge.dst === gnode.id.toString() && edge.dst_connector === c.data.name) {
-                
+                if (edge.dst === gnode.id.toString() &&
+                    edge.dst_connector === c.data.name) {
                     // If in-edges are to be summarized, set Memlet.summarized
-                    const gedge = g.edge(edge.src, edge.dst, id.toString()) as Memlet;
-                    if (gedge && gnode.summarize_in_edges) {
+                    const gedge = g.edge(
+                        edge.src, edge.dst, id.toString()
+                    ) as Memlet;
+                    if (gedge && gnode.summarize_in_edges)
                         gedge.summarized = true;
-                    }
 
                     const source_node: SDFGNode = g.node(edge.src);
                     if (source_node) {
-                        
                         // If source node doesn't have out_connectors, take
                         // the source node's own x coordinate
                         if (source_node.out_connectors.length === 0) {
                             sources_x_coordinates[c.data.name] = source_node.x;
-                        }
-                        else {
-                            // Find the corresponding out_connector and take its x coordinate
-                            for (let i = 0; i < source_node.out_connectors.length; ++i) {
-                                if (source_node.out_connectors[i].data.name === edge.src_connector) {
-                                    sources_x_coordinates[c.data.name] = source_node.out_connectors[i].x;
+                        } else {
+                            // Find the corresponding out_connector and take its
+                            // x coordinate.
+                            const nOutConn = source_node.out_connectors.length;
+                            for (let i = 0; i < nOutConn; ++i) {
+                                if (source_node.out_connectors[i].data.name ===
+                                    edge.src_connector) {
+                                    sources_x_coordinates[c.data.name] =
+                                        source_node.out_connectors[i].x;
                                     break;
                                 }
                             }
@@ -4581,14 +4618,16 @@ function relayoutSDFGState(
                     }
                 }
             });
-            
         }
-        
+
         // Sort the dictionary by x coordinate values
-        let sources_x_coordinates_sorted = Object.entries(sources_x_coordinates);
+        const sources_x_coordinates_sorted = Object.entries(
+            sources_x_coordinates
+        );
         sources_x_coordinates_sorted.sort((a, b) => a[1] - b[1]);
 
-        // In the order of the sorted source x coordinates, set the x coordinates of the in_connectors
+        // In the order of the sorted source x coordinates, set the x
+        // coordinates of the in_connectors.
         for (const element of sources_x_coordinates_sorted) {
             for (const c of gnode.in_connectors) {
                 if (c.data.name === element[0]) {
@@ -4598,16 +4637,18 @@ function relayoutSDFGState(
                 }
             }
         }
-        
+
         // For out_connectors set Memlet.summarized for all out-edges if needed
         if (gnode.summarize_out_edges) {
             for (const c of gnode.out_connectors) {
                 state.edges.forEach((edge: JsonSDFGEdge, id: number) => {
-                    if (edge.src === gnode.id.toString() && edge.src_connector === c.data.name) {
-                        const gedge = g.edge(edge.src, edge.dst, id.toString()) as Memlet;
-                        if (gedge) {
+                    if (edge.src === gnode.id.toString() &&
+                        edge.src_connector === c.data.name) {
+                        const gedge = g.edge(
+                            edge.src, edge.dst, id.toString()
+                        ) as Memlet;
+                        if (gedge)
                             gedge.summarized = true;
-                        }
                     }
                 });
             }

@@ -30,6 +30,7 @@ export class SDFVSettings {
         'showStateNames': true,
         'showMapSchedules': true,
         'showDataDescriptorSizes': false,
+        'summarizeLargeNumbersOfEdges': false,
         'inclusiveRanges': false,
         'useVerticalStateMachineLayout': false,
         'useVerticalScrollNavigation': false,
@@ -102,6 +103,12 @@ export class SDFVSettings {
             'Show data descriptor sizes on access nodes ' +
                 '(hides data container names)',
             'showDataDescriptorSizes', true
+        );
+        this.addToggle(
+            root,
+            'Hide / summarize edges for nodes where a large number of ' +
+                'edges are connected',
+            'summarizeLargeNumbersOfEdges', true
         );
         this.addToggle(root, 'Use inclusive ranges', 'inclusiveRanges', true);
         this.addToggle(
@@ -302,6 +309,12 @@ export class SDFVSettings {
     public static get showDataDescriptorSizes(): boolean {
         return SDFVSettings.getInstance().settingsDict[
             'showDataDescriptorSizes'
+        ] as boolean;
+    }
+
+    public static get summarizeLargeNumbersOfEdges(): boolean {
+        return SDFVSettings.getInstance().settingsDict[
+            'summarizeLargeNumbersOfEdges'
         ] as boolean;
     }
 
