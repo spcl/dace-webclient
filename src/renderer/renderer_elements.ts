@@ -213,6 +213,11 @@ export class SDFGElement {
         return this.data.label;
     }
 
+    // Text used for matching the element during a search
+    public text_for_find(): string {
+        return this.label();
+    }
+
     // Produces HTML for a hover-tooltip
     public tooltip(container: HTMLElement): void {
         container.className = 'sdfvtooltip';
@@ -2180,6 +2185,12 @@ export class Tasklet extends SDFGNode {
     ) {
         super(data, id, sdfg, cfg, parent_id, parentElem);
         this.highlightCode();
+    }
+
+    public text_for_find(): string {
+        // Include code when searching
+        const code = this.attributes().code.string_data;        
+        return this.label() + " " + code;
     }
 
     private highlightedCode: TaskletCodeToken[][] = [];
