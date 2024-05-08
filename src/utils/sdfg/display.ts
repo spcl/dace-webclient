@@ -7,7 +7,9 @@ export function sdfg_range_elem_to_string(
     settings: any = null
 ): string {
     let preview = '';
-    if (range.start === range.end && range.step === 1 && range.tile === 1) {
+    const step = parseInt(range.step);
+    const tile = parseInt(range.tile);
+    if (range.start === range.end && step === 1 && tile === 1) {
         preview += sdfg_property_to_string(range.start, settings);
     } else {
         if (settings && settings.inclusive_ranges) {
@@ -21,11 +23,12 @@ export function sdfg_range_elem_to_string(
             preview += sdfg_property_to_string(range.start, settings) + ':' +
                 endp1;
         }
-        if (range.step !== 1) {
+
+        if (step !== 1) {
             preview += ':' + sdfg_property_to_string(range.step, settings);
-            if (range.tile !== 1)
+            if (tile !== 1)
                 preview += ':' + sdfg_property_to_string(range.tile, settings);
-        } else if (range.tile !== 1) {
+        } else if (tile !== 1) {
             preview += '::' + sdfg_property_to_string(range.tile, settings);
         }
     }
