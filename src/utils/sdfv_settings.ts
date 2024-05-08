@@ -149,7 +149,7 @@ export class SDFVSettings {
         this.addToggle(
             root,
             'Adaptively hide content when zooming out (Warning: turning this \
-                off can cause huge performance issues on big graphs)',
+                off can cause performance issues on big graphs)',
                 'adaptiveContentHiding', false, (value: boolean) => {
                     if (this.renderer)
                         (this.renderer.get_context() as any).lod = value;
