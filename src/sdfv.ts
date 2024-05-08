@@ -62,8 +62,9 @@ export class SDFV {
     public static TEXT_LOD: number = 1.5; // 1.5
 
     // Pixel threshold for not drawing State and NestedSDFG contents.
-    // This threshold behaves differently than the ones above. The State's size is compared to this 
-    // threshold and if the State is smaller its contents are not drawn in the renderer.
+    // This threshold behaves differently than the ones above. The State's size
+    // is compared to this threshold and if the State is smaller its contents
+    // are not drawn in the renderer.
     public static STATE_LOD: number = 100; // 100
 
     public static DEFAULT_CANVAS_FONTSIZE: number = 10;
