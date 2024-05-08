@@ -222,6 +222,9 @@ export class CanvasManager {
         this.indices = [];
     }
 
+    // WARNING: This function uses ctx.getImageData() which forces 
+    // the browser to turn off GPU accelerated canvas painting!
+    // It needs to be reworked to not use getImageData() anymore.
     public isBlank(): boolean {
         const ctx = this.canvas.getContext('2d');
         if (!ctx)
@@ -247,11 +250,13 @@ export class CanvasManager {
             return;
         this.contention++;
         this.request_scale = true;
-        if (this.isBlank()) {
-            this.renderer.set_bgcolor('black');
-            this.renderer.zoom_to_view(null, false);
-            diff = 0.01;
-        }
+
+        // Don't use the easteregg feature as long as isBlank() is not fixed!
+        // if (this.isBlank()) {
+        //     this.renderer.set_bgcolor('black');
+        //     this.renderer.zoom_to_view(null, false);
+        //     diff = 0.01;
+        // }
 
         this.scale_origin.x = x;
         this.scale_origin.y = y;

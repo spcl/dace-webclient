@@ -879,6 +879,9 @@ export class SDFGRenderer extends EventEmitter {
         this.container.appendChild(this.error_popover_container);
 
         this.ctx = this.canvas.getContext('2d');
+        // this.ctx = this.canvas.getContext('2d', {willReadFrequently: true});
+        // this.ctx = this.canvas.getContext('2d', {desynchronized: true});
+        console.log(this.ctx?.getContextAttributes());
         if (!this.ctx) {
             console.error('Failed to get canvas context, aborting');
             return;
