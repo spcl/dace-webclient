@@ -62,13 +62,25 @@ function draw_summary_symbol(
         arrow_end_y = horizontal_line_level - 4;
     }
     const dot_height = (arrow_start_y + arrow_end_y) / 2;
-    // Arrow line
+
+    // Arrow line left
     ctx.beginPath();
     ctx.moveTo(left_arrow_x, arrow_start_y);
     ctx.lineTo(left_arrow_x, arrow_end_y);
+    // Arrow line right
+    ctx.moveTo(righ_arrow_x, arrow_start_y);
+    ctx.lineTo(righ_arrow_x, arrow_end_y);
+    // 3 dots
+    ctx.moveTo(middle_of_line - 5, dot_height);
+    ctx.lineTo(middle_of_line - 4, dot_height);
+    ctx.moveTo(middle_of_line - 0.5, dot_height);
+    ctx.lineTo(middle_of_line + 0.5, dot_height);
+    ctx.moveTo(middle_of_line + 4, dot_height);
+    ctx.lineTo(middle_of_line + 5, dot_height);
     ctx.closePath();
     ctx.stroke();
-    // Arrow head
+
+    // Arrow heads
     ctx.beginPath();
     ctx.moveTo(left_arrow_x, arrow_end_y + 2);
     ctx.lineTo(left_arrow_x - 2, arrow_end_y);
@@ -76,32 +88,7 @@ function draw_summary_symbol(
     ctx.lineTo(left_arrow_x, arrow_end_y + 2);
     ctx.closePath();
     ctx.fill();
-
-    // 3 dots
-    ctx.beginPath();
-    ctx.moveTo(middle_of_line - 5, dot_height);
-    ctx.lineTo(middle_of_line - 4, dot_height);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(middle_of_line - 0.5, dot_height);
-    ctx.lineTo(middle_of_line + 0.5, dot_height);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(middle_of_line + 4, dot_height);
-    ctx.lineTo(middle_of_line + 5, dot_height);
-    ctx.closePath();
-    ctx.stroke();
-
-    // Draw right arrow
-    // Arrow line
-    ctx.beginPath();
-    ctx.moveTo(righ_arrow_x, arrow_start_y);
-    ctx.lineTo(righ_arrow_x, arrow_end_y);
-    ctx.closePath();
-    ctx.stroke();
-    // Arrow head
+    
     ctx.beginPath();
     ctx.moveTo(righ_arrow_x, arrow_end_y + 2);
     ctx.lineTo(righ_arrow_x - 2, arrow_end_y);
@@ -472,8 +459,6 @@ export class ControlFlowRegion extends ControlFlowBlock {
             ctx.beginPath();
             ctx.moveTo(this.x, this.y - SDFV.LINEHEIGHT);
             ctx.lineTo(this.x, this.y + SDFV.LINEHEIGHT);
-            ctx.stroke();
-            ctx.beginPath();
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, this.y);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, this.y);
             ctx.stroke();
@@ -619,8 +604,6 @@ export class State extends BasicBlock {
             ctx.beginPath();
             ctx.moveTo(this.x, this.y - SDFV.LINEHEIGHT);
             ctx.lineTo(this.x, this.y + SDFV.LINEHEIGHT);
-            ctx.stroke();
-            ctx.beginPath();
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, this.y);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, this.y);
             ctx.stroke();
@@ -925,8 +908,6 @@ export class LoopRegion extends ControlFlowRegion {
             ctx.beginPath();
             ctx.moveTo(this.x, plusCenterY - SDFV.LINEHEIGHT);
             ctx.lineTo(this.x, plusCenterY + SDFV.LINEHEIGHT);
-            ctx.stroke();
-            ctx.beginPath();
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, plusCenterY);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, plusCenterY);
             ctx.stroke();
