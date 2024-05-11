@@ -2743,7 +2743,6 @@ function batchedDrawEdges(
             labelEdges.push(edge);
 
         edge.create_arrow_line(ctx);
-        // SDFGRenderer.rendered_elements_count++;
     });
     ctx.setLineDash([1, 0]);
     ctx.fillStyle = ctx.strokeStyle = renderer.getCssProperty(color);
@@ -2799,7 +2798,6 @@ export function drawStateContents(
             if (lod && nodeppp < SDFV.STATE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
-                // SDFGRenderer.rendered_elements_count++;
                 continue;
             }
         } else {
@@ -2807,7 +2805,6 @@ export function drawStateContents(
             if (lod && ppp > SDFV.NODE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
-                // SDFGRenderer.rendered_elements_count++;
                 continue;
             }
         }
@@ -2896,7 +2893,6 @@ export function drawStateMachine(
 
         block.draw(renderer, ctx, mousePos);
         block.debug_draw(renderer, ctx);
-        // SDFGRenderer.rendered_elements_count++;
 
         const ng = block.data.graph;
         if (!block.attributes().is_collapsed && ng) {
@@ -2924,7 +2920,6 @@ export function drawSDFG(
     const ppp = cManager.points_per_pixel();
     const visibleRect = renderer.get_visible_rect() ?? undefined;
 
-    SDFGRenderer.rendered_elements_count = 0;
     drawStateMachine(
         g, ctx, renderer, ppp, (ctx as any).lod, visibleRect, mousePos
     );
@@ -3154,6 +3149,10 @@ export function drawOctagon(
 export function drawEllipse(
     ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number
 ): void {
+
+    // CanvasRenderingContext2D ellipse call as an alternative.
+    // ctx.ellipse(x+w/2, y+h/2, w/2, h/2, 0, 0, 2 * Math.PI);
+
     const kappa = .5522848,
         ox = (w / 2) * kappa, // control point offset horizontal
         oy = (h / 2) * kappa, // control point offset vertical

@@ -193,7 +193,6 @@ export class SDFGRenderer extends EventEmitter {
     protected bgcolor: string | null = null;
     protected visible_rect: SimpleRect | null = null;
     protected static cssProps: { [key: string]: string } = {};
-    public static rendered_elements_count: number = 0;
 
     // Toolbar related fields.
     protected toolbar: JQuery<HTMLElement> | null = null;
