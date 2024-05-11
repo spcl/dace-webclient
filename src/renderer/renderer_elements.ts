@@ -1165,8 +1165,13 @@ export abstract class Edge extends SDFGElement {
 
         if (this.points.length < 2)
             return;
-        this.drawArrow(ctx, this.points[this.points.length - 2],
-            this.points[this.points.length - 1], 3, 0, 4);
+
+        const canvas_manager = _renderer.get_canvas_manager();
+        const ppp = canvas_manager?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+            this.drawArrow(ctx, this.points[this.points.length - 2],
+                this.points[this.points.length - 1], 3, 0, 4);
+        }
 
         // Restore previous stroke style, width, and opacity.
         ctx.strokeStyle = orig_stroke_style;
@@ -1300,10 +1305,14 @@ export class Memlet extends Edge {
         }
 
         if (!skipArrow) {
-            this.drawArrow(
-                ctx, this.points[this.points.length - 2],
-                this.points[this.points.length - 1], 3
-            );
+            const canvas_manager = renderer.get_canvas_manager();
+            const ppp = canvas_manager?.points_per_pixel();
+            if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+                this.drawArrow(
+                    ctx, this.points[this.points.length - 2],
+                    this.points[this.points.length - 1], 3
+                );
+            }
         }
     }
 
@@ -1473,10 +1482,14 @@ export class InterstateEdge extends Edge {
             }
         }
 
-        this.drawArrow(
-            ctx, this.points[this.points.length - 2],
-            this.points[this.points.length - 1], 3
-        );
+        const canvas_manager = renderer.get_canvas_manager();
+        const ppp = canvas_manager?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+            this.drawArrow(
+                ctx, this.points[this.points.length - 2],
+                this.points[this.points.length - 1], 3
+            );
+        }
 
         if (SDFVSettings.alwaysOnISEdgeLabels)
             this.drawLabel(renderer, ctx);
