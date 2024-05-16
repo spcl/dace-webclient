@@ -772,10 +772,10 @@ export function find_in_graph(
         query = query.toLowerCase();
     find_in_graph_predicate(
         sdfv, renderer, sdfg, (graph: DagreGraph, element: SDFGElement) => {
-            let label = element.label();
+            let text = element.text_for_find();
             if (!case_sensitive)
-                label = label.toLowerCase();
-            return label.indexOf(query) !== -1;
+                text = text.toLowerCase();
+            return text.indexOf(query) !== -1;
         }
     );
     sdfv.sidebar_set_title('Search Results for "' + query + '"');
