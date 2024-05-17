@@ -880,12 +880,14 @@ export class SDFGRenderer extends EventEmitter {
 
         this.ctx = this.canvas.getContext('2d');
 
-        // This setting will force CPU main thread rendering (for testing only).
-        // this.ctx = this.canvas.getContext('2d', {willReadFrequently: true});
-
         // This setting decouples the canvas paint cycle from the main event loop.
         // Not supported on Firefox, but can be enabled and Firefox will ignore it.
+        // No fps difference measured on the SDFV webclient, but the setting could
+        // become useful in the future in certain setups or situations.
         // this.ctx = this.canvas.getContext('2d', {desynchronized: true});
+        
+        // WARNING: This setting will force CPU main thread rendering. Use for testing only.
+        // this.ctx = this.canvas.getContext('2d', {willReadFrequently: true});
 
         if (!this.ctx) {
             console.error('Failed to get canvas context, aborting');
