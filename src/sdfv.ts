@@ -73,9 +73,9 @@ export class SDFV {
 
     // Dagre layout options.
     // Separation between ranks (vertically) in pixels.
-    public static RANKSEP: number = 70; // Dagre default: 50
+    public static RANKSEP: number = 70; // Dagre default: 50, Before update: 30
     // Separation between nodes (horizontally) in pixels.
-    public static NODESEP: number = 20; // Dagre default: 50
+    public static NODESEP: number = 20; // Dagre default: 50, Before update: 50
 
     protected renderer: SDFGRenderer | null = null;
     protected localViewRenderer: LViewRenderer | null = null;

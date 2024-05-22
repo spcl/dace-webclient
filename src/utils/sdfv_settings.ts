@@ -101,14 +101,8 @@ export class SDFVSettings {
         this.addToggle(
             root,
             'Show data descriptor sizes on access nodes ' +
-                '(hides data container names)',
+            '(hides data container names)',
             'showDataDescriptorSizes', true
-        );
-        this.addToggle(
-            root,
-            'Hide / summarize edges for nodes where a large number of ' +
-                'edges are connected',
-            'summarizeLargeNumbersOfEdges', true
         );
         this.addToggle(root, 'Use inclusive ranges', 'inclusiveRanges', true);
         this.addToggle(
@@ -156,17 +150,23 @@ export class SDFVSettings {
             root,
             'Adaptively hide content when zooming out (Warning: turning this \
                 off can cause performance issues on big graphs)',
-            'adaptiveContentHiding', false, (value: boolean) => {
-                if (this.renderer)
-                    (this.renderer.get_context() as any).lod = value;
-            }
-        );
-
-        this.addToggle(
-            root, 'Curved Edges (turn off in case of performance issues)',
-            'curvedEdges', false
-        );
-    }
+                'adaptiveContentHiding', false, (value: boolean) => {
+                    if (this.renderer)
+                        (this.renderer.get_context() as any).lod = value;
+                }
+            );
+            
+            this.addToggle(
+                root, 'Curved Edges (turn off in case of performance issues)',
+                'curvedEdges', false
+            );
+            this.addToggle(
+                root,
+                'Hide / summarize edges for nodes where a large number of ' +
+                    'edges are connected',
+                'summarizeLargeNumbersOfEdges', true
+            );
+        }
 
     private constructModal(): JQuery<HTMLElement> {
         const modalElement = $('<div>', {

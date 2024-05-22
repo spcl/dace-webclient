@@ -62,13 +62,25 @@ function draw_summary_symbol(
         arrow_end_y = horizontal_line_level - 4;
     }
     const dot_height = (arrow_start_y + arrow_end_y) / 2;
-    // Arrow line
+
+    // Arrow line left
     ctx.beginPath();
     ctx.moveTo(left_arrow_x, arrow_start_y);
     ctx.lineTo(left_arrow_x, arrow_end_y);
+    // Arrow line right
+    ctx.moveTo(righ_arrow_x, arrow_start_y);
+    ctx.lineTo(righ_arrow_x, arrow_end_y);
+    // 3 dots
+    ctx.moveTo(middle_of_line - 5, dot_height);
+    ctx.lineTo(middle_of_line - 4, dot_height);
+    ctx.moveTo(middle_of_line - 0.5, dot_height);
+    ctx.lineTo(middle_of_line + 0.5, dot_height);
+    ctx.moveTo(middle_of_line + 4, dot_height);
+    ctx.lineTo(middle_of_line + 5, dot_height);
     ctx.closePath();
     ctx.stroke();
-    // Arrow head
+
+    // Arrow heads
     ctx.beginPath();
     ctx.moveTo(left_arrow_x, arrow_end_y + 2);
     ctx.lineTo(left_arrow_x - 2, arrow_end_y);
@@ -76,32 +88,7 @@ function draw_summary_symbol(
     ctx.lineTo(left_arrow_x, arrow_end_y + 2);
     ctx.closePath();
     ctx.fill();
-
-    // 3 dots
-    ctx.beginPath();
-    ctx.moveTo(middle_of_line - 5, dot_height);
-    ctx.lineTo(middle_of_line - 4, dot_height);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(middle_of_line - 0.5, dot_height);
-    ctx.lineTo(middle_of_line + 0.5, dot_height);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(middle_of_line + 4, dot_height);
-    ctx.lineTo(middle_of_line + 5, dot_height);
-    ctx.closePath();
-    ctx.stroke();
-
-    // Draw right arrow
-    // Arrow line
-    ctx.beginPath();
-    ctx.moveTo(righ_arrow_x, arrow_start_y);
-    ctx.lineTo(righ_arrow_x, arrow_end_y);
-    ctx.closePath();
-    ctx.stroke();
-    // Arrow head
+    
     ctx.beginPath();
     ctx.moveTo(righ_arrow_x, arrow_end_y + 2);
     ctx.lineTo(righ_arrow_x - 2, arrow_end_y);
@@ -477,8 +464,6 @@ export class ControlFlowRegion extends ControlFlowBlock {
             ctx.beginPath();
             ctx.moveTo(this.x, this.y - SDFV.LINEHEIGHT);
             ctx.lineTo(this.x, this.y + SDFV.LINEHEIGHT);
-            ctx.stroke();
-            ctx.beginPath();
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, this.y);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, this.y);
             ctx.stroke();
@@ -624,8 +609,6 @@ export class State extends BasicBlock {
             ctx.beginPath();
             ctx.moveTo(this.x, this.y - SDFV.LINEHEIGHT);
             ctx.lineTo(this.x, this.y + SDFV.LINEHEIGHT);
-            ctx.stroke();
-            ctx.beginPath();
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, this.y);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, this.y);
             ctx.stroke();
@@ -930,8 +913,6 @@ export class LoopRegion extends ControlFlowRegion {
             ctx.beginPath();
             ctx.moveTo(this.x, plusCenterY - SDFV.LINEHEIGHT);
             ctx.lineTo(this.x, plusCenterY + SDFV.LINEHEIGHT);
-            ctx.stroke();
-            ctx.beginPath();
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, plusCenterY);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, plusCenterY);
             ctx.stroke();
@@ -1189,8 +1170,13 @@ export abstract class Edge extends SDFGElement {
 
         if (this.points.length < 2)
             return;
-        this.drawArrow(ctx, this.points[this.points.length - 2],
-            this.points[this.points.length - 1], 3, 0, 4);
+
+        const canvas_manager = _renderer.get_canvas_manager();
+        const ppp = canvas_manager?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+            this.drawArrow(ctx, this.points[this.points.length - 2],
+                this.points[this.points.length - 1], 3, 0, 4);
+        }
 
         // Restore previous stroke style, width, and opacity.
         ctx.strokeStyle = orig_stroke_style;
@@ -1324,10 +1310,14 @@ export class Memlet extends Edge {
         }
 
         if (!skipArrow) {
-            this.drawArrow(
-                ctx, this.points[this.points.length - 2],
-                this.points[this.points.length - 1], 3
-            );
+            const canvas_manager = renderer.get_canvas_manager();
+            const ppp = canvas_manager?.points_per_pixel();
+            if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+                this.drawArrow(
+                    ctx, this.points[this.points.length - 2],
+                    this.points[this.points.length - 1], 3
+                );
+            }
         }
     }
 
@@ -1497,10 +1487,14 @@ export class InterstateEdge extends Edge {
             }
         }
 
-        this.drawArrow(
-            ctx, this.points[this.points.length - 2],
-            this.points[this.points.length - 1], 3
-        );
+        const canvas_manager = renderer.get_canvas_manager();
+        const ppp = canvas_manager?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+            this.drawArrow(
+                ctx, this.points[this.points.length - 2],
+                this.points[this.points.length - 1], 3
+            );
+        }
 
         if (SDFVSettings.alwaysOnISEdgeLabels)
             this.drawLabel(renderer, ctx);
@@ -2773,7 +2767,6 @@ function batchedDrawEdges(
             labelEdges.push(edge);
 
         edge.create_arrow_line(ctx);
-        // SDFGRenderer.rendered_elements_count++;
     });
     ctx.setLineDash([1, 0]);
     ctx.fillStyle = ctx.strokeStyle = renderer.getCssProperty(color);
@@ -2829,7 +2822,6 @@ export function drawStateContents(
             if (lod && nodeppp < SDFV.STATE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
-                // SDFGRenderer.rendered_elements_count++;
                 continue;
             }
         } else {
@@ -2837,7 +2829,6 @@ export function drawStateContents(
             if (lod && ppp > SDFV.NODE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
-                // SDFGRenderer.rendered_elements_count++;
                 continue;
             }
         }
@@ -2926,7 +2917,6 @@ export function drawStateMachine(
 
         block.draw(renderer, ctx, mousePos);
         block.debug_draw(renderer, ctx);
-        // SDFGRenderer.rendered_elements_count++;
 
         const ng = block.data.graph;
         if (!block.attributes().is_collapsed && ng) {
@@ -2954,7 +2944,6 @@ export function drawSDFG(
     const ppp = cManager.points_per_pixel();
     const visibleRect = renderer.get_visible_rect() ?? undefined;
 
-    SDFGRenderer.rendered_elements_count = 0;
     drawStateMachine(
         g, ctx, renderer, ppp, (ctx as any).lod, visibleRect, mousePos
     );
@@ -3180,23 +3169,10 @@ export function drawOctagon(
     ctx.closePath();
 }
 
-// Adapted from https://stackoverflow.com/a/2173084/6489142
 export function drawEllipse(
     ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number
 ): void {
-    const kappa = .5522848,
-        ox = (w / 2) * kappa, // control point offset horizontal
-        oy = (h / 2) * kappa, // control point offset vertical
-        xe = x + w,           // x-end
-        ye = y + h,           // y-end
-        xm = x + w / 2,       // x-middle
-        ym = y + h / 2;       // y-middle
-
-    ctx.moveTo(x, ym);
-    ctx.bezierCurveTo(x, ym - oy, xm - ox, y, xm, y);
-    ctx.bezierCurveTo(xm + ox, y, xe, ym - oy, xe, ym);
-    ctx.bezierCurveTo(xe, ym + oy, xm + ox, ye, xm, ye);
-    ctx.bezierCurveTo(xm - ox, ye, x, ym + oy, x, ym);
+    ctx.ellipse(x+w/2, y+h/2, w/2, h/2, 0, 0, 2 * Math.PI);
 }
 
 export function drawTrapezoid(

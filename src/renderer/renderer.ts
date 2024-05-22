@@ -193,7 +193,7 @@ export class SDFGRenderer extends EventEmitter {
     protected bgcolor: string | null = null;
     protected visible_rect: SimpleRect | null = null;
     protected static cssProps: { [key: string]: string } = {};
-    public static rendered_elements_count: number = 0;
+    protected hovered_elements_cache: Set<SDFGElement> = new Set<SDFGElement>();
 
     // Toolbar related fields.
     protected toolbar: JQuery<HTMLElement> | null = null;
@@ -879,6 +879,16 @@ export class SDFGRenderer extends EventEmitter {
         this.container.appendChild(this.error_popover_container);
 
         this.ctx = this.canvas.getContext('2d');
+
+        // This setting decouples the canvas paint cycle from the main event loop.
+        // Not supported on Firefox, but can be enabled and Firefox will ignore it.
+        // No fps difference measured on the SDFV webclient, but the setting could
+        // become useful in the future in certain setups or situations.
+        // this.ctx = this.canvas.getContext('2d', {desynchronized: true});
+        
+        // WARNING: This setting will force CPU main thread rendering. Use for testing only.
+        // this.ctx = this.canvas.getContext('2d', {willReadFrequently: true});
+
         if (!this.ctx) {
             console.error('Failed to get canvas context, aborting');
             return;
@@ -3065,6 +3075,22 @@ export class SDFGRenderer extends EventEmitter {
 
         this.tooltip = null;
 
+        // Add newly hovered elements under the mouse cursor to the cache.
+        // The cache then contains hovered elements of the previous frame that are highlighted
+        // and the newly hovered elements of the current frame that need to be highlighted.
+        for (const [name, element_type_array] of Object.entries<Array<GraphElementInfo>>(elements)) {
+            for (let j = 0; j < element_type_array.length; ++j) {
+                const hovered_element = element_type_array[j].obj;
+                if (hovered_element !== undefined) {
+                    this.hovered_elements_cache.add(hovered_element);
+                }
+            }
+        }
+
+        // New cache for the next frame, which only contains the hovered/highlighted 
+        // elements of the current frame.
+        const new_hovered_elements_cache: Set<SDFGElement> = new Set<SDFGElement>();
+
         // Only do highlighting re-computation if view is close enough to
         // actually see the highlights. Done by points-per-pixel metric using
         // SDFV.NODE_LOD as the threshold. Hence, the highlights only
@@ -3078,233 +3104,104 @@ export class SDFGRenderer extends EventEmitter {
                 let highlighting_changed = false;
 
                 // Mark hovered and highlighted elements.
-                this.doForVisibleElements(
-                    (group, objInfo, obj) => {
-                        const intersected = obj.intersect(
-                            this.mousepos!.x, this.mousepos!.y, 0, 0
-                        );
+                for (const obj of this.hovered_elements_cache) {
 
-                        // Local change boolean, for each visible element
-                        // checked. Prevents recursion if nothing changed.
-                        let hover_changed = false;
+                    const intersected = obj.intersect(
+                        this.mousepos!.x, this.mousepos!.y, 0, 0
+                    );
 
-                        // Change hover status
-                        if (intersected && !obj.hovered) {
-                            obj.hovered = true;
-                            highlighting_changed = true;
-                            hover_changed = true;
-                        } else if (!intersected && obj.hovered) {
-                            obj.hovered = false;
-                            highlighting_changed = true;
-                            hover_changed = true;
-                        }
+                    // Local change boolean, for each visible element
+                    // checked. Prevents recursion if nothing changed.
+                    let hover_changed = false;
 
-                        // Highlight all edges of the memlet tree
-                        if (obj instanceof Edge && obj.parent_id !== null) {
-                            if (obj.hovered && hover_changed) {
-                                const tree = this.getNestedMemletTree(obj);
-                                tree.forEach(te => {
-                                    if (te !== obj && te !== undefined)
-                                        te.highlighted = true;
-                                });
-                            } else if (!obj.hovered && hover_changed) {
-                                const tree = this.getNestedMemletTree(obj);
-                                tree.forEach(te => {
-                                    if (te !== obj && te !== undefined)
-                                        te.highlighted = false;
-                                });
-                            }
-                        }
+                    // Change hover status
+                    if (intersected && !obj.hovered) {
+                        obj.hovered = true;
+                        highlighting_changed = true;
+                        hover_changed = true;
+                    } else if (!intersected && obj.hovered) {
+                        obj.hovered = false;
+                        highlighting_changed = true;
+                        hover_changed = true;
+                    }
 
-                        // Highlight all access nodes with the same name in the
-                        // same nested sdfg.
-                        if (obj instanceof AccessNode) {
-                            if (obj.hovered && hover_changed) {
-                                traverseSDFGScopes(
-                                    this.cfgList[obj.sdfg.cfg_list_id].graph!,
-                                    (node: any) => {
-                                        // If node is a state, then visit
-                                        // sub-scope.
-                                        if (node instanceof State)
-                                            return true;
-                                        if (node instanceof AccessNode &&
-                                            node.data.node.label ===
-                                            obj.data.node.label)
-                                            node.highlighted = true;
-                                        // No need to visit sub-scope
-                                        return false;
-                                    }
-                                );
-                            } else if (!obj.hovered && hover_changed) {
-                                traverseSDFGScopes(
-                                    this.cfgList[obj.sdfg.cfg_list_id].graph!,
-                                    (node: any) => {
-                                        // If node is a state, then visit
-                                        // sub-scope.
-                                        if (node instanceof State)
-                                            return true;
-                                        if (node instanceof AccessNode &&
-                                            node.data.node.label ===
-                                            obj.data.node.label)
-                                            node.highlighted = false;
-                                        // No need to visit sub-scope
-                                        return false;
-                                    }
-                                );
-                            }
-                        }
+                    // If element is hovered in the current frame then
+                    // remember it for the next frame.
+                    if (obj.hovered) {
+                        new_hovered_elements_cache.add(obj);
+                    }
 
-                        if (obj instanceof Connector) {
-                            // Highlight the incoming/outgoing Edge
-                            const parent_node = obj.linkedElem;
-                            if (obj.hovered &&
-                                (hover_changed || (!parent_node?.hovered))) {
-                                const state = obj.linkedElem?.parentElem;
-                                if (state && state instanceof State &&
-                                    state.data) {
-                                    const state_json = state.data.state;
-                                    const state_graph = state.data.graph;
-                                    state_json.edges.forEach(
-                                        (edge: JsonSDFGEdge, id: number) => {
-                                            if (edge.src_connector ===
-                                                obj.data.name ||
-                                                edge.dst_connector ===
-                                                obj.data.name) {
-                                                const gedge = state_graph.edge(
-                                                    edge.src, edge.dst,
-                                                    id.toString()
-                                                ) as Memlet;
-                                                if (gedge)
-                                                    gedge.highlighted = true;
-                                            }
-                                        }
-                                    );
-                                }
-                            }
-                            if (!obj.hovered && hover_changed) {
-                                // Prevent de-highlighting of edge if parent is
-                                // already hovered (to show all edges).
-                                if (parent_node && !parent_node.hovered) {
-                                    const state = obj.linkedElem?.parentElem;
-                                    if (state && state instanceof State &&
-                                        state.data) {
-                                        const state_json = state.data.state;
-                                        const state_graph = state.data.graph;
-                                        state_json.edges.forEach((
-                                            edge: JsonSDFGEdge,
-                                            id: number
-                                        ) => {
-                                            if (edge.src_connector ===
-                                                obj.data.name ||
-                                                edge.dst_connector ===
-                                                obj.data.name) {
-                                                const gedge = state_graph.edge(
-                                                    edge.src, edge.dst,
-                                                    id.toString()
-                                                ) as Memlet;
-                                                if (gedge)
-                                                    gedge.highlighted = false;
-                                            }
-                                        });
-                                    }
-                                }
-                            }
-
-
-                            // Highlight all access nodes with the same name as
-                            // the hovered connector in the nested sdfg.
-                            if (obj.hovered && hover_changed) {
-                                const nGraph = obj.parentElem?.data.graph;
-                                if (nGraph) {
-                                    traverseSDFGScopes(nGraph, (node: any) => {
-                                        // If node is a state, then visit
-                                        // sub-scope.
-                                        if (node instanceof State ||
-                                            node instanceof ControlFlowRegion)
-                                            return true;
-
-                                        if (node instanceof AccessNode &&
-                                            node.data.node.label ===
-                                            obj.label())
-                                            node.highlighted = true;
-                                        // No need to visit sub-scope
-                                        return false;
-                                    });
-                                }
-                            } else if (!obj.hovered && hover_changed) {
-                                const nGraph = obj.parentElem?.data.graph;
-                                if (nGraph) {
-                                    traverseSDFGScopes(nGraph, (node: any) => {
-                                        // If node is a state, then visit
-                                        // sub-scope.
-                                        if (node instanceof State ||
-                                            node instanceof ControlFlowRegion)
-                                            return true;
-
-                                        if (node instanceof AccessNode &&
-                                            node.data.node.label ===
-                                            obj.label())
-                                            node.highlighted = false;
-                                        // No need to visit sub-scope
-                                        return false;
-                                    });
-                                }
-                            }
-
-                            // Similarly, highlight any identifiers in a
-                            // connector's tasklet, if applicable.
-                            if (obj.hovered && hover_changed) {
-                                if (obj.linkedElem && obj.linkedElem instanceof
-                                    Tasklet) {
-                                    if (obj.connectorType === 'in') {
-                                        for (const token of
-                                            obj.linkedElem.inputTokens) {
-                                            if (token.token === obj.data.name)
-                                                token.highlighted = true;
-                                        }
-                                    } else {
-                                        for (const token of
-                                            obj.linkedElem.outputTokens) {
-                                            if (token.token === obj.data.name)
-                                                token.highlighted = true;
-                                        }
-                                    }
-                                }
-                            } else if (!obj.hovered && hover_changed) {
-                                if (obj.linkedElem && obj.linkedElem instanceof
-                                    Tasklet) {
-                                    if (obj.connectorType === 'in') {
-                                        for (const token of
-                                            obj.linkedElem.inputTokens) {
-                                            if (token.token === obj.data.name)
-                                                token.highlighted = false;
-                                        }
-                                    } else {
-                                        for (const token of
-                                            obj.linkedElem.outputTokens) {
-                                            if (token.token === obj.data.name)
-                                                token.highlighted = false;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Make all edges of a node visible and remove the edge
-                        // summary symbol.
+                    // Highlight all edges of the memlet tree
+                    if (obj instanceof Edge && obj.parent_id !== null) {
                         if (obj.hovered && hover_changed) {
-                            // Setting these to false will cause the summary
-                            // symbol not to be drawn in renderer_elements.ts
-                            obj.summarize_in_edges = false;
-                            obj.summarize_out_edges = false;
-                            const state = obj.parentElem;
-                            if (state && state instanceof State && state.data) {
+                            const tree = this.getNestedMemletTree(obj);
+                            tree.forEach(te => {
+                                if (te !== obj && te !== undefined)
+                                    te.highlighted = true;
+                            });
+                        } else if (!obj.hovered && hover_changed) {
+                            const tree = this.getNestedMemletTree(obj);
+                            tree.forEach(te => {
+                                if (te !== obj && te !== undefined)
+                                    te.highlighted = false;
+                            });
+                        }
+                    }
+
+                    // Highlight all access nodes with the same name in the
+                    // same nested sdfg.
+                    if (obj instanceof AccessNode) {
+                        if (obj.hovered && hover_changed) {
+                            traverseSDFGScopes(
+                                this.cfgList[obj.sdfg.cfg_list_id].graph!,
+                                (node: any) => {
+                                    // If node is a state, then visit
+                                    // sub-scope.
+                                    if (node instanceof State)
+                                        return true;
+                                    if (node instanceof AccessNode &&
+                                        node.data.node.label ===
+                                        obj.data.node.label)
+                                        node.highlighted = true;
+                                    // No need to visit sub-scope
+                                    return false;
+                                }
+                            );
+                        } else if (!obj.hovered && hover_changed) {
+                            traverseSDFGScopes(
+                                this.cfgList[obj.sdfg.cfg_list_id].graph!,
+                                (node: any) => {
+                                    // If node is a state, then visit
+                                    // sub-scope.
+                                    if (node instanceof State)
+                                        return true;
+                                    if (node instanceof AccessNode &&
+                                        node.data.node.label ===
+                                        obj.data.node.label)
+                                        node.highlighted = false;
+                                    // No need to visit sub-scope
+                                    return false;
+                                }
+                            );
+                        }
+                    }
+
+                    if (obj instanceof Connector) {
+                        // Highlight the incoming/outgoing Edge
+                        const parent_node = obj.linkedElem;
+                        if (obj.hovered &&
+                            (hover_changed || (!parent_node?.hovered))) {
+                            const state = obj.linkedElem?.parentElem;
+                            if (state && state instanceof State &&
+                                state.data) {
                                 const state_json = state.data.state;
                                 const state_graph = state.data.graph;
                                 state_json.edges.forEach(
                                     (edge: JsonSDFGEdge, id: number) => {
-                                        if (edge.src === obj.id.toString() ||
-                                            edge.dst === obj.id.toString()) {
+                                        if (edge.src_connector ===
+                                            obj.data.name ||
+                                            edge.dst_connector ===
+                                            obj.data.name) {
                                             const gedge = state_graph.edge(
                                                 edge.src, edge.dst,
                                                 id.toString()
@@ -3315,34 +3212,172 @@ export class SDFGRenderer extends EventEmitter {
                                     }
                                 );
                             }
+                        }
+                        if (!obj.hovered && hover_changed) {
+                            // Prevent de-highlighting of edge if parent is
+                            // already hovered (to show all edges).
+                            if (parent_node && !parent_node.hovered) {
+                                const state = obj.linkedElem?.parentElem;
+                                if (state && state instanceof State &&
+                                    state.data) {
+                                    const state_json = state.data.state;
+                                    const state_graph = state.data.graph;
+                                    state_json.edges.forEach((
+                                        edge: JsonSDFGEdge,
+                                        id: number
+                                    ) => {
+                                        if (edge.src_connector ===
+                                            obj.data.name ||
+                                            edge.dst_connector ===
+                                            obj.data.name) {
+                                            const gedge = state_graph.edge(
+                                                edge.src, edge.dst,
+                                                id.toString()
+                                            ) as Memlet;
+                                            if (gedge)
+                                                gedge.highlighted = false;
+                                        }
+                                    });
+                                }
+                            }
+                        }
+
+
+                        // Highlight all access nodes with the same name as
+                        // the hovered connector in the nested sdfg.
+                        if (obj.hovered && hover_changed) {
+                            const nGraph = obj.parentElem?.data.graph;
+                            if (nGraph) {
+                                traverseSDFGScopes(nGraph, (node: any) => {
+                                    // If node is a state, then visit
+                                    // sub-scope.
+                                    if (node instanceof State ||
+                                        node instanceof ControlFlowRegion)
+                                        return true;
+
+                                    if (node instanceof AccessNode &&
+                                        node.data.node.label ===
+                                        obj.label())
+                                        node.highlighted = true;
+                                    // No need to visit sub-scope
+                                    return false;
+                                });
+                            }
                         } else if (!obj.hovered && hover_changed) {
-                            obj.summarize_in_edges = true;
-                            obj.summarize_out_edges = true;
-                            const state = obj.parentElem;
-                            if (state && state instanceof State && state.data) {
-                                const state_json = state.data.state;
-                                const state_graph = state.data.graph;
-                                state_json.edges.forEach((
-                                    edge: JsonSDFGEdge, id: number
-                                ) => {
-                                    if (edge.src === obj.id.toString() ||
-                                        edge.dst === obj.id.toString()) {
-                                        const gedge = state_graph.edge(
-                                            edge.src, edge.dst, id.toString()
-                                        ) as Memlet;
-                                        if (gedge)
-                                            gedge.highlighted = false;
-                                    }
+                            const nGraph = obj.parentElem?.data.graph;
+                            if (nGraph) {
+                                traverseSDFGScopes(nGraph, (node: any) => {
+                                    // If node is a state, then visit
+                                    // sub-scope.
+                                    if (node instanceof State ||
+                                        node instanceof ControlFlowRegion)
+                                        return true;
+
+                                    if (node instanceof AccessNode &&
+                                        node.data.node.label ===
+                                        obj.label())
+                                        node.highlighted = false;
+                                    // No need to visit sub-scope
+                                    return false;
                                 });
                             }
                         }
+
+                        // Similarly, highlight any identifiers in a
+                        // connector's tasklet, if applicable.
+                        if (obj.hovered && hover_changed) {
+                            if (obj.linkedElem && obj.linkedElem instanceof
+                                Tasklet) {
+                                if (obj.connectorType === 'in') {
+                                    for (const token of
+                                        obj.linkedElem.inputTokens) {
+                                        if (token.token === obj.data.name)
+                                            token.highlighted = true;
+                                    }
+                                } else {
+                                    for (const token of
+                                        obj.linkedElem.outputTokens) {
+                                        if (token.token === obj.data.name)
+                                            token.highlighted = true;
+                                    }
+                                }
+                            }
+                        } else if (!obj.hovered && hover_changed) {
+                            if (obj.linkedElem && obj.linkedElem instanceof
+                                Tasklet) {
+                                if (obj.connectorType === 'in') {
+                                    for (const token of
+                                        obj.linkedElem.inputTokens) {
+                                        if (token.token === obj.data.name)
+                                            token.highlighted = false;
+                                    }
+                                } else {
+                                    for (const token of
+                                        obj.linkedElem.outputTokens) {
+                                        if (token.token === obj.data.name)
+                                            token.highlighted = false;
+                                    }
+                                }
+                            }
+                        }
                     }
-                );
+
+                    // Make all edges of a node visible and remove the edge
+                    // summary symbol.
+                    if (obj.hovered && hover_changed) {
+                        // Setting these to false will cause the summary
+                        // symbol not to be drawn in renderer_elements.ts
+                        obj.summarize_in_edges = false;
+                        obj.summarize_out_edges = false;
+                        const state = obj.parentElem;
+                        if (state && state instanceof State && state.data) {
+                            const state_json = state.data.state;
+                            const state_graph = state.data.graph;
+                            state_json.edges.forEach(
+                                (edge: JsonSDFGEdge, id: number) => {
+                                    if (edge.src === obj.id.toString() ||
+                                        edge.dst === obj.id.toString()) {
+                                        const gedge = state_graph.edge(
+                                            edge.src, edge.dst,
+                                            id.toString()
+                                        ) as Memlet;
+                                        if (gedge)
+                                            gedge.highlighted = true;
+                                    }
+                                }
+                            );
+                        }
+                    } else if (!obj.hovered && hover_changed) {
+                        obj.summarize_in_edges = true;
+                        obj.summarize_out_edges = true;
+                        const state = obj.parentElem;
+                        if (state && state instanceof State && state.data) {
+                            const state_json = state.data.state;
+                            const state_graph = state.data.graph;
+                            state_json.edges.forEach((
+                                edge: JsonSDFGEdge, id: number
+                            ) => {
+                                if (edge.src === obj.id.toString() ||
+                                    edge.dst === obj.id.toString()) {
+                                    const gedge = state_graph.edge(
+                                        edge.src, edge.dst, id.toString()
+                                    ) as Memlet;
+                                    if (gedge)
+                                        gedge.highlighted = false;
+                                }
+                            });
+                        }
+                    }
+                }
 
                 if (highlighting_changed)
                     dirty = true;
             }
         }
+
+        // Set the cache for the next frame to only contain 
+        // the currently hovered/highlighted elements.
+        this.hovered_elements_cache = new_hovered_elements_cache;
 
         // If adding an edge, mark/highlight the first/from element, if it has
         // already been selected.
