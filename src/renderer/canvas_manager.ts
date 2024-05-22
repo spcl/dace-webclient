@@ -222,7 +222,7 @@ export class CanvasManager {
         this.indices = [];
     }
 
-    // WARNING: This function uses ctx.getImageData() which forces 
+    // TODO: WARNING! This function uses ctx.getImageData() which forces
     // the browser to turn off GPU accelerated canvas painting!
     // It needs to be reworked to not use getImageData() anymore.
     public isBlank(): boolean {

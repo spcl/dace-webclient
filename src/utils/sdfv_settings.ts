@@ -30,7 +30,7 @@ export class SDFVSettings {
         'showStateNames': true,
         'showMapSchedules': true,
         'showDataDescriptorSizes': false,
-        'summarizeLargeNumbersOfEdges': true,
+        'summarizeLargeNumbersOfEdges': false,
         'inclusiveRanges': false,
         'useVerticalStateMachineLayout': false,
         'useVerticalScrollNavigation': false,
