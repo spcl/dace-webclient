@@ -3316,7 +3316,10 @@ export class SDFGRenderer extends EventEmitter {
 
                     // Make all edges of a node visible and remove the edge
                     // summary symbol.
-                    if (obj.hovered && hover_changed) {
+                    if (obj.hovered && hover_changed &&
+                        obj instanceof SDFGNode &&
+                        (obj.in_summary_has_effect ||
+                         obj.out_summary_has_effect)) {
                         // Setting these to false will cause the summary
                         // symbol not to be drawn in renderer_elements.ts
                         obj.summarize_in_edges = false;
