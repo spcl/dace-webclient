@@ -183,6 +183,7 @@ export class SDFGRenderer extends EventEmitter {
     protected canvas: HTMLCanvasElement | null = null;
     protected minimap_ctx: CanvasRenderingContext2D | null = null;
     protected minimap_canvas: HTMLCanvasElement | null = null;
+    protected minimapBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
     protected canvas_manager: CanvasManager | null = null;
     protected last_dragged_element: SDFGElement | null = null;
     protected tooltip: SDFVTooltipFunc | null = null;
@@ -1780,6 +1781,15 @@ export class SDFGRenderer extends EventEmitter {
                 this.visible_rect.w, this.visible_rect.h
             );
         }
+
+        this.minimapBounds.minX = 0 - originX / scale;
+        this.minimapBounds.minY = 0 - originY / scale;
+        this.minimapBounds.maxX = this.minimapBounds.minX + (
+            this.minimap_canvas.width / scale
+        );
+        this.minimapBounds.maxY = this.minimapBounds.minY + (
+            this.minimap_canvas.height / scale
+        );
     }
 
     public disableMinimap(): void {
@@ -2647,26 +2657,19 @@ export class SDFGRenderer extends EventEmitter {
             y: (visible_rect.y + (visible_rect.h / 2)),
         };
 
-        const graphLimits = {
-            minX: 0,
-            minY: 0,
-            maxX: (this.graph as any).width,
-            maxY: (this.graph as any).height,
-        };
-
         // Compute where the visible_rectCenter is out of bounds:
         // outofboundsX/Y === 0 means not out of bounds
         let outofboundsX = 0;
         let outofboundsY = 0;
 
-        if (visible_rectCenter.x < graphLimits.minX)
+        if (visible_rectCenter.x < this.minimapBounds.minX)
             outofboundsX = -1;
-        else if (visible_rectCenter.x > graphLimits.maxX)
+        else if (visible_rectCenter.x > this.minimapBounds.maxX)
             outofboundsX = 1;
 
-        if (visible_rectCenter.y < graphLimits.minY)
+        if (visible_rectCenter.y < this.minimapBounds.minY)
             outofboundsY = -1;
-        else if (visible_rectCenter.y > graphLimits.maxY)
+        else if (visible_rectCenter.y > this.minimapBounds.maxY)
             outofboundsY = 1;
 
         // Take uncorrected mouse event movement as default
