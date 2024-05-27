@@ -7,7 +7,11 @@ import {
     SymbolMap,
     getGraphElementUUID,
 } from '../index';
-import { SDFGRenderer } from '../renderer/renderer';
+import {
+    GraphElementInfo,
+    SDFGElementGroup,
+    SDFGRenderer,
+} from '../renderer/renderer';
 import {
     ControlFlowBlock,
     ControlFlowRegion,
@@ -245,18 +249,20 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
                             visibleRect.y, visibleRect.w, visibleRect.h))
                             return;
 
-                        if (node instanceof NestedSDFG && !node.data.node.attributes.is_collapsed) {
-                            const nodeppp = Math.sqrt(node.width * node.height) / ppp;
+                        if (node instanceof NestedSDFG &&
+                            !node.data.node.attributes.is_collapsed) {
+                            const nodeppp = Math.sqrt(
+                                node.width * node.height
+                            ) / ppp;
                             if ((ctx as any).lod && nodeppp < SDFV.STATE_LOD) {
                                 this.shadeNode(node, ctx);
-                            }
-                            else if (node.attributes().sdfg && node.attributes().sdfg.type !== 'SDFGShell') {
+                            } else if (node.attributes().sdfg &&
+                                node.attributes().sdfg.type !== 'SDFGShell') {
                                 this.recursivelyShadeCFG(
                                     node.data.graph, ctx, ppp, visibleRect
                                 );
                             }
-                        }
-                        else {
+                        } else {
                             this.shadeNode(node, ctx);
                         }
                     });
@@ -282,13 +288,12 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
         type: string,
         _ev: Event,
         _mousepos: Point2D,
-        _elements: SDFGElement[],
-        foreground_elem: SDFGElement,
+        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
+        foreground_elem: SDFGElement | null,
         ends_drag: boolean
     ): boolean {
         if (type === 'click' && !ends_drag) {
-            if (foreground_elem !== undefined && foreground_elem !== null &&
-                !(foreground_elem instanceof Edge)) {
+            if (foreground_elem && !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.avg_parallelism === undefined) {
                     const avg_parallelism_string = this.avg_parallelism_map[
                         getGraphElementUUID(foreground_elem)

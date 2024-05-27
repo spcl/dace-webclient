@@ -146,18 +146,20 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
                             visible_rect.y, visible_rect.w, visible_rect.h))
                             return;
 
-                        if (node instanceof NestedSDFG && !node.data.node.attributes.is_collapsed) {
-                            const nodeppp = Math.sqrt(node.width * node.height) / ppp;
+                        if (node instanceof NestedSDFG &&
+                            !node.data.node.attributes.is_collapsed) {
+                            const nodeppp = Math.sqrt(
+                                node.width * node.height
+                            ) / ppp;
                             if ((ctx as any).lod && nodeppp < SDFV.STATE_LOD) {
                                 this.shade_node(node, ctx);
-                            }
-                            else if (node.attributes().sdfg && node.attributes().sdfg.type !== 'SDFGShell') {
+                            } else if (node.attributes().sdfg &&
+                                node.attributes().sdfg.type !== 'SDFGShell') {
                                 this.recursively_shade_sdfg(
                                     node.data.graph, ctx, ppp, visible_rect
                                 );
                             }
-                        }
-                        else {
+                        } else {
                             this.shade_node(node, ctx);
                         }
                     });

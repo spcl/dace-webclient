@@ -88,7 +88,7 @@ function draw_summary_symbol(
     ctx.lineTo(left_arrow_x, arrow_end_y + 2);
     ctx.closePath();
     ctx.fill();
-    
+
     ctx.beginPath();
     ctx.moveTo(righ_arrow_x, arrow_end_y + 2);
     ctx.lineTo(righ_arrow_x - 2, arrow_end_y);
@@ -308,11 +308,31 @@ export class SDFGElement {
                             max_connector_x = c.x;
                     });
 
-                    // Draw the summary symbol above the node
-                    draw_summary_symbol(
-                        ctx, min_connector_x, max_connector_x,
-                        topleft.y - 8, true
-                    );
+                    let drawInSummarySymbol = true;
+                    const preds = this.parentElem?.data.graph?.predecessors(
+                        this.id
+                    ) ?? [];
+                    if (preds.length === 1) {
+                        const predElem = this.parentElem?.data.graph.node(
+                            preds[0]
+                        ) as SDFGElement;
+                        if (predElem.summarize_out_edges &&
+                            predElem.out_summary_has_effect) {
+                            // If the previous element has its outgoing edges
+                            // summarized, draw the sumary symbol halfway in
+                            // between them. This is handled by the predecessor.
+                            // noop.
+                            drawInSummarySymbol = false;
+                        }
+                    }
+
+                    if (drawInSummarySymbol) {
+                        // Draw the summary symbol above the node
+                        draw_summary_symbol(
+                            ctx, min_connector_x, max_connector_x,
+                            topleft.y - 8, true
+                        );
+                    }
                 }
             }
             if (this.summarize_out_edges && this.out_summary_has_effect) {
@@ -327,11 +347,44 @@ export class SDFGElement {
                             max_connector_x = c.x;
                     });
 
-                    // Draw the summary symbol below the node
-                    draw_summary_symbol(
-                        ctx, min_connector_x, max_connector_x,
-                        topleft.y + this.height + 8, false
-                    );
+                    let drawOutSummarySymbol = true;
+                    const succs = this.parentElem?.data.graph?.successors(
+                        this.id
+                    ) ?? [];
+                    if (succs.length === 1) {
+                        const succElem = this.parentElem?.data.graph.node(
+                            succs[0]
+                        ) as SDFGElement;
+                        if (succElem.summarize_in_edges &&
+                            succElem.in_summary_has_effect) {
+                            // If the next element has its incoming edges
+                            // summarized, draw the sumary symbol halfway in
+                            // between them.
+                            const succTopLeft = succElem.topleft();
+                            const minX = Math.min(succTopLeft.x, topleft.x);
+                            const maxX = Math.max(
+                                succTopLeft.x + succElem.width,
+                                topleft.x + this.width
+                            );
+                            const linePosY = (
+                                (topleft.y + (
+                                    succTopLeft.y + succElem.height
+                                )) / 2
+                            ) - 8;
+                            draw_summary_symbol(
+                                ctx, minX, maxX, linePosY, false
+                            );
+                            drawOutSummarySymbol = false;
+                        }
+                    }
+
+                    if (drawOutSummarySymbol) {
+                        // Draw the summary symbol below the node
+                        draw_summary_symbol(
+                            ctx, min_connector_x, max_connector_x,
+                            topleft.y + this.height + 8, false
+                        );
+                    }
                 }
             }
         }
@@ -2183,8 +2236,8 @@ export class Tasklet extends SDFGNode {
 
     public text_for_find(): string {
         // Include code when searching
-        const code = this.attributes().code.string_data;        
-        return this.label() + " " + code;
+        const code = this.attributes().code.string_data;
+        return this.label() + ' ' + code;
     }
 
     private highlightedCode: TaskletCodeToken[][] = [];

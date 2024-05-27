@@ -167,29 +167,6 @@ body.sdfv {
     background-color: silver;
   }
 
-  .button {
-    padding: 0.3rem 0.4rem;
-    border-radius: 5px;
-    cursor: pointer;
-    background-color: #eee;
-    color: black;
-  }
-
-  .button:hover {
-    background-color: #ccc;
-  }
-
-  .button > span {
-    margin: 0;
-  }
-
-  button {
-    border: 0;
-    margin: 2px;
-    background: none;
-    box-shadow: none;
-  }
-
   pre.code {
     margin-top: 0;
     margin-bottom: 0;

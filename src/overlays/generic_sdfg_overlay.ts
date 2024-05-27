@@ -3,7 +3,11 @@
 import { log, mean, median } from 'mathjs';
 import { Point2D } from '../index';
 import { OverlayManager, SymbolResolver } from '../overlay_manager';
-import { SDFGRenderer } from '../renderer/renderer';
+import {
+    GraphElementInfo,
+    SDFGElementGroup,
+    SDFGRenderer,
+} from '../renderer/renderer';
 import { SDFGElement } from '../renderer/renderer_elements';
 
 declare const vscode: any;
@@ -43,8 +47,8 @@ export class GenericSdfgOverlay {
         _type: string,
         _ev: MouseEvent,
         _mousepos: Point2D,
-        _elements: SDFGElement[],
-        _foreground_elem: SDFGElement | undefined,
+        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
+        _foreground_elem: SDFGElement | null,
         _ends_drag: boolean
     ): boolean {
         return false;

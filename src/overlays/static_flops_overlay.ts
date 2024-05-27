@@ -7,7 +7,11 @@ import {
     SymbolMap,
     getGraphElementUUID,
 } from '../index';
-import { SDFGRenderer } from '../renderer/renderer';
+import {
+    GraphElementInfo,
+    SDFGElementGroup,
+    SDFGRenderer,
+} from '../renderer/renderer';
 import {
     Edge,
     NestedSDFG,
@@ -230,18 +234,20 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
                             visible_rect.y, visible_rect.w, visible_rect.h))
                             return;
 
-                        if (node instanceof NestedSDFG && !node.data.node.attributes.is_collapsed) {
-                            const nodeppp = Math.sqrt(node.width * node.height) / ppp;
+                        if (node instanceof NestedSDFG &&
+                            !node.data.node.attributes.is_collapsed) {
+                            const nodeppp = Math.sqrt(
+                                node.width * node.height
+                            ) / ppp;
                             if ((ctx as any).lod && nodeppp < SDFV.STATE_LOD) {
                                 this.shade_node(node, ctx);
-                            }
-                            else if (node.attributes().sdfg && node.attributes().sdfg.type !== 'SDFGShell') {
+                            } else if (node.attributes().sdfg &&
+                                node.attributes().sdfg.type !== 'SDFGShell') {
                                 this.recursively_shade_sdfg(
                                     node.data.graph, ctx, ppp, visible_rect
                                 );
                             }
-                        }
-                        else {
+                        } else {
                             this.shade_node(node, ctx);
                         }
                     });
@@ -263,13 +269,12 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         type: string,
         _ev: Event,
         _mousepos: Point2D,
-        _elements: SDFGElement[],
-        foreground_elem: SDFGElement,
+        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
+        foreground_elem: SDFGElement | null,
         ends_drag: boolean
     ): boolean {
         if (type === 'click' && !ends_drag) {
-            if (foreground_elem !== undefined && foreground_elem !== null &&
-                !(foreground_elem instanceof Edge)) {
+            if (foreground_elem && !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.flops === undefined) {
                     const flops_string = this.flops_map[
                         getGraphElementUUID(foreground_elem)
