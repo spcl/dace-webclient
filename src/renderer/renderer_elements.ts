@@ -88,7 +88,7 @@ function draw_summary_symbol(
     ctx.lineTo(left_arrow_x, arrow_end_y + 2);
     ctx.closePath();
     ctx.fill();
-    
+
     ctx.beginPath();
     ctx.moveTo(righ_arrow_x, arrow_end_y + 2);
     ctx.lineTo(righ_arrow_x - 2, arrow_end_y);
@@ -2183,8 +2183,8 @@ export class Tasklet extends SDFGNode {
 
     public text_for_find(): string {
         // Include code when searching
-        const code = this.attributes().code.string_data;        
-        return this.label() + " " + code;
+        const code = this.attributes().code.string_data;
+        return this.label() + ' ' + code;
     }
 
     private highlightedCode: TaskletCodeToken[][] = [];

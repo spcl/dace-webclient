@@ -1,7 +1,11 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { DagreGraph, Point2D, SimpleRect } from '../index';
-import { SDFGRenderer } from '../renderer/renderer';
+import {
+    GraphElementInfo,
+    SDFGElementGroup,
+    SDFGRenderer,
+} from '../renderer/renderer';
 import {
     AccessNode,
     ControlFlowBlock,
@@ -267,9 +271,8 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                                 node.data.graph, ctx, ppp, visibleRect
                             );
                         } else if (node instanceof AccessNode) {
-                            if (!(ctx as any).lod || ppp < SDFV.NODE_LOD) {
+                            if (!(ctx as any).lod || ppp < SDFV.NODE_LOD)
                                 this.shadeNode(node, ctx);
-                            }
                         }
                     });
                 }
@@ -294,8 +297,8 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
         _type: string,
         _ev: MouseEvent,
         _mousepos: Point2D,
-        _elements: SDFGElement[],
-        _foreground_elem: SDFGElement | undefined,
+        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
+        _foreground_elem: SDFGElement | null,
         _ends_drag: boolean
     ): boolean {
         return false;

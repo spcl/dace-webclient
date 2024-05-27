@@ -7,6 +7,14 @@ import {
 } from 'bootstrap';
 import { SDFGRenderer } from '../renderer/renderer';
 
+type RangeT = {
+    value: number,
+    min?: number,
+    max?: number,
+};
+
+export type SDFVSettingValT = boolean | string | number | RangeT;
+
 export class SDFVSettings {
 
     private static readonly INSTANCE: SDFVSettings = new SDFVSettings();
@@ -22,7 +30,7 @@ export class SDFVSettings {
     private modal: Modal | null = null;
     private renderer: SDFGRenderer | null = null;
 
-    private readonly settingsDict: Record<string, boolean | string | number> = {
+    private readonly settingsDict: Record<string, SDFVSettingValT> = {
         // User modifiable settings fields.
         'minimap': true,
         'alwaysOnISEdgeLabels': true,
@@ -36,9 +44,52 @@ export class SDFVSettings {
         'useVerticalScrollNavigation': false,
         'adaptiveContentHiding': true,
         'curvedEdges': true,
+        'ranksep': {
+            value: 30,
+            min: 10,
+            max: 100,
+        },
+        'nodesep': {
+            value: 50,
+            min: 0,
+            max: 100,
+        },
         // Hidden settings fields.
         'toolbar': true,
     };
+
+    private addSlider(
+        root: JQuery<HTMLElement>, label: string, valueKey: string,
+        requiresRelayout: boolean = false, customCallback?: CallableFunction
+    ): void {
+        const settingRow = $('<div>', {
+            class: 'row',
+        }).appendTo(root);
+        const settingContainer = $('<div>', {
+            class: 'col-12',
+        }).appendTo(settingRow);
+        $('<label>', {
+            class: 'form-label',
+            text: label,
+        }).appendTo(settingContainer);
+        const settingsEntry = this.settingsDict[valueKey] as RangeT;
+        const input = $('<input>', {
+            class: 'form-range',
+            type: 'range',
+            value: settingsEntry.value,
+            min: settingsEntry.min ?? 0,
+            max: settingsEntry.max ?? 100,
+            change: () => {
+                const nVal = input.val();
+                if (nVal !== undefined) {
+                    settingsEntry.value = +nVal;
+                    if (customCallback)
+                        customCallback(settingsEntry);
+                    this.onSettingsChanged(requiresRelayout);
+                }
+            },
+        }).appendTo(settingContainer);
+    }
 
     private addToggle(
         root: JQuery<HTMLElement>, label: string, valueKey: string,
@@ -109,6 +160,8 @@ export class SDFVSettings {
             root, 'Use vertical state machine layout',
             'useVerticalStateMachineLayout', true
         );
+        this.addSlider(root, 'Vertical node spacing', 'ranksep', true);
+        this.addSlider(root, 'Horizontal node spacing', 'nodesep', true);
 
         const mouseSettingsTitle = $('<div>', {
             class: 'col-12',
@@ -143,30 +196,27 @@ export class SDFVSettings {
             class: 'row',
         }).appendTo(root).append(performanceSettingsTitle);
 
-        // TODO: Remove this setting as disabling the adaptive content hiding
-        // can cause massive performance issues. TODO: add sliders for LOD
-        // thresholds of sdfv.ts into an advanced settings menu.
         this.addToggle(
             root,
             'Adaptively hide content when zooming out (Warning: turning this \
                 off can cause performance issues on big graphs)',
-                'adaptiveContentHiding', false, (value: boolean) => {
-                    if (this.renderer)
-                        (this.renderer.get_context() as any).lod = value;
-                }
-            );
-            
-            this.addToggle(
-                root, 'Curved Edges (turn off in case of performance issues)',
-                'curvedEdges', false
-            );
-            this.addToggle(
-                root,
-                'Hide / summarize edges for nodes where a large number of ' +
-                    'edges are connected',
-                'summarizeLargeNumbersOfEdges', true
-            );
-        }
+            'adaptiveContentHiding', false, (value: boolean) => {
+                if (this.renderer)
+                    (this.renderer.get_context() as any).lod = value;
+            }
+        );
+
+        this.addToggle(
+            root, 'Curved Edges (turn off in case of performance issues)',
+            'curvedEdges', false
+        );
+        this.addToggle(
+            root,
+            'Hide / summarize edges for nodes where a large number of ' +
+                'edges are connected',
+            'summarizeLargeNumbersOfEdges', true
+        );
+    }
 
     private constructModal(): JQuery<HTMLElement> {
         const modalElement = $('<div>', {
@@ -334,6 +384,14 @@ export class SDFVSettings {
         return this.getInstance().settingsDict[
             'curvedEdges'
         ] as boolean;
+    }
+
+    public static get ranksep(): number {
+        return (this.getInstance().settingsDict['ranksep'] as RangeT).value;
+    }
+
+    public static get nodesep(): number {
+        return (this.getInstance().settingsDict['nodesep'] as RangeT).value;
     }
 
 }

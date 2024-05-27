@@ -1,7 +1,11 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { DagreGraph, Point2D, SimpleRect, SymbolMap } from '../index';
-import { SDFGRenderer } from '../renderer/renderer';
+import {
+    GraphElementInfo,
+    SDFGElementGroup,
+    SDFGRenderer,
+} from '../renderer/renderer';
 import {
     ControlFlowBlock,
     ControlFlowRegion,
@@ -218,11 +222,10 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                         const edge: Edge = state_graph.edge(e);
 
                         // Skip if edge is invisible, or zoomed out far
-                        if ((ctx as any).lod 
-                            && (!edge.intersect(visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h)
-                            || ppp > SDFV.EDGE_LOD
-                            )
-                        )
+                        if ((ctx as any).lod && (!edge.intersect(
+                            visibleRect.x, visibleRect.y,
+                            visibleRect.w, visibleRect.h
+                        ) || ppp > SDFV.EDGE_LOD))
                             return;
 
                         this.shadeEdge(edge, ctx);
@@ -249,13 +252,12 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         type: string,
         _ev: MouseEvent,
         _mousepos: Point2D,
-        _elements: SDFGElement[],
-        foreground_elem: SDFGElement | undefined,
+        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
+        foreground_elem: SDFGElement | null,
         ends_drag: boolean
     ): boolean {
         if (type === 'click' && !ends_drag) {
-            if (foreground_elem !== undefined &&
-                foreground_elem instanceof Edge) {
+            if (foreground_elem && foreground_elem instanceof Edge) {
                 if (foreground_elem.data.volume === undefined) {
                     if (foreground_elem.data.attributes.volume) {
                         this.symbolResolver.parse_symbol_expression(

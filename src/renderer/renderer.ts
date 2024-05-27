@@ -43,7 +43,7 @@ import {
     getPositioningInfo, getGraphElementUUID, findRootCFG,
 } from '../utils/sdfg/sdfg_utils';
 import { traverseSDFGScopes } from '../utils/sdfg/traversal';
-import { SDFVSettings } from '../utils/sdfv_settings';
+import { SDFVSettingValT, SDFVSettings } from '../utils/sdfv_settings';
 import { deepCopy, intersectRect, showErrorModal } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
 import {
@@ -72,10 +72,10 @@ declare const canvas2pdf: any;
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any | null;
 
-type SDFGElementGroup = ('states' | 'nodes' | 'edges' | 'isedges' |
+export type SDFGElementGroup = ('states' | 'nodes' | 'edges' | 'isedges' |
                          'connectors' | 'controlFlowRegions' |
                          'controlFlowBlocks');
-interface SDFGElementInfo {
+export interface SDFGElementInfo {
     sdfg: JsonSDFG,
     id: number,
     cfgId: number,
@@ -84,7 +84,7 @@ interface SDFGElementInfo {
     conntype?: string,
 }
 
-interface GraphElementInfo extends SDFGElementInfo {
+export interface GraphElementInfo extends SDFGElementInfo {
     graph: DagreGraph,
     obj?: SDFGElement,
 }
@@ -150,9 +150,7 @@ export interface SDFGRendererEvent {
     'symbol_definition_changed': (symbol: string, definition?: number) => void;
     'active_overlays_changed': () => void;
     'backend_data_requested': (type: string, overlay: string) => void;
-    'settings_changed': (
-        settings: Record<string, string | boolean | number>
-    ) => void;
+    'settings_changed': (settings: Record<string, SDFVSettingValT>) => void;
 }
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
@@ -880,13 +878,15 @@ export class SDFGRenderer extends EventEmitter {
 
         this.ctx = this.canvas.getContext('2d');
 
-        // This setting decouples the canvas paint cycle from the main event loop.
-        // Not supported on Firefox, but can be enabled and Firefox will ignore it.
-        // No fps difference measured on the SDFV webclient, but the setting could
-        // become useful in the future in certain setups or situations.
+        // This setting decouples the canvas paint cycle from the main event
+        // loop. Not supported on Firefox, but can be enabled and Firefox will
+        // ignore it. No fps difference measured on the SDFV webclient, but the
+        // setting could become useful in the future in certain setups or
+        // situations.
         // this.ctx = this.canvas.getContext('2d', {desynchronized: true});
-        
-        // WARNING: This setting will force CPU main thread rendering. Use for testing only.
+
+        // WARNING: This setting will force CPU main thread rendering. Use for
+        // testing only.
         // this.ctx = this.canvas.getContext('2d', {willReadFrequently: true});
 
         if (!this.ctx) {
@@ -2066,7 +2066,7 @@ export class SDFGRenderer extends EventEmitter {
     // }
     public elementsInRect(
         x: number, y: number, w: number, h: number
-    ): { [key: string]: GraphElementInfo[] } {
+    ): Record<SDFGElementGroup, GraphElementInfo[]> {
         const elements: any = {
             states: [],
             nodes: [],
@@ -2492,7 +2492,12 @@ export class SDFGRenderer extends EventEmitter {
 
     public find_elements_under_cursor(
         mouse_pos_x: number, mouse_pos_y: number
-    ): any {
+    ): {
+        total_elements: number,
+        elements: Record<SDFGElementGroup, GraphElementInfo[]>,
+        foreground_elem: SDFGElement | null,
+        foreground_connector: Connector | null,
+    } {
         // Find all elements under the cursor.
         const elements = this.elementsInRect(mouse_pos_x, mouse_pos_y, 0, 0);
         const clicked_states = elements.states;
@@ -2526,7 +2531,7 @@ export class SDFGRenderer extends EventEmitter {
                 const s = obj!.width * obj!.height;
                 if (foreground_surface < 0 || s < foreground_surface) {
                     foreground_surface = s;
-                    foreground_elem = category[i].obj;
+                    foreground_elem = category[i].obj ?? null;
                 }
             }
         }
@@ -2535,7 +2540,7 @@ export class SDFGRenderer extends EventEmitter {
             const s = c.obj!.width * c.obj!.height;
             if (foreground_surface < 0 || s < foreground_surface) {
                 foreground_surface = s;
-                foreground_connector = c.obj;
+                foreground_connector = c.obj as Connector ?? null;
             }
         }
 
@@ -3057,16 +3062,12 @@ export class SDFGRenderer extends EventEmitter {
                     this.canvas.style.cursor = 'grab';
                 } else {
                     // Hovering over an element while not in any specific mode.
-                    if ((foreground_elem.data.state &&
-                         foreground_elem.data.state.attributes.is_collapsed) ||
-                        (foreground_elem.data.node &&
-                         foreground_elem.data.node.attributes.is_collapsed)) {
-                        // This is a collapsed node or state, show with the
-                        // cursor shape that this can be expanded.
+                    // For collapsed nodes, show a cursor shape that indicates
+                    // this can be expanded.
+                    if (foreground_elem?.attributes().is_collapsed)
                         this.canvas.style.cursor = 'alias';
-                    } else {
+                    else
                         this.canvas.style.cursor = 'pointer';
-                    }
                 }
             } else {
                 this.canvas.style.cursor = 'auto';
@@ -3076,20 +3077,21 @@ export class SDFGRenderer extends EventEmitter {
         this.tooltip = null;
 
         // Add newly hovered elements under the mouse cursor to the cache.
-        // The cache then contains hovered elements of the previous frame that are highlighted
-        // and the newly hovered elements of the current frame that need to be highlighted.
-        for (const [name, element_type_array] of Object.entries<Array<GraphElementInfo>>(elements)) {
-            for (let j = 0; j < element_type_array.length; ++j) {
-                const hovered_element = element_type_array[j].obj;
-                if (hovered_element !== undefined) {
+        // The cache then contains hovered elements of the previous frame that
+        // are highlighted and the newly hovered elements of the current frame
+        // that need to be highlighted.
+        for (const elInfo of Object.entries(elements)) {
+            const elemTypeArray = elInfo[1];
+            for (let j = 0; j < elemTypeArray.length; ++j) {
+                const hovered_element = elemTypeArray[j].obj;
+                if (hovered_element !== undefined)
                     this.hovered_elements_cache.add(hovered_element);
-                }
             }
         }
 
-        // New cache for the next frame, which only contains the hovered/highlighted 
-        // elements of the current frame.
-        const new_hovered_elements_cache: Set<SDFGElement> = new Set<SDFGElement>();
+        // New cache for the next frame, which only contains the
+        // hovered/highlighted elements of the current frame.
+        const new_hovered_elements_cache = new Set<SDFGElement>();
 
         // Only do highlighting re-computation if view is close enough to
         // actually see the highlights. Done by points-per-pixel metric using
@@ -3105,7 +3107,6 @@ export class SDFGRenderer extends EventEmitter {
 
                 // Mark hovered and highlighted elements.
                 for (const obj of this.hovered_elements_cache) {
-
                     const intersected = obj.intersect(
                         this.mousepos!.x, this.mousepos!.y, 0, 0
                     );
@@ -3127,9 +3128,8 @@ export class SDFGRenderer extends EventEmitter {
 
                     // If element is hovered in the current frame then
                     // remember it for the next frame.
-                    if (obj.hovered) {
+                    if (obj.hovered)
                         new_hovered_elements_cache.add(obj);
-                    }
 
                     // Highlight all edges of the memlet tree
                     if (obj instanceof Edge && obj.parent_id !== null) {
@@ -3375,7 +3375,7 @@ export class SDFGRenderer extends EventEmitter {
             }
         }
 
-        // Set the cache for the next frame to only contain 
+        // Set the cache for the next frame to only contain
         // the currently hovered/highlighted elements.
         this.hovered_elements_cache = new_hovered_elements_cache;
 
@@ -3579,7 +3579,9 @@ export class SDFGRenderer extends EventEmitter {
         if (evtype === 'contextmenu') {
             if (this.mouse_mode === 'move') {
                 let elements_to_reset = [foreground_elem];
-                if (this.selected_elements.includes(foreground_elem))
+                if (foreground_elem && this.selected_elements.includes(
+                    foreground_elem
+                ))
                     elements_to_reset = this.selected_elements;
 
                 let element_moved = false;
@@ -4286,11 +4288,11 @@ function relayoutSDFGState(
     const g: DagreGraph = new dagre.graphlib.Graph({ multigraph: true });
 
     // Set layout options and a simpler algorithm for large graphs.
-    const layoutOptions: any = { ranksep: SDFV.RANKSEP };
+    const layoutOptions: any = { ranksep: SDFVSettings.ranksep };
     if (state.nodes.length >= 1000)
         layoutOptions.ranker = 'longest-path';
 
-    layoutOptions.nodesep = SDFV.NODESEP;
+    layoutOptions.nodesep = SDFVSettings.nodesep;
     g.setGraph(layoutOptions);
 
     // Set an object for the graph label.

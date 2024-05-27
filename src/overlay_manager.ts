@@ -3,7 +3,11 @@
 import { MathNode, parse, SymbolNode } from 'mathjs';
 import { Point2D, SymbolMap } from './index';
 import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
-import { SDFGRenderer } from './renderer/renderer';
+import {
+    GraphElementInfo,
+    SDFGElementGroup,
+    SDFGRenderer,
+} from './renderer/renderer';
 import { SDFGElement } from './renderer/renderer_elements';
 import { createElement } from './utils/utils';
 
@@ -346,8 +350,8 @@ export class OverlayManager {
         type: string,
         ev: MouseEvent,
         mousepos: Point2D,
-        elements: SDFGElement[],
-        foreground_elem: SDFGElement | undefined,
+        elements: Record<SDFGElementGroup, GraphElementInfo[]>,
+        foreground_elem: SDFGElement | null,
         ends_drag: boolean
     ): boolean {
         let dirty = false;

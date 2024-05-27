@@ -1,7 +1,11 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { DagreGraph, JsonSDFG, Point2D, SimpleRect } from '../index';
-import { SDFGRenderer } from '../renderer/renderer';
+import {
+    GraphElementInfo,
+    SDFGElementGroup,
+    SDFGRenderer,
+} from '../renderer/renderer';
 import {
     NestedSDFG,
     SDFGNode,
@@ -88,13 +92,11 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         // In that case, we overlay the correct grouping color(s).
         // If it's expanded or zoomed in close enough, we traverse inside.
         const sdfgGroups = sdfg.attributes.logical_groups;
-        if (sdfgGroups === undefined || sdfgGroups.length === 0) {    
+        if (sdfgGroups === undefined || sdfgGroups.length === 0)
             return;
-        }
 
-        if (!graph) {
+        if (!graph)
             return;
-        }
 
         graph?.nodes().forEach(v => {
             const block = graph.node(v);
@@ -169,8 +171,8 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         _type: string,
         _ev: MouseEvent,
         _mousepos: Point2D,
-        _elements: SDFGElement[],
-        _foreground_elem: SDFGElement | undefined,
+        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
+        _foreground_elem: SDFGElement | null,
         _ends_drag: boolean
     ): boolean {
         return false;
