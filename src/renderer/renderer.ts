@@ -1769,17 +1769,6 @@ export class SDFGRenderer extends EventEmitter {
                 n.simple_draw(this, this.minimap_ctx, undefined);
         });
 
-        // Don't draw Interstate edges in the minimap:
-        // Small optimization thats can save ~1ms in computation
-        // The performance problem comes from the edges and their
-        // labels which are also drawn.
-
-        // this.graph.edges().forEach(x => {
-        //     const e = this.graph?.edge(x);
-        //     if (e && this.minimap_ctx)
-        //         e.draw(this, this.minimap_ctx, undefined);
-        // });
-
         // Draw the viewport.
         if (this.visible_rect) {
             this.minimap_ctx.strokeStyle = this.getCssProperty(

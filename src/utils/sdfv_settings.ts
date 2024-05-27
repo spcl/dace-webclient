@@ -121,21 +121,45 @@ export class SDFVSettings {
         }).appendTo(checkContainer);
     }
 
-    private constructSettings(root: JQuery<HTMLElement>): void {
-        const viewSettingsTitle = $('<div>', {
-            class: 'col-12',
-        }).append($('<h6>', {
-            text: 'View Settings',
-            css: {
-                'font-weight': 'bold',
-            },
-        }));
-        $('<div>', {
-            class: 'row',
-        }).appendTo(root).append(viewSettingsTitle);
+    private addSettingsGroup(
+        root: JQuery<HTMLElement>, title: string, idSuffix: string,
+        defaultShow: boolean = false
+    ): JQuery<HTMLElement> {
+        const settingsGroup = $('<div>', {
+            class: 'accordion-item',
+        }).appendTo(root);
+        $('<h6>', {
+            class: 'accordion-header',
+        }).append($('<button>', {
+            text: title,
+            class: 'accordion-button' + (defaultShow ? '' : ' collapsed'),
+            type: 'button',
+            'data-bs-toggle': 'collapse',
+            'data-bs-target': '#SDFVSettingsAccordion-' + idSuffix,
+            'aria-expanded': 'true',
+            'aria-controls': 'SDFVSettingsAccordion-' + idSuffix,
+        })).appendTo(settingsGroup);
+        const settingsGroupContainerWrapper = $('<div>', {
+            id: 'SDFVSettingsAccordion-' + idSuffix,
+            class: 'accordion-collapse collapse' + (defaultShow ? ' show' : ''),
+            'data-bs-parent': '#SDFVSettingsAccordion',
+        }).appendTo(settingsGroup);
+        const settingsGroupContainer = $('<div>', {
+            class: 'accordion-body',
+        }).appendTo(settingsGroupContainerWrapper);
+        return settingsGroupContainer;
+    }
 
+    private constructSettings(root: JQuery<HTMLElement>): void {
+        // ---------------------------
+        // - View / Drawing Settings -
+        // ---------------------------
+        const viewGroup = this.addSettingsGroup(
+            root, 'View Settings', 'viewSettings', true
+        );
         this.addToggle(
-            root, 'Show minimap', 'minimap', false, (value: boolean) => {
+            viewGroup,
+            'Show minimap', 'minimap', false, (value: boolean) => {
                 if (value)
                     this.renderer?.enableMinimap();
                 else
@@ -143,61 +167,48 @@ export class SDFVSettings {
             }
         );
         this.addToggle(
-            root, 'Always show interstate edge labels', 'alwaysOnISEdgeLabels',
+            viewGroup,
+            'Always show interstate edge labels', 'alwaysOnISEdgeLabels',
             true
         );
-        this.addToggle(root, 'Show access nodes', 'showAccessNodes', true);
-        this.addToggle(root, 'Show state names', 'showStateNames');
-        this.addToggle(root, 'Show map schedules', 'showMapSchedules');
+        this.addToggle(viewGroup, 'Show access nodes', 'showAccessNodes', true);
+        this.addToggle(viewGroup, 'Show state names', 'showStateNames');
+        this.addToggle(viewGroup, 'Show map schedules', 'showMapSchedules');
         this.addToggle(
-            root,
+            viewGroup,
             'Show data descriptor sizes on access nodes ' +
             '(hides data container names)',
             'showDataDescriptorSizes', true
         );
-        this.addToggle(root, 'Use inclusive ranges', 'inclusiveRanges', true);
         this.addToggle(
-            root, 'Use vertical state machine layout',
+            viewGroup, 'Use inclusive ranges', 'inclusiveRanges', true
+        );
+        this.addToggle(
+            viewGroup, 'Use vertical state machine layout',
             'useVerticalStateMachineLayout', true
         );
-        this.addSlider(root, 'Vertical node spacing', 'ranksep', true);
-        this.addSlider(root, 'Horizontal node spacing', 'nodesep', true);
+        this.addSlider(viewGroup, 'Vertical node spacing', 'ranksep', true);
+        this.addSlider(viewGroup, 'Horizontal node spacing', 'nodesep', true);
 
-        const mouseSettingsTitle = $('<div>', {
-            class: 'col-12',
-        }).append($('<h6>', {
-            text: '',
-        })).append($('<h6>', {
-            text: 'Mouse Settings',
-            css: {
-                'font-weight': 'bold',
-            },
-        }));
-        $('<div>', {
-            class: 'row',
-        }).appendTo(root).append(mouseSettingsTitle);
-
+        // ------------------
+        // - Mouse Settings -
+        // ------------------
+        const mouseGroup = this.addSettingsGroup(
+            root, 'Mouse Settings', 'mouseSettings'
+        );
         this.addToggle(
-            root, 'Use vertical scroll navigation',
+            mouseGroup, 'Use vertical scroll navigation',
             'useVerticalScrollNavigation', false
         );
 
-        const performanceSettingsTitle = $('<div>', {
-            class: 'col-12',
-        }).append($('<h6>', {
-            text: '',
-        })).append($('<h6>', {
-            text: 'Performance Settings',
-            css: {
-                'font-weight': 'bold',
-            },
-        }));
-        $('<div>', {
-            class: 'row',
-        }).appendTo(root).append(performanceSettingsTitle);
-
+        // ------------------------
+        // - Performance Settings -
+        // ------------------------
+        const perfGroup = this.addSettingsGroup(
+            root, 'Performance Settings', 'performanceSettings'
+        );
         this.addToggle(
-            root,
+            perfGroup,
             'Adaptively hide content when zooming out (Warning: turning this \
                 off can cause performance issues on big graphs)',
             'adaptiveContentHiding', false, (value: boolean) => {
@@ -205,13 +216,12 @@ export class SDFVSettings {
                     (this.renderer.get_context() as any).lod = value;
             }
         );
-
         this.addToggle(
-            root, 'Curved Edges (turn off in case of performance issues)',
+            perfGroup, 'Curved Edges (turn off in case of performance issues)',
             'curvedEdges', false
         );
         this.addToggle(
-            root,
+            perfGroup,
             'Hide / summarize edges for nodes where a large number of ' +
                 'edges are connected',
             'summarizeLargeNumbersOfEdges', true
@@ -252,8 +262,10 @@ export class SDFVSettings {
         const modalBody = $('<div>', {
             class: 'modal-body',
         }).appendTo(modalContents);
+
         const container = $('<div>', {
-            class: 'container-fluid',
+            class: 'accordion',
+            id: 'SDFVSettingsAccordion',
         }).appendTo(modalBody);
         this.constructSettings(container);
 
