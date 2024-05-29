@@ -43,7 +43,11 @@ import {
     getPositioningInfo, getGraphElementUUID, findRootCFG,
 } from '../utils/sdfg/sdfg_utils';
 import { traverseSDFGScopes } from '../utils/sdfg/traversal';
-import { SDFVSettingValT, SDFVSettings } from '../utils/sdfv_settings';
+import {
+    SDFVSettingKey,
+    SDFVSettingValT,
+    SDFVSettings,
+} from '../utils/sdfv_settings';
 import { deepCopy, intersectRect, showErrorModal } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
 import {
@@ -150,7 +154,9 @@ export interface SDFGRendererEvent {
     'symbol_definition_changed': (symbol: string, definition?: number) => void;
     'active_overlays_changed': () => void;
     'backend_data_requested': (type: string, overlay: string) => void;
-    'settings_changed': (settings: Record<string, SDFVSettingValT>) => void;
+    'settings_changed': (
+        settings: ReadonlyMap<SDFVSettingKey, SDFVSettingValT>
+    ) => void;
 }
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
@@ -195,6 +201,7 @@ export class SDFGRenderer extends EventEmitter {
     protected hovered_elements_cache: Set<SDFGElement> = new Set<SDFGElement>();
 
     // Toolbar related fields.
+    protected modeButtons: ModeButtons | null = null;
     protected toolbar: JQuery<HTMLElement> | null = null;
     protected panmode_btn: HTMLElement | null = null;
     protected movemode_btn: HTMLElement | null = null;
@@ -242,6 +249,12 @@ export class SDFGRenderer extends EventEmitter {
 
     // Selection related fields.
     protected selected_elements: SDFGElement[] = [];
+
+    // Determine whether rendering only happens in the viewport or also outside.
+    protected _viewportOnly: boolean = true;
+    // Determine whether content should adaptively be hidden when zooming out.
+    // Controlled by the SDFVSettings.
+    protected _adaptiveHiding: boolean = true;
 
     public constructor(
         protected sdfv_instance: SDFV,
@@ -340,8 +353,8 @@ export class SDFGRenderer extends EventEmitter {
 
     public view_settings(): any {
         return {
-            inclusive_ranges: SDFVSettings.inclusiveRanges,
-            omit_access_nodes: !SDFVSettings.showAccessNodes,
+            inclusive_ranges: SDFVSettings.get<boolean>('inclusiveRanges'),
+            omit_access_nodes: !SDFVSettings.get<boolean>('showAccessNodes'),
         };
     }
 
@@ -449,57 +462,20 @@ export class SDFGRenderer extends EventEmitter {
         }
     }
 
-    // Initializes the DOM
-    public init_elements(
-        user_transform: DOMMatrix | null,
-        background: string | null,
-        mode_buttons: ModeButtons | undefined | null
-    ): void {
-        this.canvas = document.createElement('canvas');
-        this.canvas.classList.add('sdfg_canvas');
-        if (background)
-            this.canvas.style.backgroundColor = background;
-        else
-            this.canvas.style.backgroundColor = 'inherit';
-        this.container.append(this.canvas);
-
-        if (SDFVSettings.minimap)
+    /**
+     * Initialize the UI based on the user's settings.
+     */
+    public initUI(): void {
+        if (SDFVSettings.get<boolean>('minimap'))
             this.enableMinimap();
         else
             this.disableMinimap();
 
-        if (this.debug_draw) {
-            this.dbg_info_box = document.createElement('div');
-            this.dbg_info_box.style.position = 'absolute';
-            this.dbg_info_box.style.bottom = '.5rem';
-            this.dbg_info_box.style.right = '.5rem';
-            this.dbg_info_box.style.backgroundColor = 'black';
-            this.dbg_info_box.style.padding = '.3rem';
-            this.dbg_mouse_coords = document.createElement('span');
-            this.dbg_mouse_coords.style.color = 'white';
-            this.dbg_mouse_coords.style.fontSize = '1rem';
-            this.dbg_mouse_coords.innerText = 'x: N/A / y: N/A';
-            this.dbg_info_box.appendChild(this.dbg_mouse_coords);
-            this.container.appendChild(this.dbg_info_box);
-        }
+        if (SDFVSettings.get<boolean>('toolbar')) {
+            // If the toolbar is already present, don't do anything.
+            if (this.toolbar)
+                return;
 
-        // Add an info box for interaction hints to the bottom left of the
-        // canvas.
-        this.interaction_info_box = document.createElement('div');
-        this.interaction_info_box.style.position = 'absolute';
-        this.interaction_info_box.style.bottom = '.5rem';
-        this.interaction_info_box.style.left = '.5rem';
-        this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-        this.interaction_info_box.style.borderRadius = '5px';
-        this.interaction_info_box.style.padding = '.3rem';
-        this.interaction_info_box.style.display = 'none';
-        this.interaction_info_text = document.createElement('span');
-        this.interaction_info_text.style.color = '#eeeeee';
-        this.interaction_info_text.innerHTML = '';
-        this.interaction_info_box.appendChild(this.interaction_info_text);
-        this.container.appendChild(this.interaction_info_box);
-
-        if (SDFVSettings.toolbar) {
             // Construct the toolbar.
             this.toolbar = $('<div>', {
                 css: {
@@ -678,13 +654,13 @@ export class SDFGRenderer extends EventEmitter {
                 },
             }).appendTo(this.toolbar);
 
-            if (mode_buttons) {
+            if (this.modeButtons) {
                 // If we get the "external" mode buttons we are in vscode and do
                 // not need to create them.
-                this.panmode_btn = mode_buttons.pan;
-                this.movemode_btn = mode_buttons.move;
-                this.selectmode_btn = mode_buttons.select;
-                this.addmode_btns = mode_buttons.add_btns;
+                this.panmode_btn = this.modeButtons.pan;
+                this.movemode_btn = this.modeButtons.move;
+                this.selectmode_btn = this.modeButtons.select;
+                this.addmode_btns = this.modeButtons.add_btns;
                 for (const add_btn of this.addmode_btns) {
                     if (add_btn.getAttribute('type') ===
                         SDFGElementType.LibraryNode) {
@@ -844,7 +820,63 @@ export class SDFGRenderer extends EventEmitter {
                     },
                 }).appendTo(this.toolbar);
             }
+        } else {
+            if (this.toolbar) {
+                this.container.removeChild(this.toolbar[0]);
+                this.toolbar = null;
+            }
         }
+    }
+
+    // Initializes the DOM
+    public init_elements(
+        user_transform: DOMMatrix | null,
+        background: string | null,
+        mode_buttons: ModeButtons | null
+    ): void {
+        this.modeButtons = mode_buttons;
+
+        // Set up the canvas.
+        this.canvas = document.createElement('canvas');
+        this.canvas.classList.add('sdfg_canvas');
+        if (background)
+            this.canvas.style.backgroundColor = background;
+        else
+            this.canvas.style.backgroundColor = 'inherit';
+        this.container.append(this.canvas);
+
+        this.initUI();
+
+        if (this.debug_draw) {
+            this.dbg_info_box = document.createElement('div');
+            this.dbg_info_box.style.position = 'absolute';
+            this.dbg_info_box.style.bottom = '.5rem';
+            this.dbg_info_box.style.right = '.5rem';
+            this.dbg_info_box.style.backgroundColor = 'black';
+            this.dbg_info_box.style.padding = '.3rem';
+            this.dbg_mouse_coords = document.createElement('span');
+            this.dbg_mouse_coords.style.color = 'white';
+            this.dbg_mouse_coords.style.fontSize = '1rem';
+            this.dbg_mouse_coords.innerText = 'x: N/A / y: N/A';
+            this.dbg_info_box.appendChild(this.dbg_mouse_coords);
+            this.container.appendChild(this.dbg_info_box);
+        }
+
+        // Add an info box for interaction hints to the bottom left of the
+        // canvas.
+        this.interaction_info_box = document.createElement('div');
+        this.interaction_info_box.style.position = 'absolute';
+        this.interaction_info_box.style.bottom = '.5rem';
+        this.interaction_info_box.style.left = '.5rem';
+        this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        this.interaction_info_box.style.borderRadius = '5px';
+        this.interaction_info_box.style.padding = '.3rem';
+        this.interaction_info_box.style.display = 'none';
+        this.interaction_info_text = document.createElement('span');
+        this.interaction_info_text.style.color = '#eeeeee';
+        this.interaction_info_text.innerHTML = '';
+        this.interaction_info_box.appendChild(this.interaction_info_text);
+        this.container.appendChild(this.interaction_info_box);
 
         // Tooltip HTML container
         this.tooltip_container = document.createElement('div');
@@ -1034,6 +1066,9 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     public draw_async(): void {
+        this._adaptiveHiding = SDFVSettings.get<boolean>(
+            'adaptiveContentHiding'
+        );
         this.clearCssPropertyCache();
         this.canvas_manager?.draw_async();
     }
@@ -1189,7 +1224,8 @@ export class SDFGRenderer extends EventEmitter {
             this.cfgList[cfgId].graph = null;
         this.graph = relayoutStateMachine(
             this.ctx, this.sdfg, this.sdfg, this.cfgList,
-            this.state_parent_list, !SDFVSettings.showAccessNodes, undefined
+            this.state_parent_list,
+            !SDFVSettings.get<boolean>('showAccessNodes'), undefined
         );
         this.onresize();
 
@@ -1604,12 +1640,18 @@ export class SDFGRenderer extends EventEmitter {
 
             // Necessary for "what you see is what you get" in the exported pdf
             // file.
-            if (!save_all && (oldctx as any).lod) {
-                // User wants to save the view "as is" with details hidden
-                (this.ctx as any).lod = true;
+            const oldViewportOnly = this._viewportOnly;
+            const oldAdaptiveHiding = this._adaptiveHiding;
+            if (!save_all) {
+                // User wants to save the view as they see it on the screen.
+                this._viewportOnly = true;
+                this._adaptiveHiding = SDFVSettings.get<boolean>(
+                    'adaptiveContentHiding'
+                );
             } else {
-                // User wants to save all details in the view
-                (this.ctx as any).lod = false;
+                // User wants to save all details in the view.
+                this._viewportOnly = false;
+                this._adaptiveHiding = false;
             }
             (this.ctx as any).pdf = true;
             // Center on saved region
@@ -1624,6 +1666,8 @@ export class SDFGRenderer extends EventEmitter {
                     name + '.pdf', ctx.stream.toBlobURL('application/pdf')
                 );
                 this.ctx = oldctx;
+                this._viewportOnly = oldViewportOnly;
+                this._adaptiveHiding = oldAdaptiveHiding;
                 this.draw_async();
                 // Remove loading animation
                 const info_field = document.getElementById('task-info-field');
@@ -2982,8 +3026,11 @@ export class SDFGRenderer extends EventEmitter {
                 return false;
             }
         } else if (evtype === 'wheel') {
-            if (SDFVSettings.useVerticalScrollNavigation && !event.ctrlKey ||
-                !SDFVSettings.useVerticalScrollNavigation && event.ctrlKey) {
+            const useScrollNav = SDFVSettings.get<boolean>(
+                'useVerticalScrollNavigation'
+            );
+            if (useScrollNav && !event.ctrlKey ||
+                !useScrollNav && event.ctrlKey) {
                 // If vertical scroll navigation is turned on, use this to
                 // move the viewport up and down. If the control key is held
                 // down while scrolling, treat it as a typical zoom operation.
@@ -3713,10 +3760,6 @@ export class SDFGRenderer extends EventEmitter {
         return false;
     }
 
-    public get_inclusive_ranges(): boolean {
-        return SDFVSettings.inclusiveRanges;
-    }
-
     public get_canvas(): HTMLCanvasElement | null {
         return this.canvas;
     }
@@ -4014,6 +4057,14 @@ export class SDFGRenderer extends EventEmitter {
         }
     }
 
+    public get viewportOnly(): boolean {
+        return this._viewportOnly;
+    }
+
+    public get adaptiveHiding(): boolean {
+        return this._adaptiveHiding;
+    }
+
 }
 
 
@@ -4024,7 +4075,7 @@ function calculateNodeSize(
     switch (node.type) {
         case SDFGElementType.AccessNode:
             label = node.label;
-            if (SDFVSettings.showDataDescriptorSizes) {
+            if (SDFVSettings.get<boolean>('showDataDescriptorSizes')) {
                 const nodedesc = sdfg.attributes._arrays[label];
                 if (nodedesc && nodedesc.attributes.shape) {
                     label = ' ' + sdfg_property_to_string(
@@ -4192,7 +4243,7 @@ function relayoutStateMachine(
         ));
     }
 
-    if (SDFVSettings.useVerticalStateMachineLayout) {
+    if (SDFVSettings.get<boolean>('useVerticalStateMachineLayout')) {
         // Fall back to dagre for anything that cannot be laid out with
         // the vertical layout (e.g., irreducible control flow).
         try {
@@ -4283,11 +4334,11 @@ function relayoutSDFGState(
     const g: DagreGraph = new dagre.graphlib.Graph({ multigraph: true });
 
     // Set layout options and a simpler algorithm for large graphs.
-    const layoutOptions: any = { ranksep: SDFVSettings.ranksep };
+    const layoutOptions: any = { ranksep: SDFVSettings.get<number>('ranksep') };
     if (state.nodes.length >= 1000)
         layoutOptions.ranker = 'longest-path';
 
-    layoutOptions.nodesep = SDFVSettings.nodesep;
+    layoutOptions.nodesep = SDFVSettings.get<number>('nodesep');
     g.setGraph(layoutOptions);
 
     // Set an object for the graph label.
@@ -4589,7 +4640,7 @@ function relayoutSDFGState(
         }
 
         // Summarize edges for NestedSDFGs and ScopeNodes
-        if (SDFVSettings.summarizeLargeNumbersOfEdges) {
+        if (SDFVSettings.get<boolean>('summarizeLargeNumbersOfEdges')) {
             if (gnode instanceof NestedSDFG || gnode instanceof ScopeNode) {
                 const n_of_in_connectors = gnode.in_connectors.length;
                 const n_of_out_connectors = gnode.out_connectors.length;

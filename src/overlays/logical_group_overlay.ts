@@ -102,14 +102,14 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
             const block = graph.node(v);
 
             // If the node's invisible, we skip it.
-            if ((ctx as any).lod && !block.intersect(
+            if (this.renderer.viewportOnly && !block.intersect(
                 visibleRect.x, visibleRect.y,
                 visibleRect.w, visibleRect.h
             ))
                 return;
 
             const blockppp = Math.sqrt(block.width * block.height) / ppp;
-            if (((ctx as any).lod && (blockppp < SDFV.STATE_LOD)) ||
+            if ((this.renderer.adaptiveHiding && (blockppp < SDFV.STATE_LOD)) ||
                 block.attributes().is_collapsed
             ) {
                 this.shadeNode(block, sdfgGroups, ctx);
@@ -121,14 +121,15 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
                             const node = stateGraph.node(v);
 
                             // Skip the node if it's not visible.
-                            if ((ctx as any).lod && !node.intersect(
+                            if (this.renderer.viewportOnly && !node.intersect(
                                 visibleRect.x,
                                 visibleRect.y, visibleRect.w, visibleRect.h
                             ))
                                 return;
 
                             if (node.attributes().is_collapsed ||
-                                ((ctx as any).lod && ppp > SDFV.NODE_LOD)) {
+                                (this.renderer.adaptiveHiding &&
+                                 ppp > SDFV.NODE_LOD)) {
                                 this.shadeNode(node, sdfgGroups, ctx);
                             } else {
                                 if (node instanceof NestedSDFG &&

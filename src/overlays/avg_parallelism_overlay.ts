@@ -228,14 +228,14 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
             const block: ControlFlowBlock = graph.node(v);
 
             // If the node's invisible, we skip it.
-            if ((ctx as any).lod && !block.intersect(
+            if (this.renderer.viewportOnly && !block.intersect(
                 visibleRect.x, visibleRect.y,
                 visibleRect.w, visibleRect.h
             ))
                 return;
 
             const stateppp = Math.sqrt(block.width * block.height) / ppp;
-            if (((ctx as any).lod && (stateppp < SDFV.STATE_LOD)) ||
+            if ((this.renderer.adaptiveHiding && (stateppp < SDFV.STATE_LOD)) ||
                 block.attributes()?.is_collapsed) {
                 this.shadeNode(block, ctx);
             } else if (block instanceof State) {
@@ -245,8 +245,11 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
                         const node = stateGraph.node(v);
 
                         // Skip the node if it's not visible.
-                        if ((ctx as any).lod && !node.intersect(visibleRect.x,
-                            visibleRect.y, visibleRect.w, visibleRect.h))
+                        if (this.renderer.viewportOnly &&
+                            !node.intersect(
+                                visibleRect.x, visibleRect.y, visibleRect.w,
+                                visibleRect.h
+                            ))
                             return;
 
                         if (node instanceof NestedSDFG &&
@@ -254,7 +257,8 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
                             const nodeppp = Math.sqrt(
                                 node.width * node.height
                             ) / ppp;
-                            if ((ctx as any).lod && nodeppp < SDFV.STATE_LOD) {
+                            if (this.renderer.adaptiveHiding &&
+                                nodeppp < SDFV.STATE_LOD) {
                                 this.shadeNode(node, ctx);
                             } else if (node.attributes().sdfg &&
                                 node.attributes().sdfg.type !== 'SDFGShell') {

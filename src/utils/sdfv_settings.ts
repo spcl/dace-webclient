@@ -6,21 +6,58 @@ import {
     Modal,
 } from 'bootstrap';
 import { SDFGRenderer } from '../renderer/renderer';
+import * as settingsManifest from '../settings_manifest.json';
+import { AllFields } from './utils';
 
-type RangeT = {
-    value: number,
-    min?: number,
-    max?: number,
-};
+export type SDFVSettingValT = boolean | string | number | null;
 
-export type SDFVSettingValT = boolean | string | number | RangeT;
+export type SDFVSettingCategories = keyof (
+    typeof settingsManifest.viewerSettings.categories
+);
+export type SDFVSettingKey = keyof AllFields<
+    typeof settingsManifest.viewerSettings.categories[
+        SDFVSettingCategories
+    ]['settings']
+>;
+
+interface SDFVSetting {
+    label: string;
+    hidden?: boolean;
+    relayout?: boolean;
+    redrawUI?: boolean;
+    redraw?: boolean;
+}
+
+interface SDFVSettingBoolean extends SDFVSetting {
+    type: 'boolean';
+    default: boolean;
+}
+
+interface SDFVSettingRange extends SDFVSetting {
+    type: 'range';
+    default: number;
+    min?: number;
+    max?: number;
+    step?: number;
+}
 
 export class SDFVSettings {
+
+    private readonly _settingsDict: Map<
+        SDFVSettingKey, SDFVSettingValT
+    > = new Map();
 
     private static readonly INSTANCE: SDFVSettings = new SDFVSettings();
 
     private constructor() {
-        // Noop
+        const categories = settingsManifest.viewerSettings.categories;
+        for (const category of Object.values(categories)) {
+            for (const [sName, setting] of Object.entries(category.settings)) {
+                this._settingsDict.set(
+                    sName as SDFVSettingKey, setting.default
+                );
+            }
+        }
     }
 
     public static getInstance(): SDFVSettings {
@@ -30,37 +67,9 @@ export class SDFVSettings {
     private modal: Modal | null = null;
     private renderer: SDFGRenderer | null = null;
 
-    private readonly settingsDict: Record<string, SDFVSettingValT> = {
-        // User modifiable settings fields.
-        'minimap': true,
-        'alwaysOnISEdgeLabels': true,
-        'showAccessNodes': true,
-        'showStateNames': true,
-        'showMapSchedules': true,
-        'showDataDescriptorSizes': false,
-        'summarizeLargeNumbersOfEdges': false,
-        'inclusiveRanges': false,
-        'useVerticalStateMachineLayout': false,
-        'useVerticalScrollNavigation': false,
-        'adaptiveContentHiding': true,
-        'curvedEdges': true,
-        'ranksep': {
-            value: 30,
-            min: 10,
-            max: 100,
-        },
-        'nodesep': {
-            value: 50,
-            min: 0,
-            max: 100,
-        },
-        // Hidden settings fields.
-        'toolbar': true,
-    };
-
     private addSlider(
-        root: JQuery<HTMLElement>, label: string, valueKey: string,
-        requiresRelayout: boolean = false, customCallback?: CallableFunction
+        root: JQuery<HTMLElement>, key: SDFVSettingKey,
+        setting: SDFVSettingRange
     ): void {
         const settingRow = $('<div>', {
             class: 'row',
@@ -70,30 +79,28 @@ export class SDFVSettings {
         }).appendTo(settingRow);
         $('<label>', {
             class: 'form-label',
-            text: label,
+            text: setting.label,
         }).appendTo(settingContainer);
-        const settingsEntry = this.settingsDict[valueKey] as RangeT;
         const input = $('<input>', {
             class: 'form-range',
             type: 'range',
-            value: settingsEntry.value,
-            min: settingsEntry.min ?? 0,
-            max: settingsEntry.max ?? 100,
+            value: this._settingsDict.get(key),
+            min: setting.min ?? 0,
+            max: setting.max ?? 100,
+            step: setting.step ?? 1,
             change: () => {
                 const nVal = input.val();
                 if (nVal !== undefined) {
-                    settingsEntry.value = +nVal;
-                    if (customCallback)
-                        customCallback(settingsEntry);
-                    this.onSettingsChanged(requiresRelayout);
+                    this._settingsDict.set(key, +nVal);
+                    this.onSettingChanged(setting);
                 }
             },
         }).appendTo(settingContainer);
     }
 
     private addToggle(
-        root: JQuery<HTMLElement>, label: string, valueKey: string,
-        requiresRelayout: boolean = false, customCallback?: CallableFunction
+        root: JQuery<HTMLElement>, key: SDFVSettingKey,
+        setting: SDFVSettingBoolean
     ): void {
         const settingRow = $('<div>', {
             class: 'row',
@@ -107,17 +114,15 @@ export class SDFVSettings {
         const input = $('<input>', {
             class: 'form-check-input',
             type: 'checkbox',
-            checked: this.settingsDict[valueKey],
+            checked: this._settingsDict.get(key),
             change: () => {
-                this.settingsDict[valueKey] = input.prop('checked');
-                if (customCallback)
-                    customCallback(this.settingsDict[valueKey]);
-                this.onSettingsChanged(requiresRelayout);
+                this._settingsDict.set(key, input.prop('checked'));
+                this.onSettingChanged(setting);
             },
         }).appendTo(checkContainer);
         $('<label>', {
             class: 'form-check-label',
-            text: label,
+            text: setting.label,
         }).appendTo(checkContainer);
     }
 
@@ -151,81 +156,33 @@ export class SDFVSettings {
     }
 
     private constructSettings(root: JQuery<HTMLElement>): void {
-        // ---------------------------
-        // - View / Drawing Settings -
-        // ---------------------------
-        const viewGroup = this.addSettingsGroup(
-            root, 'View Settings', 'viewSettings', true
-        );
-        this.addToggle(
-            viewGroup,
-            'Show minimap', 'minimap', false, (value: boolean) => {
-                if (value)
-                    this.renderer?.enableMinimap();
-                else
-                    this.renderer?.disableMinimap();
-            }
-        );
-        this.addToggle(
-            viewGroup,
-            'Always show interstate edge labels', 'alwaysOnISEdgeLabels',
-            true
-        );
-        this.addToggle(viewGroup, 'Show access nodes', 'showAccessNodes', true);
-        this.addToggle(viewGroup, 'Show state names', 'showStateNames');
-        this.addToggle(viewGroup, 'Show map schedules', 'showMapSchedules');
-        this.addToggle(
-            viewGroup,
-            'Show data descriptor sizes on access nodes ' +
-            '(hides data container names)',
-            'showDataDescriptorSizes', true
-        );
-        this.addToggle(
-            viewGroup, 'Use inclusive ranges', 'inclusiveRanges', true
-        );
-        this.addToggle(
-            viewGroup, 'Use vertical state machine layout',
-            'useVerticalStateMachineLayout', true
-        );
-        this.addSlider(viewGroup, 'Vertical node spacing', 'ranksep', true);
-        this.addSlider(viewGroup, 'Horizontal node spacing', 'nodesep', true);
+        let first = true;
+        const categories = settingsManifest.viewerSettings.categories;
+        for (const [cName, category] of Object.entries(categories)) {
+            const catContainer = this.addSettingsGroup(
+                root, category.label, cName, first
+            );
+            first = false;
+            for (const [sName, setting] of Object.entries(category.settings)) {
+                if ((setting as SDFVSetting).hidden)
+                    continue;
 
-        // ------------------
-        // - Mouse Settings -
-        // ------------------
-        const mouseGroup = this.addSettingsGroup(
-            root, 'Mouse Settings', 'mouseSettings'
-        );
-        this.addToggle(
-            mouseGroup, 'Use vertical scroll navigation',
-            'useVerticalScrollNavigation', false
-        );
-
-        // ------------------------
-        // - Performance Settings -
-        // ------------------------
-        const perfGroup = this.addSettingsGroup(
-            root, 'Performance Settings', 'performanceSettings'
-        );
-        this.addToggle(
-            perfGroup,
-            'Adaptively hide content when zooming out (Warning: turning this \
-                off can cause performance issues on big graphs)',
-            'adaptiveContentHiding', false, (value: boolean) => {
-                if (this.renderer)
-                    (this.renderer.get_context() as any).lod = value;
+                switch (setting.type) {
+                    case 'boolean':
+                        this.addToggle(
+                            catContainer, sName as SDFVSettingKey,
+                            setting as SDFVSettingBoolean
+                        );
+                        break;
+                    case 'range':
+                        this.addSlider(
+                            catContainer, sName as SDFVSettingKey,
+                            setting as SDFVSettingRange
+                        );
+                        break;
+                }
             }
-        );
-        this.addToggle(
-            perfGroup, 'Curved Edges (turn off in case of performance issues)',
-            'curvedEdges', false
-        );
-        this.addToggle(
-            perfGroup,
-            'Hide / summarize edges for nodes where a large number of ' +
-                'edges are connected',
-            'summarizeLargeNumbersOfEdges', true
-        );
+        }
     }
 
     private constructModal(): JQuery<HTMLElement> {
@@ -261,38 +218,36 @@ export class SDFVSettings {
 
         const modalBody = $('<div>', {
             class: 'modal-body',
+            css: {
+                padding: 0,
+            },
         }).appendTo(modalContents);
 
         const container = $('<div>', {
-            class: 'accordion',
+            class: 'accordion accordion-flush',
             id: 'SDFVSettingsAccordion',
         }).appendTo(modalBody);
         this.constructSettings(container);
 
-        // Construct the modal footer.
-        $('<div>', {
-            class: 'modal-footer',
-        }).appendTo(modalContents).append($('<button>', {
-            type: 'button',
-            class: 'btn btn-secondary',
-            text: 'Close',
-            'data-bs-dismiss': 'modal',
-        }));
-
         return modalElement;
     }
 
-    private onSettingsChanged(relayout: boolean): void {
-        if (relayout) {
+    private onSettingChanged(setting: SDFVSetting): void {
+        if (setting.relayout) {
             this.renderer?.add_loading_animation();
             setTimeout(() => {
                 this.renderer?.relayout();
             }, 10);
         }
-        this.renderer?.draw_async();
+
+        if (setting.redrawUI)
+            this.renderer?.initUI();
+
+        if (setting.redraw !== false)
+            this.renderer?.draw_async();
 
         if (this.renderer?.get_in_vscode())
-            this.renderer.emit('settings_changed', this.settingsDict);
+            this.renderer.emit('settings_changed', SDFVSettings.settingsDict);
     }
 
     public show(renderer?: SDFGRenderer): void {
@@ -316,94 +271,27 @@ export class SDFVSettings {
             this.modal.toggle();
     }
 
-    public static get settingsKeys(): string[] {
-        return Object.keys(SDFVSettings.getInstance().settingsDict);
+    public static get settingsKeys(): SDFVSettingKey[] {
+        return Array.from(SDFVSettings.getInstance()._settingsDict.keys());
     }
 
-    public static setDefault(setting: string, def: any): void {
-        SDFVSettings.getInstance().settingsDict[setting] = def;
+    public static get settingsDict(
+    ): ReadonlyMap<SDFVSettingKey, SDFVSettingValT> {
+        return SDFVSettings.getInstance()._settingsDict;
     }
 
-    public static get toolbar(): boolean {
-        return SDFVSettings.getInstance().settingsDict['toolbar'] as boolean;
+    public static set<T extends SDFVSettingValT>(
+        key: SDFVSettingKey, value: T
+    ) {
+        if (!SDFVSettings.getInstance()._settingsDict.has(key))
+            throw Error('Key error, key ' + key + ' not in settings');
+        SDFVSettings.getInstance()._settingsDict.set(key, value);
     }
 
-    public static get minimap(): boolean {
-        return SDFVSettings.getInstance().settingsDict['minimap'] as boolean;
-    }
-
-    public static get alwaysOnISEdgeLabels(): boolean {
-        return SDFVSettings.getInstance().settingsDict[
-            'alwaysOnISEdgeLabels'
-        ] as boolean;
-    }
-
-    public static get showAccessNodes(): boolean {
-        return SDFVSettings.getInstance().settingsDict[
-            'showAccessNodes'
-        ] as boolean;
-    }
-
-    public static get inclusiveRanges(): boolean {
-        return SDFVSettings.getInstance().settingsDict[
-            'inclusiveRanges'
-        ] as boolean;
-    }
-
-    public static get adaptiveContentHiding(): boolean {
-        return SDFVSettings.getInstance().settingsDict[
-            'adaptiveContentHiding'
-        ] as boolean;
-    }
-
-    public static get showStateNames(): boolean {
-        return SDFVSettings.getInstance().settingsDict[
-            'showStateNames'
-        ] as boolean;
-    }
-
-    public static get showMapSchedules(): boolean {
-        return SDFVSettings.getInstance().settingsDict[
-            'showMapSchedules'
-        ] as boolean;
-    }
-
-    public static get showDataDescriptorSizes(): boolean {
-        return SDFVSettings.getInstance().settingsDict[
-            'showDataDescriptorSizes'
-        ] as boolean;
-    }
-
-    public static get summarizeLargeNumbersOfEdges(): boolean {
-        return SDFVSettings.getInstance().settingsDict[
-            'summarizeLargeNumbersOfEdges'
-        ] as boolean;
-    }
-
-    public static get useVerticalStateMachineLayout(): boolean {
-        return this.getInstance().settingsDict[
-            'useVerticalStateMachineLayout'
-        ] as boolean;
-    }
-
-    public static get useVerticalScrollNavigation(): boolean {
-        return this.getInstance().settingsDict[
-            'useVerticalScrollNavigation'
-        ] as boolean;
-    }
-
-    public static get curvedEdges(): boolean {
-        return this.getInstance().settingsDict[
-            'curvedEdges'
-        ] as boolean;
-    }
-
-    public static get ranksep(): number {
-        return (this.getInstance().settingsDict['ranksep'] as RangeT).value;
-    }
-
-    public static get nodesep(): number {
-        return (this.getInstance().settingsDict['nodesep'] as RangeT).value;
+    public static get<T extends SDFVSettingValT>(key: SDFVSettingKey): T {
+        if (!SDFVSettings.getInstance()._settingsDict.has(key))
+            throw Error('Key error, key ' + key + ' not in settings');
+        return SDFVSettings.getInstance()._settingsDict.get(key)! as T;
     }
 
 }

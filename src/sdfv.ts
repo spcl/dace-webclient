@@ -948,15 +948,15 @@ $(() => {
     // or URL parameters.
     const isEmbedded = document.getElementById('embedded') !== null;
     if (isEmbedded) {
-        SDFVSettings.setDefault('toolbar', false);
-        SDFVSettings.setDefault('minimap', false);
+        SDFVSettings.set<boolean>('toolbar', false);
+        SDFVSettings.set<boolean>('minimap', false);
     }
 
     // Check if any of the remaining settings are provided via the URL.
     for (const key of SDFVSettings.settingsKeys) {
         const overrideVal = settingReadDefault(key, undefined);
         if (overrideVal !== undefined)
-            SDFVSettings.setDefault(key, overrideVal);
+            SDFVSettings.set(key, overrideVal);
     }
 
     let sdfv = new SDFV();

@@ -1,12 +1,5 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import {
-    MapExit,
-    NestedSDFG,
-    SDFGElement,
-    SDFGNode,
-    State,
-} from '../renderer/renderer_elements';
 import { Point2D } from '..';
 import { rgb2hex } from '@pixi/utils';
 import $ from 'jquery';
@@ -231,3 +224,14 @@ export function showErrorModal(message: string, title: string = 'Error'): void {
     }).appendTo(content);
     errModalBg.show();
 }
+
+// A utility type to create a single type from a discriminate union of types.
+type UnionToIntersection<U> =
+    (U extends any ? (k: U) => void : never) extends (
+        (k: infer I) => void
+    ) ? I : never;
+
+type Indexify<T> = T & { [str: string]: undefined; };
+type UndefinedVals<T> = { [K in keyof T]: undefined };
+type AllUnionKeys<T> = keyof UnionToIntersection<UndefinedVals<T>>;
+export type AllFields<T> = { [K in AllUnionKeys<T> & string]: Indexify<T>[K] };

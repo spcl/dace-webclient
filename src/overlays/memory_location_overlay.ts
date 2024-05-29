@@ -241,14 +241,14 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
             const block: ControlFlowBlock = graph.node(v);
 
             // If the node's invisible, we skip it.
-            if ((ctx as any).lod && !block.intersect(
+            if (this.renderer.viewportOnly && !block.intersect(
                 visibleRect.x, visibleRect.y,
                 visibleRect.w, visibleRect.h
             ))
                 return;
 
             const stateppp = Math.sqrt(block.width * block.height) / ppp;
-            if (((ctx as any).lod && (stateppp < SDFV.STATE_LOD)) ||
+            if ((this.renderer.adaptiveHiding && (stateppp < SDFV.STATE_LOD)) ||
                 block.attributes()?.is_collapsed) {
                 // The state is collapsed or too small, so we don't need to
                 // traverse its insides.
@@ -260,8 +260,11 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                         const node = stateGraph.node(v);
 
                         // Skip the node if it's not visible.
-                        if ((ctx as any).lod && !node.intersect(visibleRect.x,
-                            visibleRect.y, visibleRect.w, visibleRect.h))
+                        if (this.renderer.viewportOnly &&
+                            !node.intersect(
+                                visibleRect.x, visibleRect.y, visibleRect.w,
+                                visibleRect.h
+                            ))
                             return;
 
                         if (node instanceof NestedSDFG &&
@@ -271,7 +274,8 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                                 node.data.graph, ctx, ppp, visibleRect
                             );
                         } else if (node instanceof AccessNode) {
-                            if (!(ctx as any).lod || ppp < SDFV.NODE_LOD)
+                            if (!this.renderer.adaptiveHiding ||
+                                ppp < SDFV.NODE_LOD)
                                 this.shadeNode(node, ctx);
                         }
                     });
