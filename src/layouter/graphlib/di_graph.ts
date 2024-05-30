@@ -1,3 +1,5 @@
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { Graph } from './graph';
 
 export class DiGraph<NodeT, EdgeT> extends Graph<NodeT, EdgeT> {
@@ -5,9 +7,7 @@ export class DiGraph<NodeT, EdgeT> extends Graph<NodeT, EdgeT> {
     private pred: Map<string, Map<string, EdgeT | null>> = new Map();
     private succ: Map<string, Map<string, EdgeT | null>> = new Map();
 
-    public constructor(
-        name: string = '',
-    ) {
+    public constructor(name: string = '') {
         super(name);
     }
 
@@ -58,13 +58,28 @@ export class DiGraph<NodeT, EdgeT> extends Graph<NodeT, EdgeT> {
     }
 
     public* edgesIter(): Generator<[string, string]> {
-        for (const [u, neighbors] of this.succ)
+        for (const [u, neighbors] of this.succ) {
             for (const v of neighbors.keys())
                 yield [u, v];
+        }
     }
 
     public hasEdge(u: string, v: string): boolean {
         return this.succ.get(u)?.has(v) ?? false;
+    }
+
+    public* successorsIterSelective(
+        id: string, ignoreEdges: [string, string][]
+    ): Generator<string> {
+        const ignoredTargets = new Set<string>();
+        for (const ie of ignoreEdges) {
+            if (ie[0] === id)
+                ignoredTargets.add(ie[1]);
+        }
+        for (const v of this.succ.get(id)?.keys() ?? []) {
+            if (!ignoredTargets.has(v))
+                yield v;
+        }
     }
 
     public successorsIter(id: string): IterableIterator<string> {
@@ -118,9 +133,10 @@ export class DiGraph<NodeT, EdgeT> extends Graph<NodeT, EdgeT> {
     }
 
     public* sourcesIter(): Generator<string> {
-        for (const [id, neighbors] of this.pred)
+        for (const [id, neighbors] of this.pred) {
             if (neighbors.size === 0)
                 yield id;
+        }
     }
 
     public sinks(): string[] {
@@ -128,9 +144,10 @@ export class DiGraph<NodeT, EdgeT> extends Graph<NodeT, EdgeT> {
     }
 
     public* sinksIter(): Generator<string> {
-        for (const [id, neighbors] of this.succ)
+        for (const [id, neighbors] of this.succ) {
             if (neighbors.size === 0)
                 yield id;
+        }
     }
 
     public clear(): void {

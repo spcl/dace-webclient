@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { DisplayObject, Graphics } from 'pixi.js';
 import { StorageType } from '../../overlays/memory_location_overlay';
@@ -8,7 +8,7 @@ import {
     AccessMode,
     ConcreteDataAccess,
     DataContainer,
-    SymbolicDataAccess
+    SymbolicDataAccess,
 } from '../elements/data_container';
 import { Edge } from '../elements/edge';
 import { Element } from '../elements/element';
@@ -178,7 +178,7 @@ export class Graph extends Graphics {
         index: number[]
     ): AccessMap<(number | undefined)[]> {
         const idxMap = new AccessMap<(number | undefined)[]>();
-        
+
         for (const child of this.children) {
             if (child instanceof MapNode || child instanceof ComputationNode) {
                 const childMap = child.getRelatedAccesses(source, index);
@@ -206,10 +206,11 @@ export class Graph extends Graphics {
         children.forEach(child => {
             if (child instanceof Node) {
                 this.nodes.add(child);
-                if (child instanceof MemoryNode)
+                if (child instanceof MemoryNode) {
                     this.registerMemoryNode(
                         child.dataContainer, child, child.accessMode
                     );
+                }
             } else if (child instanceof Edge) {
                 this.edges.add(child);
             }
@@ -339,15 +340,17 @@ export class Graph extends Graphics {
     }
 
     public *inEdges(node: Node): Generator<Edge> {
-        for (const edge of this.edges)
+        for (const edge of this.edges) {
             if (edge.dst === node && edge.src !== node)
                 yield edge;
+        }
     }
 
     public *outEdges(node: Node): Generator<Edge> {
-        for (const edge of this.edges)
+        for (const edge of this.edges) {
             if (edge.src === node && edge.dst !== node)
                 yield edge;
+        }
     }
 
     public *neighborEdges(node: Node): Generator<Edge> {

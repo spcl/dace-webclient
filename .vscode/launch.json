@@ -5,7 +5,7 @@
             "type": "chrome",
             "request": "launch",
             "name": "Launch",
-            "url": "http://localhost:3000/sdfv.html",
+            "url": "http://localhost:3000",
             "sourceMaps": true,
             "webRoot": "${workspaceFolder}",
             "preLaunchTask": "npm: serve",

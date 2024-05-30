@@ -1,3 +1,5 @@
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { DiGraph } from '../di_graph';
 
 export function* dfsLabeledEdges(
@@ -19,7 +21,11 @@ export function* dfsLabeledEdges(
         yield [start, start, 'forward'];
         visited.add(start);
         const stack: [string, number, string[]][] = [
-            [start, depthLimit, graph.successors(start)]
+            [
+                start,
+                depthLimit,
+                graph.successors(start),
+            ],
         ];
 
         while (stack.length) {

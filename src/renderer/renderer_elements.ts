@@ -1,14 +1,15 @@
-// Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
-    DagreSDFG,
+    DagreGraph,
     JsonSDFG,
     JsonSDFGBlock,
+    JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGNode,
     JsonSDFGState,
     Point2D,
-    SimpleRect
+    SimpleRect,
 } from '../index';
 import { SDFV } from '../sdfv';
 import { editor } from 'monaco-editor';
@@ -25,6 +26,8 @@ export enum SDFGElementType {
     Edge = 'Edge',
     MultiConnectorEdge = 'MultiConnectorEdge',
     SDFGState = 'SDFGState',
+    ContinueState = 'ContinueState',
+    BreakState = 'BreakState',
     AccessNode = 'AccessNode',
     Tasklet = 'Tasklet',
     LibraryNode = 'LibraryNode',
@@ -43,7 +46,63 @@ export enum SDFGElementType {
     LoopRegion = 'LoopRegion',
 }
 
+function draw_summary_symbol(
+    ctx: CanvasRenderingContext2D,
+    min_connector_x: number, max_connector_x: number,
+    horizontal_line_level: number, draw_arrows_above_line: boolean
+): void {
+    // Draw left arrow
+    const middle_of_line = (min_connector_x + max_connector_x) / 2;
+    const left_arrow_x = middle_of_line - 10;
+    const righ_arrow_x = middle_of_line + 10;
+    let arrow_start_y = horizontal_line_level + 2;
+    let arrow_end_y = horizontal_line_level + 8;
+    if (draw_arrows_above_line) {
+        arrow_start_y = horizontal_line_level - 10;
+        arrow_end_y = horizontal_line_level - 4;
+    }
+    const dot_height = (arrow_start_y + arrow_end_y) / 2;
+
+    // Arrow line left
+    ctx.beginPath();
+    ctx.moveTo(left_arrow_x, arrow_start_y);
+    ctx.lineTo(left_arrow_x, arrow_end_y);
+    // Arrow line right
+    ctx.moveTo(righ_arrow_x, arrow_start_y);
+    ctx.lineTo(righ_arrow_x, arrow_end_y);
+    // 3 dots
+    ctx.moveTo(middle_of_line - 5, dot_height);
+    ctx.lineTo(middle_of_line - 4, dot_height);
+    ctx.moveTo(middle_of_line - 0.5, dot_height);
+    ctx.lineTo(middle_of_line + 0.5, dot_height);
+    ctx.moveTo(middle_of_line + 4, dot_height);
+    ctx.lineTo(middle_of_line + 5, dot_height);
+    ctx.closePath();
+    ctx.stroke();
+
+    // Arrow heads
+    ctx.beginPath();
+    ctx.moveTo(left_arrow_x, arrow_end_y + 2);
+    ctx.lineTo(left_arrow_x - 2, arrow_end_y);
+    ctx.lineTo(left_arrow_x + 2, arrow_end_y);
+    ctx.lineTo(left_arrow_x, arrow_end_y + 2);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(righ_arrow_x, arrow_end_y + 2);
+    ctx.lineTo(righ_arrow_x - 2, arrow_end_y);
+    ctx.lineTo(righ_arrow_x + 2, arrow_end_y);
+    ctx.lineTo(righ_arrow_x, arrow_end_y + 2);
+    ctx.closePath();
+    ctx.fill();
+}
+
 export class SDFGElement {
+
+    public get COLLAPSIBLE(): boolean {
+        return false;
+    }
 
     public in_connectors: Connector[] = [];
     public out_connectors: Connector[] = [];
@@ -52,6 +111,20 @@ export class SDFGElement {
     public selected: boolean = false;
     public highlighted: boolean = false;
     public hovered: boolean = false;
+
+    // Used to draw edge summary instead of all edges separately.
+    // Helps with rendering performance when too many edges would be drawn on
+    // the screen. These two fields get set in the layouter, depending on the
+    // number of in/out_connectors of a node. They also get toggled in the
+    // mousehandler when the hover status changes. Currently only used for
+    // NestedSDFGs and ScopeNodes.
+    public summarize_in_edges: boolean = false;
+    public summarize_out_edges: boolean = false;
+    // Used in draw_edge_summary to decide if edge summary is applicable. Set
+    // in the layouter only for NestedSDFGs and ScopeNodes. This prevents the
+    // summary to get toggled on by the mousehandler when it is not applicable.
+    public in_summary_has_effect: boolean = false;
+    public out_summary_has_effect: boolean = false;
 
     public x: number = 0;
     public y: number = 0;
@@ -63,8 +136,9 @@ export class SDFGElement {
         public data: any,
         public id: number,
         public sdfg: JsonSDFG,
+        public cfg: JsonSDFGControlFlowRegion | null,
         public parent_id: number | null = null,
-        public parentElem?: SDFGElement,
+        public parentElem?: SDFGElement
     ) {
         this.set_layout();
     }
@@ -126,6 +200,11 @@ export class SDFGElement {
         return this.data.label;
     }
 
+    // Text used for matching the element during a search
+    public text_for_find(): string {
+        return this.label();
+    }
+
     // Produces HTML for a hover-tooltip
     public tooltip(container: HTMLElement): void {
         container.className = 'sdfvtooltip';
@@ -140,16 +219,17 @@ export class SDFGElement {
             return 'black';
 
         if (this.selected) {
-            if (this.hovered)
+            if (this.hovered) {
                 return this.getCssProperty(
                     renderer, '--color-selected-hovered'
                 );
-            else if (this.highlighted)
+            } else if (this.highlighted) {
                 return this.getCssProperty(
                     renderer, '--color-selected-highlighted'
                 );
-            else
+            } else {
                 return this.getCssProperty(renderer, '--color-selected');
+            }
         } else {
             if (this.hovered)
                 return this.getCssProperty(renderer, '--color-hovered');
@@ -164,7 +244,7 @@ export class SDFGElement {
     public intersect(
         x: number, y: number, w: number = 0, h: number = 0
     ): boolean {
-        if (w == 0 || h == 0) {  // Point-element intersection
+        if (w === 0 || h === 0) {  // Point-element intersection
             return (x >= this.x - this.width / 2.0) &&
                 (x <= this.x + this.width / 2.0) &&
                 (y >= this.y - this.height / 2.0) &&
@@ -204,13 +284,119 @@ export class SDFGElement {
     ): string {
         return renderer.getCssProperty(propertyName);
     }
+
+    public draw_edge_summary(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
+    ): void {
+        // Only draw if close enough
+        const canvas_manager = renderer.get_canvas_manager();
+        const ppp = canvas_manager?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.EDGE_LOD)) {
+            const topleft = this.topleft();
+            ctx.strokeStyle = this.strokeStyle(renderer);
+            ctx.fillStyle = ctx.strokeStyle;
+
+            if (this.summarize_in_edges && this.in_summary_has_effect) {
+                // Find the left most and right most connector coordinates
+                if (this.in_connectors.length > 0) {
+                    let min_connector_x = Number.MAX_SAFE_INTEGER;
+                    let max_connector_x = Number.MIN_SAFE_INTEGER;
+                    this.in_connectors.forEach((c: Connector) => {
+                        if (c.x < min_connector_x)
+                            min_connector_x = c.x;
+                        if (c.x > max_connector_x)
+                            max_connector_x = c.x;
+                    });
+
+                    let drawInSummarySymbol = true;
+                    const preds = this.parentElem?.data.graph?.predecessors(
+                        this.id
+                    ) ?? [];
+                    if (preds.length === 1) {
+                        const predElem = this.parentElem?.data.graph.node(
+                            preds[0]
+                        ) as SDFGElement;
+                        if (predElem.summarize_out_edges &&
+                            predElem.out_summary_has_effect) {
+                            // If the previous element has its outgoing edges
+                            // summarized, draw the sumary symbol halfway in
+                            // between them. This is handled by the predecessor.
+                            // noop.
+                            drawInSummarySymbol = false;
+                        }
+                    }
+
+                    if (drawInSummarySymbol) {
+                        // Draw the summary symbol above the node
+                        draw_summary_symbol(
+                            ctx, min_connector_x, max_connector_x,
+                            topleft.y - 8, true
+                        );
+                    }
+                }
+            }
+            if (this.summarize_out_edges && this.out_summary_has_effect) {
+                // Find the left most and right most connector coordinates
+                if (this.out_connectors.length > 0) {
+                    let min_connector_x = Number.MAX_SAFE_INTEGER;
+                    let max_connector_x = Number.MIN_SAFE_INTEGER;
+                    this.out_connectors.forEach((c: Connector) => {
+                        if (c.x < min_connector_x)
+                            min_connector_x = c.x;
+                        if (c.x > max_connector_x)
+                            max_connector_x = c.x;
+                    });
+
+                    let drawOutSummarySymbol = true;
+                    const succs = this.parentElem?.data.graph?.successors(
+                        this.id
+                    ) ?? [];
+                    if (succs.length === 1) {
+                        const succElem = this.parentElem?.data.graph.node(
+                            succs[0]
+                        ) as SDFGElement;
+                        if (succElem.summarize_in_edges &&
+                            succElem.in_summary_has_effect) {
+                            // If the next element has its incoming edges
+                            // summarized, draw the sumary symbol halfway in
+                            // between them.
+                            const succTopLeft = succElem.topleft();
+                            const minX = Math.min(succTopLeft.x, topleft.x);
+                            const maxX = Math.max(
+                                succTopLeft.x + succElem.width,
+                                topleft.x + this.width
+                            );
+                            const linePosY = (
+                                (topleft.y + (
+                                    succTopLeft.y + succElem.height
+                                )) / 2
+                            ) - 8;
+                            draw_summary_symbol(
+                                ctx, minX, maxX, linePosY, false
+                            );
+                            drawOutSummarySymbol = false;
+                        }
+                    }
+
+                    if (drawOutSummarySymbol) {
+                        // Draw the summary symbol below the node
+                        draw_summary_symbol(
+                            ctx, min_connector_x, max_connector_x,
+                            topleft.y + this.height + 8, false
+                        );
+                    }
+                }
+            }
+        }
+    }
+
 }
 
 // SDFG as an element (to support properties)
 export class SDFG extends SDFGElement {
 
     public constructor(sdfg: JsonSDFG) {
-        super(sdfg, -1, sdfg);
+        super(sdfg, -1, sdfg, null);
     }
 
     public set_layout(): void {
@@ -227,9 +413,14 @@ export class SDFGShell extends SDFG {
 }
 
 export class ControlFlowBlock extends SDFGElement {
+
+    public get COLLAPSIBLE(): boolean {
+        return true;
+    }
+
 }
 
-export class BasicBlock extends SDFGElement {
+export class BasicBlock extends ControlFlowBlock {
 }
 
 export class ControlFlowRegion extends ControlFlowBlock {
@@ -244,7 +435,7 @@ export class ControlFlowRegion extends ControlFlowBlock {
         const visibleRect = renderer.get_visible_rect();
 
         let clamped;
-        if (visibleRect)
+        if (visibleRect) {
             clamped = {
                 x: Math.max(topleft.x, visibleRect.x),
                 y: Math.max(topleft.y, visibleRect.y),
@@ -257,7 +448,7 @@ export class ControlFlowRegion extends ControlFlowBlock {
                 w: 0,
                 h: 0,
             };
-        else
+        } else {
             clamped = {
                 x: topleft.x,
                 y: topleft.y,
@@ -266,13 +457,19 @@ export class ControlFlowRegion extends ControlFlowBlock {
                 w: 0,
                 h: 0,
             };
+        }
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
-        if (!(ctx as any).lod)
+        if (!(ctx as any).lod) {
             clamped = {
-                x: topleft.x, y: topleft.y, x2: 0, y2: 0,
-                w: this.width, h: this.height
+                x: topleft.x,
+                y: topleft.y,
+                x2: 0,
+                y2: 0,
+                w: this.width,
+                h: this.height,
             };
+        }
 
         // Draw the region's background below everything and stroke the border.
         ctx.fillStyle = this.getCssProperty(
@@ -282,27 +479,37 @@ export class ControlFlowRegion extends ControlFlowBlock {
             renderer, '--control-flow-region-foreground-color'
         );
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
-        ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+
+        // Only draw line if close enough.
+        const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.NODE_LOD))
+            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+
         ctx.fillStyle = this.getCssProperty(
             renderer, '--control-flow-region-foreground-color'
         );
 
         if (visibleRect && visibleRect.x <= topleft.x &&
             visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
-            SDFVSettings.showStateNames)
-            ctx.fillText(
-                this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
-                topleft.y + SDFV.LINEHEIGHT
-            );
+            SDFVSettings.showStateNames) {
+            if (!too_far_away_for_text(renderer, ctx)) {
+                ctx.fillText(
+                    this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
+                    topleft.y + SDFV.LINEHEIGHT
+                );
+            }
+        }
 
         // If this state is selected or hovered
-        if ((this.selected || this.highlighted || this.hovered) &&
-            (clamped.x === topleft.x ||
-                clamped.y === topleft.y ||
-                clamped.x2 === topleft.x + this.width ||
-                clamped.y2 === topleft.y + this.height)) {
-            ctx.strokeStyle = this.strokeStyle(renderer);
-            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.NODE_LOD)) {
+            if ((this.selected || this.highlighted || this.hovered) &&
+                (clamped.x === topleft.x ||
+                    clamped.y === topleft.y ||
+                    clamped.x2 === topleft.x + this.width ||
+                    clamped.y2 === topleft.y + this.height)) {
+                ctx.strokeStyle = this.strokeStyle(renderer);
+                ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+            }
         }
 
         // If collapsed, draw a "+" sign in the middle
@@ -310,8 +517,6 @@ export class ControlFlowRegion extends ControlFlowBlock {
             ctx.beginPath();
             ctx.moveTo(this.x, this.y - SDFV.LINEHEIGHT);
             ctx.lineTo(this.x, this.y + SDFV.LINEHEIGHT);
-            ctx.stroke();
-            ctx.beginPath();
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, this.y);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, this.y);
             ctx.stroke();
@@ -385,7 +590,7 @@ export class State extends BasicBlock {
         const topleft = this.topleft();
         const visible_rect = renderer.get_visible_rect();
         let clamped;
-        if (visible_rect)
+        if (visible_rect) {
             clamped = {
                 x: Math.max(topleft.x, visible_rect.x),
                 y: Math.max(topleft.y, visible_rect.y),
@@ -398,7 +603,7 @@ export class State extends BasicBlock {
                 w: 0,
                 h: 0,
             };
-        else
+        } else {
             clamped = {
                 x: topleft.x,
                 y: topleft.y,
@@ -407,13 +612,19 @@ export class State extends BasicBlock {
                 w: 0,
                 h: 0,
             };
+        }
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
-        if (!(ctx as any).lod)
+        if (!(ctx as any).lod) {
             clamped = {
-                x: topleft.x, y: topleft.y, x2: 0, y2: 0,
-                w: this.width, h: this.height
+                x: topleft.x,
+                y: topleft.y,
+                x2: 0,
+                y2: 0,
+                w: this.width,
+                h: this.height,
             };
+        }
 
         ctx.fillStyle = this.getCssProperty(
             renderer, '--state-background-color'
@@ -425,17 +636,25 @@ export class State extends BasicBlock {
 
         if (visible_rect && visible_rect.x <= topleft.x &&
             visible_rect.y <= topleft.y + SDFV.LINEHEIGHT &&
-            SDFVSettings.showStateNames)
-            ctx.fillText(this.label(), topleft.x, topleft.y + SDFV.LINEHEIGHT);
+            SDFVSettings.showStateNames) {
+            if (!too_far_away_for_text(renderer, ctx)) {
+                ctx.fillText(
+                    this.label(), topleft.x, topleft.y + SDFV.LINEHEIGHT
+                );
+            }
+        }
 
         // If this state is selected or hovered
-        if ((this.selected || this.highlighted || this.hovered) &&
-            (clamped.x === topleft.x ||
-                clamped.y === topleft.y ||
-                clamped.x2 === topleft.x + this.width ||
-                clamped.y2 === topleft.y + this.height)) {
-            ctx.strokeStyle = this.strokeStyle(renderer);
-            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.NODE_LOD)) {
+            if ((this.selected || this.highlighted || this.hovered) &&
+                (clamped.x === topleft.x ||
+                    clamped.y === topleft.y ||
+                    clamped.x2 === topleft.x + this.width ||
+                    clamped.y2 === topleft.y + this.height)) {
+                ctx.strokeStyle = this.strokeStyle(renderer);
+                ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+            }
         }
 
         // If collapsed, draw a "+" sign in the middle
@@ -443,8 +662,6 @@ export class State extends BasicBlock {
             ctx.beginPath();
             ctx.moveTo(this.x, this.y - SDFV.LINEHEIGHT);
             ctx.lineTo(this.x, this.y + SDFV.LINEHEIGHT);
-            ctx.stroke();
-            ctx.beginPath();
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, this.y);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, this.y);
             ctx.stroke();
@@ -526,6 +743,12 @@ export class State extends BasicBlock {
 
 }
 
+export class BreakState extends State {
+}
+
+export class ContinueState extends State {
+}
+
 export class LoopRegion extends ControlFlowRegion {
 
     public static get CONDITION_SPACING(): number {
@@ -553,7 +776,7 @@ export class LoopRegion extends ControlFlowRegion {
         const visibleRect = renderer.get_visible_rect();
 
         let clamped;
-        if (visibleRect)
+        if (visibleRect) {
             clamped = {
                 x: Math.max(topleft.x, visibleRect.x),
                 y: Math.max(topleft.y, visibleRect.y),
@@ -566,7 +789,7 @@ export class LoopRegion extends ControlFlowRegion {
                 w: 0,
                 h: 0,
             };
-        else
+        } else {
             clamped = {
                 x: topleft.x,
                 y: topleft.y,
@@ -575,13 +798,19 @@ export class LoopRegion extends ControlFlowRegion {
                 w: 0,
                 h: 0,
             };
+        }
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
-        if (!(ctx as any).lod)
+        if (!(ctx as any).lod) {
             clamped = {
-                x: topleft.x, y: topleft.y, x2: 0, y2: 0,
-                w: this.width, h: this.height
+                x: topleft.x,
+                y: topleft.y,
+                x2: 0,
+                y2: 0,
+                w: this.width,
+                h: this.height,
             };
+        }
 
         // Draw the loop background below everything and stroke the border.
         ctx.fillStyle = this.getCssProperty(
@@ -591,7 +820,12 @@ export class LoopRegion extends ControlFlowRegion {
             renderer, '--loop-foreground-color'
         );
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
-        ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+
+        // Only draw line if close enough.
+        const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.NODE_LOD))
+            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+
         ctx.fillStyle = this.getCssProperty(
             renderer, '--loop-foreground-color'
         );
@@ -609,22 +843,25 @@ export class LoopRegion extends ControlFlowRegion {
             ctx.lineTo(topleft.x + this.width, initBottomLineY);
             ctx.stroke();
 
-            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-            const initStatement = this.attributes().init_statement?.string_data;
-            const initTextY = (
-                (topleft.y + (LoopRegion.INIT_SPACING / 2)) +
-                (SDFV.LINEHEIGHT / 2)
-            );
-            if (initStatement) {
-                const initTextMetrics = ctx.measureText(initStatement);
-                const initTextX = this.x - (initTextMetrics.width / 2);
-                ctx.fillText(initStatement, initTextX, initTextY);
-            }
+            if (!too_far_away_for_text(renderer, ctx)) {
+                ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+                const initStatement =
+                    this.attributes().init_statement?.string_data;
+                const initTextY = (
+                    (topleft.y + (LoopRegion.INIT_SPACING / 2)) +
+                    (SDFV.LINEHEIGHT / 2)
+                );
+                if (initStatement) {
+                    const initTextMetrics = ctx.measureText(initStatement);
+                    const initTextX = this.x - (initTextMetrics.width / 2);
+                    ctx.fillText(initStatement, initTextX, initTextY);
+                }
 
-            ctx.font = oldFont;
-            ctx.fillText(
-                'init', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
-            );
+                ctx.font = oldFont;
+                ctx.fillText(
+                    'init', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
+                );
+            }
         }
 
         // Draw the condition (either on top if the loop is a regularly
@@ -646,20 +883,24 @@ export class LoopRegion extends ControlFlowRegion {
         ctx.moveTo(topleft.x, condLineY);
         ctx.lineTo(topleft.x + this.width, condLineY);
         ctx.stroke();
-        ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-        const condStatement = this.attributes().loop_condition?.string_data;
-        const condTextY = (
-            (condTopY + (LoopRegion.CONDITION_SPACING / 2)) +
-            (SDFV.LINEHEIGHT / 2)
-        );
-        if (condStatement) {
-            const condTextMetrics = ctx.measureText(condStatement);
-            const condTextX = this.x - (condTextMetrics.width / 2);
-            ctx.fillText(condStatement, condTextX, condTextY);
-            ctx.font = oldFont;
-            ctx.fillText(
-                'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
+
+
+        if (!too_far_away_for_text(renderer, ctx)) {
+            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+            const condStatement = this.attributes().loop_condition?.string_data;
+            const condTextY = (
+                (condTopY + (LoopRegion.CONDITION_SPACING / 2)) +
+                (SDFV.LINEHEIGHT / 2)
             );
+            if (condStatement) {
+                const condTextMetrics = ctx.measureText(condStatement);
+                const condTextX = this.x - (condTextMetrics.width / 2);
+                ctx.fillText(condStatement, condTextX, condTextY);
+                ctx.font = oldFont;
+                ctx.fillText(
+                    'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
+                );
+            }
         }
 
         // Draw the update statement if there is one.
@@ -673,21 +914,24 @@ export class LoopRegion extends ControlFlowRegion {
             ctx.lineTo(topleft.x + this.width, updateTopY);
             ctx.stroke();
 
-            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-            const updateStatement =
-                this.attributes().update_statement.string_data;
-            const updateTextY = (
-                (updateTopY + (LoopRegion.UPDATE_SPACING / 2)) +
-                (SDFV.LINEHEIGHT / 2)
-            );
-            const updateTextMetrics = ctx.measureText(updateStatement);
-            const updateTextX = this.x - (updateTextMetrics.width / 2);
-            ctx.fillText(updateStatement, updateTextX, updateTextY);
-            ctx.font = oldFont;
-            ctx.fillText(
-                'update', topleft.x + LoopRegion.META_LABEL_MARGIN,
-                updateTextY
-            );
+
+            if (!too_far_away_for_text(renderer, ctx)) {
+                ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+                const updateStatement =
+                    this.attributes().update_statement.string_data;
+                const updateTextY = (
+                    (updateTopY + (LoopRegion.UPDATE_SPACING / 2)) +
+                    (SDFV.LINEHEIGHT / 2)
+                );
+                const updateTextMetrics = ctx.measureText(updateStatement);
+                const updateTextX = this.x - (updateTextMetrics.width / 2);
+                ctx.fillText(updateStatement, updateTextX, updateTextY);
+                ctx.font = oldFont;
+                ctx.fillText(
+                    'update', topleft.x + LoopRegion.META_LABEL_MARGIN,
+                    updateTextY
+                );
+            }
         }
         remainingHeight -= topSpacing;
 
@@ -695,20 +939,25 @@ export class LoopRegion extends ControlFlowRegion {
 
         if (visibleRect && visibleRect.x <= topleft.x &&
             visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
-            SDFVSettings.showStateNames)
-            ctx.fillText(
-                this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
-                topleft.y + topSpacing + SDFV.LINEHEIGHT
-            );
+            SDFVSettings.showStateNames) {
+            if (!too_far_away_for_text(renderer, ctx)) {
+                ctx.fillText(
+                    this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
+                    topleft.y + topSpacing + SDFV.LINEHEIGHT
+                );
+            }
+        }
 
         // If this state is selected or hovered
-        if ((this.selected || this.highlighted || this.hovered) &&
-            (clamped.x === topleft.x ||
-                clamped.y === topleft.y ||
-                clamped.x2 === topleft.x + this.width ||
-                clamped.y2 === topleft.y + this.height)) {
-            ctx.strokeStyle = this.strokeStyle(renderer);
-            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.NODE_LOD)) {
+            if ((this.selected || this.highlighted || this.hovered) &&
+                (clamped.x === topleft.x ||
+                    clamped.y === topleft.y ||
+                    clamped.x2 === topleft.x + this.width ||
+                    clamped.y2 === topleft.y + this.height)) {
+                ctx.strokeStyle = this.strokeStyle(renderer);
+                ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+            }
         }
 
         // If collapsed, draw a "+" sign in the middle
@@ -717,8 +966,6 @@ export class LoopRegion extends ControlFlowRegion {
             ctx.beginPath();
             ctx.moveTo(this.x, plusCenterY - SDFV.LINEHEIGHT);
             ctx.lineTo(this.x, plusCenterY + SDFV.LINEHEIGHT);
-            ctx.stroke();
-            ctx.beginPath();
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, plusCenterY);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, plusCenterY);
             ctx.stroke();
@@ -744,7 +991,7 @@ export class SDFGNode extends SDFGElement {
         const topleft = this.topleft();
         const visible_rect = renderer.get_visible_rect();
         let clamped;
-        if (visible_rect)
+        if (visible_rect) {
             clamped = {
                 x: Math.max(topleft.x, visible_rect.x),
                 y: Math.max(topleft.y, visible_rect.y),
@@ -757,7 +1004,7 @@ export class SDFGNode extends SDFGElement {
                 w: 0,
                 h: 0,
             };
-        else
+        } else {
             clamped = {
                 x: topleft.x,
                 y: topleft.y,
@@ -766,35 +1013,51 @@ export class SDFGNode extends SDFGElement {
                 w: 0,
                 h: 0,
             };
+        }
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
-        if (!(ctx as any).lod)
+        if (!(ctx as any).lod) {
             clamped = {
-                x: topleft.x, y: topleft.y, x2: 0, y2: 0,
-                w: this.width, h: this.height
+                x: topleft.x,
+                y: topleft.y,
+                x2: 0,
+                y2: 0,
+                w: this.width,
+                h: this.height,
             };
+        }
 
         ctx.fillStyle = this.getCssProperty(renderer, bgstyle);
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
-        if (clamped.x === topleft.x &&
-            clamped.y === topleft.y &&
-            clamped.x2 === topleft.x + this.width &&
-            clamped.y2 === topleft.y + this.height) {
-            ctx.strokeStyle = this.strokeStyle(renderer);
-            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+
+        // Only draw line if close enough to see it.
+        const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.NODE_LOD)) {
+            if (clamped.x === topleft.x &&
+                clamped.y === topleft.y &&
+                clamped.x2 === topleft.x + this.width &&
+                clamped.y2 === topleft.y + this.height) {
+                ctx.strokeStyle = this.strokeStyle(renderer);
+                ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+            }
         }
         if (this.label()) {
-            ctx.fillStyle = this.getCssProperty(renderer, fgstyle);
-            const textw = ctx.measureText(this.label()).width;
-            if (!visible_rect)
-                ctx.fillText(
-                    this.label(), this.x - textw / 2, this.y + SDFV.LINEHEIGHT / 4
-                );
-            else if (visible_rect && visible_rect.x <= topleft.x &&
-                visible_rect.y <= topleft.y + SDFV.LINEHEIGHT)
-                ctx.fillText(
-                    this.label(), this.x - textw / 2, this.y + SDFV.LINEHEIGHT / 4
-                );
+            if (!too_far_away_for_text(renderer, ctx)) {
+                ctx.fillStyle = this.getCssProperty(renderer, fgstyle);
+                const textw = ctx.measureText(this.label()).width;
+                if (!visible_rect) {
+                    ctx.fillText(
+                        this.label(), this.x - textw / 2,
+                        this.y + SDFV.LINEHEIGHT / 4
+                    );
+                } else if (visible_rect && visible_rect.x <= topleft.x &&
+                    visible_rect.y <= topleft.y + SDFV.LINEHEIGHT) {
+                    ctx.fillText(
+                        this.label(), this.x - textw / 2,
+                        this.y + SDFV.LINEHEIGHT / 4
+                    );
+                }
+            }
         }
     }
 
@@ -960,8 +1223,13 @@ export abstract class Edge extends SDFGElement {
 
         if (this.points.length < 2)
             return;
-        this.drawArrow(ctx, this.points[this.points.length - 2],
-            this.points[this.points.length - 1], 3, 0, 4);
+
+        const canvas_manager = _renderer.get_canvas_manager();
+        const ppp = canvas_manager?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+            this.drawArrow(ctx, this.points[this.points.length - 2],
+                this.points[this.points.length - 1], 3, 0, 4);
+        }
 
         // Restore previous stroke style, width, and opacity.
         ctx.strokeStyle = orig_stroke_style;
@@ -992,13 +1260,41 @@ export abstract class Edge extends SDFGElement {
                     return true;
             }
             return false;
+        } else {
+            // It is a rectangle. Check if any of the rectangles, spanned by
+            // pairs of points of the line, intersect the input rectangle.
+            // This is needed for long Interstate edges that have a huge
+            // bounding box and intersect almost always with the viewport even
+            // if they are not visible. This is only an approximation to detect
+            // if a line is in the viewport and could be made more accurate at
+            // the cost of more computation.
+            for (let i = 0; i < this.points.length - 1; i++) {
+                const linepoint_0 = this.points[i];
+                const linepoint_1 = this.points[i + 1];
+                // Rectangle spanned by the two line points
+                const r = {
+                    x: Math.min(linepoint_0.x, linepoint_1.x),
+                    y: Math.min(linepoint_0.y, linepoint_1.y),
+                    w: Math.abs(linepoint_1.x - linepoint_0.x),
+                    h: Math.abs(linepoint_1.y - linepoint_0.y),
+                };
+
+                // Check if the two rectangles intersect
+                if (r.x + r.w >= x && r.x <= x+w &&
+                    r.y + r.h >= y && r.y <= y+h)
+                    return true;
+            }
+            return false;
         }
-        return true;
     }
 
 }
 
 export class Memlet extends Edge {
+
+    // Currently used for Memlets to decide if they need to be drawn or not.
+    // Set in the layouter.
+    public summarized: boolean = false;
 
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
         // Draw memlet edges with quadratic curves through the arrow points.
@@ -1008,15 +1304,21 @@ export class Memlet extends Edge {
             ctx.lineTo(this.points[1].x, this.points[1].y);
         } else {
             let i;
-            for (i = 1; i < this.points.length - 2; i++) {
-                const xm = (this.points[i].x + this.points[i + 1].x) / 2.0;
-                const ym = (this.points[i].y + this.points[i + 1].y) / 2.0;
-                ctx.quadraticCurveTo(
-                    this.points[i].x, this.points[i].y, xm, ym
-                );
+            if (SDFVSettings.curvedEdges) {
+                for (i = 1; i < this.points.length - 2; i++) {
+                    const xm = (this.points[i].x + this.points[i + 1].x) / 2.0;
+                    const ym = (this.points[i].y + this.points[i + 1].y) / 2.0;
+                    ctx.quadraticCurveTo(
+                        this.points[i].x, this.points[i].y, xm, ym
+                    );
+                }
+                ctx.quadraticCurveTo(this.points[i].x, this.points[i].y,
+                    this.points[i + 1].x, this.points[i + 1].y);
+            } else {
+                // Straight lines
+                for (i = 1; i < this.points.length; i++)
+                    ctx.lineTo(this.points[i].x, this.points[i].y);
             }
-            ctx.quadraticCurveTo(this.points[i].x, this.points[i].y,
-                this.points[i + 1].x, this.points[i + 1].y);
         }
     }
 
@@ -1053,17 +1355,23 @@ export class Memlet extends Edge {
         // Show anchor points for moving
         if (this.selected && renderer.get_mouse_mode() === 'move') {
             let i;
-            for (i = 1; i < this.points.length - 1; i++)
+            for (i = 1; i < this.points.length - 1; i++) {
                 ctx.strokeRect(
                     this.points[i].x - 5, this.points[i].y - 5, 8, 8
                 );
+            }
         }
 
-        if (!skipArrow)
-            this.drawArrow(
-                ctx, this.points[this.points.length - 2],
-                this.points[this.points.length - 1], 3
-            );
+        if (!skipArrow) {
+            const canvas_manager = renderer.get_canvas_manager();
+            const ppp = canvas_manager?.points_per_pixel();
+            if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+                this.drawArrow(
+                    ctx, this.points[this.points.length - 2],
+                    this.points[this.points.length - 1], 3
+                );
+            }
+        }
     }
 
     public tooltip(
@@ -1085,30 +1393,34 @@ export class Memlet extends Edge {
         let contents = attr.data;
         contents += sdfg_property_to_string(attr.subset, dsettings);
 
-        if (attr.other_subset)
+        if (attr.other_subset) {
             contents += ' -> ' + sdfg_property_to_string(
                 attr.other_subset, dsettings
             );
+        }
 
-        if (attr.wcr)
+        if (attr.wcr) {
             contents += '<br /><b>CR: ' + sdfg_property_to_string(
                 attr.wcr, dsettings
             ) + '</b>';
+        }
 
         let num_accesses = null;
-        if (attr.volume)
+        if (attr.volume) {
             num_accesses = sdfg_property_to_string(attr.volume, dsettings);
-        else
+        } else {
             num_accesses = sdfg_property_to_string(
                 attr.num_accesses, dsettings
             );
+        }
 
         if (attr.dynamic) {
-            if (num_accesses === '0' || num_accesses === '-1')
+            if (num_accesses === '0' || num_accesses === '-1') {
                 num_accesses = '<b>Dynamic (unbounded)</b>';
-            else
+            } else {
                 num_accesses = '<b>Dynamic</b> (up to ' +
                     num_accesses + ')';
+            }
         } else if (num_accesses === '-1') {
             num_accesses = '<b>Dynamic (unbounded)</b>';
         }
@@ -1131,29 +1443,37 @@ export class InterstateEdge extends Edge {
         data: any,
         id: number,
         sdfg: JsonSDFG,
+        cfg: JsonSDFGControlFlowRegion,
         parent_id: number | null = null,
         parentElem?: SDFGElement,
         public readonly src?: string,
-        public readonly dst?: string,
+        public readonly dst?: string
     ) {
-        super(data, id, sdfg, parent_id, parentElem);
+        super(data, id, sdfg, cfg, parent_id, parentElem);
     }
 
     public create_arrow_line(ctx: CanvasRenderingContext2D): void {
         // Draw intersate edges with bezier curves through the arrow points.
         ctx.moveTo(this.points[0].x, this.points[0].y);
-        let lastX = this.points[0].x;
-        let lastY = this.points[0].y;
         let i;
-        for (i = 1; i < this.points.length; i++) {
-            const intermediateY = (lastY + this.points[i].y) / 2.0;
-            ctx.bezierCurveTo(
-                lastX, intermediateY,
-                this.points[i].x, intermediateY,
-                this.points[i].x, this.points[i].y
-            );
-            lastX = this.points[i].x;
-            lastY = this.points[i].y;
+
+        if (SDFVSettings.curvedEdges) {
+            let lastX = this.points[0].x;
+            let lastY = this.points[0].y;
+            for (i = 1; i < this.points.length; i++) {
+                const intermediateY = (lastY + this.points[i].y) / 2.0;
+                ctx.bezierCurveTo(
+                    lastX, intermediateY,
+                    this.points[i].x, intermediateY,
+                    this.points[i].x, this.points[i].y
+                );
+                lastX = this.points[i].x;
+                lastY = this.points[i].y;
+            }
+        } else {
+            // Straight lines
+            for (i = 1; i < this.points.length; i++)
+                ctx.lineTo(this.points[i].x, this.points[i].y);
         }
     }
 
@@ -1213,16 +1533,21 @@ export class InterstateEdge extends Edge {
         // Show anchor points for moving
         if (this.selected && renderer.get_mouse_mode() === 'move') {
             let i;
-            for (i = 1; i < this.points.length - 1; i++)
+            for (i = 1; i < this.points.length - 1; i++) {
                 ctx.strokeRect(
                     this.points[i].x - 5, this.points[i].y - 5, 8, 8
                 );
+            }
         }
 
-        this.drawArrow(
-            ctx, this.points[this.points.length - 2],
-            this.points[this.points.length - 1], 3
-        );
+        const canvas_manager = renderer.get_canvas_manager();
+        const ppp = canvas_manager?.points_per_pixel();
+        if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+            this.drawArrow(
+                ctx, this.points[this.points.length - 2],
+                this.points[this.points.length - 1], 3
+            );
+        }
 
         if (SDFVSettings.alwaysOnISEdgeLabels)
             this.drawLabel(renderer, ctx);
@@ -1247,7 +1572,7 @@ export class InterstateEdge extends Edge {
         const ppp = renderer.get_canvas_manager()?.points_per_pixel();
         if (ppp === undefined)
             return;
-        if ((ctx as any).lod && ppp >= SDFV.SCOPE_LOD)
+        if ((ctx as any).lod && ppp > SDFV.SCOPE_LOD)
             return;
 
         const labelLines = [];
@@ -1268,14 +1593,21 @@ export class InterstateEdge extends Edge {
         const labelWs = [];
         for (const l of labelLines) {
             const labelMetrics = ctx.measureText(l);
-            labelWs.push(
-                Math.abs(labelMetrics.actualBoundingBoxLeft) +
-                Math.abs(labelMetrics.actualBoundingBoxRight)
-            );
-            labelHs.push(
-                Math.abs(labelMetrics.actualBoundingBoxDescent) +
-                Math.abs(labelMetrics.actualBoundingBoxAscent)
-            );
+
+            let label_width = Math.abs(labelMetrics.actualBoundingBoxLeft) +
+                Math.abs(labelMetrics.actualBoundingBoxRight);
+            let label_height = Math.abs(labelMetrics.actualBoundingBoxDescent) +
+                Math.abs(labelMetrics.actualBoundingBoxAscent);
+
+            // In case of canvas2pdf context, that only has width and height
+            // as TextMetrics properties
+            if (label_width !== label_width)
+                label_width = (labelMetrics as any).width;
+            if (label_height !== label_height)
+                label_height = (labelMetrics as any).height;
+
+            labelWs.push(label_width);
+            labelHs.push(label_height);
         }
         const labelW = Math.max(...labelWs);
         const labelH = labelHs.reduce((pv, cv) => {
@@ -1341,12 +1673,13 @@ export class InterstateEdge extends Edge {
         ctx.fillStyle = this.getCssProperty(
             renderer, '--interstate-edge-color'
         );
-        for (let i = 0; i < labelLines.length; i++)
+        for (let i = 0; i < labelLines.length; i++) {
             ctx.fillText(
                 labelLines[i],
                 srcP.x + offsetX,
                 (srcP.y + offsetY) - (i * (labelHs[0] + SDFV.LINEHEIGHT))
             );
+        }
         ctx.font = oldFont;
     }
 
@@ -1388,8 +1721,10 @@ export class Connector extends SDFGElement {
             this.custom_label = null;
         } else if (!edge) {
             ctx.stroke();
-            fillColor = this.getCssProperty(renderer, '--node-missing-background-color');
-            this.custom_label = "No edge connected";
+            fillColor = this.getCssProperty(
+                renderer, '--node-missing-background-color'
+            );
+            this.custom_label = 'No edge connected';
         } else {
             ctx.stroke();
             fillColor = this.getCssProperty(
@@ -1412,7 +1747,8 @@ export class Connector extends SDFGElement {
         }
         ctx.fill();
 
-        if (this.strokeStyle(renderer) !== this.getCssProperty(renderer, '--color-default'))
+        if (this.strokeStyle(renderer) !==
+            this.getCssProperty(renderer, '--color-default'))
             renderer.set_tooltip((c) => this.tooltip(c));
     }
 
@@ -1457,28 +1793,27 @@ export class AccessNode extends SDFGNode {
         const name = this.data.node.attributes.data;
         const nodedesc = this.sdfg.attributes._arrays[name];
         // Streams have dashed edges
-        if (nodedesc && nodedesc.type === 'Stream') {
+        if (nodedesc && nodedesc.type === 'Stream')
             ctx.setLineDash([5, 3]);
-        } else {
+        else
             ctx.setLineDash([1, 0]);
-        }
 
         // Non-transient (external) data is thicker
-        if (nodedesc && nodedesc.attributes.transient === true) {
+        if (nodedesc && nodedesc.attributes.transient === true)
             ctx.lineWidth = 1.0;
-        } else {
+        else
             ctx.lineWidth = 3.0;
-        }
+
         ctx.stroke();
         ctx.lineWidth = 1.0;
         ctx.setLineDash([1, 0]);
 
         // Views are colored like connectors
-        if (nodedesc && nodedesc.type === 'View') {
+        if (nodedesc && nodedesc.type.includes('View')) {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--connector-unscoped-color'
             );
-        } else if (nodedesc && nodedesc.type === 'Reference') {
+        } else if (nodedesc && nodedesc.type.includes('Reference')) {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--reference-background-color'
             );
@@ -1512,9 +1847,15 @@ export class AccessNode extends SDFGNode {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--node-missing-foreground-color'
             );
-            if (this.strokeStyle(renderer) !== this.getCssProperty(renderer, '--color-default'))
+            if (this.strokeStyle(renderer) !==
+                this.getCssProperty(renderer, '--color-default'))
                 renderer.set_tooltip((c) => this.tooltip(c));
         }
+
+        // If we are far away, don't show the text
+        if (too_far_away_for_text(renderer, ctx))
+            return;
+
         const textmetrics = ctx.measureText(this.label());
         ctx.fillText(
             this.label(), this.x - textmetrics.width / 2.0,
@@ -1570,6 +1911,10 @@ export class AccessNode extends SDFGNode {
 
 export class ScopeNode extends SDFGNode {
 
+    public get COLLAPSIBLE(): boolean {
+        return true;
+    }
+
     private cached_far_label: string | null = null;
     private cached_close_label: string | null = null;
 
@@ -1594,6 +1939,8 @@ export class ScopeNode extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D
     ): void {
+        this.draw_edge_summary(renderer, ctx);
+
         let draw_shape;
         if (this.data.node.attributes.is_collapsed) {
             draw_shape = () => {
@@ -1629,6 +1976,10 @@ export class ScopeNode extends SDFGNode {
             renderer, '--node-foreground-color'
         );
 
+        // If we are far away, don't show the text
+        if (too_far_away_for_text(renderer, ctx))
+            return;
+
         drawAdaptiveText(
             ctx, renderer, this.far_label(renderer),
             this.close_label(renderer), this.x, this.y,
@@ -1636,17 +1987,18 @@ export class ScopeNode extends SDFGNode {
             SDFV.SCOPE_LOD
         );
 
-        if (SDFVSettings.showMapSchedules)
+        if (SDFVSettings.showMapSchedules) {
             drawAdaptiveText(
                 ctx, renderer, '', this.schedule_label(), this.x, this.y,
                 this.width, this.height,
                 SDFV.SCOPE_LOD, SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
                 SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true,
                 TextVAlign.BOTTOM, TextHAlign.RIGHT, {
-                bottom: 2.0,
-                right: this.height,
-            }
+                    bottom: 2.0,
+                    right: this.height,
+                }
             );
+        }
     }
 
     public shade(
@@ -1660,13 +2012,14 @@ export class ScopeNode extends SDFGNode {
         ctx.globalAlpha = alpha;
         ctx.fillStyle = color;
 
-        if (this.data.node.attributes.is_collapsed)
+        if (this.data.node.attributes.is_collapsed) {
             drawHexagon(ctx, this.x, this.y, this.width, this.height, {
                 x: 0,
                 y: 0,
             });
-        else
+        } else {
             drawTrapezoid(ctx, this.topleft(), this, this.scopeend());
+        }
         ctx.fill();
 
         // Restore the previous style properties.
@@ -1677,7 +2030,7 @@ export class ScopeNode extends SDFGNode {
     public schedule_label(): string {
         let attrs = this.attributes();
         if (this.scopeend() && this.parent_id !== null) {
-            const entry = this.sdfg.nodes[this.parent_id].nodes[
+            const entry = this.parentElem?.data.state.nodes[
                 this.data.node.scope_entry
             ];
             if (entry !== undefined)
@@ -1707,7 +2060,7 @@ export class ScopeNode extends SDFGNode {
 
         let attrs = this.attributes();
         if (this.scopeend() && this.parent_id !== null) {
-            const entry = this.sdfg.nodes[this.parent_id].nodes[
+            const entry = this.parentElem?.data.state.nodes[
                 this.data.node.scope_entry
             ];
             if (entry !== undefined)
@@ -1721,10 +2074,11 @@ export class ScopeNode extends SDFGNode {
                 attrs.num_pes ?? 1, renderer.view_settings()
             );
         } else {
-            for (let i = 0; i < attrs.params.length; ++i)
+            for (let i = 0; i < attrs.params.length; ++i) {
                 result += sdfg_range_elem_to_string(
                     attrs.range.ranges[i], renderer.view_settings()
                 ) + ', ';
+            }
             // Remove trailing comma
             result = result.substring(0, result.length - 2);
         }
@@ -1745,12 +2099,12 @@ export class ScopeNode extends SDFGNode {
 
         let result = '';
         if (this.scopeend() && this.parent_id !== null) {
-            const entry = this.sdfg.nodes[this.parent_id].nodes[
+            const entry = this.parentElem?.data.state.nodes[
                 this.data.node.scope_entry
             ];
-            if (entry !== undefined)
+            if (entry !== undefined) {
                 attrs = entry.attributes;
-            else {
+            } else {
                 this.cached_close_label = 'MISSING ENTRY NODE';
                 return 'MISSING ENTRY NODE';
             }
@@ -1872,11 +2226,18 @@ export class Tasklet extends SDFGNode {
         public data: any,
         public id: number,
         public sdfg: JsonSDFG,
+        public cfg: JsonSDFGControlFlowRegion,
         public parent_id: number | null = null,
-        public parentElem?: SDFGElement,
+        public parentElem?: SDFGElement
     ) {
-        super(data, id, sdfg, parent_id, parentElem);
+        super(data, id, sdfg, cfg, parent_id, parentElem);
         this.highlightCode();
+    }
+
+    public text_for_find(): string {
+        // Include code when searching
+        const code = this.attributes().code.string_data;
+        return this.label() + ' ' + code;
     }
 
     private highlightedCode: TaskletCodeToken[][] = [];
@@ -1894,7 +2255,9 @@ export class Tasklet extends SDFGNode {
 
         const sdfgSymbols = Object.keys(this.sdfg.attributes.symbols ?? []);
         const inConnectors = Object.keys(this.attributes().in_connectors ?? []);
-        const outConnectors = Object.keys(this.attributes().out_connectors ?? []);
+        const outConnectors = Object.keys(
+            this.attributes().out_connectors ?? []
+        );
 
         const lines = code.split('\n');
         let maxline_len = 0;
@@ -1905,41 +2268,45 @@ export class Tasklet extends SDFGNode {
             }
 
             const highlightedLine: TaskletCodeToken[] = [];
-            const tokens = editor.tokenize(line, lang)[0];
-            if (tokens.length < 2) {
-                highlightedLine.push({
-                    token: line,
-                    type: TaskletCodeTokenType.Other,
-                    highlighted: false,
-                });
-            } else {
-                for (let i = 0; i < tokens.length; i++) {
-                    const token = tokens[i];
-                    const next = i + 1 < tokens.length ? tokens[i + 1] : null;
-                    const endPos = next?.offset;
-                    const tokenValue = line.substring(token.offset, endPos);
-
-                    const taskletToken: TaskletCodeToken = {
-                        token: tokenValue,
+            try {
+                const tokens = editor.tokenize(line, lang)[0];
+                if (tokens.length < 2) {
+                    highlightedLine.push({
+                        token: line,
                         type: TaskletCodeTokenType.Other,
                         highlighted: false,
-                    };
-                    if (token.type.startsWith('identifier')) {
-                        if (sdfgSymbols.includes(tokenValue)) {
-                            taskletToken.type = TaskletCodeTokenType.Symbol;
-                        } else if (inConnectors.includes(tokenValue)) {
-                            taskletToken.type = TaskletCodeTokenType.Input;
-                            this.inputTokens.add(taskletToken);
-                        } else if (outConnectors.includes(tokenValue)) {
-                            taskletToken.type = TaskletCodeTokenType.Output;
-                            this.outputTokens.add(taskletToken);
-                        }
-                    } else if (token.type.startsWith('number')) {
-                        taskletToken.type = TaskletCodeTokenType.Number;
-                    }
+                    });
+                } else {
+                    for (let i = 0; i < tokens.length; i++) {
+                        const token = tokens[i];
+                        const next = i + 1 < tokens.length ?
+                            tokens[i + 1] : null;
+                        const endPos = next?.offset;
+                        const tokenValue = line.substring(token.offset, endPos);
 
-                    highlightedLine.push(taskletToken);
+                        const taskletToken: TaskletCodeToken = {
+                            token: tokenValue,
+                            type: TaskletCodeTokenType.Other,
+                            highlighted: false,
+                        };
+                        if (token.type.startsWith('identifier')) {
+                            if (sdfgSymbols.includes(tokenValue)) {
+                                taskletToken.type = TaskletCodeTokenType.Symbol;
+                            } else if (inConnectors.includes(tokenValue)) {
+                                taskletToken.type = TaskletCodeTokenType.Input;
+                                this.inputTokens.add(taskletToken);
+                            } else if (outConnectors.includes(tokenValue)) {
+                                taskletToken.type = TaskletCodeTokenType.Output;
+                                this.outputTokens.add(taskletToken);
+                            }
+                        } else if (token.type.startsWith('number')) {
+                            taskletToken.type = TaskletCodeTokenType.Number;
+                        }
+
+                        highlightedLine.push(taskletToken);
+                    }
                 }
+            } catch (_ignored) {
             }
             this.highlightedCode.push(highlightedLine);
         }
@@ -2049,6 +2416,10 @@ export class Tasklet extends SDFGNode {
             renderer, '--node-foreground-color'
         );
 
+        // If we are far away, don't show the text
+        if (too_far_away_for_text(renderer, ctx))
+            return;
+
         const ppp = canvas_manager.points_per_pixel();
         if (!(ctx as any).lod || ppp < SDFV.TASKLET_LOD) {
             // If we are close to the tasklet, show its contents
@@ -2108,17 +2479,21 @@ export class Reduce extends SDFGNode {
         if ((ctx as any).pdf)
             draw_shape();
         ctx.fill();
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--node-foreground-color'
-        );
 
-        const far_label = this.label().substring(4, this.label().indexOf(','));
-        drawAdaptiveText(
-            ctx, renderer, far_label,
-            this.label(), this.x, this.y - this.height * 0.2,
-            this.width, this.height,
-            SDFV.SCOPE_LOD
-        );
+        if (!too_far_away_for_text(renderer, ctx)) {
+            ctx.fillStyle = this.getCssProperty(
+                renderer, '--node-foreground-color'
+            );
+            const far_label = this.label().substring(
+                4, this.label().indexOf(',')
+            );
+            drawAdaptiveText(
+                ctx, renderer, far_label,
+                this.label(), this.x, this.y - this.height * 0.2,
+                this.width, this.height,
+                SDFV.SCOPE_LOD
+            );
+        }
     }
 
     public shade(
@@ -2150,10 +2525,16 @@ export class Reduce extends SDFGNode {
 
 export class NestedSDFG extends SDFGNode {
 
+    public get COLLAPSIBLE(): boolean {
+        return true;
+    }
+
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D
     ): void {
+        this.draw_edge_summary(renderer, ctx);
+
         if (this.data.node.attributes.is_collapsed) {
             const topleft = this.topleft();
             drawOctagon(ctx, topleft, this.width, this.height);
@@ -2169,23 +2550,28 @@ export class NestedSDFG extends SDFGNode {
                 renderer, '--node-background-color'
             );
             // PDFs do not support stroke and fill on the same object
-            if ((ctx as any).pdf)
+            if ((ctx as any).pdf) {
                 drawOctagon(
                     ctx, { x: topleft.x + 2.5, y: topleft.y + 2.5 },
                     this.width - 5, this.height - 5
                 );
+            }
             ctx.fill();
-            ctx.fillStyle = this.getCssProperty(
-                renderer, '--node-foreground-color'
-            );
-            let label = this.data.node.attributes.label;
-            if (!this.data.node.attributes.sdfg)
-                label += ' (not loaded)';
-            const textmetrics = ctx.measureText(label);
-            ctx.fillText(
-                label, this.x - textmetrics.width / 2.0,
-                this.y + SDFV.LINEHEIGHT / 4.0
-            );
+
+
+            if (!too_far_away_for_text(renderer, ctx)) {
+                ctx.fillStyle = this.getCssProperty(
+                    renderer, '--node-foreground-color'
+                );
+                let label = this.data.node.attributes.label;
+                if (!this.data.node.attributes.sdfg)
+                    label += ' (not loaded)';
+                const textmetrics = ctx.measureText(label);
+                ctx.fillText(
+                    label, this.x - textmetrics.width / 2.0,
+                    this.y + SDFV.LINEHEIGHT / 4.0
+                );
+            }
         } else {
             // Draw square around nested SDFG.
             super.draw(
@@ -2199,16 +2585,18 @@ export class NestedSDFG extends SDFGNode {
                 drawSDFG(renderer, ctx, this.data.graph, mousepos);
             } else {
                 // Expanded, but no SDFG present or loaded yet.
-                const errColor = this.getCssProperty(
-                    renderer, '--node-missing-background-color'
-                );
-                const label = 'No SDFG loaded';
-                const textmetrics = ctx.measureText(label);
-                ctx.fillStyle = errColor;
-                ctx.fillText(
-                    label, this.x - textmetrics.width / 2.0,
-                    this.y + SDFV.LINEHEIGHT / 4.0
-                );
+                if (!too_far_away_for_text(renderer, ctx)) {
+                    const errColor = this.getCssProperty(
+                        renderer, '--node-missing-background-color'
+                    );
+                    const label = 'No SDFG loaded';
+                    const textmetrics = ctx.measureText(label);
+                    ctx.fillStyle = errColor;
+                    ctx.fillText(
+                        label, this.x - textmetrics.width / 2.0,
+                        this.y + SDFV.LINEHEIGHT / 4.0
+                    );
+                }
             }
         }
     }
@@ -2311,6 +2699,11 @@ export class LibraryNode extends SDFGNode {
         ctx.fillStyle = this.getCssProperty(
             renderer, '--node-foreground-color'
         );
+
+        // If we are far away, don't show the text
+        if (too_far_away_for_text(renderer, ctx))
+            return;
+
         const textw = ctx.measureText(this.label()).width;
         ctx.fillText(
             this.label(), this.x - textw / 2, this.y + SDFV.LINEHEIGHT / 4
@@ -2340,6 +2733,24 @@ export class LibraryNode extends SDFGNode {
 
 //////////////////////////////////////////////////////
 
+// Checks if graph is zoomed out far (defined by SDFV.TEXT_LOD), using
+// Points-per-Pixel. Used before ctx.fillText calls to only draw text when
+// zoomed in close enough.
+function too_far_away_for_text(
+    renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
+): boolean {
+    const canvas_manager = renderer.get_canvas_manager();
+    const ppp = canvas_manager?.points_per_pixel();
+    if (ppp) {
+        if ((ctx as any).lod && ppp > SDFV.TEXT_LOD)
+            return true;
+        else
+            return false;
+    }
+
+    return false;
+}
+
 /**
  * Batched drawing of graph edges, given a specific default color.
  *
@@ -2359,7 +2770,7 @@ export class LibraryNode extends SDFGNode {
  * @param color        Default edge color to use.
  */
 function batchedDrawEdges(
-    renderer: SDFGRenderer, graph: DagreSDFG, ctx: CanvasRenderingContext2D,
+    renderer: SDFGRenderer, graph: DagreGraph, ctx: CanvasRenderingContext2D,
     visible_rect?: SimpleRect, mousepos?: Point2D,
     color: string = '--color-default',
     labelled: boolean = false
@@ -2389,6 +2800,9 @@ function batchedDrawEdges(
         if (edge.selected || edge.hovered || edge.highlighted) {
             deferredEdges.push(edge);
             return;
+        } else if (edge instanceof Memlet && edge.summarized) {
+            // Don't draw if Memlet is summarized
+            return;
         }
 
         const lPoint = edge.points[edge.points.length - 1];
@@ -2411,11 +2825,19 @@ function batchedDrawEdges(
     ctx.fillStyle = ctx.strokeStyle = renderer.getCssProperty(color);
     ctx.stroke();
 
-    arrowEdges.forEach(e => {
-        e.drawArrow(
-            ctx, e.points[e.points.length - 2], e.points[e.points.length - 1], 3
-        );
-    });
+    // Only draw Arrowheads when close enough to see them
+    const canvas_manager = renderer.get_canvas_manager();
+    const ppp = canvas_manager?.points_per_pixel();
+    if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+        arrowEdges.forEach(e => {
+            e.drawArrow(
+                ctx,
+                e.points[e.points.length - 2],
+                e.points[e.points.length - 1],
+                3
+            );
+        });
+    }
 
     labelEdges.forEach(e => {
         (e as InterstateEdge).drawLabel(renderer, ctx);
@@ -2434,7 +2856,7 @@ function batchedDrawEdges(
 }
 
 export function drawStateContents(
-    stateGraph: DagreSDFG, ctx: CanvasRenderingContext2D,
+    stateGraph: DagreGraph, ctx: CanvasRenderingContext2D,
     renderer: SDFGRenderer, ppp: number, lod?: boolean,
     visibleRect?: SimpleRect, mousePos?: Point2D
 ): void {
@@ -2446,15 +2868,17 @@ export function drawStateContents(
         ))
             continue;
 
-        if (node instanceof NestedSDFG) {
-            if (lod && (
-                Math.max(node.height, node.width) / ppp
-            ) < SDFV.STATE_LOD) {
+        // Simple draw for non-collapsed NestedSDFGs
+        if (node instanceof NestedSDFG &&
+            !node.data.node.attributes.is_collapsed) {
+            const nodeppp = Math.sqrt(node.width * node.height) / ppp;
+            if (lod && nodeppp < SDFV.STATE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
                 continue;
             }
         } else {
+            // Simple draw node
             if (lod && ppp > SDFV.NODE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
@@ -2464,28 +2888,47 @@ export function drawStateContents(
 
         node.draw(renderer, ctx, mousePos);
         node.debug_draw(renderer, ctx);
-        node.in_connectors.forEach((c: Connector) => {
-            let edge: Edge | null = null;
-            stateGraph.inEdges(nodeId)?.forEach((e) => {
-                const eobj = stateGraph.edge(e);
-                if (eobj.dst_connector == c.data.name)
-                    edge = eobj as any;
-            });
 
-            c.draw(renderer, ctx, mousePos, edge);
-            c.debug_draw(renderer, ctx);
-        });
-        node.out_connectors.forEach((c: Connector) => {
-            let edge: Edge | null = null;
-            stateGraph.outEdges(nodeId)?.forEach((e) => {
-                const eobj = stateGraph.edge(e);
-                if (eobj.src_connector == c.data.name)
-                    edge = eobj as any;
-            });
+        // Only draw connectors when close enough to see them
+        if (!lod || ppp < SDFV.CONNECTOR_LOD) {
+            node.in_connectors.forEach((c: Connector) => {
+                // Only draw connectors if actually visible. This is needed for
+                // large nodes in the background like NestedSDFGs, that are
+                // visible, but their connectors are actually not.
+                if (visibleRect && !c.intersect(
+                    visibleRect.x, visibleRect.y,
+                    visibleRect.w, visibleRect.h
+                ))
+                    return;
 
-            c.draw(renderer, ctx, mousePos, edge);
-            c.debug_draw(renderer, ctx);
-        });
+                let edge: Edge | null = null;
+                stateGraph.inEdges(nodeId)?.forEach((e) => {
+                    const eobj = stateGraph.edge(e);
+                    if (eobj.dst_connector === c.data.name)
+                        edge = eobj as any;
+                });
+
+                c.draw(renderer, ctx, mousePos, edge);
+                c.debug_draw(renderer, ctx);
+            });
+            node.out_connectors.forEach((c: Connector) => {
+                if (visibleRect && !c.intersect(
+                    visibleRect.x, visibleRect.y,
+                    visibleRect.w, visibleRect.h
+                ))
+                    return;
+
+                let edge: Edge | null = null;
+                stateGraph.outEdges(nodeId)?.forEach((e) => {
+                    const eobj = stateGraph.edge(e);
+                    if (eobj.src_connector === c.data.name)
+                        edge = eobj as any;
+                });
+
+                c.draw(renderer, ctx, mousePos, edge);
+                c.debug_draw(renderer, ctx);
+            });
+        }
     }
 
     if (lod && ppp > SDFV.EDGE_LOD)
@@ -2498,30 +2941,30 @@ export function drawStateContents(
 }
 
 export function drawStateMachine(
-    stateMachineGraph: DagreSDFG, ctx: CanvasRenderingContext2D,
+    stateMachineGraph: DagreGraph, ctx: CanvasRenderingContext2D,
     renderer: SDFGRenderer, ppp: number, lod?: boolean,
     visibleRect?: SimpleRect, mousePos?: Point2D
 ): void {
-    if (!lod || ppp < SDFV.EDGE_LOD)
+    if (!lod || ppp < SDFV.EDGE_LOD) {
         batchedDrawEdges(
             renderer, stateMachineGraph, ctx, visibleRect, mousePos,
             '--interstate-edge-color', SDFVSettings.alwaysOnISEdgeLabels
         );
+    }
 
     for (const nodeId of stateMachineGraph.nodes()) {
         const block = stateMachineGraph.node(nodeId);
 
-        const blockppp = Math.max(block.width, block.height) / ppp;
-        if (lod && blockppp < SDFV.STATE_LOD) {
-            block.simple_draw(renderer, ctx, mousePos);
-            block.debug_draw(renderer, ctx);
-            continue;
-        }
-
         // Skip invisible states.
         if (lod && visibleRect && !block.intersect(
             visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h
-        )) {
+        ))
+            continue;
+
+        const blockppp = Math.sqrt(block.width * block.height) / ppp;
+        if (lod && blockppp < SDFV.STATE_LOD) {
+            block.simple_draw(renderer, ctx, mousePos);
+            block.debug_draw(renderer, ctx);
             continue;
         }
 
@@ -2545,7 +2988,7 @@ export function drawStateMachine(
 
 // Draw an entire SDFG.
 export function drawSDFG(
-    renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, g: DagreSDFG,
+    renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, g: DagreGraph,
     mousePos?: Point2D
 ): void {
     const cManager = renderer.get_canvas_manager();
@@ -2561,7 +3004,7 @@ export function drawSDFG(
 
 // Translate an SDFG by a given offset
 export function offset_sdfg(
-    sdfg: JsonSDFG, sdfg_graph: DagreSDFG, offset: Point2D
+    sdfg: JsonSDFG, sdfg_graph: DagreGraph, offset: Point2D
 ): void {
     sdfg.nodes.forEach((state: JsonSDFGBlock, id: number) => {
         const g = sdfg_graph.node(id.toString());
@@ -2593,7 +3036,8 @@ export function offset_state(
 
     state.nodes.forEach((_n: JsonSDFGNode, nid: number) => {
         const node = state_graph.data.graph.node(nid);
-        if (!node) return;
+        if (!node)
+            return;
         drawn_nodes.add(nid.toString());
 
         node.x += offset.x;
@@ -2608,17 +3052,20 @@ export function offset_state(
         });
 
         if (node.data.node.type === SDFGElementType.NestedSDFG &&
-            node.data.node.attributes.sdfg)
+            node.data.node.attributes.sdfg) {
             offset_sdfg(
                 node.data.node.attributes.sdfg, node.data.graph, offset
             );
+        }
     });
     state.edges.forEach((e: JsonSDFGEdge, eid: number) => {
         const ne = check_and_redirect_edge(e, drawn_nodes, state);
-        if (!ne) return;
+        if (!ne)
+            return;
         e = ne;
         const edge = state_graph.data.graph.edge(e.src, e.dst, eid);
-        if (!edge) return;
+        if (!edge)
+            return;
         edge.x += offset.x;
         edge.y += offset.y;
         edge.points.forEach((p: Point2D) => {
@@ -2669,7 +3116,7 @@ export function drawAdaptiveText(
     if (ppp === undefined)
         return;
 
-    const is_far: boolean = (ctx as any).lod && ppp >= ppp_thres;
+    const is_far: boolean = (ctx as any).lod && ppp > ppp_thres;
     const label = is_far ? far_text : close_text;
 
     let font_size = Math.min(
@@ -2685,9 +3132,9 @@ export function drawAdaptiveText(
         Math.abs(label_metrics.actualBoundingBoxRight);
     let label_height = Math.abs(label_metrics.actualBoundingBoxDescent) +
         Math.abs(label_metrics.actualBoundingBoxAscent);
-    if (label_width != label_width)
+    if (label_width !== label_width)
         label_width = label_metrics.width;
-    if (label_height != label_height)
+    if (label_height !== label_height)
         label_height = (label_metrics as any).height;  // Account for canvas2pdf
 
     const padding_left = padding.left !== undefined ? padding.left : 1.0;
@@ -2775,23 +3222,10 @@ export function drawOctagon(
     ctx.closePath();
 }
 
-// Adapted from https://stackoverflow.com/a/2173084/6489142
 export function drawEllipse(
     ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number
 ): void {
-    const kappa = .5522848,
-        ox = (w / 2) * kappa, // control point offset horizontal
-        oy = (h / 2) * kappa, // control point offset vertical
-        xe = x + w,           // x-end
-        ye = y + h,           // y-end
-        xm = x + w / 2,       // x-middle
-        ym = y + h / 2;       // y-middle
-
-    ctx.moveTo(x, ym);
-    ctx.bezierCurveTo(x, ym - oy, xm - ox, y, xm, y);
-    ctx.bezierCurveTo(xm + ox, y, xe, ym - oy, xe, ym);
-    ctx.bezierCurveTo(xe, ym + oy, xm + ox, ye, xm, ye);
-    ctx.bezierCurveTo(xm - ox, ye, x, ym + oy, x, ym);
+    ctx.ellipse(x+w/2, y+h/2, w/2, h/2, 0, 0, 2 * Math.PI);
 }
 
 export function drawTrapezoid(
@@ -2855,6 +3289,8 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     ControlFlowBlock,
     BasicBlock,
     State,
-    ControlFlowRegion: ControlFlowRegion,
-    LoopRegion: LoopRegion,
+    BreakState,
+    ContinueState,
+    ControlFlowRegion,
+    LoopRegion,
 };

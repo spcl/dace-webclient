@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { SDFGElement } from './renderer/renderer_elements';
 
@@ -7,6 +7,7 @@ export * from './overlays/memory_volume_overlay';
 export * from './overlays/runtime_micro_seconds_overlay';
 export * from './overlays/memory_location_overlay';
 export * from './overlays/operational_intensity_overlay';
+export * from './overlays/simulated_operational_intensity_overlay';
 export * from './overlays/static_flops_overlay';
 export * from './overlays/depth_overlay';
 export * from './overlays/avg_parallelism_overlay';
@@ -19,6 +20,7 @@ export * from './utils/sdfg/json_serializer';
 export * from './utils/sdfg/sdfg_parser';
 export * from './utils/sdfg/sdfg_utils';
 export * from './utils/sdfg/traversal';
+export * from './utils/sdfv_settings';
 export * from './utils/bounding_box';
 export * from './utils/lerp_matrix';
 export * from './utils/sanitization';
@@ -30,7 +32,7 @@ export type SymbolMap = {
     [symbol: string]: number | undefined,
 };
 
-export type DagreSDFG = dagre.graphlib.Graph<SDFGElement>;
+export type DagreGraph = dagre.graphlib.Graph<SDFGElement>;
 
 export type InvalidSDFGError = {
     message: string | undefined,
@@ -41,40 +43,41 @@ export type InvalidSDFGError = {
     isedge_id: number | undefined,
 };
 
-export type JsonSDFGEdge = {
+export interface JsonSDFGElement {
     attributes: any,
+    type: string,
+}
+
+export interface JsonSDFGEdge extends JsonSDFGElement {
     dst: string,
     dst_connector: string | null,
     src: string,
     src_connector: string | null,
-    type: string,
     height: number,
     width: number,
     x?: number,
     y?: number,
-};
+}
 
-export interface JsonSDFGNode {
-    attributes: any,
+export interface JsonSDFGNode extends JsonSDFGElement {
     id: number,
     label: string,
     scope_entry: string | null,
     scope_exit: string | null,
-    type: string,
 }
 
-export interface JsonSDFGBlock {
-    attributes: any,
+export interface JsonSDFGBlock extends JsonSDFGElement {
     collapsed: boolean,
     edges: JsonSDFGEdge[],
     nodes: (JsonSDFGBlock | JsonSDFGNode)[],
     id: number,
     label: string,
-    type: string,
 }
 
-export interface JsonSDFGControlBlock extends JsonSDFGBlock {
+export interface JsonSDFGControlFlowRegion extends JsonSDFGBlock {
     nodes: JsonSDFGBlock[],
+    start_block: number,
+    cfg_list_id: number,
 }
 
 export interface JsonSDFGState extends JsonSDFGBlock {
@@ -82,15 +85,9 @@ export interface JsonSDFGState extends JsonSDFGBlock {
     nodes: JsonSDFGNode[],
 }
 
-export type JsonSDFG = {
-    type: string,
-    start_state: number,
-    sdfg_list_id: number,
-    attributes: any,
-    edges: any[], // TODO
-    nodes: any[], // TODO
+export interface JsonSDFG extends JsonSDFGControlFlowRegion {
     error: InvalidSDFGError | undefined,
-};
+}
 
 export type ModeButtons = {
     pan: HTMLElement | null,

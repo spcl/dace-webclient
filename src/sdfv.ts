@@ -1,26 +1,24 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import $ from 'jquery';
 
-import 'material-icons/iconfont/material-icons.css';
-import 'material-symbols/index.css';
-
 import 'bootstrap';
-import 'bootstrap/dist/css/bootstrap.min.css';
+
+import '../scss/sdfv.scss';
 
 import { mean, median } from 'mathjs';
 import {
-    DagreSDFG,
+    DagreGraph,
     GenericSdfgOverlay,
     JsonSDFG,
     Point2D,
     sdfg_property_to_string,
     showErrorModal,
-    traverseSDFGScopes
+    traverseSDFGScopes,
 } from './index';
 import { LViewRenderer } from './local_view/lview_renderer';
 import {
-    RuntimeMicroSecondsOverlay
+    RuntimeMicroSecondsOverlay,
 } from './overlays/runtime_micro_seconds_overlay';
 import { OverlayManager } from './overlay_manager';
 import { SDFGRenderer } from './renderer/renderer';
@@ -28,10 +26,14 @@ import {
     AccessNode, Edge, Memlet, NestedSDFG, SDFG,
     SDFGElement,
     SDFGNode,
-    State
+    State,
 } from './renderer/renderer_elements';
 import { htmlSanitize } from './utils/sanitization';
-import { parse_sdfg, stringify_sdfg } from './utils/sdfg/json_serializer';
+import {
+    checkCompatLoad,
+    parse_sdfg,
+    stringify_sdfg,
+} from './utils/sdfg/json_serializer';
 import { SDFVSettings } from './utils/sdfv_settings';
 
 declare const vscode: any;
@@ -44,19 +46,30 @@ export class SDFV {
 
     public static LINEHEIGHT: number = 10;
     // Points-per-pixel threshold for drawing tasklet contents.
-    public static TASKLET_LOD: number = 0.35;
+    public static TASKLET_LOD: number = 0.35; // 0.35
     // Points-per-pixel threshold for simple version of map nodes (label only).
-    public static SCOPE_LOD: number = 1.5;
+    public static SCOPE_LOD: number = 0.75; // 0.75
     // Points-per-pixel threshold for not drawing memlets/interstate edges.
-    public static EDGE_LOD: number = 8;
+    public static EDGE_LOD: number = 5.0; // 5.0
+    // Points-per-pixel threshold for not drawing Arrowheads of
+    // memlets/interstate edges.
+    public static ARROW_LOD: number = 2.0; // 2.0
+    // Points-per-pixel threshold for not drawing connectors.
+    public static CONNECTOR_LOD = 2.0; // 2.0
     // Points-per-pixel threshold for not drawing node shapes and labels.
-    public static NODE_LOD: number = 60.0;
-    // Pixel threshold for not drawing state contents.
-    public static STATE_LOD: number = 50;
+    public static NODE_LOD: number = 5.0; // 5.0
+    // Points-per-pixel threshold for not drawing node text.
+    public static TEXT_LOD: number = 1.5; // 1.5
+
+    // Pixel threshold for not drawing State and NestedSDFG contents.
+    // This threshold behaves differently than the ones above. The State's size
+    // is compared to this threshold and if the State is smaller its contents
+    // are not drawn in the renderer.
+    public static STATE_LOD: number = 100; // 100
 
     public static DEFAULT_CANVAS_FONTSIZE: number = 10;
-    public static DEFAULT_MAX_FONTSIZE: number = 50;
-    public static DEFAULT_FAR_FONT_MULTIPLIER: number = 16;
+    public static DEFAULT_MAX_FONTSIZE: number = 20; // 20
+    public static DEFAULT_FAR_FONT_MULTIPLIER: number = 16; // 16
 
     protected renderer: SDFGRenderer | null = null;
     protected localViewRenderer: LViewRenderer | null = null;
@@ -99,10 +112,11 @@ export class SDFV {
             else
                 window.getSelection()?.removeAllRanges();
 
-            if (right)
+            if (right) {
                 right.style.width = Math.max(
                     ((e.view ? e.view.innerWidth - e.pageX : 0)), 20
                 ) + 'px';
+            }
         };
 
         if (bar) {
@@ -142,7 +156,7 @@ export class SDFV {
             sidebar.style.display = 'none';
     }
 
-    public outline(renderer: SDFGRenderer, sdfg: DagreSDFG): void {
+    public outline(renderer: SDFGRenderer, sdfg: DagreGraph): void {
         this.sidebar_set_title('SDFG Outline');
 
         const sidebar = this.sidebar_get_contents();
@@ -165,7 +179,7 @@ export class SDFV {
         const stack: any[] = [sidebar];
 
         // Add elements to tree view in sidebar
-        traverseSDFGScopes(sdfg, (node: SDFGNode, parent: DagreSDFG) => {
+        traverseSDFGScopes(sdfg, (node, parent) => {
             // Skip exit nodes when scopes are known
             if (node.type().endsWith('Exit') &&
                 node.data.node.scope_entry >= 0) {
@@ -182,10 +196,9 @@ export class SDFV {
 
             // If a scope has children, remove the name "Entry" from the type
             if (node.type().endsWith('Entry') && node.parent_id && node.id) {
-                const state = node.sdfg.nodes[node.parent_id];
-                if (state.scope_dict[node.id] !== undefined) {
+                const state = node.parentElem?.data.state.nodes[node.parent_id];
+                if (state.scope_dict[node.id] !== undefined)
                     node_type = node_type.slice(0, -5);
-                }
             }
 
             d.innerHTML = htmlSanitize`
@@ -196,7 +209,9 @@ export class SDFV {
                 const nodes_to_display = [node];
                 if (node.type().endsWith('Entry') && node.parent_id &&
                     node.id) {
-                    const state = node.sdfg.nodes[node.parent_id];
+                    const state = node.parentElem?.data.state.nodes[
+                        node.parent_id
+                    ];
                     if (state.scope_dict[node.id] !== undefined) {
                         for (const subnode_id of state.scope_dict[node.id])
                             nodes_to_display.push(parent.node(subnode_id));
@@ -224,7 +239,7 @@ export class SDFV {
                 return false;
 
             return true;
-        }, (_node: SDFGNode, _parent: DagreSDFG) => {
+        }, (_node: SDFGNode, _parent: DagreGraph) => {
             // After scope ends, pop ourselves as the current element
             // and add to parent
             const elem = stack.pop();
@@ -235,18 +250,17 @@ export class SDFV {
         this.sidebar_show();
     }
 
-    public fill_info(elem: SDFGElement): void {
+    public fill_info(elem: SDFGElement | DagreGraph | null): void {
         const contentsRaw = this.sidebar_get_contents();
-        if (!contentsRaw)
+        if (!contentsRaw || !elem || !(elem instanceof SDFGElement))
             return;
         const contents = $(contentsRaw);
         contents.html('');
 
-        if (elem instanceof Memlet && elem.parent_id && elem.id) {
-            const sdfg_edge = elem.sdfg.nodes[elem.parent_id].edges[elem.id];
-            contents.append($('<h4>', {
-                html: 'Connectors: ' + sdfg_edge.src_connector + ' &rarr; ' +
-                    sdfg_edge.dst_connector,
+        if (elem instanceof Memlet) {
+            contents.append($('<p>', {
+                html: 'Connectors: ' + elem.src_connector + ' &rarr; ' +
+                    elem.dst_connector,
             }));
         }
         contents.append($('<hr>'));
@@ -304,7 +318,9 @@ export class SDFV {
 
         // If access node, add array information too
         if (elem instanceof AccessNode) {
-            const sdfg_array = elem.sdfg.attributes._arrays[elem.attributes().data];
+            const sdfg_array = elem.sdfg.attributes._arrays[
+                elem.attributes().data
+            ];
             contents.append($('<br>'));
             contents.append($('<h4>', {
                 text: sdfg_array.type + ' properties:',
@@ -400,30 +416,33 @@ function init_sdfv(
     });
     $('#outline').on('click', () => {
         const renderer = sdfv.get_renderer();
-        if (renderer)
+        if (renderer) {
             setTimeout(() => {
                 const graph = renderer.get_graph();
                 if (graph)
                     sdfv.outline(renderer, graph);
             }, 1);
+        }
     });
     $('#search-btn').on('click', () => {
         const renderer = sdfv.get_renderer();
-        if (renderer)
+        if (renderer) {
             setTimeout(() => {
                 const graph = renderer.get_graph();
                 const query = $('#search').val();
-                if (graph && query)
+                if (graph && query) {
                     find_in_graph(
                         sdfv, renderer, graph, query.toString(),
                         $('#search-case').is(':checked')
                     );
+                }
             }, 1);
+        }
     });
     $('#advsearch-btn').on('click', (e) => {
         e.preventDefault();
         const renderer = sdfv.get_renderer();
-        if (renderer)
+        if (renderer) {
             setTimeout(() => {
                 const graph = renderer.get_graph();
                 const code = $('#advsearch').val();
@@ -434,6 +453,7 @@ function init_sdfv(
                     );
                 }
             }, 1);
+        }
         return false;
     });
     $('#search').on('keydown', (e: any) => {
@@ -455,21 +475,23 @@ function init_sdfv(
     add_btns.push(document.getElementById('elem_access_node'));
     add_btns.push(document.getElementById('elem_stream'));
     add_btns.push(document.getElementById('elem_state'));
-    if (pan_btn)
+    if (pan_btn) {
         mode_buttons = {
             pan: pan_btn,
             move: move_btn,
             select: select_btn,
             add_btns: add_btns,
         };
+    }
 
     if (sdfg !== null) {
         const container = document.getElementById('contents');
-        if (container)
+        if (container) {
             sdfv.set_renderer(new SDFGRenderer(
                 sdfv, sdfg, container, mouse_event, user_transform, debug_draw,
                 null, mode_buttons
             ));
+        }
     }
 
     return sdfv;
@@ -477,16 +499,18 @@ function init_sdfv(
 
 function start_find_in_graph(sdfv: SDFV): void {
     const renderer = sdfv.get_renderer();
-    if (renderer)
+    if (renderer) {
         setTimeout(() => {
             const graph = renderer.get_graph();
             const query = $('#search').val();
-            if (graph && query)
+            if (graph && query) {
                 find_in_graph(
                     sdfv, renderer, graph, query.toString(),
                     $('#search-case').is(':checked')
                 );
+            }
         }, 1);
+    }
 }
 
 export function reload_file(sdfv: SDFV): void {
@@ -502,11 +526,29 @@ export function reload_file(sdfv: SDFV): void {
 function file_read_complete(sdfv: SDFV): void {
     const result_string = fr.result;
     const container = document.getElementById('contents');
-    if (result_string && container) {
-        const sdfg = parse_sdfg(result_string);
-        sdfv.get_renderer()?.destroy();
-        sdfv.set_renderer(new SDFGRenderer(sdfv, sdfg, container, mouse_event));
-        sdfv.close_menu();
+    const info_field = document.getElementById('task-info-field');
+
+    if (result_string && container && info_field) {
+        // Create the loader element before starting to parse and layout the
+        // graph. The layouting can take several seconds for large graphs on
+        // slow machines. The user sees a loading animation in the meantime so
+        // that the site doesn't appear unresponsive. The loader element is
+        // removed/cleared again at the end of the layout function in the
+        // SDFGRenderer.
+        const loaderDiv = document.createElement('div');
+        loaderDiv.classList.add('loader');
+        info_field.appendChild(loaderDiv);
+
+        // Use setTimeout function to force the browser to reload the dom with
+        // the above loader element.
+        setTimeout(() => {
+            const sdfg = checkCompatLoad(parse_sdfg(result_string));
+            sdfv.get_renderer()?.destroy();
+            sdfv.set_renderer(
+                new SDFGRenderer(sdfv, sdfg, container, mouse_event)
+            );
+            sdfv.close_menu();
+        }, 10);
     }
 }
 
@@ -622,8 +664,10 @@ function getParameterByName(name: string): string | null {
     name = name.replace(/[\[\]]/g, '\\$&');
     const regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
         results = regex.exec(url);
-    if (!results) return null;
-    if (!results[2]) return '';
+    if (!results)
+        return null;
+    if (!results[2])
+        return '';
     return decodeURIComponent(results[2].replace(/\+/g, ' '));
 }
 
@@ -632,7 +676,7 @@ function load_sdfg_from_url(sdfv: SDFV, url: string): void {
     request.responseType = 'text'; // Will be parsed as JSON by parse_sdfg
     request.onload = () => {
         if (request.status === 200) {
-            const sdfg = parse_sdfg(request.response);
+            const sdfg = checkCompatLoad(parse_sdfg(request.response));
             sdfv.get_renderer()?.destroy();
             init_sdfv(sdfg, null, false, null);
         } else {
@@ -654,17 +698,15 @@ function load_sdfg_from_url(sdfv: SDFV, url: string): void {
 }
 
 function find_recursive(
-    graph: DagreSDFG, predicate: CallableFunction, results: any[]
+    graph: DagreGraph, predicate: CallableFunction, results: any[]
 ): void {
     for (const nodeid of graph.nodes()) {
         const node = graph.node(nodeid);
         if (predicate(graph, node))
             results.push(node);
         // Enter states or nested SDFGs recursively
-        if (node.data.graph) {
+        if (node.data.graph)
             find_recursive(node.data.graph, predicate, results);
-
-        }
     }
     for (const edgeid of graph.edges()) {
         const edge = graph.edge(edgeid);
@@ -674,7 +716,8 @@ function find_recursive(
 }
 
 export function find_in_graph_predicate(
-    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreSDFG, predicate: CallableFunction
+    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreGraph,
+    predicate: CallableFunction
 ): void {
     sdfv.sidebar_set_title('Search Results');
 
@@ -693,7 +736,9 @@ export function find_in_graph_predicate(
             const d = document.createElement('div');
             d.className = 'context_menu_option';
             d.innerHTML = htmlSanitize`${result.type()} ${result.label()}`;
-            d.onclick = () => { renderer.zoom_to_view([result]); };
+            d.onclick = () => {
+                renderer.zoom_to_view([result]);
+            };
             d.onmouseenter = () => {
                 if (!result.highlighted) {
                     result.highlighted = true;
@@ -714,33 +759,33 @@ export function find_in_graph_predicate(
 }
 
 export function find_in_graph(
-    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreSDFG, query: string,
+    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreGraph, query: string,
     case_sensitive: boolean = false
 ): void {
     if (!case_sensitive)
         query = query.toLowerCase();
     find_in_graph_predicate(
-        sdfv, renderer, sdfg, (graph: DagreSDFG, element: SDFGElement) => {
-            let label = element.label();
+        sdfv, renderer, sdfg, (graph: DagreGraph, element: SDFGElement) => {
+            let text = element.text_for_find();
             if (!case_sensitive)
-                label = label.toLowerCase();
-            return label.indexOf(query) !== -1;
+                text = text.toLowerCase();
+            return text.indexOf(query) !== -1;
         }
     );
     sdfv.sidebar_set_title('Search Results for "' + query + '"');
 }
 
 function recursive_find_graph(
-    graph: DagreSDFG, sdfg_id: number
-): DagreSDFG | undefined {
+    graph: DagreGraph, cfg_id: number
+): DagreGraph | undefined {
     let found = undefined;
     for (const n_id of graph.nodes()) {
         const n = graph.node(n_id);
-        if (n && n.sdfg.sdfg_list_id === sdfg_id) {
+        if (n && n.sdfg.cfg_list_id === cfg_id) {
             found = graph;
             return found;
         } else if (n && n.data.graph) {
-            found = recursive_find_graph(n.data.graph, sdfg_id);
+            found = recursive_find_graph(n.data.graph, cfg_id);
             if (found)
                 return found;
         }
@@ -748,7 +793,7 @@ function recursive_find_graph(
     return found;
 }
 
-function find_state(graph: DagreSDFG, state_id: number): State | undefined {
+function find_state(graph: DagreGraph, state_id: number): State | undefined {
     let state = undefined;
     for (const s_id of graph.nodes()) {
         if (Number(s_id) === state_id) {
@@ -782,7 +827,7 @@ function find_edge(state: State, edge_id: number): Edge | undefined {
 }
 
 export function find_graph_element(
-    graph: DagreSDFG, type: string, sdfg_id: number, state_id: number = -1,
+    graph: DagreGraph, type: string, sdfg_id: number, state_id: number = -1,
     el_id: number = -1
 ): SDFGElement | undefined {
     const requested_graph = recursive_find_graph(graph, sdfg_id);
@@ -897,7 +942,7 @@ $(() => {
         vscode;
         if (vscode)
             return;
-    } catch (_) {}
+    } catch (_) { }
 
     // Set the default settings based on the current script's attributes
     // or URL parameters.
@@ -952,7 +997,11 @@ declare global {
         // Exported functions
         parse_sdfg: (sdfg_json: string) => JsonSDFG;
         stringify_sdfg: (sdfg: JsonSDFG) => string;
-        init_sdfv: (sdfg: JsonSDFG, user_transform?: DOMMatrix | null, debug_draw?: boolean, existing_sdfv?: SDFV | null, toolbar?: boolean, minimap?: boolean | null) => SDFV;
+        init_sdfv: (
+            sdfg: JsonSDFG, user_transform?: DOMMatrix | null,
+            debug_draw?: boolean, existing_sdfv?: SDFV | null,
+            toolbar?: boolean, minimap?: boolean | null
+        ) => SDFV;
     }
 }
 

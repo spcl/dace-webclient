@@ -1,4 +1,6 @@
-import { DagreSDFG } from '../..';
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+
+import { DagreGraph } from '../..';
 import * as dagre from 'dagre';
 import { allBackedges } from '../graphlib/algorithms/cycles';
 import {
@@ -7,6 +9,7 @@ import {
 } from '../graphlib/algorithms/dominance';
 import { DiGraph } from '../graphlib/di_graph';
 
+/* eslint-disable @typescript-eslint/no-var-requires */
 const dagreOrder = require('dagre/lib/order');
 
 const ARTIFICIAL_START = '__smlayouter_artifical_start';
@@ -182,10 +185,10 @@ export class SMLayouter {
      * Perform state machine layout for an existing dagre.js layout graph.
      * This translates the dagre graph into a minimal DiGraph necessary for
      * performing the layout.
-     * @param {DagreSDFG} dagreGraph Dagre.js graph to perform layouting for.
+     * @param {DagreGraph} dagreGraph Dagre.js graph to perform layouting for.
      */
     public static layoutDagreCompat(
-        dagreGraph: DagreSDFG, startState?: string
+        dagreGraph: DagreGraph, startState?: string
     ): void {
         const g = new DiGraph<SMLayouterNode, SMLayouterEdge>();
         for (const stateId of dagreGraph.nodes())
@@ -220,7 +223,7 @@ export class SMLayouter {
      *      Add a 'lane' to the left of the laid out graph where all back-edges
      *      are routed upwards in the vertical layout. Ensures that the number
      *      of crossings is reduced to a minimum.
-     * 
+     *
      * Note: This operates in-place on the layout graph.
      * @see {@link SMLayouter.doRanking}
      * @see {@link SMLayouter.normalizeEdges}
@@ -268,11 +271,121 @@ export class SMLayouter {
             if (!routedEdges.has(edgeData))
                 unrouted.add(edgeData);
         }
-        if (unrouted.size > 0)
+        if (unrouted.size > 0) {
             console.warn(
                 'The following edges were not routed:',
                 unrouted
             );
+        }
+    }
+
+    private propagate(
+        node: string, successors: string[], rank: number, q: [string, number][],
+        scopes: [ScopeType, number, number][]
+    ): void {
+        if (successors.length === 1) {
+            // Cases with only one successor are trivial, continue and
+            // assign the next higher rank.
+            q.push([successors[0], rank + 1]);
+        } else if (successors.length > 1) {
+            // This is a conditional split.
+            // Locate the merge state (if present) and move it down n ranks,
+            // where n is the number of nodes in the branch scope. n can be
+            // obtained by taking the difference between the number of nodes
+            // dominated by the entry, versus the number of nodes dominated by
+            // the exit.
+            let mergeNode = undefined;
+            const iPostDom = this.iPostDoms.get(node);
+            if (iPostDom && successors.includes(iPostDom)) {
+                mergeNode = iPostDom;
+            } else {
+                for (const s of this.domTree.successorsIter(node)) {
+                    if (!successors.includes(s)) {
+                        mergeNode = s;
+                        break;
+                    }
+                }
+            }
+
+            if (mergeNode) {
+                const mergeNodeRank = rank + (
+                    (this.allDom.get(node)?.size ?? 0) -
+                    (this.allDom.get(mergeNode)?.size ?? 0)
+                );
+                q.push([mergeNode, mergeNodeRank]);
+                scopes.push([ScopeType.BRANCH, rank, mergeNodeRank]);
+            }
+
+            for (const s of successors) {
+                if (s !== mergeNode)
+                    q.push([s, rank + 1]);
+            }
+        }
+    }
+
+    private reserveLoopSpace(
+        node: string, successors: string[], rank: number, q: [string, number][],
+        oNode: string
+    ): void {
+        let exitCandidates = new Set<string>();
+        for (const n of successors) {
+            if (n !== oNode && !this.allDom.get(n)?.has(oNode))
+                exitCandidates.add(n);
+        }
+        for (const n of this.graph.successorsIter(oNode)) {
+            if (n !== node)
+                exitCandidates.add(n);
+        }
+
+        if (exitCandidates.size < 1) {
+            throw new Error('No exit candidates found.');
+        } else if (exitCandidates.size > 1) {
+            // Find the exit candidate that sits highest up in the postdominator
+            // tree (i.e., has the lowest level). That must be the exit node (it
+            // must post-dominate) everything inside the loop. If there are
+            // multiple candidates on the lowest level (i.e., disjoint set of
+            // postdominated nodes), there are multiple exit paths, and they all
+            // share one level.
+            let minLevel = Infinity;
+            const minSet = new Set<string>();
+
+            for (const s of exitCandidates) {
+                const postDom = this.postDomTree.get(s);
+                const level = postDom?.level ?? Infinity;
+                if (level < minLevel) {
+                    minLevel = level;
+                    minSet.clear();
+                    minSet.add(s);
+                } else if (level === minLevel) {
+                    minSet.add(s);
+                }
+            }
+
+            if (minSet.size > 0)
+                exitCandidates = new Set([...minSet]);
+            else
+                throw new Error('Failed to determine exit.');
+        }
+
+        if (exitCandidates.size > 1) {
+            throw new Error('Undetermined number of possible exit states.');
+        } else if (exitCandidates.size === 1) {
+            let loopSize = 0;
+            const exitNode = Array.from(exitCandidates)[0];
+            for (const s of successors) {
+                if (s !== exitNode) {
+                    loopSize += (this.allDom.get(s)?.size ?? 0) + 1;
+                    q.push([s, rank + 1]);
+                }
+            }
+            const exitRank = rank + loopSize + 1;
+            for (const s of exitCandidates)
+                q.push([s, exitRank]);
+        } else {
+            // Add all successors that are not the exit candidate.
+            for (const n of successors)
+                q.push([n, rank + 1]);
+        }
     }
 
     /**
@@ -284,30 +397,27 @@ export class SMLayouter {
         const q: [string, number][] = [[this.startNode, 0]];
 
         const scopes: [ScopeType, number, number][] = [];
-        const visited = new Set<string>();
         const rankings = new Map<string, number>();
 
         while (q.length > 0) {
             const [node, rank] = q.shift()!;
-            if (!visited.has(node)) {
-                const backedges = this.backedgesDstDict.get(node) ?? new Set();
+            if (rankings.has(node)) {
+                rankings.set(node, Math.max(rankings.get(node)!, rank));
+            } else {
+                rankings.set(node, rank);
 
-                // Assign the rank for the current node (passed along in the
-                // queue).
-                if (rankings.has(node))
-                    rankings.set(node, Math.max(rankings.get(node)!, rank));
-                else
-                    rankings.set(node, rank);
+                const backedges = this.backedgesDstDict.get(node) ?? new Set();
 
                 // Gather all successors that are not reached through backedges.
                 const successors: string[] = [];
                 for (const s of this.graph.successorsIter(node)) {
                     let foundAsBackedge = false;
-                    for (const sBe of this.backedgesCombined)
+                    for (const sBe of this.backedgesCombined) {
                         if (sBe[1] === s && sBe[0] === node) {
                             foundAsBackedge = true;
                             break;
                         }
+                    }
                     if (!foundAsBackedge)
                         successors.push(s);
                 }
@@ -320,100 +430,27 @@ export class SMLayouter {
                     if (backedges.size > 1)
                         throw new Error('Node has multiple backedges.');
                     const oNode = Array.from(backedges)[0][0];
-                    let exitCandidates = new Set<string>();
-                    for (const n of successors)
-                        if (n !== oNode && !this.allDom.get(n)?.has(oNode))
-                            exitCandidates.add(n);
-                    for (const n of this.graph.successorsIter(node))
-                        if (n !== node)
-                            exitCandidates.add(n);
 
-                    if (exitCandidates.size < 1) {
-                        throw new Error('No exit candidates found.');
-                    } else if (exitCandidates.size > 1) {
-                        // Find the exit candidate that sits highest up in the
-                        // postdominator tree (i.e., has the lowest level).
-                        // That must be the exit node (it must post-dominate)
-                        // everything inside the loop. If there are multiple
-                        // candidates on the lowest level (i.e., disjoint set of
-                        // postdominated nodes), there are multiple exit paths,
-                        // and they all share one level.
-                        let minLevel = Infinity;
-                        const minSet = new Set<string>();
-
-                        for (const s of exitCandidates) {
-                            const postDom = this.postDomTree.get(s);
-                            const level = postDom?.level ?? Infinity;
-                            if (level < minLevel) {
-                                minLevel = level;
-                                minSet.clear();
-                                minSet.add(s);
-                            } else if (level === minLevel) {
-                                minSet.add(s);
-                            }
-                        }
-
-                        if (minSet.size > 0)
-                            exitCandidates = minSet;
-                        else
-                            throw new Error('Failed to determine exit.');
+                    // If all successors of the current node are post-dominated
+                    // by the source node of the backedge, this is an inverted
+                    // loop.
+                    let inverted = true;
+                    for (const n of successors) {
+                        if (n !== oNode && !this.allPostDom.get(oNode)?.has(n))
+                            inverted = false;
                     }
 
-                    // TODO: Not sure about this, this may fail in situations
-                    // where the loop is executed conditionally and contains
-                    // breaks and returns. Double check.
-                    let subtr = 0;
-                    for (const s of exitCandidates)
-                        subtr += this.allDom.get(s)?.size ?? 0;
-                    const exitRank = rank + (
-                        (this.allDom.get(node)?.size ?? 0) - subtr
-                    );
-                    for (const s of exitCandidates)
-                        q.push([s, exitRank]);
-
-                    // Add all successors that are not the exit candidate.
-                    for (const n of successors)
-                        if (!exitCandidates.has(n))
-                            q.push([n, rank + 1]);
-                } else if (successors.length === 1) {
-                    // Cases with only one successor are trivial, continue and
-                    // assign the next higher rank.
-                    q.push([successors[0], rank + 1]);
-                } else if (successors.length > 1) {
-                    // This is a conditional split. Locate the merge state
-                    // (if present) and move it down n ranks, where n is the
-                    // number of nodes in the branch scope. n can be obtained by
-                    // taking the difference between the number of nodes
-                    // dominated by the entry, versus the number of nodes
-                    // dominated by the exit.
-                    let mergeNode = undefined;
-                    const iPostDom = this.iPostDoms.get(node);
-                    if (iPostDom && successors.includes(iPostDom)) {
-                        mergeNode = iPostDom;
-                    } else {
-                        for (const s of this.domTree.successorsIter(node)) {
-                            if (!successors.includes(s)) {
-                                mergeNode = s;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (mergeNode) {
-                        const mergeNodeRank = rank + (
-                            (this.allDom.get(node)?.size ?? 0) -
-                            (this.allDom.get(mergeNode)?.size ?? 0)
-                        );
-                        q.push([mergeNode, mergeNodeRank]);
-                        scopes.push([ScopeType.BRANCH, rank, mergeNodeRank]);
-                    }
-
-                    for (const s of successors)
-                        if (s !== mergeNode)
-                            q.push([s, rank + 1]);
+                    // If the loop is inverted, we do not need to reserve space
+                    // and can just propagate normally. Otherwise, reserve space
+                    // for the loop body and move the exit node down
+                    // accordingly.
+                    if (inverted)
+                        this.propagate(node, successors, rank, q, scopes);
+                    else
+                        this.reserveLoopSpace(node, successors, rank, q, oNode);
+                } else {
+                    this.propagate(node, successors, rank, q, scopes);
                 }
-
-                visited.add(node);
             }
         }
 
@@ -491,8 +528,9 @@ export class SMLayouter {
             const srcRank = this.graph.get(src)!.rank!;
             const dstRank = this.graph.get(dst)!.rank!;
 
-            // If the edge spans only one rank, nothing needs to be done.
-            if (srcRank === dstRank - 1)
+            // If the edge spans only one rank or is within the same rank,
+            // nothing needs to be done.
+            if (srcRank === dstRank - 1 || srcRank === dstRank)
                 continue;
 
             // We also don't want to handle back edges here.

@@ -1,9 +1,13 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { MathNode, parse, SymbolNode } from 'mathjs';
 import { Point2D, SymbolMap } from './index';
 import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
-import { SDFGRenderer } from './renderer/renderer';
+import {
+    GraphElementInfo,
+    SDFGElementGroup,
+    SDFGRenderer,
+} from './renderer/renderer';
 import { SDFGElement } from './renderer/renderer_elements';
 import { createElement } from './utils/utils';
 
@@ -23,12 +27,14 @@ export class SymbolResolver {
         Object.keys(this.sdfg.attributes.symbols ?? []).forEach((s) => {
             if (this.sdfg.attributes.constants_prop !== undefined &&
                 Object.keys(this.sdfg.attributes.constants_prop).includes(s) &&
-                this.sdfg.attributes.constants_prop[s][0]['type'] === 'Scalar')
+                this.sdfg.attributes.constants_prop[s][0]['type'] ===
+                    'Scalar') {
                 this.symbol_value_map[s] = this.sdfg.attributes.constants_prop[
                     s
                 ][1];
-            else
+            } else {
                 this.symbol_value_map[s] = undefined;
+            }
         });
 
         this.init_overlay_popup_dialogue();
@@ -344,8 +350,8 @@ export class OverlayManager {
         type: string,
         ev: MouseEvent,
         mousepos: Point2D,
-        elements: SDFGElement[],
-        foreground_elem: SDFGElement | undefined,
+        elements: Record<SDFGElementGroup, GraphElementInfo[]>,
+        foreground_elem: SDFGElement | null,
         ends_drag: boolean
     ): boolean {
         let dirty = false;

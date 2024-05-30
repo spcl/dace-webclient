@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Graphics, Text } from 'pixi.js';
 import { GUIComponent } from './gui_component';
@@ -30,7 +30,7 @@ export class Slider extends GUIComponent {
         private readonly lineThickness: number = 2,
         private readonly lineColor: number = 0x000000,
         private readonly pommelRadius: number = 6,
-        private readonly pommelColor: number = 0x444444,
+        private readonly pommelColor: number = 0x444444
     ) {
         super();
 
@@ -78,7 +78,7 @@ export class Slider extends GUIComponent {
                 const xOffset = targetX - this.minPommelX;
                 const nValOffset = Math.floor(xOffset / this.lineSegmentLength);
                 const nVal = this.min + nValOffset;
-                if (this.val != nVal && nVal % this.step === 0) {
+                if (this.val !== nVal && nVal % this.step === 0) {
                     this.val = nVal;
                     this.valText.text = nVal.toString();
                     if (this.valueChangedHandler !== null)

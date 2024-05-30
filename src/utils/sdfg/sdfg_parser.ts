@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
     JsonSDFG,
@@ -13,7 +13,9 @@ export class SDFGParser {
     }
 
     public getStates(): SDFGStateParser[] {
-        return this.sdfg.nodes.map((x: JsonSDFGBlock) => new SDFGStateParser(x));
+        return this.sdfg.nodes.map((x: JsonSDFGBlock) => {
+            return new SDFGStateParser(x);
+        });
     }
 
     public static lookupSymbols(
@@ -25,10 +27,10 @@ export class SDFGParser {
 
         let syms: any[] = [];
 
-        if (elem.constructor == Object) {
+        if (elem.constructor === Object) {
             // Memlet.
             const memlets = state.edges.filter((x: any) => {
-                return x.dst == elem.dst && x.src == elem.src;
+                return x.dst === elem.dst && x.src === elem.src;
             });
 
             // Recurse into parent (since this a multigraph, all edges need to
@@ -37,7 +39,7 @@ export class SDFGParser {
                 // Find symbols used (may be Indices or Range).
                 const mdata = m.attributes.data.attributes.subset;
                 // Check for indices
-                if (mdata && mdata.type == 'subsets.Indices') {
+                if (mdata && mdata.type === 'subsets.Indices') {
                     // These are constants or variables.
                     // Reverse to have smallest unit first.
                     const tmp = mdata.indices.map((x: any) => x).reverse();
@@ -47,7 +49,7 @@ export class SDFGParser {
                         depth += 1;
                         syms.push({ var: x, val: null, depth: depth });
                     }
-                } else if (mdata && mdata.type == 'subsets.Range') {
+                } else if (mdata && mdata.type === 'subsets.Range') {
                     // These are ranges.
                     // These ranges are not of interest, as they specify what is
                     // copied and don't define new variables.
@@ -71,7 +73,7 @@ export class SDFGParser {
                 const params = node.attributes.params.map((x: any) => x);
 
                 console.assert(
-                    rngs.length == params.length,
+                    rngs.length === params.length,
                     'Ranges and params should have the same count of elements'
                 );
 
@@ -83,21 +85,22 @@ export class SDFGParser {
                 for (let i = 0; i < rngs.length; ++i) {
                     // Check first if the variable is already defined, and if
                     // yes, if the value is the same.
-                    const fltrd = syms.filter(x => x.var == params[i]);
-                    if (fltrd.length == 0) {
+                    const fltrd = syms.filter(x => x.var === params[i]);
+                    if (fltrd.length === 0) {
                         depth += 1;
                         syms.push({
                             var: params[i],
                             val: rngs[i],
-                            depth: depth
+                            depth: depth,
                         });
                     } else {
-                        if (JSON.stringify(fltrd[0].val) !=
-                            JSON.stringify(rngs[i]))
+                        if (JSON.stringify(fltrd[0].val) !==
+                            JSON.stringify(rngs[i])) {
                             console.warn(
                                 'Colliding definitions for var ' + params[i],
                                 fltrd[0].val, rngs[i]
                             );
+                        }
                     }
                 }
             } catch (e) {
@@ -105,7 +108,7 @@ export class SDFGParser {
                 // consumes).
             }
             // Find all incoming edges.
-            const inc_edges = state.edges.filter((x: any) => x.dst == elem);
+            const inc_edges = state.edges.filter((x: any) => x.dst === elem);
             for (const e of inc_edges) {
                 const tmp = SDFGParser.lookupSymbols(
                     sdfg, stateId, e, symbolsToResolve, depth + 1
@@ -116,6 +119,7 @@ export class SDFGParser {
 
         return syms;
     }
+
 }
 
 export class SDFGStateParser {
@@ -135,6 +139,7 @@ export class SDFGStateParser {
             }
         });
     }
+
 }
 
 export class SDFGNodeParser {

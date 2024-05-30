@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { IShape, RoundedRectangle } from '@pixi/math';
 import { Graphics, Text } from 'pixi.js';
@@ -19,7 +19,7 @@ export class Button extends GUIComponent {
         w?: number,
         h?: number,
         private readonly radius: number = 0,
-        fontSize: number = 30,
+        fontSize: number = 30
     ) {
         super();
 
@@ -41,11 +41,12 @@ export class Button extends GUIComponent {
         } else {
             this.labelGraphic = new Graphics();
 
-            if (w === undefined || h === undefined)
+            if (w === undefined || h === undefined) {
                 throw new Error(
                     'When using a graphical label, both height and width ' +
                     'need to be provided!'
                 );
+            }
         }
         this.addChild(this.labelGraphic);
 

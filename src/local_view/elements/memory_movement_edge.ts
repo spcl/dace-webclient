@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import $ from 'jquery';
 import { cos, sin, tanh } from 'mathjs';
@@ -26,7 +26,7 @@ export class MemoryMovementEdge extends Edge {
         public points: Point[],
         src: Node,
         dst: Node,
-        renderer?: LViewRenderer,
+        renderer?: LViewRenderer
     ) {
         super(src, dst, renderer);
 
@@ -83,11 +83,10 @@ export class MemoryMovementEdge extends Edge {
 
     public calculateMovementVolume(): number {
         this._volume = 0;
-        if (this.src instanceof MemoryNode) {
+        if (this.src instanceof MemoryNode)
             this._volume = this.getVolumeFromMemNode(this.src);
-        } else if (this.dst instanceof MemoryNode) {
+        else if (this.dst instanceof MemoryNode)
             this._volume = this.getVolumeFromMemNode(this.dst);
-        }
 
         return this._volume;
     }
@@ -119,10 +118,10 @@ export class MemoryMovementEdge extends Edge {
         const lastPoint = this.points.length ?
             this.points[this.points.length - 1] : this.dst.position;
         const theta = (lastPoint.x === secondToLastPoint.x) ?
-                0 : 0 - tanh(
-                    (secondToLastPoint.x - lastPoint.x) /
-                    (secondToLastPoint.y - lastPoint.y)
-                );
+            0 : 0 - tanh(
+                (secondToLastPoint.x - lastPoint.x) /
+                (secondToLastPoint.y - lastPoint.y)
+            );
 
         let color = 0x000000;
         let text: string | null = null;
@@ -133,10 +132,11 @@ export class MemoryMovementEdge extends Edge {
         if (this.physMovementOverlayActive) {
             let badness = 0;
             if (this.renderer) {
-                const keys = [
-                    ...this.renderer.globalMemoryMovementHistogram.keys()
-                ];
-                keys.sort((a, b) => { return a - b; });
+                const keys =
+                    [...this.renderer.globalMemoryMovementHistogram.keys()];
+                keys.sort((a, b) => {
+                    return a - b;
+                });
 
                 const idx = keys.indexOf(this._volume);
 
@@ -227,15 +227,19 @@ export class MemoryMovementEdge extends Edge {
         this.lineStyle({
             color: color,
         }).beginFill(color).drawPolygon([
-            lastPoint.x - (lineWidth / 2), lastPoint.y,
-            arrowTopLeft.x, arrowTopLeft.y,
-            arrowTopRight.x, arrowTopRight.y,
-            lastPoint.x + (lineWidth / 2), lastPoint.y,
+            lastPoint.x - (lineWidth / 2),
+            lastPoint.y,
+            arrowTopLeft.x,
+            arrowTopLeft.y,
+            arrowTopRight.x,
+            arrowTopRight.y,
+            lastPoint.x + (lineWidth / 2),
+            lastPoint.y,
         ]);
 
         let textX;
         let textY;
-        if (this.points.length == 2) {
+        if (this.points.length === 2) {
             textX = (this.points[0].x + this.points[1].x) / 2;
             textY = (this.points[0].y + this.points[1].y) / 2;
         } else if (this.points.length) {

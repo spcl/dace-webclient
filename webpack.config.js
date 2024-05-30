@@ -2,7 +2,8 @@
 const path = require('path');
 const webpack = require('webpack');
 
-module.exports = {
+const mainConfig = {
+    name: 'main',
     entry: {
         sdfv: './src/sdfv.ts',
     },
@@ -11,12 +12,8 @@ module.exports = {
             {
                 test: /\.m?[jt]sx?$/,
                 use: [
-                    {
-                        loader: 'babel-loader',
-                    },
-                    {
-                        loader: 'ts-loader',
-                    },
+                    'babel-loader',
+                    'ts-loader',
                 ],
                 exclude: /node_modules/,
             },
@@ -30,28 +27,14 @@ module.exports = {
             {
                 test: /\.(scss)$/,
                 use: [
-                    {
-                        loader: 'style-loader',
-                    },
-                    {
-                        loader: 'css-loader',
-                    },
-                    {
-                        loader: 'postcss-loader',
-                        options: {
-                            postcssOptions: {
-                                plugins: function () {
-                                    return [
-                                        require('autoprefixer'),
-                                    ];
-                                },
-                            },
-                        },
-                    },
-                    {
-                        loader: 'sass-loader',
-                    },
+                    'style-loader',
+                    'css-loader',
+                    'sass-loader',
                 ],
+            },
+            {
+                test: /\.(woff|woff2|otf|eot|ttf)$/i,
+                type: 'asset/resource',
             },
         ],
     },
@@ -84,3 +67,68 @@ module.exports = {
         }),
     ]
 };
+
+const jupyterConfig = {
+    name: 'jupyter',
+    entry: {
+        sdfv: './src/sdfv.ts',
+    },
+    module: {
+        rules: [
+            {
+                test: /\.m?[jt]sx?$/,
+                use: [
+                    'babel-loader',
+                    'ts-loader',
+                ],
+                exclude: /node_modules/,
+            },
+            {
+                test: /\.css$/,
+                use: [
+                    'style-loader',
+                    'css-loader',
+                ],
+            },
+            {
+                test: /\.(scss)$/,
+                use: [
+                    'style-loader',
+                    'css-loader',
+                    'sass-loader',
+                ],
+            },
+            {
+                test: /\.(png|jpe?g|gif|svg|woff|woff2|otf|eot|ttf)(\?.*$|$)/,
+                type: 'asset',
+            },
+        ],
+    },
+    resolve: {
+        extensions: ['.ts', '.js'],
+        alias: {
+            assert: require.resolve('assert'),
+            buffer: require.resolve('buffer'),
+            stream: require.resolve('stream-browserify'),
+            zlib: require.resolve('browserify-zlib'),
+        }
+    },
+    output: {
+        filename: '[name]_jupyter.js',
+        path: path.resolve(__dirname, 'dist'),
+    },
+    plugins: [
+        new webpack.ProvidePlugin({
+            process: 'process/browser',
+        }),
+        new webpack.optimize.LimitChunkCountPlugin({
+            maxChunks: 1,
+        }),
+    ]
+};
+
+module.exports = [
+    mainConfig,
+    jupyterConfig,
+];
+

@@ -1,9 +1,13 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { log, mean, median } from 'mathjs';
 import { Point2D } from '../index';
 import { OverlayManager, SymbolResolver } from '../overlay_manager';
-import { SDFGRenderer } from '../renderer/renderer';
+import {
+    GraphElementInfo,
+    SDFGElementGroup,
+    SDFGRenderer,
+} from '../renderer/renderer';
 import { SDFGElement } from '../renderer/renderer_elements';
 
 declare const vscode: any;
@@ -19,7 +23,7 @@ export class GenericSdfgOverlay {
     public static readonly type: OverlayType = OverlayType.BOTH;
     public readonly olClass: typeof GenericSdfgOverlay = GenericSdfgOverlay;
 
-    protected symbol_resolver: SymbolResolver;
+    protected symbolResolver: SymbolResolver;
     protected vscode: any;
     protected heatmap_scale_center: number;
     protected heatmap_hist_buckets: number[];
@@ -29,7 +33,7 @@ export class GenericSdfgOverlay {
         protected renderer: SDFGRenderer
     ) {
         this.overlay_manager = renderer.get_overlay_manager();
-        this.symbol_resolver = this.overlay_manager.get_symbol_resolver();
+        this.symbolResolver = this.overlay_manager.get_symbol_resolver();
         this.vscode = typeof vscode !== 'undefined' && vscode;
         this.heatmap_scale_center = 5;
         this.heatmap_hist_buckets = [];
@@ -43,8 +47,8 @@ export class GenericSdfgOverlay {
         _type: string,
         _ev: MouseEvent,
         _mousepos: Point2D,
-        _elements: SDFGElement[],
-        _foreground_elem: SDFGElement | undefined,
+        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
+        _foreground_elem: SDFGElement | null,
         _ends_drag: boolean
     ): boolean {
         return false;
@@ -73,7 +77,9 @@ export class GenericSdfgOverlay {
                         for (let i = 0; i < n; i++)
                             this.heatmap_hist_buckets.push(minval + (i * step));
                     }
-                    this.heatmap_hist_buckets.sort((a, b) => { return a - b; });
+                    this.heatmap_hist_buckets.sort((a, b) => {
+                        return a - b;
+                    });
                 }
                 break;
             case 'linear_interpolation':
@@ -97,7 +103,7 @@ export class GenericSdfgOverlay {
         }
     }
 
-    public get_severity_value(val: number): number {
+    public getSeverityValue(val: number): number {
         let severity = 0;
 
         switch (this.overlay_manager.get_heatmap_scaling_method()) {

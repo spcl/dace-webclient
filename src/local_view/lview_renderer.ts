@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
     BarController,
@@ -8,7 +8,7 @@ import {
     ChartData,
     Legend,
     LinearScale,
-    Tooltip
+    Tooltip,
 } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import $ from 'jquery';
@@ -21,7 +21,12 @@ import { MemoryMovementEdge } from './elements/memory_movement_edge';
 import { MemoryNode } from './elements/memory_node';
 import { Graph } from './graph/graph';
 import { AccessPatternOverlay } from './overlays/access_pattern_overlay';
-import { EdgeOverlay, NodeOverlay, NoEdgeOverlay, NoNodeOverlay } from './overlays/base_overlays';
+import {
+    EdgeOverlay,
+    NodeOverlay,
+    NoEdgeOverlay,
+    NoNodeOverlay,
+} from './overlays/base_overlays';
 import { CacheLineOverlay } from './overlays/cache_line_overlay';
 import { PhysicalMovementOverlay } from './overlays/physical_movement_overlay';
 import { ReuseDistanceOverlay } from './overlays/reuse_distance_overlay';
@@ -55,7 +60,7 @@ export class LViewRenderer {
     public constructor(
         protected sdfvInstance: SDFV,
         protected container: HTMLElement,
-        protected _graph?: Graph,
+        protected _graph?: Graph
     ) {
         this.initLocalViewSidebar();
 
@@ -194,7 +199,7 @@ export class LViewRenderer {
                 inst.displayName, inst.value, cls === NoNodeOverlay,
                 cls === NoNodeOverlay
             );
-            if (cls == NoNodeOverlay) {
+            if (cls === NoNodeOverlay) {
                 this.nOverlay = inst;
                 inst.onSelect();
             }
@@ -212,7 +217,7 @@ export class LViewRenderer {
                 inst.displayName, inst.value, cls === NoEdgeOverlay,
                 cls === NoEdgeOverlay
             );
-            if (cls == NoEdgeOverlay) {
+            if (cls === NoEdgeOverlay) {
                 this.eOverlay = inst;
                 inst.onSelect();
             }
@@ -429,15 +434,16 @@ export class LViewRenderer {
         });
 
         g.nodes.forEach(node => {
-            if (node instanceof MemoryNode)
+            if (node instanceof MemoryNode) {
                 node.applyToAll(undefined, t => {
                     t.stackDistancesFlattened = [];
                     t.stackDistances.clear();
                     t.coldMisses = 0;
                     t.totalMisses = 0;
                 });
-            else if (node instanceof MapNode)
+            } else if (node instanceof MapNode) {
                 this.graphClearCalculatedValue(node.innerGraph);
+            }
         });
     }
 
