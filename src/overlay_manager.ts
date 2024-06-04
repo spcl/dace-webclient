@@ -214,7 +214,8 @@ export class SymbolResolver {
             'div', '', ['sdfv_modal_footer_bar'], this.popup_dialogue
         );
         const confirm_button = createElement(
-            'div', '', ['button', 'sdfv_modal_confirm_button'], footer_bar
+            'div', '', ['btn', 'btn-primary', 'sdfv_modal_confirm_button'],
+            footer_bar
         );
         confirm_button.addEventListener('click', (_ev: MouseEvent) => {
             set_val();

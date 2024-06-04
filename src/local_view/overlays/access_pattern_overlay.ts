@@ -16,7 +16,7 @@ export class AccessPatternOverlay extends NodeOverlay {
         });
         $('<div>', {
             id: 'clear-all-access-pattern-button',
-            class: 'button',
+            class: 'btn btn-sm btn-primary',
             text: 'Clear All',
             click: () => {
                 if (this.renderer.graph)
@@ -25,7 +25,7 @@ export class AccessPatternOverlay extends NodeOverlay {
         }).appendTo(container);
         $('<div>', {
             id: 'show-all-access-pattern-button',
-            class: 'button',
+            class: 'btn btn-sm btn-primary',
             text: 'Show All Accesses',
             click: () => {
                 if (this.renderer.graph) {
