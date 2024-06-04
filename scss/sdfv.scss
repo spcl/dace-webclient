@@ -5,9 +5,7 @@
 @import "~bootstrap/scss/mixins";
 @import "~bootstrap/scss/root";
 
-$material-icons-font-path: "~material-icons/iconfont/";
 $material-symbols-font-path: "~material-symbols/";
-@import "~material-icons/iconfont/material-icons";
 @import "~material-symbols";
 
 .sdfv {
@@ -97,47 +95,48 @@ body.sdfv {
     }
   }
 
-  #sidebar {
+  .w3-sidebar {
     height: 100%;
     width: 400px;
     background-color: #fff;
     position: fixed !important;
     z-index: 1;
     overflow: auto;
-    box-shadow: 0 2px 5px 0 rgba(0, 0, 0, 0.16),
-      0 2px 10px 0 rgba(0, 0, 0, 0.12);
+    box-shadow: 0 2px 5px 0 rgba(0, 0, 0, 0.16), 0 2px 10px 0 rgba(0, 0, 0, 0.12);
     animation: animateright 0.4s;
-  }
+    
+    .w3-sidebar-close {
+      cursor: pointer;
+      width: 100%;
+      display: block;
+      padding: 8px 16px;
+      text-align: left;
+      border: none;
+      white-space: normal;
+      float: none;
+      outline: 0;
 
-  #sidebar #menuclose {
-    cursor: pointer;
-    width: 100%;
-    display: block;
-    padding: 8px 16px;
-    text-align: left;
-    border: none;
-    white-space: normal;
-    float: none;
-    outline: 0;
-  }
+      &:hover {
+        background-color: #ccc;
+      }
 
-  #sidebar #menuclose:hover {
-    background-color: #ccc;
-  }
+    }
 
-  #sidebar .sidebar-inner {
-    display: block;
-    margin-left: 15px;
-  }
+    .sidebar-inner {
+      display: block;
+      margin-left: 15px;
+    }
 
-  .dragbar {
-    padding: 3px;
-    height: 100%;
-    width: 2px;
-    display: flex;
-    position: fixed;
-    cursor: col-resize;
-    background-color: silver;
+    .dragbar {
+      padding: 3px;
+      height: 100%;
+      width: 2px;
+      display: flex;
+      position: fixed;
+      cursor: col-resize;
+      background-color: silver;
+    }
+
   }
 
   pre.code {
@@ -145,17 +144,18 @@ body.sdfv {
     margin-bottom: 0;
     display: block;
     white-space: pre-wrap;
-  }
 
-  pre.code code {
-    margin-top: 0;
-    margin-bottom: 0;
-    margin-right: auto;
-    padding: 0.3rem;
-    display: block;
-    color: #966;
-    border-radius: 3px;
-    background-color: #eee;
+    code {
+      margin-top: 0;
+      margin-bottom: 0;
+      margin-right: auto;
+      padding: 0.3rem;
+      display: block;
+      color: #966;
+      border-radius: 3px;
+      background-color: #eee;
+    }
+
   }
 
   .sdfvtooltip {
@@ -202,17 +202,6 @@ body.sdfv {
     display: none;
   }
 
-  #contextmenu {
-    position: absolute;
-    background-color: #fdfdfd;
-    box-shadow: 0 4px 5px 3px rgba(0, 0, 0, 0.2);
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    z-index: 2;
-  }
-
   .context_menu_option {
     font-size: 1rem;
     font-family: "Segoe UI", Arial, sans-serif;
@@ -222,49 +211,6 @@ body.sdfv {
 
   .context_menu_option:hover {
     background-color: rgba(0, 0, 0, 0.1);
-  }
-
-  /* Checkmarks for context menu items */
-  .checkmark {
-    position: absolute;
-    right: 5px;
-    height: 20px;
-    width: 20px;
-    background-color: #eee;
-  }
-
-  .checkmark_checked {
-    position: absolute;
-    right: 5px;
-    height: 20px;
-    width: 20px;
-    background-color: #2196f3;
-  }
-
-  .context_menu_option:hover .checkmark {
-    background-color: #ccc;
-  }
-
-  .checkmark:after {
-    content: "";
-    position: absolute;
-    display: none;
-  }
-
-  .context_menu_option .checkmark_checked:after {
-    content: "";
-    position: absolute;
-    display: block;
-    left: 6px;
-    top: 2px;
-    width: 5px;
-    height: 10px;
-    border: solid white;
-    border-width: 0 3px 3px 0;
-    -webkit-transform: rotate(45deg);
-    -moz-transform: rotate(45deg);
-    -ms-transform: rotate(45deg);
-    transform: rotate(45deg);
   }
 
   .sdfv_modal_background {
@@ -438,7 +384,6 @@ body.sdfv {
 
   .btn-material.btn-sm {
 
-    span[class*="material-icons"],
     span[class*="material-symbols"] {
       font-size: 1.4rem;
     }

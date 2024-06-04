@@ -209,7 +209,7 @@ export function showErrorModal(message: string, title: string = 'Error'): void {
     }).appendTo(header);
     $('<div>', {
         class: 'modal_close',
-        html: '<i class="material-icons">close</i>',
+        html: '<i class="material-symbols-outlined">close</i>',
         click: () => errModalBg.remove(),
     }).appendTo(header);
 

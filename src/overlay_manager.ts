@@ -173,7 +173,8 @@ export class SymbolResolver {
         const close_button = createElement(
             'div', '', ['modal_close'], header_bar
         );
-        close_button.innerHTML = '<i class="material-icons">close</i>';
+        close_button.innerHTML = '<i class="material-symbols-outlined">' +
+            'close</i>';
         close_button.addEventListener('click', () => {
             popup_dialogue._hide();
         });

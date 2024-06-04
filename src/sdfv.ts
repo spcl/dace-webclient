@@ -169,9 +169,9 @@ export class SDFV {
         const d = document.createElement('div');
         d.className = 'context_menu_option';
         d.innerHTML = htmlSanitize`
-            <i class="material-icons" style="font-size: inherit">
+            <span class="material-symbols-outlined" style="font-size: inherit">
                 filter_center_focus
-            </i> SDFG ${renderer.get_sdfg().attributes.name}
+            </span> SDFG ${renderer.get_sdfg().attributes.name}
         `;
         d.onclick = () => renderer.zoom_to_view();
         sidebar.appendChild(d);
@@ -196,7 +196,7 @@ export class SDFV {
 
             // If a scope has children, remove the name "Entry" from the type
             if (node.type().endsWith('Entry') && node.parent_id && node.id) {
-                const state = node.parentElem?.data.state.nodes[node.parent_id];
+                const state = node.parentElem?.data.state;
                 if (state.scope_dict[node.id] !== undefined)
                     node_type = node_type.slice(0, -5);
             }

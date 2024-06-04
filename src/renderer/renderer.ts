@@ -909,7 +909,8 @@ export class SDFGRenderer extends EventEmitter {
         error_popover_dismiss.style.float = 'right';
         error_popover_dismiss.style.cursor = 'pointer';
         error_popover_dismiss.style.color = 'white';
-        error_popover_dismiss.innerHTML = '<i class="material-icons">close</i>';
+        error_popover_dismiss.innerHTML =
+            '<span class="material-symbols-outlined">close</span>';
         this.error_popover_container.appendChild(error_popover_dismiss);
         this.error_popover_container.appendChild(this.error_popover_text);
         this.container.appendChild(this.error_popover_container);
@@ -3911,7 +3912,8 @@ export class SDFGRenderer extends EventEmitter {
                 // Set a button to exit the local view again.
                 const exitBtn = document.createElement('button');
                 exitBtn.className = 'button';
-                exitBtn.innerHTML = '<i class="material-icons">close</i>';
+                exitBtn.innerHTML =
+                    '<span class="material-symbols-outlined">close</span>';
                 exitBtn.style.paddingBottom = '0px';
                 exitBtn.style.userSelect = 'none';
                 exitBtn.style.position = 'absolute';
