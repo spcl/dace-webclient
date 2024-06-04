@@ -368,33 +368,24 @@ export class SDFGRenderer extends EventEmitter {
         if (this.interaction_info_text)
             this.interaction_info_text.innerHTML = '';
 
-        if (this.panmode_btn) {
-            this.panmode_btn.style.paddingBottom = '0px';
-            this.panmode_btn.style.userSelect = 'none';
+        if (this.panmode_btn)
             this.panmode_btn.classList.remove('selected');
-        }
-        if (this.movemode_btn) {
-            this.movemode_btn.style.paddingBottom = '0px';
-            this.movemode_btn.style.userSelect = 'none';
+
+        if (this.movemode_btn)
             this.movemode_btn.classList.remove('selected');
-        }
-        if (this.selectmode_btn) {
-            this.selectmode_btn.style.paddingBottom = '0px';
-            this.selectmode_btn.style.userSelect = 'none';
+
+        if (this.selectmode_btn)
             this.selectmode_btn.classList.remove('selected');
-        }
 
         this.mouse_follow_element.innerHTML = null;
 
         for (const add_btn of this.addmode_btns) {
             const btn_type = add_btn.getAttribute('type');
             if (btn_type === this.add_type && this.add_type) {
-                add_btn.style.userSelect = 'none';
                 add_btn.classList.add('selected');
                 this.mouse_follow_element.innerHTML =
                     this.mouse_follow_svgs[this.add_type];
             } else {
-                add_btn.style.userSelect = 'none';
                 add_btn.classList.remove('selected');
             }
         }
@@ -492,7 +483,7 @@ export class SDFGRenderer extends EventEmitter {
                 class: 'dropdown',
             });
             $('<button>', {
-                class: 'btn btn-light btn-sm btn-material',
+                class: 'btn btn-secondary btn-sm btn-material',
                 html: '<i class="material-symbols-outlined">menu</i>',
                 title: 'Menu',
                 'data-bs-toggle': 'dropdown',
@@ -539,7 +530,7 @@ export class SDFGRenderer extends EventEmitter {
 
             // SDFV Options.
             $('<button>', {
-                class: 'btn btn-light btn-sm btn-material',
+                class: 'btn btn-secondary btn-sm btn-material',
                 html: '<i class="material-symbols-outlined">settings</i>',
                 title: 'Settings',
                 click: () => {
@@ -553,7 +544,7 @@ export class SDFGRenderer extends EventEmitter {
                     class: 'dropdown',
                 });
                 $('<button>', {
-                    class: 'btn btn-light btn-sm btn-material',
+                    class: 'btn btn-secondary btn-sm btn-material',
                     html: '<i class="material-symbols-outlined">' +
                         'saved_search</i>',
                     title: 'Overlays',
@@ -612,27 +603,35 @@ export class SDFGRenderer extends EventEmitter {
                 );
             }
 
+            const zoomButtonGroup = $('<div>', {
+                class: 'btn-group',
+                role: 'group',
+            }).appendTo(this.toolbar);
             // Zoom to fit.
             $('<button>', {
-                class: 'btn btn-light btn-sm btn-material',
+                class: 'btn btn-secondary btn-sm btn-material',
                 html: '<i class="material-symbols-outlined">fit_screen</i>',
                 title: 'Zoom to fit SDFG',
                 click: () => {
                     this.zoom_to_view();
                 },
-            }).appendTo(this.toolbar);
+            }).appendTo(zoomButtonGroup);
             $('<button>', {
-                class: 'btn btn-light btn-sm btn-material',
+                class: 'btn btn-secondary btn-sm btn-material',
                 html: '<i class="material-symbols-outlined">fit_width</i>',
                 title: 'Zoom to fit width',
                 click: () => {
                     this.zoomToFitWidth();
                 },
-            }).appendTo(this.toolbar);
+            }).appendTo(zoomButtonGroup);
 
+            const collapseButtonGroup = $('<div>', {
+                class: 'btn-group',
+                role: 'group',
+            }).appendTo(this.toolbar);
             // Collapse all.
             $('<button>', {
-                class: 'btn btn-light btn-sm btn-material',
+                class: 'btn btn-secondary btn-sm btn-material',
                 html: '<i class="material-symbols-outlined">unfold_less</i>',
                 title: 'Collapse next level (Shift+click to collapse all)',
                 click: (e: MouseEvent) => {
@@ -641,11 +640,11 @@ export class SDFGRenderer extends EventEmitter {
                     else
                         this.collapseNextLevel();
                 },
-            }).appendTo(this.toolbar);
+            }).appendTo(collapseButtonGroup);
 
             // Expand all.
             $('<button>', {
-                class: 'btn btn-light btn-sm btn-material',
+                class: 'btn btn-secondary btn-sm btn-material',
                 html: '<i class="material-symbols-outlined">unfold_more</i>',
                 title: 'Expand next level (Shift+click to expand all)',
                 click: (e: MouseEvent) => {
@@ -654,7 +653,7 @@ export class SDFGRenderer extends EventEmitter {
                     else
                         this.expandNextLevel();
                 },
-            }).appendTo(this.toolbar);
+            }).appendTo(collapseButtonGroup);
 
             if (this.modeButtons) {
                 // If we get the "external" mode buttons we are in vscode and do
@@ -694,25 +693,29 @@ export class SDFGRenderer extends EventEmitter {
                 this.addmode_btns = [];
 
                 // Enter pan mode.
+                const modeButtonGroup = $('<div>', {
+                    class: 'btn-group',
+                    role: 'group',
+                }).appendTo(this.toolbar);
                 this.panmode_btn = $('<button>', {
-                    class: 'btn btn-light btn-sm btn-material selected',
+                    class: 'btn btn-secondary btn-sm btn-material selected',
                     html: '<i class="material-symbols-outlined">pan_tool</i>',
                     title: 'Pan mode',
-                }).appendTo(this.toolbar)[0];
+                }).appendTo(modeButtonGroup)[0];
 
                 // Enter move mode.
                 this.movemode_btn = $('<button>', {
-                    class: 'btn btn-light btn-sm btn-material',
+                    class: 'btn btn-secondary btn-sm btn-material',
                     html: '<i class="material-symbols-outlined">open_with</i>',
                     title: 'Object moving mode',
-                }).appendTo(this.toolbar)[0];
+                }).appendTo(modeButtonGroup)[0];
 
                 // Enter box select mode.
                 this.selectmode_btn = $('<button>', {
-                    class: 'btn btn-light btn-sm btn-material',
+                    class: 'btn btn-secondary btn-sm btn-material',
                     html: '<i class="material-symbols-outlined">select</i>',
                     title: 'Select mode',
-                }).appendTo(this.toolbar)[0];
+                }).appendTo(modeButtonGroup)[0];
             }
 
             // Enter pan mode
@@ -781,7 +784,7 @@ export class SDFGRenderer extends EventEmitter {
             // Filter graph to selection (visual cutout).
             this.cutoutBtn = $('<button>', {
                 id: 'cutout-button',
-                class: 'btn btn-light btn-sm btn-material',
+                class: 'btn btn-secondary btn-sm btn-material',
                 css: {
                     'display': 'none',
                 },
@@ -795,7 +798,7 @@ export class SDFGRenderer extends EventEmitter {
             // Transition to local view with selection.
             this.localViewBtn = $('<button>', {
                 id: 'local-view-button',
-                class: 'btn btn-light btn-sm btn-material',
+                class: 'btn btn-secondary btn-sm btn-material',
                 css: {
                     'display': 'none',
                 },
@@ -810,7 +813,7 @@ export class SDFGRenderer extends EventEmitter {
             if (this.in_vscode) {
                 const exitPreviewBtn = $('<button>', {
                     id: 'exit-preview-button',
-                    class: 'btn btn-light btn-sm btn-material',
+                    class: 'btn btn-secondary btn-sm btn-material',
                     css: {
                         'display': 'none',
                     },

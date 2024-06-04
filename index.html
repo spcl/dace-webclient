@@ -30,19 +30,19 @@
         </div>
     </div>
     <div class="container-fluid" id="header-container">
-        <div class="row g-2">
+        <div class="row g-2 mb-2">
             <div class="col-auto">
                 <input type="file" id="sdfg-file-input"
                     accept=".sdfg,.json,.sdfgz,.sdfg.gz"
                     class="form-control form-control-sm">
             </div>
             <div class="col-auto">
-                <button class="btn btn-sm btn-light btn-sdfv-light" id="reload">
+                <button class="btn btn-sm btn-light" id="reload">
                     Refresh
                 </button>
             </div>
             <div class="col-auto">
-                <button class="btn btn-sm btn-light btn-sdfv-light" id="outline">
+                <button class="btn btn-sm btn-light" id="outline">
                     SDFG Outline
                 </button>
             </div>
@@ -50,7 +50,7 @@
                 <input type="file" accept=".json" id="instrumentation-report-file-input"
                        style="display: none;">
                 <button id="load-instrumentation-report-btn"
-                    class="btn btn-sm btn-light btn-sdfv-light"
+                    class="btn btn-sm btn-light"
                     onclick="document.getElementById('instrumentation-report-file-input').click();">
                     Load Instrumentation Report
                 </button>
@@ -61,7 +61,7 @@
                 <div class="input-group">
                     <input id="search" type="text" class="form-control form-control-sm"
                         placeholder="Search in graph elements">
-                    <button id="search-btn" class="btn btn-sm btn-light btn-sdfv-light">
+                    <button id="search-btn" class="btn btn-sm btn-light">
                         Search
                     </button>
                 </div>
@@ -76,7 +76,7 @@
             </div>
             <div class="col-auto">
                 <div class="dropdown">
-                    <button class="btn btn-sm btn-light btn-sdfv-light dropdown-toggle" type="button"
+                    <button class="btn btn-sm btn-light dropdown-toggle" type="button"
                         data-bs-toggle="dropdown">
                         Advanced Search
                     </button>
@@ -95,7 +95,7 @@ if (element && element.data.node) {
 }
 return false;
 };</textarea>
-                        <button id="advsearch-btn" class="btn btn-light btn-sdfv-light">
+                        <button id="advsearch-btn" class="btn btn-light">
                             Search
                         </button>
                     </form>
