@@ -271,7 +271,7 @@ export class SDFV {
             });
             btnContainer.append($('<button>', {
                 text: 'Jump to start',
-                class: 'btn btn-sm btn-light btn-sdfv-light',
+                class: 'btn btn-sm btn-light',
                 css: {
                     'margin-right': '10px',
                 },
@@ -281,7 +281,7 @@ export class SDFV {
             }));
             btnContainer.append($('<button>', {
                 text: 'Jump to end',
-                class: 'btn btn-sm btn-light btn-sdfv-light',
+                class: 'btn btn-sm btn-light',
                 click: () => {
                     elem.setViewToDestination(this.get_renderer()!);
                 },

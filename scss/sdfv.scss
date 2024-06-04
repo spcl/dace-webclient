@@ -53,38 +53,6 @@ body.sdfv {
     user-select: none;
   }
 
-  .btn-sdfv {
-    padding: 0.4rem !important;
-    margin-right: 0.2rem;
-
-    svg,
-    [class*="material-icons"],
-    [class*="material-symbols"] {
-      display: block;
-    }
-
-  }
-
-  .btn-sdfv.selected {
-    background-color: var(--bs-gray-400);
-  }
-
-  .btn-sdfv > span {
-    margin: 0;
-  }
-
-  .btn-sdfv-light {
-    color: var(--bs-dark);
-    background-color: var(--bs-gray-200);
-    border-color: var(--bs-gray-400);
-  }
-
-  .btn-sdfv-light:hover {
-    color: var(--bs-dark);
-    background-color: var(--bs-gray-400);
-    border-color: var(--bs-gray-400);
-  }
-
   #header-container {
     padding-left: 0;
   }
@@ -444,4 +412,33 @@ body.sdfv {
     font-size: 0.9rem;
     border-radius: 0.2rem;
   }
+
+  .button-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: .3rem;
+  }
+
+  .btn-material {
+    padding-bottom: 0;
+  }
+
+  .btn-material.dropdown-toggle {
+
+    &::after {
+      margin-bottom: var(--bs-btn-padding-y);
+    }
+
+  }
+
+  .btn-material.btn-sm {
+
+    span[class*="material-icons"],
+    span[class*="material-symbols"] {
+      font-size: 1.4rem;
+    }
+
+  }
+
 }
