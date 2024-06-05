@@ -2,7 +2,6 @@
 
 import {
     CFGListType,
-    DagreGraph,
     JsonSDFGBlock,
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
@@ -107,7 +106,7 @@ export function check_and_redirect_edge(
 }
 
 export function findGraphElementByUUID(
-    cfgList: CFGListType, cfgTree: { [key: number]: number },  uuid: string
+    cfgList: CFGListType, uuid: string
 ): SDFGElement | null {
     const uuidParts = uuid.split('/');
 
@@ -119,7 +118,8 @@ export function findGraphElementByUUID(
     if (!(cfgId in cfgList))
         return null;
 
-    const graph = cfgList[cfgId].graph;
+    const cfgListItem = cfgList[cfgId];
+    const graph = cfgListItem.graph;
     if (graph) {
         let state = null;
         if (stateId !== '-1')
@@ -139,13 +139,7 @@ export function findGraphElementByUUID(
             return state;
     }
 
-    const parentCfgId = cfgTree[Number(cfgId)];
-    if (parentCfgId === undefined || parentCfgId === null)
-        return null;
-    const parentCfg = cfgList[parentCfgId].graph;
-    if (!parentCfg)
-        return null;
-    return parentCfg.node(cfgList[cfgId].jsonObj.id.toString()) ?? null;
+    return cfgListItem.nsdfgNode;
 }
 
 /**

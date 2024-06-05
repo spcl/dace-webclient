@@ -116,6 +116,7 @@ export type CFGListType = {
     [id: string]: {
         jsonObj: JsonSDFGControlFlowRegion,
         graph: DagreGraph | null,
+        nsdfgNode: NestedSDFG | null,
     }
 };
 
@@ -1086,6 +1087,7 @@ export class SDFGRenderer extends EventEmitter {
         this.cfgList[0] = {
             jsonObj: this.sdfg,
             graph: null,
+            nsdfgNode: null,
         };
 
         this.doForAllSDFGElements(
@@ -1098,12 +1100,14 @@ export class SDFGRenderer extends EventEmitter {
                     this.cfgList[obj.attributes.sdfg.cfg_list_id] = {
                         jsonObj: obj.attributes.sdfg as JsonSDFG,
                         graph: null,
+                        nsdfgNode: null,
                     };
                 } else if (cfgId !== undefined && cfgId >= 0) {
                     this.cfgTree[cfgId] = oInfo.cfgId;
                     this.cfgList[cfgId] = {
                         jsonObj: obj as JsonSDFGControlFlowRegion,
                         graph: null,
+                        nsdfgNode: null,
                     };
                 }
             }
@@ -1118,7 +1122,7 @@ export class SDFGRenderer extends EventEmitter {
             const uuid = getGraphElementUUID(this.selected_elements[0]);
             if (this.graph) {
                 this.sdfv_instance.fill_info(
-                    findGraphElementByUUID(this.cfgList, this.cfgTree, uuid)
+                    findGraphElementByUUID(this.cfgList, uuid)
                 );
             }
         }
@@ -1226,8 +1230,10 @@ export class SDFGRenderer extends EventEmitter {
         if (!this.ctx)
             throw new Error('No context found while performing layouting');
 
-        for (const cfgId in this.cfgList)
+        for (const cfgId in this.cfgList) {
             this.cfgList[cfgId].graph = null;
+            this.cfgList[cfgId].nsdfgNode = null;
+        }
         this.graph = relayoutStateMachine(
             this.ctx, this.sdfg, this.sdfg, this.cfgList,
             this.state_parent_list,
@@ -1991,8 +1997,7 @@ export class SDFGRenderer extends EventEmitter {
                 }
                 const sdfg_id = error.sdfg_id ?? 0;
                 const problemElem = findGraphElementByUUID(
-                    this.cfgList, this.cfgTree,
-                    sdfg_id + '/' + state_id + '/' + el_id + '/-1'
+                    this.cfgList, sdfg_id + '/' + state_id + '/' + el_id + '/-1'
                 );
                 if (problemElem) {
                     if (problemElem && problemElem instanceof SDFGElement)
@@ -4429,8 +4434,10 @@ function relayoutSDFGState(
         // state's parent node.
         if ((node.type === SDFGElementType.NestedSDFG ||
              node.type === SDFGElementType.ExternalNestedSDFG) &&
-            node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell')
+            node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell') {
             stateParentList[node.attributes.sdfg.cfg_list_id] = obj;
+            sdfgList[node.attributes.sdfg.cfg_list_id].nsdfgNode = obj;
+        }
 
         // Add input connectors.
         let i = 0;
