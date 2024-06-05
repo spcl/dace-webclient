@@ -685,25 +685,6 @@ export class State extends BasicBlock {
 
         if (mousepos && this.intersect(mousepos.x, mousepos.y))
             renderer.set_tooltip((c) => this.tooltip(c));
-
-        // Draw state name in center without contents (does not look good)
-        /*
-        let FONTSIZE = Math.min(
-            renderer.canvas_manager.points_per_pixel() * 16, 100
-        );
-        let label = this.label();
-
-        let oldfont = ctx.font;
-        ctx.font = FONTSIZE + "px Arial";
-
-        let textmetrics = ctx.measureText(label);
-        ctx.fillText(
-            label, this.x - textmetrics.width / 2.0,
-            this.y - this.height / 6.0 + FONTSIZE / 2.0
-        );
-
-        ctx.font = oldfont;
-        */
     }
 
     public shade(

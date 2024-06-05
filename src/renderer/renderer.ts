@@ -300,6 +300,9 @@ export class SDFGRenderer extends EventEmitter {
         this.on('selection_changed', () => {
             this.on_selection_changed();
         });
+        this.on('graph_edited', () => {
+            this.draw_async();
+        });
     }
 
     public destroy(): void {
@@ -1133,9 +1136,8 @@ export class SDFGRenderer extends EventEmitter {
             this.add_loading_animation();
             setTimeout(() => {
                 this.relayout();
+                this.draw_async();
             }, 10);
-
-            this.draw_async();
         }
     }
 
@@ -1475,9 +1477,8 @@ export class SDFGRenderer extends EventEmitter {
             // to reload the dom with the above loader element.
             setTimeout(() => {
                 this.relayout();
+                this.draw_async();
             }, 10);
-
-            this.draw_async();
         }
     }
 
@@ -1497,9 +1498,8 @@ export class SDFGRenderer extends EventEmitter {
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
+            this.draw_async();
         }, 10);
-
-        this.draw_async();
     }
 
     public expandNextLevel(): void {
@@ -1523,9 +1523,8 @@ export class SDFGRenderer extends EventEmitter {
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
+            this.draw_async();
         }, 10);
-
-        this.draw_async();
     }
 
     public expandAll(): void {
@@ -1544,9 +1543,8 @@ export class SDFGRenderer extends EventEmitter {
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
+            this.draw_async();
         }, 10);
-
-        this.draw_async();
     }
 
     public reset_positions(): void {
@@ -1563,9 +1561,8 @@ export class SDFGRenderer extends EventEmitter {
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
+            this.draw_async();
         }, 10);
-
-        this.draw_async();
     }
 
     // Save functions
@@ -2782,6 +2779,7 @@ export class SDFGRenderer extends EventEmitter {
             this.add_loading_animation();
             setTimeout(() => {
                 this.relayout();
+                this.draw_async();
             }, 10);
 
             return true;
@@ -3714,10 +3712,11 @@ export class SDFGRenderer extends EventEmitter {
                     this.add_loading_animation();
                     setTimeout(() => {
                         this.relayout();
+                        this.draw_async();
                     }, 10);
+                } else {
+                    this.draw_async();
                 }
-
-                this.draw_async();
 
                 if (element_moved)
                     this.emit('element_position_changed', 'manual_move');

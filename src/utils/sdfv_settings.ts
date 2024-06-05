@@ -237,13 +237,14 @@ export class SDFVSettings {
             this.renderer?.add_loading_animation();
             setTimeout(() => {
                 this.renderer?.relayout();
+                this.renderer?.draw_async();
             }, 10);
         }
 
         if (setting.redrawUI)
             this.renderer?.initUI();
 
-        if (setting.redraw !== false)
+        if (setting.redraw !== false && !setting.relayout)
             this.renderer?.draw_async();
 
         if (this.renderer?.get_in_vscode())
