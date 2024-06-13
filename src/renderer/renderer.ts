@@ -1087,7 +1087,7 @@ export class SDFGRenderer extends EventEmitter {
         // Update SDFG metadata
         this.cfgTree = {};
         this.cfgList = {};
-        this.cfgList[0] = {
+        this.cfgList[this.sdfg.cfg_list_id] = {
             jsonObj: this.sdfg,
             graph: null,
             nsdfgNode: null,
