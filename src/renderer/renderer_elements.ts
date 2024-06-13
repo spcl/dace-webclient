@@ -1559,7 +1559,7 @@ export class InterstateEdge extends Edge {
         const labelLines = [];
         if (this.attributes().assignments) {
             for (const k of Object.keys(this.attributes().assignments ?? []))
-                labelLines.push(k + ' 🡐 ' + this.attributes().assignments[k]);
+                labelLines.push(k + ' = ' + this.attributes().assignments[k]);
         }
         const cond = this.attributes().condition?.string_data;
         if (cond && cond !== '1' && cond !== 'true')
