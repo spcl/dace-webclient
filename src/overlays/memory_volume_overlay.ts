@@ -178,7 +178,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
             const block: ControlFlowBlock = graph.node(v);
 
             // If the node's invisible, we skip it.
-            if ((ctx as any).lod && !block.intersect(
+            if (this.renderer.viewportOnly && !block.intersect(
                 visibleRect.x, visibleRect.y,
                 visibleRect.w, visibleRect.h
             ) || block.attributes()?.is_collapsed)
@@ -187,7 +187,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
             // If we're zoomed out enough that the contents aren't visible, we
             // skip the state.
             const stateppp = Math.sqrt(block.width * block.height) / ppp;
-            if ((ctx as any).lod && (stateppp < SDFV.STATE_LOD))
+            if (this.renderer.adaptiveHiding && (stateppp < SDFV.STATE_LOD))
                 return;
 
             if (block instanceof State) {
@@ -197,7 +197,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                         const node: SDFGNode = state_graph.node(v);
 
                         // Skip the node if it's not visible.
-                        if ((ctx as any).lod && !node.intersect(
+                        if (this.renderer.viewportOnly && !node.intersect(
                             visibleRect.x, visibleRect.y,
                             visibleRect.w, visibleRect.h
                         ))
@@ -206,7 +206,8 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                         // If we're zoomed out enough that the node's contents
                         // aren't visible or the node is collapsed, we skip it.
                         if (node.data.node.attributes.is_collapsed ||
-                            ((ctx as any).lod && ppp > SDFV.NODE_LOD))
+                            (this.renderer.adaptiveHiding &&
+                             ppp > SDFV.NODE_LOD))
                             return;
 
                         if (node instanceof NestedSDFG &&
@@ -222,7 +223,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                         const edge: Edge = state_graph.edge(e);
 
                         // Skip if edge is invisible, or zoomed out far
-                        if ((ctx as any).lod && (!edge.intersect(
+                        if (this.renderer.adaptiveHiding && (!edge.intersect(
                             visibleRect.x, visibleRect.y,
                             visibleRect.w, visibleRect.h
                         ) || ppp > SDFV.EDGE_LOD))

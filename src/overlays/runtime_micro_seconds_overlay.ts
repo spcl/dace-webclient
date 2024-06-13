@@ -125,14 +125,14 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
             const state: Node<SDFGNode> = graph.node(v);
 
             // If the node's invisible, we skip it.
-            if ((ctx as any).lod && !state.intersect(
+            if (this.renderer.viewportOnly && !state.intersect(
                 visible_rect.x, visible_rect.y,
                 visible_rect.w, visible_rect.h
             ))
                 return;
 
             const stateppp = Math.sqrt(state.width * state.height) / ppp;
-            if (((ctx as any).lod && (stateppp < SDFV.STATE_LOD)) ||
+            if ((this.renderer.adaptiveHiding && (stateppp < SDFV.STATE_LOD)) ||
                 state.data.state.attributes.is_collapsed) {
                 this.shade_node(state, ctx);
             } else {
@@ -142,8 +142,10 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
                         const node = state_graph.node(v);
 
                         // Skip the node if it's not visible.
-                        if ((ctx as any).lod && !node.intersect(visible_rect.x,
-                            visible_rect.y, visible_rect.w, visible_rect.h))
+                        if (this.renderer.viewportOnly && !node.intersect(
+                            visible_rect.x, visible_rect.y, visible_rect.w,
+                            visible_rect.h
+                        ))
                             return;
 
                         if (node instanceof NestedSDFG &&
@@ -151,7 +153,8 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
                             const nodeppp = Math.sqrt(
                                 node.width * node.height
                             ) / ppp;
-                            if ((ctx as any).lod && nodeppp < SDFV.STATE_LOD) {
+                            if (this.renderer.adaptiveHiding &&
+                                nodeppp < SDFV.STATE_LOD) {
                                 this.shade_node(node, ctx);
                             } else if (node.attributes().sdfg &&
                                 node.attributes().sdfg.type !== 'SDFGShell') {

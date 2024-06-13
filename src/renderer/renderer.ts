@@ -43,7 +43,11 @@ import {
     getPositioningInfo, getGraphElementUUID, findRootCFG,
 } from '../utils/sdfg/sdfg_utils';
 import { traverseSDFGScopes } from '../utils/sdfg/traversal';
-import { SDFVSettingValT, SDFVSettings } from '../utils/sdfv_settings';
+import {
+    SDFVSettingKey,
+    SDFVSettingValT,
+    SDFVSettings,
+} from '../utils/sdfv_settings';
 import { deepCopy, intersectRect, showErrorModal } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
 import {
@@ -112,6 +116,7 @@ export type CFGListType = {
     [id: string]: {
         jsonObj: JsonSDFGControlFlowRegion,
         graph: DagreGraph | null,
+        nsdfgNode: NestedSDFG | null,
     }
 };
 
@@ -150,7 +155,9 @@ export interface SDFGRendererEvent {
     'symbol_definition_changed': (symbol: string, definition?: number) => void;
     'active_overlays_changed': () => void;
     'backend_data_requested': (type: string, overlay: string) => void;
-    'settings_changed': (settings: Record<string, SDFVSettingValT>) => void;
+    'settings_changed': (
+        settings: ReadonlyMap<SDFVSettingKey, SDFVSettingValT>
+    ) => void;
 }
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
@@ -195,6 +202,7 @@ export class SDFGRenderer extends EventEmitter {
     protected hovered_elements_cache: Set<SDFGElement> = new Set<SDFGElement>();
 
     // Toolbar related fields.
+    protected modeButtons: ModeButtons | null = null;
     protected toolbar: JQuery<HTMLElement> | null = null;
     protected panmode_btn: HTMLElement | null = null;
     protected movemode_btn: HTMLElement | null = null;
@@ -243,6 +251,12 @@ export class SDFGRenderer extends EventEmitter {
     // Selection related fields.
     protected selected_elements: SDFGElement[] = [];
 
+    // Determine whether rendering only happens in the viewport or also outside.
+    protected _viewportOnly: boolean = true;
+    // Determine whether content should adaptively be hidden when zooming out.
+    // Controlled by the SDFVSettings.
+    protected _adaptiveHiding: boolean = true;
+
     public constructor(
         protected sdfv_instance: SDFV,
         protected sdfg: JsonSDFG,
@@ -285,6 +299,9 @@ export class SDFGRenderer extends EventEmitter {
         });
         this.on('selection_changed', () => {
             this.on_selection_changed();
+        });
+        this.on('graph_edited', () => {
+            this.draw_async();
         });
     }
 
@@ -340,8 +357,8 @@ export class SDFGRenderer extends EventEmitter {
 
     public view_settings(): any {
         return {
-            inclusive_ranges: SDFVSettings.inclusiveRanges,
-            omit_access_nodes: !SDFVSettings.showAccessNodes,
+            inclusive_ranges: SDFVSettings.get<boolean>('inclusiveRanges'),
+            omit_access_nodes: !SDFVSettings.get<boolean>('showAccessNodes'),
         };
     }
 
@@ -355,33 +372,24 @@ export class SDFGRenderer extends EventEmitter {
         if (this.interaction_info_text)
             this.interaction_info_text.innerHTML = '';
 
-        if (this.panmode_btn) {
-            this.panmode_btn.style.paddingBottom = '0px';
-            this.panmode_btn.style.userSelect = 'none';
+        if (this.panmode_btn)
             this.panmode_btn.classList.remove('selected');
-        }
-        if (this.movemode_btn) {
-            this.movemode_btn.style.paddingBottom = '0px';
-            this.movemode_btn.style.userSelect = 'none';
+
+        if (this.movemode_btn)
             this.movemode_btn.classList.remove('selected');
-        }
-        if (this.selectmode_btn) {
-            this.selectmode_btn.style.paddingBottom = '0px';
-            this.selectmode_btn.style.userSelect = 'none';
+
+        if (this.selectmode_btn)
             this.selectmode_btn.classList.remove('selected');
-        }
 
         this.mouse_follow_element.innerHTML = null;
 
         for (const add_btn of this.addmode_btns) {
             const btn_type = add_btn.getAttribute('type');
             if (btn_type === this.add_type && this.add_type) {
-                add_btn.style.userSelect = 'none';
                 add_btn.classList.add('selected');
                 this.mouse_follow_element.innerHTML =
                     this.mouse_follow_svgs[this.add_type];
             } else {
-                add_btn.style.userSelect = 'none';
                 add_btn.classList.remove('selected');
             }
         }
@@ -449,59 +457,23 @@ export class SDFGRenderer extends EventEmitter {
         }
     }
 
-    // Initializes the DOM
-    public init_elements(
-        user_transform: DOMMatrix | null,
-        background: string | null,
-        mode_buttons: ModeButtons | undefined | null
-    ): void {
-        this.canvas = document.createElement('canvas');
-        this.canvas.classList.add('sdfg_canvas');
-        if (background)
-            this.canvas.style.backgroundColor = background;
-        else
-            this.canvas.style.backgroundColor = 'inherit';
-        this.container.append(this.canvas);
-
-        if (SDFVSettings.minimap)
+    /**
+     * Initialize the UI based on the user's settings.
+     */
+    public initUI(): void {
+        if (SDFVSettings.get<boolean>('minimap'))
             this.enableMinimap();
         else
             this.disableMinimap();
 
-        if (this.debug_draw) {
-            this.dbg_info_box = document.createElement('div');
-            this.dbg_info_box.style.position = 'absolute';
-            this.dbg_info_box.style.bottom = '.5rem';
-            this.dbg_info_box.style.right = '.5rem';
-            this.dbg_info_box.style.backgroundColor = 'black';
-            this.dbg_info_box.style.padding = '.3rem';
-            this.dbg_mouse_coords = document.createElement('span');
-            this.dbg_mouse_coords.style.color = 'white';
-            this.dbg_mouse_coords.style.fontSize = '1rem';
-            this.dbg_mouse_coords.innerText = 'x: N/A / y: N/A';
-            this.dbg_info_box.appendChild(this.dbg_mouse_coords);
-            this.container.appendChild(this.dbg_info_box);
-        }
+        if (SDFVSettings.get<boolean>('toolbar')) {
+            // If the toolbar is already present, don't do anything.
+            if (this.toolbar)
+                return;
 
-        // Add an info box for interaction hints to the bottom left of the
-        // canvas.
-        this.interaction_info_box = document.createElement('div');
-        this.interaction_info_box.style.position = 'absolute';
-        this.interaction_info_box.style.bottom = '.5rem';
-        this.interaction_info_box.style.left = '.5rem';
-        this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-        this.interaction_info_box.style.borderRadius = '5px';
-        this.interaction_info_box.style.padding = '.3rem';
-        this.interaction_info_box.style.display = 'none';
-        this.interaction_info_text = document.createElement('span');
-        this.interaction_info_text.style.color = '#eeeeee';
-        this.interaction_info_text.innerHTML = '';
-        this.interaction_info_box.appendChild(this.interaction_info_text);
-        this.container.appendChild(this.interaction_info_box);
-
-        if (SDFVSettings.toolbar) {
             // Construct the toolbar.
             this.toolbar = $('<div>', {
+                class: 'button-bar',
                 css: {
                     position: 'absolute',
                     top: '10px',
@@ -515,8 +487,8 @@ export class SDFGRenderer extends EventEmitter {
                 class: 'dropdown',
             });
             $('<button>', {
-                class: 'btn btn-light btn-sdfv-light btn-sdfv',
-                html: '<i class="material-icons">menu</i>',
+                class: 'btn btn-secondary btn-sm btn-material',
+                html: '<i class="material-symbols-outlined">menu</i>',
                 title: 'Menu',
                 'data-bs-toggle': 'dropdown',
             }).appendTo(menuDropdown);
@@ -562,8 +534,8 @@ export class SDFGRenderer extends EventEmitter {
 
             // SDFV Options.
             $('<button>', {
-                class: 'btn btn-light btn-sdfv-light btn-sdfv',
-                html: '<i class="material-icons">settings</i>',
+                class: 'btn btn-secondary btn-sm btn-material',
+                html: '<i class="material-symbols-outlined">settings</i>',
                 title: 'Settings',
                 click: () => {
                     SDFVSettings.getInstance().show(this);
@@ -576,8 +548,9 @@ export class SDFGRenderer extends EventEmitter {
                     class: 'dropdown',
                 });
                 $('<button>', {
-                    class: 'btn btn-light btn-sdfv-light btn-sdfv',
-                    html: '<i class="material-icons">saved_search</i>',
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">' +
+                        'saved_search</i>',
                     title: 'Overlays',
                     'data-bs-toggle': 'dropdown',
                     'data-bs-auto-close': 'outside',
@@ -634,28 +607,36 @@ export class SDFGRenderer extends EventEmitter {
                 );
             }
 
+            const zoomButtonGroup = $('<div>', {
+                class: 'btn-group',
+                role: 'group',
+            }).appendTo(this.toolbar);
             // Zoom to fit.
             $('<button>', {
-                class: 'btn btn-light btn-sdfv-light btn-sdfv',
-                html: '<i class="material-icons">fit_screen</i>',
+                class: 'btn btn-secondary btn-sm btn-material',
+                html: '<i class="material-symbols-outlined">fit_screen</i>',
                 title: 'Zoom to fit SDFG',
                 click: () => {
                     this.zoom_to_view();
                 },
-            }).appendTo(this.toolbar);
+            }).appendTo(zoomButtonGroup);
             $('<button>', {
-                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                class: 'btn btn-secondary btn-sm btn-material',
                 html: '<i class="material-symbols-outlined">fit_width</i>',
                 title: 'Zoom to fit width',
                 click: () => {
                     this.zoomToFitWidth();
                 },
-            }).appendTo(this.toolbar);
+            }).appendTo(zoomButtonGroup);
 
+            const collapseButtonGroup = $('<div>', {
+                class: 'btn-group',
+                role: 'group',
+            }).appendTo(this.toolbar);
             // Collapse all.
             $('<button>', {
-                class: 'btn btn-light btn-sdfv-light btn-sdfv',
-                html: '<i class="material-icons">unfold_less</i>',
+                class: 'btn btn-secondary btn-sm btn-material',
+                html: '<i class="material-symbols-outlined">unfold_less</i>',
                 title: 'Collapse next level (Shift+click to collapse all)',
                 click: (e: MouseEvent) => {
                     if (e.shiftKey)
@@ -663,12 +644,12 @@ export class SDFGRenderer extends EventEmitter {
                     else
                         this.collapseNextLevel();
                 },
-            }).appendTo(this.toolbar);
+            }).appendTo(collapseButtonGroup);
 
             // Expand all.
             $('<button>', {
-                class: 'btn btn-light btn-sdfv-light btn-sdfv',
-                html: '<i class="material-icons">unfold_more</i>',
+                class: 'btn btn-secondary btn-sm btn-material',
+                html: '<i class="material-symbols-outlined">unfold_more</i>',
                 title: 'Expand next level (Shift+click to expand all)',
                 click: (e: MouseEvent) => {
                     if (e.shiftKey)
@@ -676,15 +657,15 @@ export class SDFGRenderer extends EventEmitter {
                     else
                         this.expandNextLevel();
                 },
-            }).appendTo(this.toolbar);
+            }).appendTo(collapseButtonGroup);
 
-            if (mode_buttons) {
+            if (this.modeButtons) {
                 // If we get the "external" mode buttons we are in vscode and do
                 // not need to create them.
-                this.panmode_btn = mode_buttons.pan;
-                this.movemode_btn = mode_buttons.move;
-                this.selectmode_btn = mode_buttons.select;
-                this.addmode_btns = mode_buttons.add_btns;
+                this.panmode_btn = this.modeButtons.pan;
+                this.movemode_btn = this.modeButtons.move;
+                this.selectmode_btn = this.modeButtons.select;
+                this.addmode_btns = this.modeButtons.add_btns;
                 for (const add_btn of this.addmode_btns) {
                     if (add_btn.getAttribute('type') ===
                         SDFGElementType.LibraryNode) {
@@ -716,25 +697,29 @@ export class SDFGRenderer extends EventEmitter {
                 this.addmode_btns = [];
 
                 // Enter pan mode.
+                const modeButtonGroup = $('<div>', {
+                    class: 'btn-group',
+                    role: 'group',
+                }).appendTo(this.toolbar);
                 this.panmode_btn = $('<button>', {
-                    class: 'btn btn-light btn-sdfv-light btn-sdfv selected',
-                    html: '<i class="material-icons">pan_tool</i>',
+                    class: 'btn btn-secondary btn-sm btn-material selected',
+                    html: '<i class="material-symbols-outlined">pan_tool</i>',
                     title: 'Pan mode',
-                }).appendTo(this.toolbar)[0];
+                }).appendTo(modeButtonGroup)[0];
 
                 // Enter move mode.
                 this.movemode_btn = $('<button>', {
-                    class: 'btn btn-light btn-sdfv-light btn-sdfv',
-                    html: '<i class="material-icons">open_with</i>',
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">open_with</i>',
                     title: 'Object moving mode',
-                }).appendTo(this.toolbar)[0];
+                }).appendTo(modeButtonGroup)[0];
 
                 // Enter box select mode.
                 this.selectmode_btn = $('<button>', {
-                    class: 'btn btn-light btn-sdfv-light btn-sdfv',
-                    html: '<i class="material-icons">border_style</i>',
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">select</i>',
                     title: 'Select mode',
-                }).appendTo(this.toolbar)[0];
+                }).appendTo(modeButtonGroup)[0];
             }
 
             // Enter pan mode
@@ -803,11 +788,11 @@ export class SDFGRenderer extends EventEmitter {
             // Filter graph to selection (visual cutout).
             this.cutoutBtn = $('<button>', {
                 id: 'cutout-button',
-                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                class: 'btn btn-secondary btn-sm btn-material',
                 css: {
                     'display': 'none',
                 },
-                html: '<i class="material-icons">content_cut</i>',
+                html: '<i class="material-symbols-outlined">content_cut</i>',
                 title: 'Filter selection (cutout)',
                 click: () => {
                     this.cutoutSelection();
@@ -817,11 +802,11 @@ export class SDFGRenderer extends EventEmitter {
             // Transition to local view with selection.
             this.localViewBtn = $('<button>', {
                 id: 'local-view-button',
-                class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                class: 'btn btn-secondary btn-sm btn-material',
                 css: {
                     'display': 'none',
                 },
-                html: '<i class="material-icons">memory</i>',
+                html: '<i class="material-symbols-outlined">memory</i>',
                 title: 'Inspect access patterns (local view)',
                 click: () => {
                     this.localViewSelection();
@@ -832,11 +817,11 @@ export class SDFGRenderer extends EventEmitter {
             if (this.in_vscode) {
                 const exitPreviewBtn = $('<button>', {
                     id: 'exit-preview-button',
-                    class: 'btn btn-light btn-sdfv-light btn-sdfv',
+                    class: 'btn btn-secondary btn-sm btn-material',
                     css: {
                         'display': 'none',
                     },
-                    html: '<i class="material-icons">close</i>',
+                    html: '<i class="material-symbols-outlined">close</i>',
                     title: 'Exit preview',
                     click: () => {
                         exitPreviewBtn.hide();
@@ -844,7 +829,63 @@ export class SDFGRenderer extends EventEmitter {
                     },
                 }).appendTo(this.toolbar);
             }
+        } else {
+            if (this.toolbar) {
+                this.container.removeChild(this.toolbar[0]);
+                this.toolbar = null;
+            }
         }
+    }
+
+    // Initializes the DOM
+    public init_elements(
+        user_transform: DOMMatrix | null,
+        background: string | null,
+        mode_buttons: ModeButtons | null
+    ): void {
+        this.modeButtons = mode_buttons;
+
+        // Set up the canvas.
+        this.canvas = document.createElement('canvas');
+        this.canvas.classList.add('sdfg_canvas');
+        if (background)
+            this.canvas.style.backgroundColor = background;
+        else
+            this.canvas.style.backgroundColor = 'inherit';
+        this.container.append(this.canvas);
+
+        this.initUI();
+
+        if (this.debug_draw) {
+            this.dbg_info_box = document.createElement('div');
+            this.dbg_info_box.style.position = 'absolute';
+            this.dbg_info_box.style.bottom = '.5rem';
+            this.dbg_info_box.style.right = '.5rem';
+            this.dbg_info_box.style.backgroundColor = 'black';
+            this.dbg_info_box.style.padding = '.3rem';
+            this.dbg_mouse_coords = document.createElement('span');
+            this.dbg_mouse_coords.style.color = 'white';
+            this.dbg_mouse_coords.style.fontSize = '1rem';
+            this.dbg_mouse_coords.innerText = 'x: N/A / y: N/A';
+            this.dbg_info_box.appendChild(this.dbg_mouse_coords);
+            this.container.appendChild(this.dbg_info_box);
+        }
+
+        // Add an info box for interaction hints to the bottom left of the
+        // canvas.
+        this.interaction_info_box = document.createElement('div');
+        this.interaction_info_box.style.position = 'absolute';
+        this.interaction_info_box.style.bottom = '.5rem';
+        this.interaction_info_box.style.left = '.5rem';
+        this.interaction_info_box.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        this.interaction_info_box.style.borderRadius = '5px';
+        this.interaction_info_box.style.padding = '.3rem';
+        this.interaction_info_box.style.display = 'none';
+        this.interaction_info_text = document.createElement('span');
+        this.interaction_info_text.style.color = '#eeeeee';
+        this.interaction_info_text.innerHTML = '';
+        this.interaction_info_box.appendChild(this.interaction_info_text);
+        this.container.appendChild(this.interaction_info_box);
 
         // Tooltip HTML container
         this.tooltip_container = document.createElement('div');
@@ -872,7 +913,8 @@ export class SDFGRenderer extends EventEmitter {
         error_popover_dismiss.style.float = 'right';
         error_popover_dismiss.style.cursor = 'pointer';
         error_popover_dismiss.style.color = 'white';
-        error_popover_dismiss.innerHTML = '<i class="material-icons">close</i>';
+        error_popover_dismiss.innerHTML =
+            '<span class="material-symbols-outlined">close</span>';
         this.error_popover_container.appendChild(error_popover_dismiss);
         this.error_popover_container.appendChild(this.error_popover_text);
         this.container.appendChild(this.error_popover_container);
@@ -1034,6 +1076,9 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     public draw_async(): void {
+        this._adaptiveHiding = SDFVSettings.get<boolean>(
+            'adaptiveContentHiding'
+        );
         this.clearCssPropertyCache();
         this.canvas_manager?.draw_async();
     }
@@ -1042,9 +1087,10 @@ export class SDFGRenderer extends EventEmitter {
         // Update SDFG metadata
         this.cfgTree = {};
         this.cfgList = {};
-        this.cfgList[0] = {
+        this.cfgList[this.sdfg.cfg_list_id] = {
             jsonObj: this.sdfg,
             graph: null,
+            nsdfgNode: null,
         };
 
         this.doForAllSDFGElements(
@@ -1057,12 +1103,14 @@ export class SDFGRenderer extends EventEmitter {
                     this.cfgList[obj.attributes.sdfg.cfg_list_id] = {
                         jsonObj: obj.attributes.sdfg as JsonSDFG,
                         graph: null,
+                        nsdfgNode: null,
                     };
                 } else if (cfgId !== undefined && cfgId >= 0) {
                     this.cfgTree[cfgId] = oInfo.cfgId;
                     this.cfgList[cfgId] = {
                         jsonObj: obj as JsonSDFGControlFlowRegion,
                         graph: null,
+                        nsdfgNode: null,
                     };
                 }
             }
@@ -1077,7 +1125,7 @@ export class SDFGRenderer extends EventEmitter {
             const uuid = getGraphElementUUID(this.selected_elements[0]);
             if (this.graph) {
                 this.sdfv_instance.fill_info(
-                    findGraphElementByUUID(this.cfgList, this.cfgTree, uuid)
+                    findGraphElementByUUID(this.cfgList, uuid)
                 );
             }
         }
@@ -1088,9 +1136,8 @@ export class SDFGRenderer extends EventEmitter {
             this.add_loading_animation();
             setTimeout(() => {
                 this.relayout();
+                this.draw_async();
             }, 10);
-
-            this.draw_async();
         }
     }
 
@@ -1185,11 +1232,14 @@ export class SDFGRenderer extends EventEmitter {
         if (!this.ctx)
             throw new Error('No context found while performing layouting');
 
-        for (const cfgId in this.cfgList)
+        for (const cfgId in this.cfgList) {
             this.cfgList[cfgId].graph = null;
+            this.cfgList[cfgId].nsdfgNode = null;
+        }
         this.graph = relayoutStateMachine(
             this.ctx, this.sdfg, this.sdfg, this.cfgList,
-            this.state_parent_list, !SDFVSettings.showAccessNodes, undefined
+            this.state_parent_list,
+            !SDFVSettings.get<boolean>('showAccessNodes'), undefined
         );
         this.onresize();
 
@@ -1427,9 +1477,8 @@ export class SDFGRenderer extends EventEmitter {
             // to reload the dom with the above loader element.
             setTimeout(() => {
                 this.relayout();
+                this.draw_async();
             }, 10);
-
-            this.draw_async();
         }
     }
 
@@ -1449,9 +1498,8 @@ export class SDFGRenderer extends EventEmitter {
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
+            this.draw_async();
         }, 10);
-
-        this.draw_async();
     }
 
     public expandNextLevel(): void {
@@ -1475,9 +1523,8 @@ export class SDFGRenderer extends EventEmitter {
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
+            this.draw_async();
         }, 10);
-
-        this.draw_async();
     }
 
     public expandAll(): void {
@@ -1496,9 +1543,8 @@ export class SDFGRenderer extends EventEmitter {
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
+            this.draw_async();
         }, 10);
-
-        this.draw_async();
     }
 
     public reset_positions(): void {
@@ -1515,9 +1561,8 @@ export class SDFGRenderer extends EventEmitter {
         // to reload the dom with the above loader element.
         setTimeout(() => {
             this.relayout();
+            this.draw_async();
         }, 10);
-
-        this.draw_async();
     }
 
     // Save functions
@@ -1604,12 +1649,18 @@ export class SDFGRenderer extends EventEmitter {
 
             // Necessary for "what you see is what you get" in the exported pdf
             // file.
-            if (!save_all && (oldctx as any).lod) {
-                // User wants to save the view "as is" with details hidden
-                (this.ctx as any).lod = true;
+            const oldViewportOnly = this._viewportOnly;
+            const oldAdaptiveHiding = this._adaptiveHiding;
+            if (!save_all) {
+                // User wants to save the view as they see it on the screen.
+                this._viewportOnly = true;
+                this._adaptiveHiding = SDFVSettings.get<boolean>(
+                    'adaptiveContentHiding'
+                );
             } else {
-                // User wants to save all details in the view
-                (this.ctx as any).lod = false;
+                // User wants to save all details in the view.
+                this._viewportOnly = false;
+                this._adaptiveHiding = false;
             }
             (this.ctx as any).pdf = true;
             // Center on saved region
@@ -1624,6 +1675,8 @@ export class SDFGRenderer extends EventEmitter {
                     name + '.pdf', ctx.stream.toBlobURL('application/pdf')
                 );
                 this.ctx = oldctx;
+                this._viewportOnly = oldViewportOnly;
+                this._adaptiveHiding = oldAdaptiveHiding;
                 this.draw_async();
                 // Remove loading animation
                 const info_field = document.getElementById('task-info-field');
@@ -1941,8 +1994,7 @@ export class SDFGRenderer extends EventEmitter {
                 }
                 const sdfg_id = error.sdfg_id ?? 0;
                 const problemElem = findGraphElementByUUID(
-                    this.cfgList, this.cfgTree,
-                    sdfg_id + '/' + state_id + '/' + el_id + '/-1'
+                    this.cfgList, sdfg_id + '/' + state_id + '/' + el_id + '/-1'
                 );
                 if (problemElem) {
                     if (problemElem && problemElem instanceof SDFGElement)
@@ -2727,6 +2779,7 @@ export class SDFGRenderer extends EventEmitter {
             this.add_loading_animation();
             setTimeout(() => {
                 this.relayout();
+                this.draw_async();
             }, 10);
 
             return true;
@@ -2982,8 +3035,11 @@ export class SDFGRenderer extends EventEmitter {
                 return false;
             }
         } else if (evtype === 'wheel') {
-            if (SDFVSettings.useVerticalScrollNavigation && !event.ctrlKey ||
-                !SDFVSettings.useVerticalScrollNavigation && event.ctrlKey) {
+            const useScrollNav = SDFVSettings.get<boolean>(
+                'useVerticalScrollNavigation'
+            );
+            if (useScrollNav && !event.ctrlKey ||
+                !useScrollNav && event.ctrlKey) {
                 // If vertical scroll navigation is turned on, use this to
                 // move the viewport up and down. If the control key is held
                 // down while scrolling, treat it as a typical zoom operation.
@@ -3656,10 +3712,11 @@ export class SDFGRenderer extends EventEmitter {
                     this.add_loading_animation();
                     setTimeout(() => {
                         this.relayout();
+                        this.draw_async();
                     }, 10);
+                } else {
+                    this.draw_async();
                 }
-
-                this.draw_async();
 
                 if (element_moved)
                     this.emit('element_position_changed', 'manual_move');
@@ -3711,10 +3768,6 @@ export class SDFGRenderer extends EventEmitter {
             this.emit('selection_changed', multi_selection_changed);
 
         return false;
-    }
-
-    public get_inclusive_ranges(): boolean {
-        return SDFVSettings.inclusiveRanges;
     }
 
     public get_canvas(): HTMLCanvasElement | null {
@@ -3863,7 +3916,8 @@ export class SDFGRenderer extends EventEmitter {
                 // Set a button to exit the local view again.
                 const exitBtn = document.createElement('button');
                 exitBtn.className = 'button';
-                exitBtn.innerHTML = '<i class="material-icons">close</i>';
+                exitBtn.innerHTML =
+                    '<span class="material-symbols-outlined">close</span>';
                 exitBtn.style.paddingBottom = '0px';
                 exitBtn.style.userSelect = 'none';
                 exitBtn.style.position = 'absolute';
@@ -4014,6 +4068,14 @@ export class SDFGRenderer extends EventEmitter {
         }
     }
 
+    public get viewportOnly(): boolean {
+        return this._viewportOnly;
+    }
+
+    public get adaptiveHiding(): boolean {
+        return this._adaptiveHiding;
+    }
+
 }
 
 
@@ -4024,7 +4086,7 @@ function calculateNodeSize(
     switch (node.type) {
         case SDFGElementType.AccessNode:
             label = node.label;
-            if (SDFVSettings.showDataDescriptorSizes) {
+            if (SDFVSettings.get<boolean>('showDataDescriptorSizes')) {
                 const nodedesc = sdfg.attributes._arrays[label];
                 if (nodedesc && nodedesc.attributes.shape) {
                     label = ' ' + sdfg_property_to_string(
@@ -4192,7 +4254,7 @@ function relayoutStateMachine(
         ));
     }
 
-    if (SDFVSettings.useVerticalStateMachineLayout) {
+    if (SDFVSettings.get<boolean>('useVerticalStateMachineLayout')) {
         // Fall back to dagre for anything that cannot be laid out with
         // the vertical layout (e.g., irreducible control flow).
         try {
@@ -4283,11 +4345,11 @@ function relayoutSDFGState(
     const g: DagreGraph = new dagre.graphlib.Graph({ multigraph: true });
 
     // Set layout options and a simpler algorithm for large graphs.
-    const layoutOptions: any = { ranksep: SDFVSettings.ranksep };
+    const layoutOptions: any = { ranksep: SDFVSettings.get<number>('ranksep') };
     if (state.nodes.length >= 1000)
         layoutOptions.ranker = 'longest-path';
 
-    layoutOptions.nodesep = SDFVSettings.nodesep;
+    layoutOptions.nodesep = SDFVSettings.get<number>('nodesep');
     g.setGraph(layoutOptions);
 
     // Set an object for the graph label.
@@ -4371,8 +4433,10 @@ function relayoutSDFGState(
         // state's parent node.
         if ((node.type === SDFGElementType.NestedSDFG ||
              node.type === SDFGElementType.ExternalNestedSDFG) &&
-            node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell')
+            node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell') {
             stateParentList[node.attributes.sdfg.cfg_list_id] = obj;
+            sdfgList[node.attributes.sdfg.cfg_list_id].nsdfgNode = obj;
+        }
 
         // Add input connectors.
         let i = 0;
@@ -4589,7 +4653,7 @@ function relayoutSDFGState(
         }
 
         // Summarize edges for NestedSDFGs and ScopeNodes
-        if (SDFVSettings.summarizeLargeNumbersOfEdges) {
+        if (SDFVSettings.get<boolean>('summarizeLargeNumbersOfEdges')) {
             if (gnode instanceof NestedSDFG || gnode instanceof ScopeNode) {
                 const n_of_in_connectors = gnode.in_connectors.length;
                 const n_of_out_connectors = gnode.out_connectors.length;

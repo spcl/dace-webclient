@@ -1,0 +1,112 @@
+{
+    "viewerSettings": {
+        "categories": {
+            "view": {
+                "label": "View",
+                "settings": {
+                    "curvedEdges": {
+                        "label": "Draw curved edges (turn this off if you are experiencing performance issues)",
+                        "type": "boolean",
+                        "default": true
+                    },
+                    "toolbar": {
+                        "label": "Show toolbar",
+                        "type": "boolean",
+                        "default": true,
+                        "hidden": true
+                    },
+                    "minimap": {
+                        "label": "Show minimap",
+                        "type": "boolean",
+                        "default": true,
+                        "redrawUI": true
+                    },
+                    "alwaysOnISEdgeLabels": {
+                        "label": "Always show interstate edge labels",
+                        "type": "boolean",
+                        "default": true
+                    },
+                    "showAccessNodes": {
+                        "label": "Show access nodes",
+                        "type": "boolean",
+                        "default": true,
+                        "relayout": true
+                    },
+                    "showStateNames": {
+                        "label": "Show state names",
+                        "type": "boolean",
+                        "default": true
+                    },
+                    "showMapSchedules": {
+                        "label": "Show scope schedules",
+                        "type": "boolean",
+                        "default": true
+                    },
+                    "showDataDescriptorSizes": {
+                        "label": "Show data descriptor sizes on access nodes (hides data container names)",
+                        "type": "boolean",
+                        "default": false,
+                        "relayout": true
+                    },
+                    "inclusiveRanges": {
+                        "label": "Use inclusive ranges",
+                        "type": "boolean",
+                        "default": false,
+                        "relayout": true
+                    },
+                    "useVerticalStateMachineLayout": {
+                        "label": "Use vertical state machine layout",
+                        "type": "boolean",
+                        "default": true,
+                        "relayout": true
+                    },
+                    "ranksep": {
+                        "label": "Vertical node spacing",
+                        "type": "range",
+                        "default": 30,
+                        "minimum": 10,
+                        "maximum": 100,
+                        "step": 1,
+                        "relayout": true
+                    },
+                    "nodesep": {
+                        "label": "Horizontal node spacing",
+                        "type": "range",
+                        "default": 50,
+                        "minimum": 0,
+                        "maximum": 100,
+                        "step": 1,
+                        "relayout": true
+                    }
+                }
+            },
+            "mouse": {
+                "label": "Mouse",
+                "settings": {
+                    "useVerticalScrollNavigation": {
+                        "label": "Use vertical scroll navigation (binds zoom to Ctrl + scroll)",
+                        "type": "boolean",
+                        "default": false
+                    }
+                }
+            },
+            "performance": {
+                "label": "Performance",
+                "settings": {
+                    "adaptiveContentHiding": {
+                        "label": "Adaptively hide content when zooming out (Warning: turning this off can cause performance issues on large graphs)",
+                        "type": "boolean",
+                        "default": true
+                    },
+                    "summarizeLargeNumbersOfEdges": {
+                        "id": "summarizeLargeNumbersOfEdges",
+                        "label": "Hide and summarize edges for nodes with more than 10 incoming or outgoing edges",
+                        "type": "boolean",
+                        "default": false,
+                        "relayout": true
+                    }
+                }
+            }
+        }
+    }
+}

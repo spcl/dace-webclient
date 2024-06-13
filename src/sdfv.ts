@@ -169,9 +169,9 @@ export class SDFV {
         const d = document.createElement('div');
         d.className = 'context_menu_option';
         d.innerHTML = htmlSanitize`
-            <i class="material-icons" style="font-size: inherit">
+            <span class="material-symbols-outlined" style="font-size: inherit">
                 filter_center_focus
-            </i> SDFG ${renderer.get_sdfg().attributes.name}
+            </span> SDFG ${renderer.get_sdfg().attributes.name}
         `;
         d.onclick = () => renderer.zoom_to_view();
         sidebar.appendChild(d);
@@ -196,7 +196,7 @@ export class SDFV {
 
             // If a scope has children, remove the name "Entry" from the type
             if (node.type().endsWith('Entry') && node.parent_id && node.id) {
-                const state = node.parentElem?.data.state.nodes[node.parent_id];
+                const state = node.parentElem?.data.state;
                 if (state.scope_dict[node.id] !== undefined)
                     node_type = node_type.slice(0, -5);
             }
@@ -271,7 +271,7 @@ export class SDFV {
             });
             btnContainer.append($('<button>', {
                 text: 'Jump to start',
-                class: 'btn btn-sm btn-light btn-sdfv-light',
+                class: 'btn btn-sm btn-secondary',
                 css: {
                     'margin-right': '10px',
                 },
@@ -281,7 +281,7 @@ export class SDFV {
             }));
             btnContainer.append($('<button>', {
                 text: 'Jump to end',
-                class: 'btn btn-sm btn-light btn-sdfv-light',
+                class: 'btn btn-sm btn-secondary',
                 click: () => {
                     elem.setViewToDestination(this.get_renderer()!);
                 },
@@ -948,15 +948,15 @@ $(() => {
     // or URL parameters.
     const isEmbedded = document.getElementById('embedded') !== null;
     if (isEmbedded) {
-        SDFVSettings.setDefault('toolbar', false);
-        SDFVSettings.setDefault('minimap', false);
+        SDFVSettings.set<boolean>('toolbar', false);
+        SDFVSettings.set<boolean>('minimap', false);
     }
 
     // Check if any of the remaining settings are provided via the URL.
     for (const key of SDFVSettings.settingsKeys) {
         const overrideVal = settingReadDefault(key, undefined);
         if (overrideVal !== undefined)
-            SDFVSettings.setDefault(key, overrideVal);
+            SDFVSettings.set(key, overrideVal);
     }
 
     let sdfv = new SDFV();

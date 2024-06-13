@@ -291,7 +291,7 @@ export class SDFGElement {
         // Only draw if close enough
         const canvas_manager = renderer.get_canvas_manager();
         const ppp = canvas_manager?.points_per_pixel();
-        if (!(ctx as any).lod || (ppp && ppp < SDFV.EDGE_LOD)) {
+        if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.EDGE_LOD)) {
             const topleft = this.topleft();
             ctx.strokeStyle = this.strokeStyle(renderer);
             ctx.fillStyle = ctx.strokeStyle;
@@ -460,7 +460,7 @@ export class ControlFlowRegion extends ControlFlowBlock {
         }
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
-        if (!(ctx as any).lod) {
+        if (!renderer.viewportOnly) {
             clamped = {
                 x: topleft.x,
                 y: topleft.y,
@@ -482,7 +482,7 @@ export class ControlFlowRegion extends ControlFlowBlock {
 
         // Only draw line if close enough.
         const ppp = renderer.get_canvas_manager()?.points_per_pixel();
-        if (!(ctx as any).lod || (ppp && ppp < SDFV.NODE_LOD))
+        if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.NODE_LOD))
             ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
 
         ctx.fillStyle = this.getCssProperty(
@@ -491,8 +491,8 @@ export class ControlFlowRegion extends ControlFlowBlock {
 
         if (visibleRect && visibleRect.x <= topleft.x &&
             visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
-            SDFVSettings.showStateNames) {
-            if (!too_far_away_for_text(renderer, ctx)) {
+            SDFVSettings.get<boolean>('showStateNames')) {
+            if (!too_far_away_for_text(renderer)) {
                 ctx.fillText(
                     this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
                     topleft.y + SDFV.LINEHEIGHT
@@ -501,7 +501,7 @@ export class ControlFlowRegion extends ControlFlowBlock {
         }
 
         // If this state is selected or hovered
-        if (!(ctx as any).lod || (ppp && ppp < SDFV.NODE_LOD)) {
+        if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.NODE_LOD)) {
             if ((this.selected || this.highlighted || this.hovered) &&
                 (clamped.x === topleft.x ||
                     clamped.y === topleft.y ||
@@ -615,7 +615,7 @@ export class State extends BasicBlock {
         }
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
-        if (!(ctx as any).lod) {
+        if (!renderer.viewportOnly) {
             clamped = {
                 x: topleft.x,
                 y: topleft.y,
@@ -636,8 +636,8 @@ export class State extends BasicBlock {
 
         if (visible_rect && visible_rect.x <= topleft.x &&
             visible_rect.y <= topleft.y + SDFV.LINEHEIGHT &&
-            SDFVSettings.showStateNames) {
-            if (!too_far_away_for_text(renderer, ctx)) {
+            SDFVSettings.get<boolean>('showStateNames')) {
+            if (!too_far_away_for_text(renderer)) {
                 ctx.fillText(
                     this.label(), topleft.x, topleft.y + SDFV.LINEHEIGHT
                 );
@@ -646,7 +646,7 @@ export class State extends BasicBlock {
 
         // If this state is selected or hovered
         const ppp = renderer.get_canvas_manager()?.points_per_pixel();
-        if (!(ctx as any).lod || (ppp && ppp < SDFV.NODE_LOD)) {
+        if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.NODE_LOD)) {
             if ((this.selected || this.highlighted || this.hovered) &&
                 (clamped.x === topleft.x ||
                     clamped.y === topleft.y ||
@@ -685,25 +685,6 @@ export class State extends BasicBlock {
 
         if (mousepos && this.intersect(mousepos.x, mousepos.y))
             renderer.set_tooltip((c) => this.tooltip(c));
-
-        // Draw state name in center without contents (does not look good)
-        /*
-        let FONTSIZE = Math.min(
-            renderer.canvas_manager.points_per_pixel() * 16, 100
-        );
-        let label = this.label();
-
-        let oldfont = ctx.font;
-        ctx.font = FONTSIZE + "px Arial";
-
-        let textmetrics = ctx.measureText(label);
-        ctx.fillText(
-            label, this.x - textmetrics.width / 2.0,
-            this.y - this.height / 6.0 + FONTSIZE / 2.0
-        );
-
-        ctx.font = oldfont;
-        */
     }
 
     public shade(
@@ -801,7 +782,7 @@ export class LoopRegion extends ControlFlowRegion {
         }
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
-        if (!(ctx as any).lod) {
+        if (!renderer.viewportOnly) {
             clamped = {
                 x: topleft.x,
                 y: topleft.y,
@@ -823,7 +804,7 @@ export class LoopRegion extends ControlFlowRegion {
 
         // Only draw line if close enough.
         const ppp = renderer.get_canvas_manager()?.points_per_pixel();
-        if (!(ctx as any).lod || (ppp && ppp < SDFV.NODE_LOD))
+        if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.NODE_LOD))
             ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
 
         ctx.fillStyle = this.getCssProperty(
@@ -843,7 +824,7 @@ export class LoopRegion extends ControlFlowRegion {
             ctx.lineTo(topleft.x + this.width, initBottomLineY);
             ctx.stroke();
 
-            if (!too_far_away_for_text(renderer, ctx)) {
+            if (!too_far_away_for_text(renderer)) {
                 ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
                 const initStatement =
                     this.attributes().init_statement?.string_data;
@@ -885,7 +866,7 @@ export class LoopRegion extends ControlFlowRegion {
         ctx.stroke();
 
 
-        if (!too_far_away_for_text(renderer, ctx)) {
+        if (!too_far_away_for_text(renderer)) {
             ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
             const condStatement = this.attributes().loop_condition?.string_data;
             const condTextY = (
@@ -915,7 +896,7 @@ export class LoopRegion extends ControlFlowRegion {
             ctx.stroke();
 
 
-            if (!too_far_away_for_text(renderer, ctx)) {
+            if (!too_far_away_for_text(renderer)) {
                 ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
                 const updateStatement =
                     this.attributes().update_statement.string_data;
@@ -939,8 +920,8 @@ export class LoopRegion extends ControlFlowRegion {
 
         if (visibleRect && visibleRect.x <= topleft.x &&
             visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
-            SDFVSettings.showStateNames) {
-            if (!too_far_away_for_text(renderer, ctx)) {
+            SDFVSettings.get<boolean>('showStateNames')) {
+            if (!too_far_away_for_text(renderer)) {
                 ctx.fillText(
                     this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
                     topleft.y + topSpacing + SDFV.LINEHEIGHT
@@ -949,7 +930,7 @@ export class LoopRegion extends ControlFlowRegion {
         }
 
         // If this state is selected or hovered
-        if (!(ctx as any).lod || (ppp && ppp < SDFV.NODE_LOD)) {
+        if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.NODE_LOD)) {
             if ((this.selected || this.highlighted || this.hovered) &&
                 (clamped.x === topleft.x ||
                     clamped.y === topleft.y ||
@@ -1016,7 +997,7 @@ export class SDFGNode extends SDFGElement {
         }
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
-        if (!(ctx as any).lod) {
+        if (!renderer.viewportOnly) {
             clamped = {
                 x: topleft.x,
                 y: topleft.y,
@@ -1032,7 +1013,7 @@ export class SDFGNode extends SDFGElement {
 
         // Only draw line if close enough to see it.
         const ppp = renderer.get_canvas_manager()?.points_per_pixel();
-        if (!(ctx as any).lod || (ppp && ppp < SDFV.NODE_LOD)) {
+        if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.NODE_LOD)) {
             if (clamped.x === topleft.x &&
                 clamped.y === topleft.y &&
                 clamped.x2 === topleft.x + this.width &&
@@ -1042,7 +1023,7 @@ export class SDFGNode extends SDFGElement {
             }
         }
         if (this.label()) {
-            if (!too_far_away_for_text(renderer, ctx)) {
+            if (!too_far_away_for_text(renderer)) {
                 ctx.fillStyle = this.getCssProperty(renderer, fgstyle);
                 const textw = ctx.measureText(this.label()).width;
                 if (!visible_rect) {
@@ -1200,7 +1181,7 @@ export abstract class Edge extends SDFGElement {
     }
 
     public shade(
-        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
         alpha: number = 0.4
     ): void {
         ctx.beginPath();
@@ -1224,9 +1205,9 @@ export abstract class Edge extends SDFGElement {
         if (this.points.length < 2)
             return;
 
-        const canvas_manager = _renderer.get_canvas_manager();
+        const canvas_manager = renderer.get_canvas_manager();
         const ppp = canvas_manager?.points_per_pixel();
-        if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+        if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.ARROW_LOD)) {
             this.drawArrow(ctx, this.points[this.points.length - 2],
                 this.points[this.points.length - 1], 3, 0, 4);
         }
@@ -1304,7 +1285,7 @@ export class Memlet extends Edge {
             ctx.lineTo(this.points[1].x, this.points[1].y);
         } else {
             let i;
-            if (SDFVSettings.curvedEdges) {
+            if (SDFVSettings.get<boolean>('curvedEdges')) {
                 for (i = 1; i < this.points.length - 2; i++) {
                     const xm = (this.points[i].x + this.points[i + 1].x) / 2.0;
                     const ym = (this.points[i].y + this.points[i + 1].y) / 2.0;
@@ -1365,7 +1346,7 @@ export class Memlet extends Edge {
         if (!skipArrow) {
             const canvas_manager = renderer.get_canvas_manager();
             const ppp = canvas_manager?.points_per_pixel();
-            if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+            if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.ARROW_LOD)) {
                 this.drawArrow(
                     ctx, this.points[this.points.length - 2],
                     this.points[this.points.length - 1], 3
@@ -1457,7 +1438,7 @@ export class InterstateEdge extends Edge {
         ctx.moveTo(this.points[0].x, this.points[0].y);
         let i;
 
-        if (SDFVSettings.curvedEdges) {
+        if (SDFVSettings.get<boolean>('curvedEdges')) {
             let lastX = this.points[0].x;
             let lastY = this.points[0].y;
             for (i = 1; i < this.points.length; i++) {
@@ -1487,7 +1468,7 @@ export class InterstateEdge extends Edge {
         // through arrow points rather than quadratic curves). As such, the
         // angle of the last line segment is different and needs to be
         // calculated differently.
-        if (!SDFVSettings.useVerticalStateMachineLayout) {
+        if (!SDFVSettings.get<boolean>('useVerticalStateMachineLayout')) {
             // This is not used if the 'old-style' layout is used.
             super.drawArrow(ctx, p1, p2, size, offset, padding);
         } else {
@@ -1542,14 +1523,14 @@ export class InterstateEdge extends Edge {
 
         const canvas_manager = renderer.get_canvas_manager();
         const ppp = canvas_manager?.points_per_pixel();
-        if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+        if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.ARROW_LOD)) {
             this.drawArrow(
                 ctx, this.points[this.points.length - 2],
                 this.points[this.points.length - 1], 3
             );
         }
 
-        if (SDFVSettings.alwaysOnISEdgeLabels)
+        if (SDFVSettings.get<boolean>('alwaysOnISEdgeLabels'))
             this.drawLabel(renderer, ctx);
 
         if (this.hovered)
@@ -1572,13 +1553,13 @@ export class InterstateEdge extends Edge {
         const ppp = renderer.get_canvas_manager()?.points_per_pixel();
         if (ppp === undefined)
             return;
-        if ((ctx as any).lod && ppp > SDFV.SCOPE_LOD)
+        if (renderer.adaptiveHiding && ppp > SDFV.SCOPE_LOD)
             return;
 
         const labelLines = [];
         if (this.attributes().assignments) {
             for (const k of Object.keys(this.attributes().assignments ?? []))
-                labelLines.push(k + ' 🡐 ' + this.attributes().assignments[k]);
+                labelLines.push(k + ' = ' + this.attributes().assignments[k]);
         }
         const cond = this.attributes().condition?.string_data;
         if (cond && cond !== '1' && cond !== 'true')
@@ -1853,7 +1834,7 @@ export class AccessNode extends SDFGNode {
         }
 
         // If we are far away, don't show the text
-        if (too_far_away_for_text(renderer, ctx))
+        if (too_far_away_for_text(renderer))
             return;
 
         const textmetrics = ctx.measureText(this.label());
@@ -1866,7 +1847,7 @@ export class AccessNode extends SDFGNode {
     public label(): string {
         const name = this.data.node.attributes.data;
         let lbl = name;
-        if (SDFVSettings.showDataDescriptorSizes) {
+        if (SDFVSettings.get<boolean>('showDataDescriptorSizes')) {
             const nodedesc = this.sdfg.attributes._arrays[name];
             if (nodedesc && nodedesc.attributes.shape)
                 lbl = ' ' + sdfg_property_to_string(nodedesc.attributes.shape);
@@ -1977,7 +1958,7 @@ export class ScopeNode extends SDFGNode {
         );
 
         // If we are far away, don't show the text
-        if (too_far_away_for_text(renderer, ctx))
+        if (too_far_away_for_text(renderer))
             return;
 
         drawAdaptiveText(
@@ -1987,7 +1968,7 @@ export class ScopeNode extends SDFGNode {
             SDFV.SCOPE_LOD
         );
 
-        if (SDFVSettings.showMapSchedules) {
+        if (SDFVSettings.get<boolean>('showMapSchedules')) {
             drawAdaptiveText(
                 ctx, renderer, '', this.schedule_label(), this.x, this.y,
                 this.width, this.height,
@@ -2417,11 +2398,11 @@ export class Tasklet extends SDFGNode {
         );
 
         // If we are far away, don't show the text
-        if (too_far_away_for_text(renderer, ctx))
+        if (too_far_away_for_text(renderer))
             return;
 
         const ppp = canvas_manager.points_per_pixel();
-        if (!(ctx as any).lod || ppp < SDFV.TASKLET_LOD) {
+        if (!renderer.adaptiveHiding || ppp < SDFV.TASKLET_LOD) {
             // If we are close to the tasklet, show its contents
             this.drawTaskletCode(renderer, ctx);
         } else {
@@ -2480,7 +2461,7 @@ export class Reduce extends SDFGNode {
             draw_shape();
         ctx.fill();
 
-        if (!too_far_away_for_text(renderer, ctx)) {
+        if (!too_far_away_for_text(renderer)) {
             ctx.fillStyle = this.getCssProperty(
                 renderer, '--node-foreground-color'
             );
@@ -2559,7 +2540,7 @@ export class NestedSDFG extends SDFGNode {
             ctx.fill();
 
 
-            if (!too_far_away_for_text(renderer, ctx)) {
+            if (!too_far_away_for_text(renderer)) {
                 ctx.fillStyle = this.getCssProperty(
                     renderer, '--node-foreground-color'
                 );
@@ -2585,7 +2566,7 @@ export class NestedSDFG extends SDFGNode {
                 drawSDFG(renderer, ctx, this.data.graph, mousepos);
             } else {
                 // Expanded, but no SDFG present or loaded yet.
-                if (!too_far_away_for_text(renderer, ctx)) {
+                if (!too_far_away_for_text(renderer)) {
                     const errColor = this.getCssProperty(
                         renderer, '--node-missing-background-color'
                     );
@@ -2701,7 +2682,7 @@ export class LibraryNode extends SDFGNode {
         );
 
         // If we are far away, don't show the text
-        if (too_far_away_for_text(renderer, ctx))
+        if (too_far_away_for_text(renderer))
             return;
 
         const textw = ctx.measureText(this.label()).width;
@@ -2737,12 +2718,12 @@ export class LibraryNode extends SDFGNode {
 // Points-per-Pixel. Used before ctx.fillText calls to only draw text when
 // zoomed in close enough.
 function too_far_away_for_text(
-    renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
+    renderer: SDFGRenderer
 ): boolean {
     const canvas_manager = renderer.get_canvas_manager();
     const ppp = canvas_manager?.points_per_pixel();
     if (ppp) {
-        if ((ctx as any).lod && ppp > SDFV.TEXT_LOD)
+        if (renderer.adaptiveHiding && ppp > SDFV.TEXT_LOD)
             return true;
         else
             return false;
@@ -2781,7 +2762,7 @@ function batchedDrawEdges(
     ctx.beginPath();
     graph.edges().forEach((e: any) => {
         const edge: Edge = (graph.edge(e) as Edge);
-        if ((ctx as any).lod && visible_rect && !edge.intersect(
+        if (renderer.viewportOnly && visible_rect && !edge.intersect(
             visible_rect.x, visible_rect.y, visible_rect.w, visible_rect.h
         ))
             return;
@@ -2828,7 +2809,7 @@ function batchedDrawEdges(
     // Only draw Arrowheads when close enough to see them
     const canvas_manager = renderer.get_canvas_manager();
     const ppp = canvas_manager?.points_per_pixel();
-    if (!(ctx as any).lod || (ppp && ppp < SDFV.ARROW_LOD)) {
+    if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.ARROW_LOD)) {
         arrowEdges.forEach(e => {
             e.drawArrow(
                 ctx,
@@ -2857,13 +2838,13 @@ function batchedDrawEdges(
 
 export function drawStateContents(
     stateGraph: DagreGraph, ctx: CanvasRenderingContext2D,
-    renderer: SDFGRenderer, ppp: number, lod?: boolean,
-    visibleRect?: SimpleRect, mousePos?: Point2D
+    renderer: SDFGRenderer, ppp: number, visibleRect?: SimpleRect,
+    mousePos?: Point2D
 ): void {
     for (const nodeId of stateGraph.nodes()) {
         const node = stateGraph.node(nodeId);
 
-        if (lod && visibleRect && !node.intersect(
+        if (renderer.viewportOnly && visibleRect && !node.intersect(
             visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h
         ))
             continue;
@@ -2872,14 +2853,14 @@ export function drawStateContents(
         if (node instanceof NestedSDFG &&
             !node.data.node.attributes.is_collapsed) {
             const nodeppp = Math.sqrt(node.width * node.height) / ppp;
-            if (lod && nodeppp < SDFV.STATE_LOD) {
+            if (renderer.adaptiveHiding && nodeppp < SDFV.STATE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
                 continue;
             }
         } else {
             // Simple draw node
-            if (lod && ppp > SDFV.NODE_LOD) {
+            if (renderer.adaptiveHiding && ppp > SDFV.NODE_LOD) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
                 continue;
@@ -2890,7 +2871,7 @@ export function drawStateContents(
         node.debug_draw(renderer, ctx);
 
         // Only draw connectors when close enough to see them
-        if (!lod || ppp < SDFV.CONNECTOR_LOD) {
+        if (!renderer.adaptiveHiding || ppp < SDFV.CONNECTOR_LOD) {
             node.in_connectors.forEach((c: Connector) => {
                 // Only draw connectors if actually visible. This is needed for
                 // large nodes in the background like NestedSDFGs, that are
@@ -2931,7 +2912,7 @@ export function drawStateContents(
         }
     }
 
-    if (lod && ppp > SDFV.EDGE_LOD)
+    if (renderer.adaptiveHiding && ppp > SDFV.EDGE_LOD)
         return;
 
     batchedDrawEdges(
@@ -2942,13 +2923,14 @@ export function drawStateContents(
 
 export function drawStateMachine(
     stateMachineGraph: DagreGraph, ctx: CanvasRenderingContext2D,
-    renderer: SDFGRenderer, ppp: number, lod?: boolean,
-    visibleRect?: SimpleRect, mousePos?: Point2D
+    renderer: SDFGRenderer, ppp: number, visibleRect?: SimpleRect,
+    mousePos?: Point2D
 ): void {
-    if (!lod || ppp < SDFV.EDGE_LOD) {
+    if (!renderer.adaptiveHiding || ppp < SDFV.EDGE_LOD) {
         batchedDrawEdges(
             renderer, stateMachineGraph, ctx, visibleRect, mousePos,
-            '--interstate-edge-color', SDFVSettings.alwaysOnISEdgeLabels
+            '--interstate-edge-color',
+            SDFVSettings.get<boolean>('alwaysOnISEdgeLabels')
         );
     }
 
@@ -2956,13 +2938,13 @@ export function drawStateMachine(
         const block = stateMachineGraph.node(nodeId);
 
         // Skip invisible states.
-        if (lod && visibleRect && !block.intersect(
+        if (renderer.viewportOnly && visibleRect && !block.intersect(
             visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h
         ))
             continue;
 
         const blockppp = Math.sqrt(block.width * block.height) / ppp;
-        if (lod && blockppp < SDFV.STATE_LOD) {
+        if (renderer.adaptiveHiding && blockppp < SDFV.STATE_LOD) {
             block.simple_draw(renderer, ctx, mousePos);
             block.debug_draw(renderer, ctx);
             continue;
@@ -2975,11 +2957,11 @@ export function drawStateMachine(
         if (!block.attributes().is_collapsed && ng) {
             if (block instanceof State) {
                 drawStateContents(
-                    ng, ctx, renderer, ppp, lod, visibleRect, mousePos
+                    ng, ctx, renderer, ppp, visibleRect, mousePos
                 );
             } else {
                 drawStateMachine(
-                    ng, ctx, renderer, ppp, lod, visibleRect, mousePos
+                    ng, ctx, renderer, ppp, visibleRect, mousePos
                 );
             }
         }
@@ -2997,9 +2979,7 @@ export function drawSDFG(
     const ppp = cManager.points_per_pixel();
     const visibleRect = renderer.get_visible_rect() ?? undefined;
 
-    drawStateMachine(
-        g, ctx, renderer, ppp, (ctx as any).lod, visibleRect, mousePos
-    );
+    drawStateMachine(g, ctx, renderer, ppp, visibleRect, mousePos);
 }
 
 // Translate an SDFG by a given offset
@@ -3116,7 +3096,7 @@ export function drawAdaptiveText(
     if (ppp === undefined)
         return;
 
-    const is_far: boolean = (ctx as any).lod && ppp > ppp_thres;
+    const is_far: boolean = renderer.adaptiveHiding && ppp > ppp_thres;
     const label = is_far ? far_text : close_text;
 
     let font_size = Math.min(

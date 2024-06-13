@@ -62,8 +62,6 @@ export class CanvasManager {
         private renderer: SDFGRenderer,
         private canvas: HTMLCanvasElement
     ) {
-        (this.ctx as any).lod = true;
-
         this._svg = document.createElementNS(
             'http://www.w3.org/2000/svg', 'svg'
         );

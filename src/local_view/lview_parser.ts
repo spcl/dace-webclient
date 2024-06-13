@@ -389,7 +389,7 @@ export class LViewParser {
             }).appendTo(headerBar);
             $('<div>', {
                 class: 'modal_close',
-                html: '<i class="material-icons">close</i>',
+                html: '<i class="material-symbols-outlined">close</i>',
                 click: () => {
                     dialogueBackground.remove();
                     throw new LViewGraphParseError(
