@@ -2169,7 +2169,7 @@ export class SDFGRenderer extends EventEmitter {
                         elemGroup = 'controlFlowBlocks';
                     func(elemGroup, elemInfo, block);
 
-                    if (block.attributes().is_collapsed)
+                    if (block.attributes()?.is_collapsed)
                         return;
 
                     const ng = block.data.graph;
@@ -2346,7 +2346,10 @@ export class SDFGRenderer extends EventEmitter {
                             );
                         }
                     );
-                } else {
+                } else if (
+                    'start_block' in block && 'cfg_list_id' in block &&
+                    'nodes' in block && 'edges' in block
+                ) {
                     // Control flow region.
                     func('controlFlowRegions', {
                         sdfg: sdfg,
@@ -3112,7 +3115,7 @@ export class SDFGRenderer extends EventEmitter {
                     // Hovering over an element while not in any specific mode.
                     // For collapsed nodes, show a cursor shape that indicates
                     // this can be expanded.
-                    if (foreground_elem?.attributes().is_collapsed)
+                    if (foreground_elem?.attributes()?.is_collapsed)
                         this.canvas.style.cursor = 'alias';
                     else
                         this.canvas.style.cursor = 'pointer';
@@ -4181,16 +4184,14 @@ function relayoutStateMachine(
             { layout: { width: 0, height: 0 } }, block.id, sdfg, stateMachine,
             null, parent
         );
-        if (block.type === SDFGElementType.SDFGState ||
-            block.type === SDFGElementType.ContinueState ||
-            block.type === SDFGElementType.BreakState)
+        if (block.type === SDFGElementType.SDFGState)
             blockElem.data.state = block;
         else
             blockElem.data.block = block;
 
         blockInfo.label = block.id.toString();
         let blockGraph = null;
-        if (block.attributes.is_collapsed) {
+        if (block.attributes?.is_collapsed) {
             blockInfo.height = SDFV.LINEHEIGHT;
             if (blockElem instanceof LoopRegion) {
                 const oldFont = ctx.font;
@@ -4269,6 +4270,8 @@ function relayoutStateMachine(
     // Annotate the sdfg with its layout info
     for (const block of stateMachine.nodes) {
         const gnode = g.node(block.id.toString());
+        if (!block.attributes)
+            block.attributes = {};
         block.attributes.layout = {};
         block.attributes.layout.x = gnode.x;
         block.attributes.layout.y = gnode.y;
@@ -4341,6 +4344,9 @@ function relayoutSDFGState(
     sdfg: JsonSDFG, sdfgList: CFGListType, stateParentList: any[],
     omitAccessNodes: boolean, parent: State
 ): DagreGraph | null {
+    if (!state.nodes && !state.edges)
+        return null;
+
     // layout the sdfg block as a dagre graph.
     const g: DagreGraph = new dagre.graphlib.Graph({ multigraph: true });
 

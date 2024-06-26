@@ -29,13 +29,13 @@ export class SDFGParser {
 
         if (elem.constructor === Object) {
             // Memlet.
-            const memlets = state.edges.filter((x: any) => {
+            const memlets = state.edges?.filter((x: any) => {
                 return x.dst === elem.dst && x.src === elem.src;
             });
 
             // Recurse into parent (since this a multigraph, all edges need to
             // be looked at).
-            for (const m of memlets) {
+            for (const m of memlets ?? []) {
                 // Find symbols used (may be Indices or Range).
                 const mdata = m.attributes.data.attributes.subset;
                 // Check for indices
@@ -63,14 +63,17 @@ export class SDFGParser {
             }
         } else {
             // Node.
+            if (!state.nodes)
+                return syms;
+
             const node = state.nodes[elem];
 
             // Maps (and Consumes) define ranges, extract symbols from there.
             try {
                 // The iterator ranges.
-                const rngs = node.attributes.range.ranges.map((x: any) => x);
+                const rngs = node.attributes?.range.ranges.map((x: any) => x);
                 // The iterators.
-                const params = node.attributes.params.map((x: any) => x);
+                const params = node.attributes?.params.map((x: any) => x);
 
                 console.assert(
                     rngs.length === params.length,
@@ -108,8 +111,8 @@ export class SDFGParser {
                 // consumes).
             }
             // Find all incoming edges.
-            const inc_edges = state.edges.filter((x: any) => x.dst === elem);
-            for (const e of inc_edges) {
+            const inc_edges = state.edges?.filter((x: any) => x.dst === elem);
+            for (const e of inc_edges ?? []) {
                 const tmp = SDFGParser.lookupSymbols(
                     sdfg, stateId, e, symbolsToResolve, depth + 1
                 );
@@ -128,7 +131,7 @@ export class SDFGStateParser {
     }
 
     public getNodes(): any {
-        return this.block.nodes.map((x) => {
+        return this.block?.nodes?.map((x) => {
             switch (x.type) {
                 case SDFGElementType.SDFGState:
                 case SDFGElementType.BasicBlock:

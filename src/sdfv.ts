@@ -290,7 +290,7 @@ export class SDFV {
             contents.append($('<br>'));
         }
 
-        for (const attr of Object.entries(elem.attributes())) {
+        for (const attr of Object.entries(elem.attributes() ?? {})) {
             if (attr[0].startsWith('_meta_'))
                 continue;
 

@@ -26,8 +26,9 @@ export enum SDFGElementType {
     Edge = 'Edge',
     MultiConnectorEdge = 'MultiConnectorEdge',
     SDFGState = 'SDFGState',
-    ContinueState = 'ContinueState',
-    BreakState = 'BreakState',
+    ContinueBlock = 'ContinueBlock',
+    BreakBlock = 'BreakBlock',
+    ReturnBlock = 'ReturnBlock',
     AccessNode = 'AccessNode',
     Tasklet = 'Tasklet',
     LibraryNode = 'LibraryNode',
@@ -147,6 +148,13 @@ export class SDFGElement {
         // dagre does not work well with properties, only fields
         this.width = this.data.layout.width;
         this.height = this.data.layout.height;
+    }
+
+    public _internal_draw(
+        _renderer: SDFGRenderer, _ctx: CanvasRenderingContext2D,
+        _mousepos?: Point2D
+    ): void {
+        return;
     }
 
     public draw(
@@ -421,6 +429,66 @@ export class ControlFlowBlock extends SDFGElement {
 }
 
 export class BasicBlock extends ControlFlowBlock {
+
+    public label(): string {
+        return this.data.block.label;
+    }
+
+    public _internal_draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        _mousepos?: Point2D, color: string = 'state-background-color',
+        simple: boolean = false
+    ): void {
+        const topleft = this.topleft();
+        ctx.fillStyle = this.getCssProperty(
+            renderer, '--' + color
+        );
+        ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
+        ctx.fillStyle = this.getCssProperty(
+            renderer, '--state-foreground-color'
+        );
+
+        if (!simple) {
+            if (SDFVSettings.get<boolean>('showStateNames')) {
+                if (!too_far_away_for_text(renderer)) {
+                    ctx.fillText(
+                        this.label(), topleft.x, topleft.y + SDFV.LINEHEIGHT
+                    );
+                }
+            }
+            // If selected or hovered.
+            const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+            if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.NODE_LOD)) {
+                if (this.selected || this.highlighted || this.hovered) {
+                    ctx.strokeStyle = this.strokeStyle(renderer);
+                    ctx.strokeRect(
+                        topleft.x, topleft.y, this.width, this.height
+                    );
+                }
+            }
+        }
+
+        ctx.strokeStyle = 'black';
+    }
+
+    public draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D
+    ): void {
+        this._internal_draw(renderer, ctx, mousepos, undefined, false);
+    }
+
+    public simple_draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D
+    ): void {
+        this._internal_draw(renderer, ctx, mousepos, undefined, true);
+    }
+
+    public type(): string {
+        return this.data.block.type;
+    }
+
 }
 
 export class ControlFlowRegion extends ControlFlowBlock {
@@ -564,7 +632,7 @@ export class ControlFlowRegion extends ControlFlowBlock {
     }
 
     public tooltip(container: HTMLElement): void {
-        container.innerText = 'Loop: ' + this.label();
+        container.innerText = 'Control Flow Region: ' + this.label();
     }
 
     public attributes(): any {
@@ -681,7 +749,9 @@ export class State extends BasicBlock {
             renderer, '--state-background-color'
         );
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.fillStyle = this.getCssProperty(renderer, '--state-text-color');
+        ctx.fillStyle = this.getCssProperty(
+            renderer, '--state-foreground-color'
+        );
 
         if (mousepos && this.intersect(mousepos.x, mousepos.y))
             renderer.set_tooltip((c) => this.tooltip(c));
@@ -724,10 +794,70 @@ export class State extends BasicBlock {
 
 }
 
-export class BreakState extends State {
+export class BreakBlock extends BasicBlock {
+
+    public simple_draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D
+    ): void {
+        this._internal_draw(
+            renderer, ctx, mousepos, 'break-block-background-color', true
+        );
+    }
+
+    public draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D | undefined
+    ): void {
+        this._internal_draw(
+            renderer, ctx, mousepos, 'break-block-background-color', false
+        );
+    }
+
 }
 
-export class ContinueState extends State {
+export class ContinueBlock extends BasicBlock {
+
+    public simple_draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D
+    ): void {
+        this._internal_draw(
+            renderer, ctx, mousepos, 'continue-block-background-color', true
+        );
+    }
+
+    public draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D | undefined
+    ): void {
+        this._internal_draw(
+            renderer, ctx, mousepos, 'continue-block-background-color', false
+        );
+    }
+
+}
+
+export class ReturnBlock extends BasicBlock {
+
+    public simple_draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D
+    ): void {
+        this._internal_draw(
+            renderer, ctx, mousepos, 'return-block-background-color', true
+        );
+    }
+
+    public draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D | undefined
+    ): void {
+        this._internal_draw(
+            renderer, ctx, mousepos, 'return-block-background-color', false
+        );
+    }
+
 }
 
 export class LoopRegion extends ControlFlowRegion {
@@ -2954,7 +3084,7 @@ export function drawStateMachine(
         block.debug_draw(renderer, ctx);
 
         const ng = block.data.graph;
-        if (!block.attributes().is_collapsed && ng) {
+        if (!block.attributes()?.is_collapsed && ng) {
             if (block instanceof State) {
                 drawStateContents(
                     ng, ctx, renderer, ppp, visibleRect, mousePos
@@ -2986,7 +3116,7 @@ export function drawSDFG(
 export function offset_sdfg(
     sdfg: JsonSDFG, sdfg_graph: DagreGraph, offset: Point2D
 ): void {
-    sdfg.nodes.forEach((state: JsonSDFGBlock, id: number) => {
+    sdfg.nodes?.forEach((state: JsonSDFGBlock, id: number) => {
         const g = sdfg_graph.node(id.toString());
         g.x += offset.x;
         g.y += offset.y;
@@ -2997,7 +3127,7 @@ export function offset_sdfg(
                 offset_sdfg(state as any, g.data.graph, offset);
         }
     });
-    sdfg.edges.forEach((e: JsonSDFGEdge, _eid: number) => {
+    sdfg.edges?.forEach((e: JsonSDFGEdge, _eid: number) => {
         const edge = sdfg_graph.edge(e.src, e.dst);
         edge.x += offset.x;
         edge.y += offset.y;
@@ -3269,8 +3399,9 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     ControlFlowBlock,
     BasicBlock,
     State,
-    BreakState,
-    ContinueState,
     ControlFlowRegion,
     LoopRegion,
+    BreakBlock,
+    ContinueBlock,
+    ReturnBlock,
 };

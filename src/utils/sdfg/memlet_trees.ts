@@ -196,7 +196,7 @@ export function memletTreeRecursive(
     let trees: any[] = [];
     const visitedEdges: JsonSDFGEdge[] = [];
 
-    cfg.nodes.forEach((block: JsonSDFGBlock) => {
+    cfg.nodes?.forEach((block: JsonSDFGBlock) => {
         if (block.type === SDFGElementType.SDFGState) {
             const state: JsonSDFGState = block as JsonSDFGState;
             state.edges.forEach((e: JsonSDFGEdge) => {

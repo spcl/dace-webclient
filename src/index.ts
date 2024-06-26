@@ -44,7 +44,7 @@ export type InvalidSDFGError = {
 };
 
 export interface JsonSDFGElement {
-    attributes: any,
+    attributes?: any,
     type: string,
 }
 
@@ -67,15 +67,16 @@ export interface JsonSDFGNode extends JsonSDFGElement {
 }
 
 export interface JsonSDFGBlock extends JsonSDFGElement {
-    collapsed: boolean,
-    edges: JsonSDFGEdge[],
-    nodes: (JsonSDFGBlock | JsonSDFGNode)[],
+    collapsed?: boolean,
+    edges?: JsonSDFGEdge[],
+    nodes?: (JsonSDFGBlock | JsonSDFGNode)[],
     id: number,
     label: string,
 }
 
 export interface JsonSDFGControlFlowRegion extends JsonSDFGBlock {
     nodes: JsonSDFGBlock[],
+    edges: JsonSDFGEdge[],
     start_block: number,
     cfg_list_id: number,
 }
@@ -83,6 +84,7 @@ export interface JsonSDFGControlFlowRegion extends JsonSDFGBlock {
 export interface JsonSDFGState extends JsonSDFGBlock {
     scope_dict: any,
     nodes: JsonSDFGNode[],
+    edges: JsonSDFGEdge[],
 }
 
 export interface JsonSDFG extends JsonSDFGControlFlowRegion {
