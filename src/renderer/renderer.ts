@@ -4852,11 +4852,12 @@ function relayoutSDFGBlock(
             );
         case SDFGElementType.SDFGState:
         case SDFGElementType.BasicBlock:
-        default:
             return relayoutSDFGState(
                 ctx, block as JsonSDFGState, sdfg, sdfgList, stateParentList,
                 omitAccessNodes, parent
             );
+        default:
+            return null;
     }
 }
 
