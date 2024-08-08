@@ -3,6 +3,7 @@
 import {
     JsonSDFG,
     JsonSDFGBlock,
+    JsonSDFGConditionalRegion,
     JsonSDFGNode,
     SDFGElementType,
 } from '../../index';
@@ -137,6 +138,8 @@ export class SDFGStateParser {
                 case SDFGElementType.BasicBlock:
                 case SDFGElementType.LoopRegion:
                     return new SDFGStateParser(x as JsonSDFGBlock);
+                case SDFGElementType.ConditionalRegion:
+                    return new ConditionalRegionParser(x as JsonSDFGConditionalRegion)
                 default:
                     return new SDFGNodeParser(x as JsonSDFGNode);
             }
@@ -168,4 +171,13 @@ export class SDFGPropUtil {
         return list;
     }
 
+}
+
+export class ConditionalRegionParser {
+    public constructor (private readonly node: JsonSDFGConditionalRegion) {
+    }
+
+    public getBranches(): any {
+        return this.node.branches
+    }
 }

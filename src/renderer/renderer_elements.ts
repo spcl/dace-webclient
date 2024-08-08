@@ -45,6 +45,7 @@ export enum SDFGElementType {
     ControlFlowBlock = 'ControlFlowBlock',
     ControlFlowRegion = 'ControlFlowRegion',
     LoopRegion = 'LoopRegion',
+    ConditionalRegion = 'ConditionalRegion'
 }
 
 function draw_summary_symbol(
@@ -856,6 +857,233 @@ export class ReturnBlock extends BasicBlock {
         this._internal_draw(
             renderer, ctx, mousepos, 'return-block-background-color', false
         );
+    }
+
+}
+
+export class ConditionalRegion extends ControlFlowRegion {
+    
+    public static get CONDITION_SPACING(): number {
+        return 3 * SDFV.LINEHEIGHT;
+    }
+
+    public static get LOOP_STATEMENT_FONT(): string {
+        return (SDFV.DEFAULT_CANVAS_FONTSIZE * 1.5).toString() +
+            'px sans-serif';
+    }
+
+    public get branches(): ([{string_data: string, language: string}, ControlFlowRegion])[] {
+        return this.data.block.branches
+    }
+
+    public draw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        _mousepos?: Point2D
+    ): void {
+        const topleft = this.topleft();
+        const visibleRect = renderer.get_visible_rect();
+
+        let clamped;
+        if (visibleRect) {
+            clamped = {
+                x: Math.max(topleft.x, visibleRect.x),
+                y: Math.max(topleft.y, visibleRect.y),
+                x2: Math.min(
+                    topleft.x + this.width, visibleRect.x + visibleRect.w
+                ),
+                y2: Math.min(
+                    topleft.y + this.height, visibleRect.y + visibleRect.h
+                ),
+                w: 0,
+                h: 0,
+            };
+        } else {
+            clamped = {
+                x: topleft.x,
+                y: topleft.y,
+                x2: topleft.x + this.width,
+                y2: topleft.y + this.height,
+                w: 0,
+                h: 0,
+            };
+        }
+        clamped.w = clamped.x2 - clamped.x;
+        clamped.h = clamped.y2 - clamped.y;
+        if (!renderer.viewportOnly) {
+            clamped = {
+                x: topleft.x,
+                y: topleft.y,
+                x2: 0,
+                y2: 0,
+                w: this.width,
+                h: this.height,
+            };
+        }
+
+        // Draw the loop background below everything and stroke the border.
+        ctx.fillStyle = this.getCssProperty(
+            renderer, '--conditional-background-color'
+        );
+        ctx.strokeStyle = this.getCssProperty(
+            renderer, '--conditional-foreground-color'
+        );
+        ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
+
+        // Only draw line if close enough.
+        const ppp = renderer.get_canvas_manager()?.points_per_pixel();
+        if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.NODE_LOD))
+            ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+
+        ctx.fillStyle = this.getCssProperty(
+            renderer, '--loop-foreground-color'
+        );
+
+        const oldFont = ctx.font;
+        let topSpacing = LoopRegion.META_LABEL_MARGIN;
+        let remainingHeight = this.height;
+
+        for (const [condition, region] of this.branches) {
+            // Draw the init statement if there is one.
+            topSpacing += LoopRegion.INIT_SPACING;
+            const initBottomLineY = topleft.y + LoopRegion.INIT_SPACING;
+            ctx.beginPath();
+            ctx.moveTo(topleft.x, initBottomLineY);
+            ctx.lineTo(topleft.x + this.width, initBottomLineY);
+            ctx.stroke();
+
+            if (!too_far_away_for_text(renderer)) {
+                ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+                const initStatement = condition.string_data;
+                const initTextY = (
+                    (topleft.y + (LoopRegion.INIT_SPACING / 2)) +
+                    (SDFV.LINEHEIGHT / 2)
+                );
+                if (initStatement) {
+                    const initTextMetrics = ctx.measureText(initStatement);
+                    const initTextX = this.x - (initTextMetrics.width / 2);
+                    ctx.fillText(initStatement, initTextX, initTextY);
+                }
+
+                ctx.font = oldFont;
+                ctx.fillText(
+                    'init', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
+                );
+            }
+            
+        }
+
+        // Draw the condition (either on top if the loop is a regularly
+        // structured loop, or on the bottom if the loop is an inverted
+        // (do-while-style) loop). If the condition is drawn on top, make sure
+        // the init statement spacing is respected if there is one.
+        let condTopY = topleft.y;
+        let condLineY = condTopY + LoopRegion.CONDITION_SPACING;
+        if (this.attributes().inverted) {
+            condTopY = topleft.y +
+                (this.height - LoopRegion.CONDITION_SPACING);
+            condLineY = condTopY - LoopRegion.CONDITION_SPACING;
+        } else if (this.attributes().init_statement) {
+            condTopY += LoopRegion.INIT_SPACING;
+            condLineY = condTopY + LoopRegion.CONDITION_SPACING;
+        }
+        topSpacing += LoopRegion.CONDITION_SPACING;
+        ctx.beginPath();
+        ctx.moveTo(topleft.x, condLineY);
+        ctx.lineTo(topleft.x + this.width, condLineY);
+        ctx.stroke();
+
+
+        if (!too_far_away_for_text(renderer)) {
+            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+            const condStatement = this.attributes().loop_condition?.string_data;
+            const condTextY = (
+                (condTopY + (LoopRegion.CONDITION_SPACING / 2)) +
+                (SDFV.LINEHEIGHT / 2)
+            );
+            if (condStatement) {
+                const condTextMetrics = ctx.measureText(condStatement);
+                const condTextX = this.x - (condTextMetrics.width / 2);
+                ctx.fillText(condStatement, condTextX, condTextY);
+                ctx.font = oldFont;
+                ctx.fillText(
+                    'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
+                );
+            }
+        }
+
+        // Draw the update statement if there is one.
+        if (this.attributes().update_statement) {
+            remainingHeight -= LoopRegion.UPDATE_SPACING;
+            const updateTopY = topleft.y + (
+                this.height - LoopRegion.UPDATE_SPACING
+            );
+            ctx.beginPath();
+            ctx.moveTo(topleft.x, updateTopY);
+            ctx.lineTo(topleft.x + this.width, updateTopY);
+            ctx.stroke();
+
+
+            if (!too_far_away_for_text(renderer)) {
+                ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+                const updateStatement =
+                    this.attributes().update_statement.string_data;
+                const updateTextY = (
+                    (updateTopY + (LoopRegion.UPDATE_SPACING / 2)) +
+                    (SDFV.LINEHEIGHT / 2)
+                );
+                const updateTextMetrics = ctx.measureText(updateStatement);
+                const updateTextX = this.x - (updateTextMetrics.width / 2);
+                ctx.fillText(updateStatement, updateTextX, updateTextY);
+                ctx.font = oldFont;
+                ctx.fillText(
+                    'update', topleft.x + LoopRegion.META_LABEL_MARGIN,
+                    updateTextY
+                );
+            }
+        }
+        remainingHeight -= topSpacing;
+
+        ctx.font = oldFont;
+
+        if (visibleRect && visibleRect.x <= topleft.x &&
+            visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
+            SDFVSettings.get<boolean>('showStateNames')) {
+            if (!too_far_away_for_text(renderer)) {
+                ctx.fillText(
+                    this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
+                    topleft.y + topSpacing + SDFV.LINEHEIGHT
+                );
+            }
+        }
+
+        // If this state is selected or hovered
+        if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.NODE_LOD)) {
+            if ((this.selected || this.highlighted || this.hovered) &&
+                (clamped.x === topleft.x ||
+                    clamped.y === topleft.y ||
+                    clamped.x2 === topleft.x + this.width ||
+                    clamped.y2 === topleft.y + this.height)) {
+                ctx.strokeStyle = this.strokeStyle(renderer);
+                ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
+            }
+        }
+
+        // If collapsed, draw a "+" sign in the middle
+        if (this.attributes().is_collapsed) {
+            const plusCenterY = topleft.y + (remainingHeight / 2) + topSpacing;
+            ctx.beginPath();
+            ctx.moveTo(this.x, plusCenterY - SDFV.LINEHEIGHT);
+            ctx.lineTo(this.x, plusCenterY + SDFV.LINEHEIGHT);
+            ctx.moveTo(this.x - SDFV.LINEHEIGHT, plusCenterY);
+            ctx.lineTo(this.x + SDFV.LINEHEIGHT, plusCenterY);
+            ctx.stroke();
+        }
+
+        ctx.strokeStyle = 'black';
+    }
+
+    public tooltip(container: HTMLElement): void {
+        container.innerText = 'Loop: ' + this.label();
     }
 
 }
@@ -3404,4 +3632,5 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     BreakBlock,
     ContinueBlock,
     ReturnBlock,
+    ConditionalRegion
 };

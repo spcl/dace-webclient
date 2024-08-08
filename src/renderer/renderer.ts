@@ -9,6 +9,7 @@ import {
     GenericSdfgOverlay,
     JsonSDFG,
     JsonSDFGBlock,
+    JsonSDFGConditionalRegion,
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGElement,
@@ -4838,6 +4839,14 @@ function relayoutSDFGState(
     return g;
 }
 
+function relayoutConditionalRegion(
+    ctx: CanvasRenderingContext2D, stateMachine: JsonSDFGConditionalRegion,
+    sdfg: JsonSDFG, cfgList: CFGListType, stateParentList: any[],
+    omitAccessNodes: boolean, parent?: SDFGElement
+) {
+
+}
+
 function relayoutSDFGBlock(
     ctx: CanvasRenderingContext2D, block: JsonSDFGBlock,
     sdfg: JsonSDFG, sdfgList: CFGListType, stateParentList: any[],
@@ -4850,6 +4859,7 @@ function relayoutSDFGBlock(
                 ctx, block as JsonSDFGControlFlowRegion, sdfg, sdfgList,
                 stateParentList, omitAccessNodes, parent
             );
+        case SDFGElementType.ConditionalRegion:
         case SDFGElementType.SDFGState:
         case SDFGElementType.BasicBlock:
             return relayoutSDFGState(

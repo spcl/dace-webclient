@@ -74,6 +74,10 @@ export interface JsonSDFGBlock extends JsonSDFGElement {
     label: string,
 }
 
+export interface JsonSDFGConditionalRegion extends JsonSDFGBlock {
+    branches: ([any, JsonSDFGControlFlowRegion | null])[]
+}
+
 export interface JsonSDFGControlFlowRegion extends JsonSDFGBlock {
     nodes: JsonSDFGBlock[],
     edges: JsonSDFGEdge[],
