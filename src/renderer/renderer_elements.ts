@@ -872,8 +872,8 @@ export class ConditionalRegion extends ControlFlowRegion {
             'px sans-serif';
     }
 
-    public get branches(): ([{string_data: string, language: string}, ControlFlowRegion])[] {
-        return this.data.block.branches
+    public get branches(): ({condition: {string_data: string, language: string}, graph: DagreGraph})[] {
+        return this.data.branches
     }
 
     public draw(
@@ -942,10 +942,10 @@ export class ConditionalRegion extends ControlFlowRegion {
         let topSpacing = LoopRegion.META_LABEL_MARGIN;
         let remainingHeight = this.height;
 
-        for (const [condition, region] of this.branches) {
+        for (const {condition, graph} of this.branches) {
             // Draw the init statement if there is one.
-            topSpacing += LoopRegion.INIT_SPACING;
-            const initBottomLineY = topleft.y + LoopRegion.INIT_SPACING;
+            topSpacing += ConditionalRegion.CONDITION_SPACING;
+            const initBottomLineY = topleft.y + ConditionalRegion.CONDITION_SPACING;
             ctx.beginPath();
             ctx.moveTo(topleft.x, initBottomLineY);
             ctx.lineTo(topleft.x + this.width, initBottomLineY);
@@ -953,97 +953,23 @@ export class ConditionalRegion extends ControlFlowRegion {
 
             if (!too_far_away_for_text(renderer)) {
                 ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-                const initStatement = condition.string_data;
                 const initTextY = (
-                    (topleft.y + (LoopRegion.INIT_SPACING / 2)) +
+                    (topleft.y + (ConditionalRegion.CONDITION_SPACING / 2)) +
                     (SDFV.LINEHEIGHT / 2)
                 );
-                if (initStatement) {
-                    const initTextMetrics = ctx.measureText(initStatement);
-                    const initTextX = this.x - (initTextMetrics.width / 2);
-                    ctx.fillText(initStatement, initTextX, initTextY);
-                }
+                const initTextMetrics = ctx.measureText(condition.string_data);
+                const initTextX = this.x - (initTextMetrics.width / 2);
+                ctx.fillText(condition.string_data, initTextX, initTextY);
 
                 ctx.font = oldFont;
                 ctx.fillText(
                     'init', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
                 );
             }
-            
-        }
-
-        // Draw the condition (either on top if the loop is a regularly
-        // structured loop, or on the bottom if the loop is an inverted
-        // (do-while-style) loop). If the condition is drawn on top, make sure
-        // the init statement spacing is respected if there is one.
-        let condTopY = topleft.y;
-        let condLineY = condTopY + LoopRegion.CONDITION_SPACING;
-        if (this.attributes().inverted) {
-            condTopY = topleft.y +
-                (this.height - LoopRegion.CONDITION_SPACING);
-            condLineY = condTopY - LoopRegion.CONDITION_SPACING;
-        } else if (this.attributes().init_statement) {
-            condTopY += LoopRegion.INIT_SPACING;
-            condLineY = condTopY + LoopRegion.CONDITION_SPACING;
-        }
-        topSpacing += LoopRegion.CONDITION_SPACING;
-        ctx.beginPath();
-        ctx.moveTo(topleft.x, condLineY);
-        ctx.lineTo(topleft.x + this.width, condLineY);
-        ctx.stroke();
-
-
-        if (!too_far_away_for_text(renderer)) {
-            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-            const condStatement = this.attributes().loop_condition?.string_data;
-            const condTextY = (
-                (condTopY + (LoopRegion.CONDITION_SPACING / 2)) +
-                (SDFV.LINEHEIGHT / 2)
-            );
-            if (condStatement) {
-                const condTextMetrics = ctx.measureText(condStatement);
-                const condTextX = this.x - (condTextMetrics.width / 2);
-                ctx.fillText(condStatement, condTextX, condTextY);
-                ctx.font = oldFont;
-                ctx.fillText(
-                    'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
-                );
+            if (ppp && visibleRect) {
+                drawStateMachine(graph, ctx, renderer, ppp, visibleRect, _mousepos)
             }
         }
-
-        // Draw the update statement if there is one.
-        if (this.attributes().update_statement) {
-            remainingHeight -= LoopRegion.UPDATE_SPACING;
-            const updateTopY = topleft.y + (
-                this.height - LoopRegion.UPDATE_SPACING
-            );
-            ctx.beginPath();
-            ctx.moveTo(topleft.x, updateTopY);
-            ctx.lineTo(topleft.x + this.width, updateTopY);
-            ctx.stroke();
-
-
-            if (!too_far_away_for_text(renderer)) {
-                ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-                const updateStatement =
-                    this.attributes().update_statement.string_data;
-                const updateTextY = (
-                    (updateTopY + (LoopRegion.UPDATE_SPACING / 2)) +
-                    (SDFV.LINEHEIGHT / 2)
-                );
-                const updateTextMetrics = ctx.measureText(updateStatement);
-                const updateTextX = this.x - (updateTextMetrics.width / 2);
-                ctx.fillText(updateStatement, updateTextX, updateTextY);
-                ctx.font = oldFont;
-                ctx.fillText(
-                    'update', topleft.x + LoopRegion.META_LABEL_MARGIN,
-                    updateTextY
-                );
-            }
-        }
-        remainingHeight -= topSpacing;
-
-        ctx.font = oldFont;
 
         if (visibleRect && visibleRect.x <= topleft.x &&
             visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
@@ -1083,7 +1009,7 @@ export class ConditionalRegion extends ControlFlowRegion {
     }
 
     public tooltip(container: HTMLElement): void {
-        container.innerText = 'Loop: ' + this.label();
+        container.innerText = 'Conditional: ' + this.label();
     }
 
 }
@@ -3290,7 +3216,7 @@ export function drawStateMachine(
             '--interstate-edge-color',
             SDFVSettings.get<boolean>('alwaysOnISEdgeLabels')
         );
-    }
+    }   
 
     for (const nodeId of stateMachineGraph.nodes()) {
         const block = stateMachineGraph.node(nodeId);
