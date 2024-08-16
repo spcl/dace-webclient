@@ -4,6 +4,7 @@ import {
     DagreGraph,
     JsonSDFG,
     JsonSDFGBlock,
+    JsonSDFGConditionalRegion,
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGNode,
@@ -872,9 +873,7 @@ export class ConditionalRegion extends ControlFlowRegion {
             'px sans-serif';
     }
 
-    public get branches(): ({condition: {string_data: string, language: string}, graph: DagreGraph})[] {
-        return this.data.branches
-    }
+    public branches: ([{string_data: string, language: string}, region: ControlFlowRegion])[] = []
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
@@ -941,34 +940,36 @@ export class ConditionalRegion extends ControlFlowRegion {
         const oldFont = ctx.font;
         let topSpacing = LoopRegion.META_LABEL_MARGIN;
         let remainingHeight = this.height;
-
-        for (const {condition, graph} of this.branches) {
-            // Draw the init statement if there is one.
+        let x = topleft.x, y = topleft.y
+        for (const [condition, region] of this.branches) {
             topSpacing += ConditionalRegion.CONDITION_SPACING;
-            const initBottomLineY = topleft.y + ConditionalRegion.CONDITION_SPACING;
+            const initBottomLineY = y + ConditionalRegion.CONDITION_SPACING;
             ctx.beginPath();
-            ctx.moveTo(topleft.x, initBottomLineY);
-            ctx.lineTo(topleft.x + this.width, initBottomLineY);
+            ctx.moveTo(x, initBottomLineY);
+            ctx.lineTo(x + this.width, initBottomLineY);
             ctx.stroke();
 
             if (!too_far_away_for_text(renderer)) {
                 ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
                 const initTextY = (
-                    (topleft.y + (ConditionalRegion.CONDITION_SPACING / 2)) +
+                    (y + (ConditionalRegion.CONDITION_SPACING / 2)) +
                     (SDFV.LINEHEIGHT / 2)
                 );
                 const initTextMetrics = ctx.measureText(condition.string_data);
-                const initTextX = this.x - (initTextMetrics.width / 2);
+                const initTextX = x + (initTextMetrics.width / 2);
                 ctx.fillText(condition.string_data, initTextX, initTextY);
 
                 ctx.font = oldFont;
                 ctx.fillText(
-                    'init', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
+                    'if', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
                 );
             }
+            region.x = x + region.width / 2
+            region.y = initBottomLineY + region.height / 2
             if (ppp && visibleRect) {
-                drawStateMachine(graph, ctx, renderer, ppp, visibleRect, _mousepos)
+                drawStateMachine(region.data.graph, ctx, renderer, ppp, visibleRect, _mousepos)
             }
+            y = initBottomLineY + region.height
         }
 
         if (visibleRect && visibleRect.x <= topleft.x &&
@@ -977,7 +978,7 @@ export class ConditionalRegion extends ControlFlowRegion {
             if (!too_far_away_for_text(renderer)) {
                 ctx.fillText(
                     this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
-                    topleft.y + topSpacing + SDFV.LINEHEIGHT
+                    topleft.y + SDFV.LINEHEIGHT
                 );
             }
         }
@@ -3290,6 +3291,18 @@ export function offset_sdfg(
             p.y += offset.y;
         });
     });
+}
+
+export function offset_conditional_region(
+    region: JsonSDFGConditionalRegion, sdfg_graph: DagreGraph, offset: Point2D
+): void {
+    for (let id = 0; id < region.branches.length; id++) {
+        const state = region.branches[id][1]
+        const g = sdfg_graph.node(id.toString());   
+        g.x += offset.x;
+        g.y += offset.y;
+        offset_sdfg(state as any, g.data.graph, offset);
+    }
 }
 
 // Translate nodes, edges, and connectors in a given SDFG state by an offset
