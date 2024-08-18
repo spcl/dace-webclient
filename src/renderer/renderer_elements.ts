@@ -937,7 +937,6 @@ export class ConditionalRegion extends ControlFlowRegion {
             renderer, '--loop-foreground-color'
         );
 
-        const oldFont = ctx.font;
         let topSpacing = LoopRegion.META_LABEL_MARGIN;
         let remainingHeight = this.height;
         let x = topleft.x, y = topleft.y
@@ -950,7 +949,6 @@ export class ConditionalRegion extends ControlFlowRegion {
             ctx.stroke();
 
             if (!too_far_away_for_text(renderer)) {
-                ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
                 const initTextY = (
                     (y + (ConditionalRegion.CONDITION_SPACING / 2)) +
                     (SDFV.LINEHEIGHT / 2)
@@ -959,7 +957,6 @@ export class ConditionalRegion extends ControlFlowRegion {
                 const initTextX = x + (initTextMetrics.width / 2);
                 ctx.fillText(condition.string_data, initTextX, initTextY);
 
-                ctx.font = oldFont;
                 ctx.fillText(
                     'if', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
                 );

@@ -4219,11 +4219,11 @@ function relayoutStateMachine(
                     maxLabelWidth, ctx.measureText(block.label).width
                 ) + 3 * LoopRegion.META_LABEL_MARGIN;
             } else if (blockElem instanceof ConditionalRegion) {
-                const maxLabelWidth = Math.max(...blockElem.branches
-                    .map(branch => ctx.measureText(branch[0].string_data + 'if').width));
+                const maxLabelWidth = Math.max(...(block as JsonSDFGConditionalRegion).branches
+                    .map(branch => ctx.measureText(branch[0].string_data + 'if ').width));
                 blockInfo.width = Math.max(
                     maxLabelWidth, ctx.measureText(block.label).width
-                ) + blockElem.branches.length * LoopRegion.META_LABEL_MARGIN;
+                ) + 3 * LoopRegion.META_LABEL_MARGIN;
             } else {
                 blockInfo.width = ctx.measureText(blockInfo.label).width;
             }
@@ -4233,17 +4233,18 @@ function relayoutStateMachine(
                 blockElem
             );
             if (block.type == SDFGElementType.ConditionalRegion && blockGraph) {
-                for (const node of blockGraph.nodes()) {
-                    const region = blockGraph.node(node)
-                    const bb = calculateBoundingBox(region.data.graph)
-                    blockInfo.width = Math.max(blockInfo.width, bb.width)
-                    blockInfo.height += bb.height
+                for (const [condition, region] of (blockElem as ConditionalRegion).branches) {
+                    blockInfo.width = Math.max(blockInfo.width, region.width)
+                    blockInfo.width = Math.max(blockInfo.width, ctx.measureText("if " + condition.string_data).width)
+                    blockInfo.height += region.height
                 }
             } else if (blockGraph)
                 blockInfo = calculateBoundingBox(blockGraph);
         }
-        blockInfo.width += 2 * BLOCK_MARGIN;
-        blockInfo.height += 2 * BLOCK_MARGIN;
+        if (block.type !== SDFGElementType.ConditionalRegion) {
+            blockInfo.width += 2 * BLOCK_MARGIN;
+            blockInfo.height += 2 * BLOCK_MARGIN;
+        }
 
         if (blockElem instanceof LoopRegion) {
             // Add spacing for the condition if the loop is not inverted.
@@ -4255,8 +4256,8 @@ function relayoutStateMachine(
             // If there's an update statement, also add space for it.
             if (block.attributes.update_statement)
                 blockInfo.height += LoopRegion.UPDATE_SPACING;
-        } else if (blockElem instanceof ConditionalRegion && blockGraph) {
-            blockInfo.height += ConditionalRegion.CONDITION_SPACING * blockGraph?.nodeCount()
+        } else if (blockElem instanceof ConditionalRegion) {
+            blockInfo.height += ConditionalRegion.CONDITION_SPACING * blockElem.branches.length
         }
 
         blockElem.data.layout = blockInfo;
@@ -4338,7 +4339,7 @@ function relayoutStateMachine(
 
                 if (gBlock instanceof LoopRegion) {
                     // Add spacing for the condition if the loop isn't inverted.
-                    if (!block.attributes.inverted)
+                       if (!block.attributes.inverted)
                         topSpacing += LoopRegion.CONDITION_SPACING;
                     // If there's an init statement, add space for it.
                     if (block.attributes.init_statement)
@@ -4407,7 +4408,6 @@ function relayoutConditionalRegion(
         blockInfo = calculateBoundingBox(blockGraph);
         blockInfo.width += 2 * BLOCK_MARGIN;
         blockInfo.height += 2 * BLOCK_MARGIN;
-
         blockElem.data.layout = blockInfo;
         blockElem.data.graph = blockGraph;
         blockElem.set_layout();
