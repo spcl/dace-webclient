@@ -4219,11 +4219,12 @@ function relayoutStateMachine(
                     maxLabelWidth, ctx.measureText(block.label).width
                 ) + 3 * LoopRegion.META_LABEL_MARGIN;
             } else if (blockElem instanceof ConditionalRegion) {
-                const maxLabelWidth = Math.max(...(block as JsonSDFGConditionalRegion).branches
+                const maxLabelWidth = Math.max(...blockElem.branches
                     .map(branch => ctx.measureText(branch[0].string_data + 'if ').width));
                 blockInfo.width = Math.max(
                     maxLabelWidth, ctx.measureText(block.label).width
                 ) + 3 * LoopRegion.META_LABEL_MARGIN;
+                blockInfo.height += LoopRegion.CONDITION_SPACING
             } else {
                 blockInfo.width = ctx.measureText(blockInfo.label).width;
             }
@@ -4241,7 +4242,7 @@ function relayoutStateMachine(
             } else if (blockGraph)
                 blockInfo = calculateBoundingBox(blockGraph);
         }
-        if (block.type !== SDFGElementType.ConditionalRegion) {
+        if (block.type !== SDFGElementType.ConditionalRegion || block.attributes?.is_collapsed) {
             blockInfo.width += 2 * BLOCK_MARGIN;
             blockInfo.height += 2 * BLOCK_MARGIN;
         }
@@ -4296,6 +4297,14 @@ function relayoutStateMachine(
         block.attributes.layout.y = gnode.y;
         block.attributes.layout.width = gnode.width;
         block.attributes.layout.height = gnode.height;
+        if (gnode instanceof ConditionalRegion) {
+            let y = ConditionalRegion.CONDITION_SPACING;
+            for (const [_, region] of gnode.branches) {
+                region.x += region.width / 2
+                region.y = y + region.height / 2;
+                y += region.height + ConditionalRegion.CONDITION_SPACING
+            }
+        }
     }
 
     for (const edge of stateMachine.edges) {
@@ -4330,8 +4339,8 @@ function relayoutStateMachine(
                 });
             } else if (block.type === SDFGElementType.ConditionalRegion) {
                 offset_conditional_region(block as JsonSDFGConditionalRegion, gBlock.data.graph, {
-                    x: topleft.x + BLOCK_MARGIN,
-                    y: topleft.y + BLOCK_MARGIN,
+                    x: topleft.x,
+                    y: topleft.y,
                 })
             } else {
                 // Base spacing for the inside.
@@ -4392,55 +4401,33 @@ function relayoutConditionalRegion(
             width: 0,
             height: 0,
         };
-
         const blockElem = new ControlFlowRegion(
             { layout: { width: 0, height: 0 } }, block.id, sdfg, null,
             null, parent
         );
+        g.setNode(block.id.toString(), blockElem);
         blockElem.data.block = block;
         parent.branches.push([condition, blockElem])
 
         blockInfo.label = block.id.toString();
-        const blockGraph = relayoutStateMachine(
-            ctx, block, sdfg, cfgList, stateParentList, omitAccessNodes,
-            blockElem
-        );
-        blockInfo = calculateBoundingBox(blockGraph);
+        if (block.attributes?.is_collapsed) {
+            blockInfo.height = SDFV.LINEHEIGHT
+            blockInfo.width = ctx.measureText(condition.string_data).width
+        } else {
+            const blockGraph = relayoutStateMachine(
+                ctx, block, sdfg, cfgList, stateParentList, omitAccessNodes,
+                blockElem
+            );
+            blockInfo.width = (blockGraph as any).width
+            blockInfo.height = (blockGraph as any).height
+            blockElem.data.graph = blockGraph;
+        }
         blockInfo.width += 2 * BLOCK_MARGIN;
         blockInfo.height += 2 * BLOCK_MARGIN;
         blockElem.data.layout = blockInfo;
-        blockElem.data.graph = blockGraph;
         blockElem.set_layout();
-        g.setNode(block.id.toString(), blockElem);
-
-        const bb = calculateBoundingBox(blockGraph);
-        (blockGraph as any).width = bb.width;
-        (blockGraph as any).height = bb.height;
-        if (SDFVSettings.get<boolean>('useVerticalStateMachineLayout')) {
-            // Fall back to dagre for anything that cannot be laid out with
-            // the vertical layout (e.g., irreducible control flow).
-            try {
-                SMLayouter.layoutDagreCompat(blockGraph, sdfg.start_block?.toString());
-            } catch (_ignored) {
-                dagre.layout(blockGraph);
-            }
-        } else {
-            dagre.layout(blockGraph);
-        }
     }
-    for (const [_, block] of stateMachine.branches) {
-        if (!block)
-            continue
-        const gnode = g.node(block.id.toString());
-        if (!block.attributes)
-            block.attributes = {};
-        block.attributes.layout = {};
-        block.attributes.layout.x = gnode.x;
-        block.attributes.layout.y = gnode.y;
-        block.attributes.layout.width = gnode.width;
-        block.attributes.layout.height = gnode.height;
-    }
-    return g;
+    return g
 }
 
 function relayoutSDFGState(

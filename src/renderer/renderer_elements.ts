@@ -961,11 +961,7 @@ export class ConditionalRegion extends ControlFlowRegion {
                     'if', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
                 );
             }
-            region.x = x + region.width / 2
-            region.y = initBottomLineY + region.height / 2
-            if (ppp && visibleRect) {
-                drawStateMachine(region.data.graph, ctx, renderer, ppp, visibleRect, _mousepos)
-            }
+            region.draw(renderer, ctx, _mousepos)
             y = initBottomLineY + region.height
         }
 
@@ -3295,10 +3291,14 @@ export function offset_conditional_region(
 ): void {
     for (let id = 0; id < region.branches.length; id++) {
         const state = region.branches[id][1]
+        if (!state)
+            continue
         const g = sdfg_graph.node(id.toString());   
         g.x += offset.x;
         g.y += offset.y;
-        offset_sdfg(state as any, g.data.graph, offset);
+        if (!state.attributes.is_collapsed) {
+            offset_sdfg(state as any, g.data.graph, offset);
+        }
     }
 }
 
