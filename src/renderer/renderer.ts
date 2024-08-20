@@ -2936,14 +2936,8 @@ export class SDFGRenderer extends EventEmitter {
                 } else {
                     // Mouse move in panning mode
                     if (this.visible_rect) {
-                        // Check if mouse panning is in bounds (near graph)
-                        // and restrict/correct it.
-                        const correctedMovement = this.pan_movement_in_bounds(
-                            this.visible_rect, event.movementX, event.movementY
-                        );
-
                         this.canvas_manager?.translate(
-                            correctedMovement.x, correctedMovement.y
+                            event.movementX, event.movementY
                         );
 
                         // Mark for redraw
@@ -2954,14 +2948,8 @@ export class SDFGRenderer extends EventEmitter {
                 // Pan the view with the middle mouse button
                 this.dragging = true;
                 if (this.visible_rect) {
-                    // Check if mouse panning is in bounds (near graph)
-                    // and restrict/correct it.
-                    const correctedMovement = this.pan_movement_in_bounds(
-                        this.visible_rect, event.movementX, event.movementY
-                    );
-
                     this.canvas_manager?.translate(
-                        correctedMovement.x, correctedMovement.y
+                        event.movementX, event.movementY
                     );
                     dirty = true;
                 }
@@ -2987,14 +2975,8 @@ export class SDFGRenderer extends EventEmitter {
                         this.drag_start.touches[0].clientY
                     );
 
-                    // Check if panning is in bounds (near graph)
-                    // and restrict/correct it.
-                    const correctedMovement = this.pan_movement_in_bounds(
-                        this.visible_rect, movX, movY
-                    );
-
                     this.canvas_manager?.translate(
-                        correctedMovement.x, correctedMovement.y
+                        movX, movY
                     );
                 }
                 this.drag_start = event;
@@ -3026,14 +3008,8 @@ export class SDFGRenderer extends EventEmitter {
                     const movX = newCenter[0] - oldCenter[0];
                     const movY = newCenter[1] - oldCenter[1];
 
-                    // Check if movement is in bounds (near graph)
-                    // and restrict/correct it.
-                    const correctedMovement = this.pan_movement_in_bounds(
-                        this.visible_rect, movX, movY
-                    );
-
                     this.canvas_manager?.translate(
-                        correctedMovement.x, correctedMovement.y
+                        movX, movY
                     );
 
                     // Then scale
