@@ -67,6 +67,7 @@ import {
     offset_sdfg,
     offset_state,
 } from './renderer_elements';
+import { cfgToDotGraph } from '../utils/sdfg/dotgraph';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -521,6 +522,18 @@ export class SDFGRenderer extends EventEmitter {
                     click: () => this.save_as_pdf(true),
                 }));
             }
+            $('<li>').appendTo(menu).append($('<span>', {
+                class: 'dropdown-item',
+                text: 'Export top-level CFG as DOT graph',
+                click: () => {
+                    this.save(
+                        (this.sdfg.attributes?.name ?? 'program') + '.dot',
+                        'data:text/plain;charset=utf-8,' + encodeURIComponent(
+                            cfgToDotGraph(this.sdfg)
+                        )
+                    );
+                },
+            }));
 
             $('<li>').appendTo(menu).append($('<hr>', {
                 class: 'dropdown-divider',
