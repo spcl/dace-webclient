@@ -4410,16 +4410,15 @@ function relayoutConditionalRegion(
         parent.branches.push([condition, blockElem])
 
         blockInfo.label = block.id.toString();
-        if (block.attributes?.is_collapsed) {
-            blockInfo.height = SDFV.LINEHEIGHT
-            blockInfo.width = ctx.measureText(condition.string_data).width
-        } else {
+        blockInfo.width = ctx.measureText(condition.string_data).width
+        blockInfo.height = SDFV.LINEHEIGHT
+        if (!block.attributes?.is_collapsed) {
             const blockGraph = relayoutStateMachine(
                 ctx, block, sdfg, cfgList, stateParentList, omitAccessNodes,
                 blockElem
             );
-            blockInfo.width = (blockGraph as any).width
-            blockInfo.height = (blockGraph as any).height
+            blockInfo.width = Math.max(blockInfo.width, (blockGraph as any).width)
+            blockInfo.height += (blockGraph as any).height
             blockElem.data.graph = blockGraph;
         }
         blockInfo.width += 2 * BLOCK_MARGIN;
