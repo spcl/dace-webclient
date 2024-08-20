@@ -2,8 +2,12 @@
 
 import { JsonSDFGControlFlowRegion, JsonSDFGEdge } from '../..';
 
-function cfgEdgeToDotGraphEdge(edge: JsonSDFGEdge): string {
-    return edge.src.toString() + ' -> ' + edge.dst.toString();
+function cfgEdgeToDotGraphEdge(
+    cfg: JsonSDFGControlFlowRegion, edge: JsonSDFGEdge
+): string {
+    const srcName = cfg.nodes[Number(edge.src)].label;
+    const dstName = cfg.nodes[Number(edge.dst)].label;
+    return srcName + ' -> ' + dstName;
 }
 
 export function cfgToDotGraph(cfg: JsonSDFGControlFlowRegion): string {
@@ -12,7 +16,7 @@ export function cfgToDotGraph(cfg: JsonSDFGControlFlowRegion): string {
     graphString += 'digraph "' + (cfg.attributes?.name ?? 'program') + '" {\n';
 
     for (const edge of cfg.edges)
-        graphString += '  ' + cfgEdgeToDotGraphEdge(edge) + '\n';
+        graphString += '  ' + cfgEdgeToDotGraphEdge(cfg, edge) + '\n';
 
     graphString += '}\n';
 
