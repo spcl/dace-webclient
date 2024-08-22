@@ -45,6 +45,8 @@ export enum SDFGElementType {
     ControlFlowBlock = 'ControlFlowBlock',
     ControlFlowRegion = 'ControlFlowRegion',
     LoopRegion = 'LoopRegion',
+    NamedRegion = 'NamedRegion',
+    FunctionCallRegion = 'FunctionCallRegion'
 }
 
 function draw_summary_symbol(
@@ -648,6 +650,10 @@ export class ControlFlowRegion extends ControlFlowBlock {
     }
 
 }
+
+export class NamedRegion extends ControlFlowRegion {}
+
+export class FunctionCallRegion extends ControlFlowRegion {}
 
 export class State extends BasicBlock {
 
@@ -3404,4 +3410,6 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     BreakBlock,
     ContinueBlock,
     ReturnBlock,
+    NamedRegion,
+    FunctionCallRegion
 };

@@ -4859,6 +4859,8 @@ function relayoutSDFGBlock(
     switch (block.type) {
         case SDFGElementType.LoopRegion:
         case SDFGElementType.ControlFlowRegion:
+        case SDFGElementType.NamedRegion:
+        case SDFGElementType.FunctionCallRegion:
             return relayoutStateMachine(
                 ctx, block as JsonSDFGControlFlowRegion, sdfg, sdfgList,
                 stateParentList, omitAccessNodes, parent
