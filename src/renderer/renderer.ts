@@ -179,6 +179,7 @@ export class SDFGRenderer extends EventEmitter {
 
     protected cfgList: CFGListType = {};
     protected graph: DagreGraph | null = null;
+    protected graphBoundingBox: DOMRect | null = null;
     // Parent-pointing CFG tree.
     protected cfgTree: { [key: number]: number } = {};
     // List of all state's parent elements.
@@ -1254,6 +1255,10 @@ export class SDFGRenderer extends EventEmitter {
             this.state_parent_list,
             !SDFVSettings.get<boolean>('showAccessNodes'), undefined
         );
+        const topLevelBlocks: SDFGElement[] = [];
+        for (const bId of this.graph.nodes())
+            topLevelBlocks.push(this.graph.node(bId));
+        this.graphBoundingBox = boundingBox(topLevelBlocks);
         this.onresize();
 
         this.update_fast_memlet_lookup();
@@ -2720,24 +2725,30 @@ export class SDFGRenderer extends EventEmitter {
     public pan_movement_in_bounds(
         visible_rect: SimpleRect, movX: number, movY: number
     ) {
-        const visible_rectCenter = {
-            x: (visible_rect.x + (visible_rect.w / 2)),
-            y: (visible_rect.y + (visible_rect.h / 2)),
-        };
+        if (!SDFVSettings.get<boolean>('bindToViewport') ||
+            !this.graphBoundingBox) {
+            return {
+                x: movX,
+                y: movY,
+            };
+        }
 
         // Compute where the visible_rectCenter is out of bounds:
         // outofboundsX/Y === 0 means not out of bounds
         let outofboundsX = 0;
         let outofboundsY = 0;
 
-        if (visible_rectCenter.x < this.minimapBounds.minX)
+        const padding = 50;
+        if (visible_rect.x + visible_rect.w <
+            (this.graphBoundingBox.left + padding))
             outofboundsX = -1;
-        else if (visible_rectCenter.x > this.minimapBounds.maxX)
+        else if (visible_rect.x > (this.graphBoundingBox.right - padding))
             outofboundsX = 1;
 
-        if (visible_rectCenter.y < this.minimapBounds.minY)
+        if (visible_rect.y + visible_rect.h <
+            (this.graphBoundingBox.top + padding))
             outofboundsY = -1;
-        else if (visible_rectCenter.y > this.minimapBounds.maxY)
+        else if (visible_rect.y > (this.graphBoundingBox.bottom) - padding)
             outofboundsY = 1;
 
         // Take uncorrected mouse event movement as default
