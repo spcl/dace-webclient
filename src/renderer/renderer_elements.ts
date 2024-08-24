@@ -3271,6 +3271,8 @@ export function offset_sdfg(
         if (!state.attributes.is_collapsed) {
             if (state.type === SDFGElementType.SDFGState)
                 offset_state(state as JsonSDFGState, g, offset);
+            else if (state.type === SDFGElementType.ConditionalRegion)
+                offset_conditional_region((state as JsonSDFGConditionalRegion), g.data.graph, offset)
             else
                 offset_sdfg(state as any, g.data.graph, offset);
         }
