@@ -1,6 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph, Point2D, SimpleRect, SymbolMap } from '../index';
+import { DagreGraph, Point2D, SDFVSettings, SimpleRect, SymbolMap } from '../index';
 import {
     GraphElementInfo,
     SDFGElementGroup,
@@ -207,7 +207,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                         // aren't visible or the node is collapsed, we skip it.
                         if (node.data.node.attributes.is_collapsed ||
                             (this.renderer.adaptiveHiding &&
-                             ppp > SDFV.NODE_LOD))
+                             ppp > SDFVSettings.get<number>('nodeLOD')))
                             return;
 
                         if (node instanceof NestedSDFG &&
@@ -226,7 +226,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                         if (this.renderer.adaptiveHiding && (!edge.intersect(
                             visibleRect.x, visibleRect.y,
                             visibleRect.w, visibleRect.h
-                        ) || ppp > SDFV.EDGE_LOD))
+                        ) || ppp > SDFVSettings.get<number>('edgeLOD')))
                             return;
 
                         this.shadeEdge(edge, ctx);

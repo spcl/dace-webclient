@@ -3176,7 +3176,7 @@ export class SDFGRenderer extends EventEmitter {
         // large graphs.
         if (this.canvas_manager) {
             const ppp = this.canvas_manager.points_per_pixel();
-            if (ppp < SDFV.NODE_LOD) {
+            if (ppp < SDFVSettings.get<number>('nodeLOD')) {
                 // Global change boolean. Determines if repaint necessary.
                 let highlighting_changed = false;
 

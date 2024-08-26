@@ -1,6 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph, JsonSDFG, Point2D, SimpleRect } from '../index';
+import { DagreGraph, JsonSDFG, Point2D, SDFVSettings, SimpleRect } from '../index';
 import {
     GraphElementInfo,
     SDFGElementGroup,
@@ -129,7 +129,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
 
                             if (node.attributes().is_collapsed ||
                                 (this.renderer.adaptiveHiding &&
-                                 ppp > SDFV.NODE_LOD)) {
+                                 ppp > SDFVSettings.get<number>('nodeLOD'))) {
                                 this.shadeNode(node, sdfgGroups, ctx);
                             } else {
                                 if (node instanceof NestedSDFG &&

@@ -103,6 +103,60 @@
                         "type": "boolean",
                         "default": true
                     },
+                    "taskletLOD": {
+                        "label": "Zoom threshold for drawing tasklet contents",
+                        "type": "range",
+                        "default": 0.35,
+                        "minimum": 0.0,
+                        "maximum": 5.0,
+                        "step": 0.01,
+                        "relayout": false
+                    },
+                    "scopeLOD": {
+                        "label": "Zoom threshold for drawing simple versions of scopes",
+                        "type": "range",
+                        "default": 0.75,
+                        "minimum": 0.0,
+                        "maximum": 5.0,
+                        "step": 0.01,
+                        "relayout": false
+                    },
+                    "edgeLOD": {
+                        "label": "Zoom threshold for drawing memlets and control flow edges",
+                        "type": "range",
+                        "default": 5.0,
+                        "minimum": 0.0,
+                        "maximum": 10.0,
+                        "step": 0.1,
+                        "relayout": false
+                    },
+                    "nodeLOD": {
+                        "label": "Zoom threshold for drawing node shapes and labels",
+                        "type": "range",
+                        "default": 5.0,
+                        "minimum": 0.0,
+                        "maximum": 10.0,
+                        "step": 0.1,
+                        "relayout": false
+                    },
+                    "textLOD": {
+                        "label": "Zoom threshold for drawing node text",
+                        "type": "range",
+                        "default": 1.5,
+                        "minimum": 0.0,
+                        "maximum": 10.0,
+                        "step": 0.1,
+                        "relayout": false
+                    },
+                    "nestedLOD": {
+                        "label": "Zoom threshold for drawing contents of control flow blocks and nested SDFGs",
+                        "type": "range",
+                        "default": 1.5,
+                        "minimum": 0.0,
+                        "maximum": 10.0,
+                        "step": 0.1,
+                        "relayout": false
+                    },
                     "summarizeLargeNumbersOfEdges": {
                         "id": "summarizeLargeNumbersOfEdges",
                         "label": "Hide and summarize edges for nodes with more than 10 incoming or outgoing edges",

@@ -1,6 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph, Point2D, SimpleRect } from '../index';
+import { DagreGraph, Point2D, SDFVSettings, SimpleRect } from '../index';
 import {
     GraphElementInfo,
     SDFGElementGroup,
@@ -275,7 +275,7 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                             );
                         } else if (node instanceof AccessNode) {
                             if (!this.renderer.adaptiveHiding ||
-                                ppp < SDFV.NODE_LOD)
+                                ppp < SDFVSettings.get<number>('nodeLOD'))
                                 this.shadeNode(node, ctx);
                         }
                     });
