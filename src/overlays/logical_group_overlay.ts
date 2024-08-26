@@ -1,6 +1,12 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph, JsonSDFG, Point2D, SimpleRect } from '../index';
+import {
+    DagreGraph,
+    JsonSDFG,
+    Point2D,
+    SDFVSettings,
+    SimpleRect,
+} from '../index';
 import {
     GraphElementInfo,
     SDFGElementGroup,
@@ -13,7 +19,6 @@ import {
     State,
     SDFGElementType,
 } from '../renderer/renderer_elements';
-import { SDFV } from '../sdfv';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export type LogicalGroup = {
@@ -109,7 +114,8 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
                 return;
 
             const blockppp = Math.sqrt(block.width * block.height) / ppp;
-            if ((this.renderer.adaptiveHiding && (blockppp < SDFV.STATE_LOD)) ||
+            if ((this.renderer.adaptiveHiding &&
+                (blockppp < SDFVSettings.get<number>('nestedLOD'))) ||
                 block.attributes().is_collapsed
             ) {
                 this.shadeNode(block, sdfgGroups, ctx);
@@ -129,7 +135,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
 
                             if (node.attributes().is_collapsed ||
                                 (this.renderer.adaptiveHiding &&
-                                 ppp > SDFV.NODE_LOD)) {
+                                 ppp > SDFVSettings.get<number>('nodeLOD'))) {
                                 this.shadeNode(node, sdfgGroups, ctx);
                             } else {
                                 if (node instanceof NestedSDFG &&

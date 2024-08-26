@@ -3,6 +3,7 @@
 import {
     DagreGraph,
     Point2D,
+    SDFVSettings,
     SimpleRect,
     SymbolMap,
     getGraphElementUUID,
@@ -235,7 +236,8 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
                 return;
 
             const stateppp = Math.sqrt(block.width * block.height) / ppp;
-            if ((this.renderer.adaptiveHiding && (stateppp < SDFV.STATE_LOD)) ||
+            if ((this.renderer.adaptiveHiding &&
+                (stateppp < SDFVSettings.get<number>('nestedLOD'))) ||
                 block.attributes()?.is_collapsed) {
                 this.shadeNode(block, ctx);
             } else if (block instanceof State) {
@@ -258,7 +260,8 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
                                 node.width * node.height
                             ) / ppp;
                             if (this.renderer.adaptiveHiding &&
-                                nodeppp < SDFV.STATE_LOD) {
+                                nodeppp <
+                                SDFVSettings.get<number>('nestedLOD')) {
                                 this.shadeNode(node, ctx);
                             } else if (node.attributes().sdfg &&
                                 node.attributes().sdfg.type !== 'SDFGShell') {

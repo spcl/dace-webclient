@@ -3,6 +3,7 @@
 import {
     DagreGraph,
     Point2D,
+    SDFVSettings,
     SimpleRect,
     SymbolMap,
     getGraphElementUUID,
@@ -18,7 +19,6 @@ import {
     SDFGElement,
     SDFGNode,
 } from '../renderer/renderer_elements';
-import { SDFV } from '../sdfv';
 import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
@@ -265,7 +265,8 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                 return;
 
             const stateppp = Math.sqrt(state.width * state.height) / ppp;
-            if ((this.renderer.adaptiveHiding && (stateppp < SDFV.STATE_LOD)) ||
+            if ((this.renderer.adaptiveHiding &&
+                (stateppp < SDFVSettings.get<number>('nestedLOD'))) ||
                 state.data.state.attributes.is_collapsed) {
                 this.shade_node(state, ctx);
             } else {
@@ -287,7 +288,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                                 node.width * node.height
                             ) / ppp;
                             if (this.renderer.adaptiveHiding &&
-                                nodeppp < SDFV.STATE_LOD) {
+                                nodeppp < SDFVSettings.get<number>('nodeLOD')) {
                                 this.shade_node(node, ctx);
                             } else if (node.attributes().sdfg &&
                                 node.attributes().sdfg.type !== 'SDFGShell') {

@@ -31,13 +31,14 @@ interface SDFVSetting {
 interface SDFVSettingBoolean extends SDFVSetting {
     type: 'boolean';
     default: boolean;
+    toggleDisabled?: [string, boolean][];
 }
 
 interface SDFVSettingRange extends SDFVSetting {
     type: 'range';
     default: number;
-    min?: number;
-    max?: number;
+    minimum?: number;
+    maximum?: number;
     step?: number;
 }
 
@@ -68,10 +69,11 @@ export class SDFVSettings {
     private renderer: SDFGRenderer | null = null;
 
     private addSlider(
-        root: JQuery<HTMLElement>, key: SDFVSettingKey,
+        root: JQuery<HTMLElement>, category: string, key: SDFVSettingKey,
         setting: SDFVSettingRange
     ): void {
         const settingRow = $('<div>', {
+            id: 'SDFVSettings-' + category + '_' + key,
             class: 'row',
         }).appendTo(root);
         const settingContainer = $('<div>', {
@@ -81,28 +83,92 @@ export class SDFVSettings {
             class: 'form-label',
             text: setting.label,
         }).appendTo(settingContainer);
-        const input = $('<input>', {
-            class: 'form-range',
-            type: 'range',
-            value: this._settingsDict.get(key),
-            min: setting.min ?? 0,
-            max: setting.max ?? 100,
-            step: setting.step ?? 1,
-            change: () => {
-                const nVal = input.val();
-                if (nVal !== undefined) {
-                    this._settingsDict.set(key, +nVal);
-                    this.onSettingChanged(setting);
-                }
-            },
+        const min = (
+            setting.minimum === undefined ? 0 : setting.minimum
+        ).toPrecision(2);
+        const max = (
+            setting.maximum === undefined ? 100 : setting.maximum
+        ).toPrecision(2);
+        const step = (
+            setting.step === undefined ? 1 : setting.step
+        ).toPrecision(2);
+        const inputContainer = $('<div>', {
+            class: 'd-flex align-items-center',
         }).appendTo(settingContainer);
+        const resetBtn = $('<span>', {
+            class: 'material-symbols-outlined text-secondary',
+            text: 'reset_settings',
+            title: 'Reset to default value',
+            css: {
+                'margin-right': '.3rem',
+                'user-select': 'none',
+            },
+        }).appendTo(inputContainer);
+        const numberInput = $('<input>', {
+            class: 'form-control form-control-sm',
+            css: {
+                'width': '18%',
+            },
+            type: 'number',
+            min: min,
+            max: max,
+            step: step,
+            value: this._settingsDict.get(key),
+        }).appendTo(inputContainer);
+        const sliderInput = $('<input>', {
+            class: 'form-range',
+            css: {
+                'width': '72%',
+                'margin-left': 'auto',
+                'user-select': 'none',
+            },
+            type: 'range',
+            min: min,
+            max: max,
+            step: step,
+            value: this._settingsDict.get(key),
+        }).appendTo(inputContainer);
+        sliderInput.on('change', () => {
+            let nVal = sliderInput.val();
+            if (nVal !== undefined) {
+                nVal = +nVal;
+                numberInput.val(nVal);
+                this._settingsDict.set(key, nVal);
+                this.onSettingChanged(setting);
+            }
+        });
+        numberInput.on('change', () => {
+            let nVal = numberInput.val();
+            if (nVal !== undefined) {
+                nVal = +nVal;
+
+                if (nVal < (setting.minimum ?? 0)) {
+                    nVal = setting.minimum ?? 0;
+                    numberInput.val(nVal);
+                } else if (nVal > (setting.maximum ?? 100)) {
+                    nVal = setting.maximum ?? 100;
+                    numberInput.val(nVal);
+                }
+
+                sliderInput.val(nVal);
+                this._settingsDict.set(key, nVal);
+                this.onSettingChanged(setting);
+            }
+        });
+        resetBtn.on('click', () => {
+            numberInput.val(setting.default);
+            sliderInput.val(setting.default);
+            this._settingsDict.set(key, setting.default);
+            this.onSettingChanged(setting);
+        });
     }
 
     private addToggle(
-        root: JQuery<HTMLElement>, key: SDFVSettingKey,
+        root: JQuery<HTMLElement>, category: string, key: SDFVSettingKey,
         setting: SDFVSettingBoolean
     ): void {
         const settingRow = $('<div>', {
+            id: 'SDFVSettings-' + category + '_' + key,
             class: 'row',
         }).appendTo(root);
         const settingContainer = $('<div>', {
@@ -116,7 +182,24 @@ export class SDFVSettings {
             type: 'checkbox',
             checked: this._settingsDict.get(key),
             change: () => {
-                this._settingsDict.set(key, input.prop('checked'));
+                const isChecked = input.prop('checked');
+
+                if (setting.toggleDisabled) {
+                    for (const disableEntry of setting.toggleDisabled) {
+                        const toggleInputs = $(
+                            '#SDFVSettings-' +
+                            disableEntry[0].replaceAll('.', '_') +
+                            ' :input'
+                        );
+                        for (const toToggle of toggleInputs) {
+                            $(toToggle).prop(
+                                'disabled', disableEntry[1] === isChecked
+                            );
+                        }
+                    }
+                }
+
+                this._settingsDict.set(key, isChecked);
                 this.onSettingChanged(setting);
             },
         }).appendTo(checkContainer);
@@ -163,20 +246,28 @@ export class SDFVSettings {
                 root, category.label, cName, first
             );
             first = false;
+            let firstSetting = true;
             for (const [sName, setting] of Object.entries(category.settings)) {
                 if ((setting as SDFVSetting).hidden)
                     continue;
 
+                if (!firstSetting) {
+                    $('<hr>', {
+                        class: 'sdfv-setting-separator',
+                    }).appendTo(catContainer);
+                }
+
+                firstSetting = false;
                 switch (setting.type) {
                     case 'boolean':
                         this.addToggle(
-                            catContainer, sName as SDFVSettingKey,
+                            catContainer, cName, sName as SDFVSettingKey,
                             setting as SDFVSettingBoolean
                         );
                         break;
                     case 'range':
                         this.addSlider(
-                            catContainer, sName as SDFVSettingKey,
+                            catContainer, cName, sName as SDFVSettingKey,
                             setting as SDFVSettingRange
                         );
                         break;
@@ -197,7 +288,7 @@ export class SDFVSettings {
             class: 'modal-content',
         });
         $('<div>', {
-            class: 'modal-dialog modal-dialog-centered',
+            class: 'modal-dialog modal-dialog-centered modal-dialog-scrollable',
         }).appendTo(modalElement).append(modalContents);
 
         // Construct the modal header.

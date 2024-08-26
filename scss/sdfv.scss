@@ -391,4 +391,12 @@ body.sdfv {
 
   }
 
+  .sdfv-setting-separator {
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+    margin-left: calc(-1 * var(--bs-accordion-body-padding-x)) !important;
+    margin-right: calc(-1 * var(--bs-accordion-body-padding-x)) !important;
+    opacity: 0.1 !important;
+  }
+
 }
