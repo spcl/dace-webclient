@@ -51,12 +51,6 @@ export class SDFV {
     // Points-per-pixel threshold for not drawing connectors.
     public static CONNECTOR_LOD = 2.0; // 2.0
 
-    // Pixel threshold for not drawing State and NestedSDFG contents.
-    // This threshold behaves differently than the ones above. The State's size
-    // is compared to this threshold and if the State is smaller its contents
-    // are not drawn in the renderer.
-    public static STATE_LOD: number = 100; // 100
-
     public static DEFAULT_CANVAS_FONTSIZE: number = 10;
     public static DEFAULT_MAX_FONTSIZE: number = 20; // 20
     public static DEFAULT_FAR_FONT_MULTIPLIER: number = 16; // 16

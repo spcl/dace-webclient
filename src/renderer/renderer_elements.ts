@@ -21,7 +21,6 @@ import {
 import { check_and_redirect_edge } from '../utils/sdfg/sdfg_utils';
 import { SDFVSettings } from '../utils/sdfv_settings';
 import { SDFGRenderer } from './renderer';
-import { number } from 'mathjs';
 
 export enum SDFGElementType {
     Edge = 'Edge',
@@ -2996,7 +2995,8 @@ export function drawStateContents(
         if (node instanceof NestedSDFG &&
             !node.data.node.attributes.is_collapsed) {
             const nodeppp = Math.sqrt(node.width * node.height) / ppp;
-            if (renderer.adaptiveHiding && nodeppp < SDFV.STATE_LOD) {
+            if (renderer.adaptiveHiding &&
+                nodeppp < SDFVSettings.get<number>('nestedLOD')) {
                 node.simple_draw(renderer, ctx, mousePos);
                 node.debug_draw(renderer, ctx);
                 continue;
@@ -3088,7 +3088,8 @@ export function drawStateMachine(
             continue;
 
         const blockppp = Math.sqrt(block.width * block.height) / ppp;
-        if (renderer.adaptiveHiding && blockppp < SDFV.STATE_LOD) {
+        if (renderer.adaptiveHiding &&
+            blockppp < SDFVSettings.get<number>('nestedLOD')) {
             block.simple_draw(renderer, ctx, mousePos);
             block.debug_draw(renderer, ctx);
             continue;

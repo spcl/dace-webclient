@@ -1,6 +1,12 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph, Point2D, SDFVSettings, SimpleRect, SymbolMap } from '../index';
+import {
+    DagreGraph,
+    Point2D,
+    SDFVSettings,
+    SimpleRect,
+    SymbolMap,
+} from '../index';
 import {
     GraphElementInfo,
     SDFGElementGroup,
@@ -15,7 +21,6 @@ import {
     SDFGNode,
     State,
 } from '../renderer/renderer_elements';
-import { SDFV } from '../sdfv';
 import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
@@ -187,7 +192,8 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
             // If we're zoomed out enough that the contents aren't visible, we
             // skip the state.
             const stateppp = Math.sqrt(block.width * block.height) / ppp;
-            if (this.renderer.adaptiveHiding && (stateppp < SDFV.STATE_LOD))
+            if (this.renderer.adaptiveHiding &&
+                (stateppp < SDFVSettings.get<number>('nestedLOD')))
                 return;
 
             if (block instanceof State) {

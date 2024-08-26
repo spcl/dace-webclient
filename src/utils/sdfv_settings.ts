@@ -31,6 +31,7 @@ interface SDFVSetting {
 interface SDFVSettingBoolean extends SDFVSetting {
     type: 'boolean';
     default: boolean;
+    toggleDisabled?: [string, boolean][];
 }
 
 interface SDFVSettingRange extends SDFVSetting {
@@ -68,10 +69,11 @@ export class SDFVSettings {
     private renderer: SDFGRenderer | null = null;
 
     private addSlider(
-        root: JQuery<HTMLElement>, key: SDFVSettingKey,
+        root: JQuery<HTMLElement>, category: string, key: SDFVSettingKey,
         setting: SDFVSettingRange
     ): void {
         const settingRow = $('<div>', {
+            id: 'SDFVSettings-' + category + '_' + key,
             class: 'row',
         }).appendTo(root);
         const settingContainer = $('<div>', {
@@ -162,10 +164,11 @@ export class SDFVSettings {
     }
 
     private addToggle(
-        root: JQuery<HTMLElement>, key: SDFVSettingKey,
+        root: JQuery<HTMLElement>, category: string, key: SDFVSettingKey,
         setting: SDFVSettingBoolean
     ): void {
         const settingRow = $('<div>', {
+            id: 'SDFVSettings-' + category + '_' + key,
             class: 'row',
         }).appendTo(root);
         const settingContainer = $('<div>', {
@@ -179,7 +182,24 @@ export class SDFVSettings {
             type: 'checkbox',
             checked: this._settingsDict.get(key),
             change: () => {
-                this._settingsDict.set(key, input.prop('checked'));
+                const isChecked = input.prop('checked');
+
+                if (setting.toggleDisabled) {
+                    for (const disableEntry of setting.toggleDisabled) {
+                        const toggleInputs = $(
+                            '#SDFVSettings-' +
+                            disableEntry[0].replaceAll('.', '_') +
+                            ' :input'
+                        );
+                        for (const toToggle of toggleInputs) {
+                            $(toToggle).prop(
+                                'disabled', disableEntry[1] === isChecked
+                            );
+                        }
+                    }
+                }
+
+                this._settingsDict.set(key, isChecked);
                 this.onSettingChanged(setting);
             },
         }).appendTo(checkContainer);
@@ -241,13 +261,13 @@ export class SDFVSettings {
                 switch (setting.type) {
                     case 'boolean':
                         this.addToggle(
-                            catContainer, sName as SDFVSettingKey,
+                            catContainer, cName, sName as SDFVSettingKey,
                             setting as SDFVSettingBoolean
                         );
                         break;
                     case 'range':
                         this.addSlider(
-                            catContainer, sName as SDFVSettingKey,
+                            catContainer, cName, sName as SDFVSettingKey,
                             setting as SDFVSettingRange
                         );
                         break;

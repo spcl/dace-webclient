@@ -101,7 +101,15 @@
                     "adaptiveContentHiding": {
                         "label": "Adaptively hide content when zooming out (Warning: turning this off can cause performance issues on large graphs)",
                         "type": "boolean",
-                        "default": true
+                        "default": true,
+                        "toggleDisabled": [
+                            ["performance.taskletLOD", false],
+                            ["performance.scopeLOD", false],
+                            ["performance.edgeLOD", false],
+                            ["performance.nodeLOD", false],
+                            ["performance.textLOD", false],
+                            ["performance.nestedLOD", false]
+                        ]
                     },
                     "taskletLOD": {
                         "label": "Zoom threshold for drawing tasklet contents",
@@ -149,12 +157,12 @@
                         "relayout": false
                     },
                     "nestedLOD": {
-                        "label": "Zoom threshold for drawing contents of control flow blocks and nested SDFGs",
+                        "label": "Zoom threshold for drawing contents of control flow blocks (including states) and nested SDFGs",
                         "type": "range",
-                        "default": 1.5,
-                        "minimum": 0.0,
-                        "maximum": 10.0,
-                        "step": 0.1,
+                        "default": 100,
+                        "minimum": 0,
+                        "maximum": 1000,
+                        "step": 1,
                         "relayout": false
                     },
                     "summarizeLargeNumbersOfEdges": {

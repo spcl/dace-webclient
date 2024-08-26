@@ -15,7 +15,6 @@ import {
     SDFGNode,
     State,
 } from '../renderer/renderer_elements';
-import { SDFV } from '../sdfv';
 import { KELLY_COLORS } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
@@ -248,7 +247,8 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                 return;
 
             const stateppp = Math.sqrt(block.width * block.height) / ppp;
-            if ((this.renderer.adaptiveHiding && (stateppp < SDFV.STATE_LOD)) ||
+            if ((this.renderer.adaptiveHiding &&
+                (stateppp < SDFVSettings.get<number>('nestedLOD'))) ||
                 block.attributes()?.is_collapsed) {
                 // The state is collapsed or too small, so we don't need to
                 // traverse its insides.

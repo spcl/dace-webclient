@@ -1,10 +1,14 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Node } from 'dagre';
-import { DagreGraph, SimpleRect, getGraphElementUUID } from '../index';
+import {
+    DagreGraph,
+    SDFVSettings,
+    SimpleRect,
+    getGraphElementUUID,
+} from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
 import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
-import { SDFV } from '../sdfv';
 import { getTempColorHslString } from '../utils/utils';
 import {
     GenericSdfgOverlay,
@@ -132,7 +136,8 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
                 return;
 
             const stateppp = Math.sqrt(state.width * state.height) / ppp;
-            if ((this.renderer.adaptiveHiding && (stateppp < SDFV.STATE_LOD)) ||
+            if ((this.renderer.adaptiveHiding &&
+                (stateppp < SDFVSettings.get<number>('nestedLOD'))) ||
                 state.data.state.attributes.is_collapsed) {
                 this.shade_node(state, ctx);
             } else {
@@ -154,7 +159,8 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
                                 node.width * node.height
                             ) / ppp;
                             if (this.renderer.adaptiveHiding &&
-                                nodeppp < SDFV.STATE_LOD) {
+                                nodeppp <
+                                SDFVSettings.get<number>('nestedLOD')) {
                                 this.shade_node(node, ctx);
                             } else if (node.attributes().sdfg &&
                                 node.attributes().sdfg.type !== 'SDFGShell') {
