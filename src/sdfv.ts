@@ -35,6 +35,7 @@ import {
     stringify_sdfg,
 } from './utils/sdfg/json_serializer';
 import { SDFVSettings } from './utils/sdfv_settings';
+import { SDFGDiffViewer } from './sdfg_diff_viewr';
 
 declare const vscode: any;
 
@@ -60,6 +61,10 @@ export class SDFV {
 
     public constructor() {
         return;
+    }
+
+    public destroy(): void {
+        this.renderer?.destroy();
     }
 
     public set_renderer(renderer: SDFGRenderer | null): void {
@@ -398,6 +403,12 @@ function init_sdfv(
         instrumentation_file = e.target.files[0];
         load_instrumentation_report(sdfv);
     });
+    $('#second-sdfg-file-input').on('change', (e: any) => {
+        if (e.target.files.length < 1)
+            return;
+        file = e.target.files[0];
+        load_diff_sdfg(sdfv);
+    });
     $('#outline').on('click', () => {
         const renderer = sdfv.get_renderer();
         if (renderer) {
@@ -507,6 +518,16 @@ export function reload_file(sdfv: SDFV): void {
     fr.readAsArrayBuffer(file);
 }
 
+export function load_diff_sdfg(sdfv: SDFV): void {
+    if (!file)
+        return;
+    fr = new FileReader();
+    fr.onload = () => {
+        diff_sdfg_read_complete(sdfv);
+    };
+    fr.readAsArrayBuffer(file);
+}
+
 function file_read_complete(sdfv: SDFV): void {
     const result_string = fr.result;
     const container = document.getElementById('contents');
@@ -532,7 +553,29 @@ function file_read_complete(sdfv: SDFV): void {
                 new SDFGRenderer(sdfv, sdfg, container, mouse_event)
             );
             sdfv.close_menu();
+            $('#load-instrumentation-report-btn').prop('disabled', false);
+            $('#load-second-sdfg-btn').prop('disabled', false);
         }, 10);
+    }
+}
+
+function diff_sdfg_read_complete(sdfv: SDFV): void {
+    const result_string = fr.result;
+    const sdfvContainer = $('#contents');
+    const diffContainer = $('#diff-container');
+    const sdfgB = sdfv.get_renderer()?.get_sdfg();
+
+    if (result_string && sdfvContainer && diffContainer && sdfgB) {
+        // TODO: loading animation.
+        sdfvContainer.hide();
+
+        const sdfgA = checkCompatLoad(parse_sdfg(result_string));
+
+        sdfv.destroy();
+
+        const diffViewer = SDFGDiffViewer.init(sdfgA, sdfgB);
+
+        diffContainer.show();
     }
 }
 

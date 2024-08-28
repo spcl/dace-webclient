@@ -68,6 +68,7 @@ import {
     offset_state,
 } from './renderer_elements';
 import { cfgToDotGraph } from '../utils/sdfg/dotgraph';
+import { DiffMap, SDFGDiffViewer } from '../sdfg_diff_viewr';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -259,8 +260,10 @@ export class SDFGRenderer extends EventEmitter {
     // Controlled by the SDFVSettings.
     protected _adaptiveHiding: boolean = true;
 
+    protected readonly diffMode: boolean = false;
+
     public constructor(
-        protected sdfv_instance: SDFV,
+        protected sdfv_instance: SDFV | SDFGDiffViewer,
         protected sdfg: JsonSDFG,
         protected container: HTMLElement,
         on_mouse_event: ((...args: any[]) => boolean) | null = null,
@@ -271,8 +274,13 @@ export class SDFGRenderer extends EventEmitter {
     ) {
         super();
 
-        sdfv_instance.enable_menu_close();
-        sdfv_instance.close_menu();
+        if (sdfv_instance instanceof SDFGDiffViewer) {
+            this.diffMode = true;
+        } else {
+            this.diffMode = false;
+            sdfv_instance.enable_menu_close();
+            sdfv_instance.close_menu();
+        }
 
         this.external_mouse_handler = on_mouse_event;
 
@@ -3923,11 +3931,14 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     public exitLocalView(): void {
+        if (!(this.sdfv_instance instanceof SDFV))
+            return;
+
         reload_file(this.sdfv_instance);
     }
 
     public async localViewSelection(): Promise<void> {
-        if (!this.graph)
+        if (!this.graph || !(this.sdfv_instance instanceof SDFV))
             return;
 
         // Transition to the local view by first cutting out the selection.

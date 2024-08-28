@@ -74,6 +74,25 @@ body.sdfv {
     overflow: hidden;
   }
 
+  #diff-container {
+    position: relative;
+    resize: both;
+    width: 90%;
+    height: 90%;
+    border: 1px solid;
+    overflow: hidden;
+    display: flex;
+
+    .diff-contents {
+      width: 50%;
+      height: 100%;
+    }
+
+    #diff-contents-A {
+      border-right: 1px solid;
+    }
+  }
+
   #minimap {
     position: absolute;
     top: 5px;
