@@ -3,7 +3,6 @@
 import {
     DagreGraph,
     JsonSDFG,
-    KELLY_COLORS,
     Point2D,
     SDFVSettings,
     SimpleRect,
@@ -29,11 +28,8 @@ export class DiffOverlay extends GenericSdfgOverlay {
     public readonly olClass: typeof GenericSdfgOverlay = DiffOverlay;
 
     private readonly CHANGED_COLOR = 'orange';
-        //'#' + KELLY_COLORS[2].toString(16).padStart(6, '0'); // Orange
     private readonly ADDED_COLOR = 'green';
-        //'#' + KELLY_COLORS[7].toString(16).padStart(6, '0'); // Green
     private readonly REMOVED_COLOR = 'red';
-        //'#' + KELLY_COLORS[4].toString(16).padStart(6, '0'); // Red
 
     public constructor(
         renderer: SDFGRenderer,

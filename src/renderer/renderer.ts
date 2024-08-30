@@ -29,7 +29,7 @@ import { LViewGraphParseError, LViewParser } from '../local_view/lview_parser';
 import { LViewRenderer } from '../local_view/lview_renderer';
 import { OverlayManager } from '../overlay_manager';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
-import { SDFV, reload_file } from '../sdfv';
+import { SDFV } from '../sdfv';
 import {
     boundingBox,
     calculateBoundingBox,
@@ -68,7 +68,7 @@ import {
     offset_state,
 } from './renderer_elements';
 import { cfgToDotGraph } from '../utils/sdfg/dotgraph';
-import { DiffMap, SDFGDiffViewer } from '../sdfg_diff_viewr';
+import { SDFGDiffViewer } from '../sdfg_diff_viewr';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -198,14 +198,12 @@ export class SDFGRenderer extends EventEmitter {
     protected last_dragged_element: SDFGElement | null = null;
     protected tooltip: SDFVTooltipFunc | null = null;
     protected tooltip_container: HTMLElement | null = null;
-    protected overlay_manager: OverlayManager;
-    protected bgcolor: string | null = null;
+    public readonly overlayManager: OverlayManager;
     protected visible_rect: SimpleRect | null = null;
     protected static cssProps: { [key: string]: string } = {};
     protected hovered_elements_cache: Set<SDFGElement> = new Set<SDFGElement>();
 
     // Toolbar related fields.
-    protected modeButtons: ModeButtons | null = null;
     protected toolbar: JQuery<HTMLElement> | null = null;
     protected panmode_btn: HTMLElement | null = null;
     protected movemode_btn: HTMLElement | null = null;
@@ -235,8 +233,6 @@ export class SDFGRenderer extends EventEmitter {
     protected dragging: boolean = false;
     // Null if the mouse/touch is not activated.
     protected drag_start: any = null;
-    protected external_mouse_handler: ((...args: any[]) => boolean) | null =
-        null;
     protected ctrl_key_selection: boolean = false;
     protected shift_key_movement: boolean = false;
     protected add_position: Point2D | null = null;
@@ -263,28 +259,20 @@ export class SDFGRenderer extends EventEmitter {
     protected readonly diffMode: boolean = false;
 
     public constructor(
-        protected sdfv_instance: SDFV | SDFGDiffViewer,
         protected sdfg: JsonSDFG,
         protected container: HTMLElement,
-        on_mouse_event: ((...args: any[]) => boolean) | null = null,
-        user_transform: DOMMatrix | null = null,
+        protected sdfv_instance?: SDFV | SDFGDiffViewer,
+        protected external_mouse_handler: (
+            (...args: any[]) => boolean
+        ) | null = null,
+        protected initialUserTransform: DOMMatrix | null = null,
         public debug_draw = false,
-        background: string | null = null,
-        mode_buttons: any = null
+        protected backgroundColor: string | null = null,
+        protected modeButtons: ModeButtons | null = null
     ) {
         super();
 
-        if (sdfv_instance instanceof SDFGDiffViewer) {
-            this.diffMode = true;
-        } else {
-            this.diffMode = false;
-            sdfv_instance.enable_menu_close();
-            sdfv_instance.close_menu();
-        }
-
-        this.external_mouse_handler = on_mouse_event;
-
-        this.overlay_manager = new OverlayManager(this);
+        this.overlayManager = new OverlayManager(this);
 
         this.in_vscode = false;
         try {
@@ -293,13 +281,9 @@ export class SDFGRenderer extends EventEmitter {
                 this.in_vscode = true;
         } catch (ex) { }
 
-        this.init_elements(user_transform, background, mode_buttons);
+        this.init_elements();
 
-        this.setSDFG(sdfg, false);
-
-        this.all_memlet_trees_sdfg = memletTreeComplete(this.sdfg);
-
-        this.update_fast_memlet_lookup();
+        this.setSDFG(this.sdfg, false);
 
         this.on('collapse_state_changed', () => {
             this.emit('graph_edited');
@@ -605,9 +589,9 @@ export class SDFGRenderer extends EventEmitter {
                         checked: default_state,
                         change: () => {
                             if (olInput.prop('checked'))
-                                this.overlay_manager?.register_overlay(ol);
+                                this.overlayManager.register_overlay(ol);
                             else
-                                this.overlay_manager?.deregister_overlay(ol);
+                                this.overlayManager.deregister_overlay(ol);
                         },
                     }).appendTo(olContainer);
                     $('<label>', {
@@ -617,7 +601,7 @@ export class SDFGRenderer extends EventEmitter {
                 };
 
                 // Register overlays that are turned on by default.
-                this.overlay_manager.register_overlay(LogicalGroupOverlay);
+                this.overlayManager.register_overlay(LogicalGroupOverlay);
                 addOverlayToMenu('Logical groups', LogicalGroupOverlay, true);
 
                 // Add overlays that are turned off by default.
@@ -860,18 +844,12 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     // Initializes the DOM
-    public init_elements(
-        user_transform: DOMMatrix | null,
-        background: string | null,
-        mode_buttons: ModeButtons | null
-    ): void {
-        this.modeButtons = mode_buttons;
-
+    public init_elements(): void {
         // Set up the canvas.
         this.canvas = document.createElement('canvas');
         this.canvas.classList.add('sdfg_canvas');
-        if (background)
-            this.canvas.style.backgroundColor = background;
+        if (this.backgroundColor)
+            this.canvas.style.backgroundColor = this.backgroundColor;
         else
             this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
@@ -961,8 +939,8 @@ export class SDFGRenderer extends EventEmitter {
 
         // Translation/scaling management
         this.canvas_manager = new CanvasManager(this.ctx, this, this.canvas);
-        if (user_transform !== null)
-            this.canvas_manager.set_user_transform(user_transform);
+        if (this.initialUserTransform !== null)
+            this.canvas_manager.set_user_transform(this.initialUserTransform);
 
         // Resize event for container
         const observer = new MutationObserver(() => {
@@ -977,10 +955,10 @@ export class SDFGRenderer extends EventEmitter {
         resizeObserver.observe(this.container);
 
         // Set inherited properties
-        if (background)
-            this.bgcolor = background;
-        else
-            this.bgcolor = window.getComputedStyle(this.canvas).backgroundColor;
+        if (!this.backgroundColor) {
+            this.backgroundColor =
+                window.getComputedStyle(this.canvas).backgroundColor;
+        }
 
 
         this.updateCFGList();
@@ -994,7 +972,7 @@ export class SDFGRenderer extends EventEmitter {
         this.set_mouse_handlers();
 
         // Set initial zoom, if not already set
-        if (user_transform === null)
+        if (this.initialUserTransform === null)
             this.zoom_to_view();
 
         const svgs: { [key: string]: string } = {};
@@ -1146,7 +1124,7 @@ export class SDFGRenderer extends EventEmitter {
         if (this.selected_elements.length === 1) {
             const uuid = getGraphElementUUID(this.selected_elements[0]);
             if (this.graph) {
-                this.sdfv_instance.fill_info(
+                this.sdfv_instance?.fill_info(
                     findGraphElementByUUID(this.cfgList, uuid)
                 );
             }
@@ -1161,6 +1139,10 @@ export class SDFGRenderer extends EventEmitter {
                 this.draw_async();
             }, 10);
         }
+
+        this.all_memlet_trees_sdfg = memletTreeComplete(this.sdfg);
+
+        this.update_fast_memlet_lookup();
     }
 
     // Set mouse events (e.g., click, drag, zoom)
@@ -1275,12 +1257,11 @@ export class SDFGRenderer extends EventEmitter {
         this.translateMovedElements();
 
         // Make sure all visible overlays get recalculated if there are any.
-        if (this.overlay_manager !== null)
-            this.overlay_manager.refresh();
+        this.overlayManager.refresh();
 
         // If we're in a VSCode context, we also want to refresh the outline.
         if (this.in_vscode)
-            this.sdfv_instance.outline(this, this.graph);
+            this.sdfv_instance?.outline();
 
         // Remove loading animation
         const info_field = document.getElementById('task-info-field');
@@ -1964,8 +1945,7 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     public on_post_draw(): void {
-        if (this.overlay_manager !== null)
-            this.overlay_manager.draw();
+        this.overlayManager.draw();
 
         this.draw_minimap();
 
@@ -3784,8 +3764,8 @@ export class SDFGRenderer extends EventEmitter {
             dirty = dirty || ext_mh_dirty;
         }
 
-        if (this.overlay_manager !== null) {
-            const ol_manager_dirty = this.overlay_manager.on_mouse_event(
+        if (this.overlayManager) {
+            const ol_manager_dirty = this.overlayManager.on_mouse_event(
                 evtype,
                 event,
                 { x: mouse_x, y: mouse_y },
@@ -3805,6 +3785,12 @@ export class SDFGRenderer extends EventEmitter {
         return false;
     }
 
+    public registerExternalMouseHandler(
+        handler: ((...args: any[]) => boolean) | null
+    ): void {
+        this.external_mouse_handler = handler;
+    }
+
     public get_canvas(): HTMLCanvasElement | null {
         return this.canvas;
     }
@@ -3817,10 +3803,6 @@ export class SDFGRenderer extends EventEmitter {
         return this.ctx;
     }
 
-    public get_overlay_manager(): OverlayManager {
-        return this.overlay_manager;
-    }
-
     public get_visible_rect(): SimpleRect | null {
         return this.visible_rect;
     }
@@ -3829,8 +3811,8 @@ export class SDFGRenderer extends EventEmitter {
         return this.mouse_mode;
     }
 
-    public get_bgcolor(): string {
-        return (this.bgcolor ? this.bgcolor : '');
+    public getBackgroundColor(): string {
+        return (this.backgroundColor ? this.backgroundColor : '');
     }
 
     public get_sdfg(): JsonSDFG {
@@ -3869,8 +3851,8 @@ export class SDFGRenderer extends EventEmitter {
         this.tooltip = tooltip_func;
     }
 
-    public set_bgcolor(bgcolor: string): void {
-        this.bgcolor = bgcolor;
+    public setBackgroundColor(backgroundColor: string): void {
+        this.backgroundColor = backgroundColor;
     }
 
     public on_selection_changed(): void {
@@ -3934,7 +3916,8 @@ export class SDFGRenderer extends EventEmitter {
         if (!(this.sdfv_instance instanceof SDFV))
             return;
 
-        reload_file(this.sdfv_instance);
+        //reload_file(this.sdfv_instance);
+        // TODO: exit correctly.
     }
 
     public async localViewSelection(): Promise<void> {

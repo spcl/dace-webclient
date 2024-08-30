@@ -254,6 +254,7 @@ export class LViewRenderer {
     }
 
     private initLocalViewSidebar(): void {
+        /*
         this.sdfvInstance.sidebar_set_title('Local View');
         this.sdfvInstance.close_menu();
         this.sdfvInstance.disable_menu_close();
@@ -356,6 +357,7 @@ export class LViewRenderer {
         this.sidebarContents = $('#lview-sidebar-contents');
 
         this.sdfvInstance.sidebar_show();
+        */
     }
 
     public clearGraphAccesses(g: Graph, redraw: boolean = true): void {
