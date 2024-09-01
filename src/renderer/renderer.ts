@@ -2877,18 +2877,18 @@ export class SDFGRenderer extends EventEmitter {
 
         // Toggle collapsed state
         if (foreground_elem.COLLAPSIBLE) {
-            if ('is_collapsed' in sdfg_elem.attributes) {
-                sdfg_elem.attributes.is_collapsed =
-                    !sdfg_elem.attributes.is_collapsed;
-            } else {
-                sdfg_elem.attributes['is_collapsed'] = true;
-            }
-
             this.emit('collapse_state_changed');
 
             // Re-layout SDFG
             this.add_loading_animation();
             setTimeout(() => {
+                if ('is_collapsed' in sdfg_elem.attributes) {
+                    sdfg_elem.attributes.is_collapsed =
+                        !sdfg_elem.attributes.is_collapsed;
+                } else {
+                    sdfg_elem.attributes['is_collapsed'] = true;
+                }
+
                 this.relayout(foreground_elem);
                 this.draw_async();
             }, 10);
