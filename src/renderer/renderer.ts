@@ -1249,12 +1249,14 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     // Re-layout graph and nested graphs
-    public relayout(): DagreGraph {
+    public relayout(instigator: SDFGElement | null = null): DagreGraph {
         if (!this.ctx)
             throw new Error('No context found while performing layouting');
 
         // Collect currently-visible elements for reorientation
-        let elements = this.getVisibleElements();
+        const elements = this.getVisibleElementsAsObjects(true);
+        if (instigator)
+            elements.push(instigator);
 
         for (const cfgId in this.cfgList) {
             this.cfgList[cfgId].graph = null;
@@ -1271,7 +1273,7 @@ export class SDFGRenderer extends EventEmitter {
         this.graphBoundingBox = boundingBox(topLevelBlocks);
 
         // Reorient view based on an approximate set of visible elements
-        this.zoom_to_view(elements, false, 0, false);
+        this.reorient(elements);
 
         this.onresize();
 
@@ -1299,6 +1301,41 @@ export class SDFGRenderer extends EventEmitter {
             info_field_settings.innerHTML = '';
 
         return this.graph;
+    }
+
+    public reorient(old_visible_elements: SDFGElement[]): void {
+        // Reorient view based on an approximate set of visible elements
+
+        // Nothing to reorient to
+        if (!old_visible_elements || old_visible_elements.length === 0)
+            return;
+
+        // If the current view contains everything that was visible before,
+        // no need to change anything.
+        const new_visible_elements = this.getVisibleElementsAsObjects(true);
+        const old_nodes = old_visible_elements.filter(x => (
+            x instanceof ControlFlowBlock ||
+            x instanceof SDFGNode));
+        const new_nodes = new_visible_elements.filter(x => (
+            x instanceof ControlFlowBlock ||
+            x instanceof SDFGNode));
+        const old_set = new Set(old_nodes.map(x => x.guid()));
+        const new_set = new Set(new_nodes.map(x => x.guid()));
+        const diff = old_set.difference(new_set);
+        if (diff.size === 0)
+            return;
+
+        // Reorient based on old visible elements refreshed to new locations
+        const old_elements_in_new_layout: SDFGElement[] = [];
+        this.doForAllGraphElements((group: SDFGElementGroup,
+            info: GraphElementInfo, elem: SDFGElement) => {
+            if (elem instanceof ControlFlowBlock || elem instanceof SDFGNode) {
+                const guid = elem.guid();
+                if (guid && old_set.has(guid))
+                    old_elements_in_new_layout.push(elem);
+            }
+        });
+        this.zoom_to_view(old_elements_in_new_layout, true, undefined, false);
     }
 
     public translateMovedElements(): void {
@@ -2109,6 +2146,37 @@ export class SDFGRenderer extends EventEmitter {
         return elements;
     }
 
+    public getVisibleElementsAsObjects(
+        entirely_visible: boolean
+    ): SDFGElement[] {
+        if (!this.canvas_manager)
+            return [];
+
+        const curx = this.canvas_manager.mapPixelToCoordsX(0);
+        const cury = this.canvas_manager.mapPixelToCoordsY(0);
+        const canvasw = this.canvas?.width;
+        const canvash = this.canvas?.height;
+        let endx = null;
+        if (canvasw)
+            endx = this.canvas_manager.mapPixelToCoordsX(canvasw);
+        let endy = null;
+        if (canvash)
+            endy = this.canvas_manager.mapPixelToCoordsY(canvash);
+        const curw = (endx ? endx : 0) - curx;
+        const curh = (endy ? endy : 0) - cury;
+        const elements: any[] = [];
+        this.doForIntersectedElements(
+            curx, cury, curw, curh,
+            (group, objInfo, _obj) => {
+                if (entirely_visible &&
+                    !_obj.contained_in(curx, cury, curw, curh))
+                    return;
+                elements.push(_obj);
+            }
+        );
+        return elements;
+    }
+
     public doForVisibleElements(func: GraphElemFunction): void {
         if (!this.canvas_manager)
             return;
@@ -2821,7 +2889,7 @@ export class SDFGRenderer extends EventEmitter {
             // Re-layout SDFG
             this.add_loading_animation();
             setTimeout(() => {
-                this.relayout();
+                this.relayout(foreground_elem);
                 this.draw_async();
             }, 10);
 
