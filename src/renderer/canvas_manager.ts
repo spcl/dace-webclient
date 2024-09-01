@@ -382,10 +382,10 @@ export class CanvasManager {
         if (parent_graph && !(el instanceof Edge)) {
             // Find all the edges connected to the moving node
             parent_graph.outEdges(el.id.toString())?.forEach(edge_id => {
-                out_edges.push(parent_graph.edge(edge_id));
+                out_edges.push(parent_graph!.edge(edge_id));
             });
             parent_graph.inEdges(el.id.toString())?.forEach(edge_id => {
-                in_edges.push(parent_graph.edge(edge_id));
+                in_edges.push(parent_graph!.edge(edge_id));
             });
         }
 

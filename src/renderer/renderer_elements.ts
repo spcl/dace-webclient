@@ -1399,8 +1399,8 @@ export abstract class Edge extends SDFGElement {
                 };
 
                 // Check if the two rectangles intersect
-                if (r.x + r.w >= x && r.x <= x+w &&
-                    r.y + r.h >= y && r.y <= y+h)
+                if (r.x + r.w >= x && r.x <= x + w &&
+                    r.y + r.h >= y && r.y <= y + h)
                     return true;
             }
             return false;
@@ -2115,9 +2115,9 @@ export class ScopeNode extends SDFGNode {
                 SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
                 SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true,
                 TextVAlign.BOTTOM, TextHAlign.RIGHT, {
-                    bottom: 2.0,
-                    right: this.height,
-                }
+                bottom: 2.0,
+                right: this.height,
+            }
             );
         }
     }
@@ -3350,7 +3350,7 @@ export function drawOctagon(
 export function drawEllipse(
     ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number
 ): void {
-    ctx.ellipse(x+w/2, y+h/2, w/2, h/2, 0, 0, 2 * Math.PI);
+    ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, 2 * Math.PI);
 }
 
 export function drawTrapezoid(
