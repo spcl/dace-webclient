@@ -1246,6 +1246,9 @@ export class SDFGRenderer extends EventEmitter {
         if (!this.ctx)
             throw new Error('No context found while performing layouting');
 
+        // Collect currently-visible elements for reorientation
+        let elements = this.getVisibleElements();
+
         for (const cfgId in this.cfgList) {
             this.cfgList[cfgId].graph = null;
             this.cfgList[cfgId].nsdfgNode = null;
@@ -1259,6 +1262,10 @@ export class SDFGRenderer extends EventEmitter {
         for (const bId of this.graph.nodes())
             topLevelBlocks.push(this.graph.node(bId));
         this.graphBoundingBox = boundingBox(topLevelBlocks);
+
+        // Reorient view based on an approximate set of visible elements
+        this.zoom_to_view(elements, false, 0, false);
+
         this.onresize();
 
         this.update_fast_memlet_lookup();
@@ -1378,7 +1385,7 @@ export class SDFGRenderer extends EventEmitter {
     // Change translation and scale such that the chosen elements
     // (or entire graph if null) is in view
     public zoom_to_view(
-        elements: any = null, animate: boolean = true, padding?: number
+        elements: any = null, animate: boolean = true, padding?: number, redraw: boolean = false
     ): void {
         if (!elements || elements.length === 0) {
             elements = this.graph?.nodes().map(x => this.graph?.node(x));
@@ -1400,7 +1407,9 @@ export class SDFGRenderer extends EventEmitter {
         const bb = boundingBox(elements, paddingAbs);
         this.canvas_manager?.set_view(bb, animate);
 
-        this.draw_async();
+        if (redraw) {
+            this.draw_async();
+        }
     }
 
     public zoomToFitWidth(): void {
