@@ -208,6 +208,12 @@ export class SDFGElement {
         return this.data.label;
     }
 
+    public guid(): string {
+        // If GUID does not exist, fall back to element ID
+        return this.cfg?.cfg_list_id + '/' + (
+            this.parent_id ?? -1) + '/' + this.id;
+    }
+
     // Text used for matching the element during a search
     public text_for_find(): string {
         return this.label();
@@ -1810,6 +1816,10 @@ export class Connector extends SDFGElement {
     public custom_label: string | null = null;
     public linkedElem?: SDFGElement;
     public connectorType: 'in' | 'out' = 'in';
+
+    public guid(): string {
+        return '';  // Connectors have no GUID
+    }
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
