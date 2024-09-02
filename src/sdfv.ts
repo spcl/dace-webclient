@@ -35,7 +35,7 @@ import {
     stringify_sdfg,
 } from './utils/sdfg/json_serializer';
 import { SDFVSettings } from './utils/sdfv_settings';
-import { WebSDFGDiffViewer } from './sdfg_diff_viewr';
+import { DiffMap, WebSDFGDiffViewer } from './sdfg_diff_viewr';
 
 declare const vscode: any;
 
@@ -692,17 +692,14 @@ export class WebSDFV extends SDFV {
     public runSearch(advanced: boolean = false): void {
         // Make sure the UI is not blocked during search.
         setTimeout(() => {
-            const graph = this.renderer?.get_graph();
             const query = advanced ? $('#advsearch').val() : $('#search').val();
-            if (graph && query && this.renderer) {
+            if (query && this.renderer) {
                 if (advanced) {
                     const predicate = eval(query.toString());
-                    find_in_graph_predicate(
-                        this, this.renderer, graph, predicate
-                    );
+                    findInGraphPredicate(this.renderer, predicate);
                 } else {
-                    find_in_graph(
-                        this, this.renderer, graph, query.toString(),
+                    findInGraph(
+                        this.renderer, query.toString(),
                         $('#search-case').is(':checked')
                     );
                 }
@@ -791,8 +788,9 @@ function loadSDFGFromURL(url: string): void {
     request.send();
 }
 
-function find_recursive(
-    graph: DagreGraph, predicate: CallableFunction, results: any[]
+export function graphFindRecursive(
+    graph: DagreGraph, predicate: CallableFunction,
+    results: (dagre.Node<SDFGElement> | dagre.GraphEdge)[]
 ): void {
     for (const nodeid of graph.nodes()) {
         const node = graph.node(nodeid);
@@ -800,7 +798,7 @@ function find_recursive(
             results.push(node);
         // Enter states or nested SDFGs recursively
         if (node.data.graph)
-            find_recursive(node.data.graph, predicate, results);
+            graphFindRecursive(node.data.graph, predicate, results);
     }
     for (const edgeid of graph.edges()) {
         const edge = graph.edge(edgeid);
@@ -809,14 +807,17 @@ function find_recursive(
     }
 }
 
-export function find_in_graph_predicate(
-    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreGraph,
-    predicate: CallableFunction
+export function findInGraphPredicate(
+    renderer: SDFGRenderer, predicate: CallableFunction
 ): void {
+    const sdfg = renderer.get_graph();
+    if (!sdfg)
+        return;
+
     SDFVWebUI.getInstance().infoSetTitle('Search Results');
 
-    const results: any[] = [];
-    find_recursive(sdfg, predicate, results);
+    const results: (dagre.Node<SDFGElement> | dagre.GraphEdge)[] = [];
+    graphFindRecursive(sdfg, predicate, results);
 
     // Zoom to bounding box of all results first
     if (results.length > 0)
@@ -853,21 +854,19 @@ export function find_in_graph_predicate(
     SDFVWebUI.getInstance().infoShow();
 }
 
-export function find_in_graph(
-    sdfv: SDFV, renderer: SDFGRenderer, sdfg: DagreGraph, query: string,
-    case_sensitive: boolean = false
+export function findInGraph(
+    renderer: SDFGRenderer, query: string, case_sensitive: boolean = false
 ): void {
     if (!case_sensitive)
         query = query.toLowerCase();
-    find_in_graph_predicate(
-        sdfv, renderer, sdfg, (graph: DagreGraph, element: SDFGElement) => {
+    findInGraphPredicate(
+        renderer, (graph: DagreGraph, element: SDFGElement) => {
             let text = element.text_for_find();
             if (!case_sensitive)
                 text = text.toLowerCase();
             return text.indexOf(query) !== -1;
         }
     );
-    SDFVWebUI.getInstance().infoSetTitle('Search Results for "' + query + '"');
 }
 
 function parseScriptParamValue(

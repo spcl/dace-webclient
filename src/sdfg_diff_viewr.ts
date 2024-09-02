@@ -4,6 +4,9 @@ import $ from 'jquery';
 
 import {
     DagreGraph,
+    findInGraph,
+    findInGraphPredicate,
+    graphFindRecursive,
     htmlSanitize,
     JsonSDFG,
     JsonSDFGControlFlowRegion,
@@ -193,6 +196,100 @@ export abstract class SDFGDiffViewer {
     public abstract outline(): void;
     public abstract fill_info(elem: SDFGElement | DagreGraph | null): void;
 
+    protected findInDiffGraphPredicate(predicate: CallableFunction): void {
+        const lGraph = this.leftRenderer.get_graph();
+        const rGraph = this.rightRenderer.get_graph();
+        if (!lGraph || !rGraph)
+            return;
+
+        SDFVWebUI.getInstance().infoSetTitle('Search Results');
+
+        const lResults: (dagre.Node<SDFGElement> | dagre.GraphEdge)[] = [];
+        graphFindRecursive(lGraph, predicate, lResults);
+        const rResults: (dagre.Node<SDFGElement> | dagre.GraphEdge)[] = [];
+        graphFindRecursive(rGraph, predicate, rResults);
+
+        // Zoom to bounding box of all results first
+        if (lResults.length > 0)
+            this.leftRenderer.zoom_to_view(lResults);
+        if (rResults.length > 0)
+            this.rightRenderer.zoom_to_view(rResults);
+
+        const addedIDs: Map<string, [any, SDFGRenderer][]> = new Map();
+        const mergedResults: string[] = [];
+        for (const res of lResults) {
+            const existing = addedIDs.get(res.attributes().guid);
+            if (existing) {
+                existing.push([res, this.leftRenderer]);
+            } else {
+                const newEntry: [any, SDFGRenderer][] =
+                    [[res, this.leftRenderer]];
+                addedIDs.set(res.attributes().guid, newEntry);
+                mergedResults.push(res.attributes().guid);
+            }
+        }
+        for (const res of rResults) {
+            const existing = addedIDs.get(res.attributes().guid);
+            if (existing) {
+                existing.push([res, this.rightRenderer]);
+            } else {
+                const newEntry: [any, SDFGRenderer][] =
+                    [[res, this.rightRenderer]];
+                addedIDs.set(res.attributes().guid, newEntry);
+                mergedResults.push(res.attributes().guid);
+            }
+        }
+
+        // Show clickable results in sidebar
+        const sidebar = SDFVWebUI.getInstance().infoContentContainer;
+        if (sidebar) {
+            sidebar.html('');
+            for (const resId of mergedResults) {
+                const res = addedIDs.get(resId);
+                if (!res)
+                    continue;
+
+                let status: ChangeState = 'nodiff';
+                const guid = res[0][0].attributes().guid;
+                if (this.diffMap?.changedKeys.has(guid))
+                    status = 'changed';
+                else if (this.diffMap?.removedKeys.has(guid))
+                    status = 'removed';
+                else if (this.diffMap?.addedKeys.has(guid))
+                    status = 'added';
+
+                const d = $('<div>', {
+                    class: `diff-outline-entry ${status}`,
+                    html: htmlSanitize`${res[0][0].type()} ${res[0][0].label()}`,
+                    click: () => {
+                        for (const entry of res)
+                            entry[1].zoom_to_view([entry[0]]);
+                    },
+                });
+                d.on('mouseenter', () => {
+                    for (const entry of res) {
+                        if (!entry[0].highlighted) {
+                            entry[0].highlighted = true;
+                            entry[1].draw_async();
+                        }
+                    }
+                });
+                d.on('mouseleave', () => {
+                    for (const entry of res) {
+                        if (entry[0].highlighted) {
+                            entry[0].highlighted = false;
+                            entry[1].draw_async();
+                        }
+                    }
+                });
+
+                sidebar.append(d);
+            }
+        }
+
+        SDFVWebUI.getInstance().infoShow();
+    }
+
 }
 
 export class WebSDFGDiffViewer extends SDFGDiffViewer {
@@ -221,6 +318,28 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         );
         $(document).on(
             'click.sdfv-diff', '#outline', this.outline.bind(this)
+        );
+        $(document).on(
+            'click.sdfv-diff', '#search-btn', (e) => {
+                e.preventDefault();
+                this.runSearch(false);
+                return false;
+            }
+        );
+        $(document).on(
+            'click.sdfv-diff', '#advsearch-btn', (e) => {
+                e.preventDefault();
+                this.runSearch(true);
+                return false;
+            }
+        );
+        $(document).on(
+            'keydown.sdfv-diff', '#search', (e) => {
+                if (e.key === 'Enter' || e.which === 13) {
+                    this.runSearch(false);
+                    e.preventDefault();
+                }
+            }
         );
     }
 
@@ -549,6 +668,30 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         }
 
         SDFVWebUI.getInstance().infoShow();
+    }
+
+    public runSearch(advanced: boolean = false): void {
+        // Make sure the UI is not blocked during search.
+        setTimeout(() => {
+            const query = advanced ? $('#advsearch').val() : $('#search').val();
+            if (query) {
+                if (advanced) {
+                    const predicate = eval(query.toString());
+                    this.findInDiffGraphPredicate(predicate);
+                } else {
+                    const caseSensitive = $('#search-case').is(':checked');
+                    const queryString = caseSensitive ?
+                        query.toString() : query.toString().toLowerCase();
+                    this.findInDiffGraphPredicate(
+                        (g: DagreGraph, elem: SDFGElement) => {
+                            const text = caseSensitive ? elem.text_for_find() :
+                                elem.text_for_find().toLowerCase();
+                            return text.indexOf(queryString) !== -1;
+                        }
+                    );
+                }
+            }
+        }, 1);
     }
 
     public fill_info(elem: SDFGElement | DagreGraph | null): void {
