@@ -92,6 +92,10 @@ export class SDFVWebUI implements ISDFVUserInterface {
     }
 
     public init(): void {
+        $(document).on(
+            'click.sdfv-webui', '#menuclose', this.infoClear.bind(this)
+        );
+
         this.initInfo();
 
         // Set up any external interaction mode buttons that may override the
@@ -547,9 +551,6 @@ export class WebSDFV extends SDFV {
             this.loadDiffSDFG.bind(this)
         );
 
-        $(document).on(
-            'click.sdfv', '#menuclose', this.UI.infoClear.bind(this.UI)
-        );
         $(document).on(
             'click.sdfv', '#reload', this.readSDFGFile.bind(this)
         );

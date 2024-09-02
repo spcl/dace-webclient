@@ -225,11 +225,54 @@ body.sdfv {
     font-size: 1rem;
     font-family: "Segoe UI", Arial, sans-serif;
     padding: 0.5rem 2rem 0.5rem 0.4rem;
+    user-select: none;
     cursor: pointer;
   }
 
   .context_menu_option:hover {
     background-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .diff-outline-entry {
+    padding-top: .5rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid rgba(20, 20, 20, 0.1);
+
+    font-size: 1rem;
+    font-family: "Segoe UI", Arial, sans-serif;
+    user-select: none;
+    cursor: pointer;
+    color: rgba(20, 20, 20, 1.0);
+
+    &.removed {
+      background-color: rgba(255, 109, 69, 0.5);
+
+      &:hover {
+        background-color: darken(rgba(212, 92, 59, 0.5), 5%);
+      }
+    }
+
+    &.added {
+      background-color: rgba(93, 186, 76, 0.5);
+
+      &:hover {
+        background-color: darken(rgba(93, 186, 76, 0.8), 5%);
+      }
+    }
+
+    &.changed {
+      background-color: rgba(255, 204, 84, 0.5);
+
+      &:hover {
+        background-color: darken(rgba(255, 192, 43, 0.5), 5%);
+      }
+    }
+
+    &.nodiff {
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+      }
+    }
   }
 
   .sdfv_modal_background {
