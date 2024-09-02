@@ -4,16 +4,16 @@ import $ from 'jquery';
 
 import {
     DagreGraph,
-    findInGraph,
-    findInGraphPredicate,
     graphFindRecursive,
     htmlSanitize,
+    ISDFV,
+    ISDFVUserInterface,
     JsonSDFG,
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGElement,
     JsonSDFGState,
-    Point2D,
+    SDFG,
     SDFGElement,
     SDFGNode,
     SDFVWebUI,
@@ -21,7 +21,7 @@ import {
     WebSDFV,
 } from '.';
 import { DiffOverlay } from './overlays/diff_overlay';
-import { SDFGRenderer } from './renderer/renderer';
+import { RendererUIFeature, SDFGRenderer } from './renderer/renderer';
 import _ from 'lodash';
 
 type ChangeState = 'nodiff' | 'changed' | 'added' | 'removed';
@@ -46,13 +46,22 @@ const DIFF_IGNORE_ATTRIBUTES = [
     'layout',
 ];
 
+const ENABLED_RENDERER_FEATURES: RendererUIFeature[] = [
+    'settings',
+    'zoom_to_fit_all',
+    'zoom_to_fit_width',
+    'collapse',
+    'expand',
+    'pan_mode',
+];
+
 export interface DiffMap {
     addedKeys: Set<string>;
     removedKeys: Set<string>;
     changedKeys: Set<string>;
 }
 
-export abstract class SDFGDiffViewer {
+export abstract class SDFGDiffViewer implements ISDFV {
 
     protected diffMap?: DiffMap;
 
@@ -151,50 +160,9 @@ export abstract class SDFGDiffViewer {
         return this.diffMap;
     }
 
-    public onMouseEvent(
-        evtype: string,
-        _event: Event,
-        _mousepos: Point2D,
-        _elements: {
-            states: any[],
-            nodes: any[],
-            connectors: any[],
-            edges: any[],
-            isedges: any[],
-        },
-        renderer: SDFGRenderer,
-        selected_elements: SDFGElement[],
-        ends_pan: boolean
-    ): boolean {
-        // If the click ends a pan, we don't want to open the sidebar.
-        /*
-        if (evtype === 'click' && !ends_pan) {
-            let element;
-            if (selected_elements.length === 0)
-                element = new SDFG(renderer.get_sdfg());
-            else if (selected_elements.length === 1)
-                element = selected_elements[0];
-            else
-                element = null;
-
-            if (element !== null) {
-                this.sidebar_set_title(
-                    element.type() + ' ' + element.label()
-                );
-                this.fill_info(element);
-            } else {
-                this.close_menu();
-                this.sidebar_set_title('Multiple elements selected');
-            }
-            this.sidebar_show();
-        }
-            */
-        return false;
-    }
-
+    public abstract get linkedUI(): ISDFVUserInterface;
     public abstract exitDiff(): void;
     public abstract outline(): void;
-    public abstract fill_info(elem: SDFGElement | DagreGraph | null): void;
 
     protected findInDiffGraphPredicate(predicate: CallableFunction): void {
         const lGraph = this.leftRenderer.get_graph();
@@ -294,6 +262,12 @@ export abstract class SDFGDiffViewer {
 
 export class WebSDFGDiffViewer extends SDFGDiffViewer {
 
+    private readonly UI: SDFVWebUI = SDFVWebUI.getInstance();
+
+    public get linkedUI(): SDFVWebUI {
+        return this.UI;
+    }
+
     private initUI(): void {
         $('#sdfg-file-input').prop('disabled', true);
         $('#reload').prop('disabled', true);
@@ -348,7 +322,6 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
     }
 
     public exitDiff(): void {
-        // TODO: loading
         $('#diff-container').hide();
 
         this.destroy();
@@ -371,15 +344,21 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         if (!leftContainer || !rightContainer)
             throw Error('Failed to find diff renderer containers');
 
-        const leftRenderer = new SDFGRenderer(graphA, leftContainer);
-        const rightRenderer = new SDFGRenderer(graphB, rightContainer);
+        const leftRenderer = new SDFGRenderer(
+            graphA, leftContainer, undefined, null, null, false, null, null,
+            ENABLED_RENDERER_FEATURES
+        );
+        const rightRenderer = new SDFGRenderer(
+            graphB, rightContainer, undefined, null, null, false, null, null,
+            ENABLED_RENDERER_FEATURES
+        );
 
         const viewer = new WebSDFGDiffViewer(leftRenderer, rightRenderer);
         viewer.registerEventListeners();
         viewer.initUI();
 
-        leftRenderer.registerExternalMouseHandler(viewer.onMouseEvent);
-        rightRenderer.registerExternalMouseHandler(viewer.onMouseEvent);
+        leftRenderer.setSDFVInstance(viewer);
+        rightRenderer.setSDFVInstance(viewer);
 
         viewer.diff(graphA, graphB).then(diff => {
             const leftOverlay = new DiffOverlay(leftRenderer, diff);
@@ -390,6 +369,35 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             rightRenderer.overlayManager.register_overlay_instance(
                 rightOverlay
             );
+        });
+
+        const rendererSelectionChange = (renderer: SDFGRenderer) => {
+            const selectedElements = renderer.get_selected_elements();
+            let element;
+            if (selectedElements.length === 0)
+                element = new SDFG(renderer.get_sdfg());
+            else if (selectedElements.length === 1)
+                element = selectedElements[0];
+            else
+                element = null;
+
+            if (element !== null) {
+                viewer.UI.showElementInfo(element, renderer);
+            } else {
+                SDFVWebUI.getInstance().infoClear();
+                SDFVWebUI.getInstance().infoSetTitle(
+                    'Multiple elements selected'
+                );
+            }
+            SDFVWebUI.getInstance().infoShow();
+        };
+        leftRenderer.on('selection_changed', () => {
+            rightRenderer.deselect();
+            rendererSelectionChange(leftRenderer);
+        });
+        rightRenderer.on('selection_changed', () => {
+            leftRenderer.deselect();
+            rendererSelectionChange(rightRenderer);
         });
 
         return viewer;
@@ -692,11 +700,6 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
                 }
             }
         }, 1);
-    }
-
-    public fill_info(elem: SDFGElement | DagreGraph | null): void {
-        // TODO: implement
-        console.log(elem);
     }
 
 }
