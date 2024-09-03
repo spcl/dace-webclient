@@ -2125,9 +2125,9 @@ export class ScopeNode extends SDFGNode {
                 SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
                 SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true,
                 TextVAlign.BOTTOM, TextHAlign.RIGHT, {
-                bottom: 2.0,
-                right: this.height,
-            }
+                    bottom: 2.0,
+                    right: this.height,
+                }
             );
         }
     }
