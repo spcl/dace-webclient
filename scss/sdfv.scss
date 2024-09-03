@@ -75,7 +75,6 @@ body.sdfv {
   }
 
   #diff-container {
-    position: relative;
     resize: both;
     width: 90%;
     height: 90%;
@@ -84,6 +83,7 @@ body.sdfv {
     display: flex;
 
     .diff-contents {
+      position: relative;
       width: 50%;
       height: 100%;
     }

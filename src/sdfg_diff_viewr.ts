@@ -46,15 +46,6 @@ const DIFF_IGNORE_ATTRIBUTES = [
     'layout',
 ];
 
-const ENABLED_RENDERER_FEATURES: RendererUIFeature[] = [
-    'settings',
-    'zoom_to_fit_all',
-    'zoom_to_fit_width',
-    'collapse',
-    'expand',
-    'pan_mode',
-];
-
 export interface DiffMap {
     addedKeys: Set<string>;
     removedKeys: Set<string>;
@@ -345,12 +336,21 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             throw Error('Failed to find diff renderer containers');
 
         const leftRenderer = new SDFGRenderer(
-            graphA, leftContainer, undefined, null, null, false, null, null,
-            ENABLED_RENDERER_FEATURES
+            graphA, leftContainer, undefined, null, null, false, null, null, [
+                'settings',
+                'zoom_to_fit_all',
+                'zoom_to_fit_width',
+                'collapse',
+                'expand',
+            ]
         );
         const rightRenderer = new SDFGRenderer(
-            graphB, rightContainer, undefined, null, null, false, null, null,
-            ENABLED_RENDERER_FEATURES
+            graphB, rightContainer, undefined, null, null, false, null, null, [
+                'zoom_to_fit_all',
+                'zoom_to_fit_width',
+                'collapse',
+                'expand',
+            ]
         );
 
         const viewer = new WebSDFGDiffViewer(leftRenderer, rightRenderer);
@@ -512,6 +512,7 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
     }
 
     public outline(): void {
+        SDFVWebUI.getInstance().infoContentContainer.html('');
         if (!this.diffMap) {
             SDFVWebUI.getInstance().infoSetTitle('SDFG Diff Outline');
             SDFVWebUI.getInstance().infoContentContainer.text(

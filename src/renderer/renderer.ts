@@ -305,6 +305,22 @@ export class SDFGRenderer extends EventEmitter {
         this.on('graph_edited', () => {
             this.draw_async();
         });
+
+        SDFVSettings.getInstance().on('setting_changed', (setting) => {
+            if (setting.relayout) {
+                this.add_loading_animation();
+                setTimeout(() => {
+                    this.relayout();
+                    this.draw_async();
+                }, 10);
+            }
+
+            if (setting.redrawUI)
+                this.initUI();
+
+            if (setting.redraw !== false && !setting.relayout)
+                this.draw_async();
+        });
     }
 
     public destroy(): void {
@@ -558,7 +574,7 @@ export class SDFGRenderer extends EventEmitter {
                     html: '<i class="material-symbols-outlined">settings</i>',
                     title: 'Settings',
                     click: () => {
-                        SDFVSettings.getInstance().show(this);
+                        SDFVSettings.getInstance().show();
                     },
                 }).appendTo(this.toolbar);
             }
