@@ -3994,6 +3994,7 @@ export class SDFGRenderer extends EventEmitter {
         });
         this.selected_elements = [];
         this.on_selection_changed();
+        this.draw_async();
     }
 
     public exitLocalView(): void {
