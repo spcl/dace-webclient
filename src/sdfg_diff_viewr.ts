@@ -21,7 +21,7 @@ import {
     WebSDFV,
 } from '.';
 import { DiffOverlay } from './overlays/diff_overlay';
-import { RendererUIFeature, SDFGRenderer } from './renderer/renderer';
+import { SDFGRenderer } from './renderer/renderer';
 import _ from 'lodash';
 
 type ChangeState = 'nodiff' | 'changed' | 'added' | 'removed';
@@ -67,7 +67,9 @@ export abstract class SDFGDiffViewer implements ISDFV {
         this.rightRenderer.destroy();
     }
 
-    protected async diff(graphA: JsonSDFG, graphB: JsonSDFG): Promise<DiffMap> {
+    public static async diff(
+        graphA: JsonSDFG, graphB: JsonSDFG
+    ): Promise<DiffMap> {
         if (!graphA.attributes.guid || !graphB.attributes.guid) {
             return {
                 addedKeys: new Set(),
@@ -143,12 +145,11 @@ export abstract class SDFGDiffViewer implements ISDFV {
                 changedKeys.add(key);
         }
 
-        this.diffMap = {
+        return {
             addedKeys,
             removedKeys,
             changedKeys,
         };
-        return this.diffMap;
     }
 
     public abstract get linkedUI(): ISDFVUserInterface;
@@ -360,17 +361,6 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         leftRenderer.setSDFVInstance(viewer);
         rightRenderer.setSDFVInstance(viewer);
 
-        viewer.diff(graphA, graphB).then(diff => {
-            const leftOverlay = new DiffOverlay(leftRenderer, diff);
-            const rightOverlay = new DiffOverlay(rightRenderer, diff);
-            leftRenderer.overlayManager.register_overlay_instance(
-                leftOverlay
-            );
-            rightRenderer.overlayManager.register_overlay_instance(
-                rightOverlay
-            );
-        });
-
         const rendererSelectionChange = (renderer: SDFGRenderer) => {
             const selectedElements = renderer.get_selected_elements();
             let element;
@@ -398,6 +388,18 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         rightRenderer.on('selection_changed', () => {
             leftRenderer.deselect();
             rendererSelectionChange(rightRenderer);
+        });
+
+        SDFGDiffViewer.diff(graphA, graphB).then(diff => {
+            viewer.diffMap = diff;
+            const leftOverlay = new DiffOverlay(leftRenderer, diff);
+            const rightOverlay = new DiffOverlay(rightRenderer, diff);
+            leftRenderer.overlayManager.register_overlay_instance(
+                leftOverlay
+            );
+            rightRenderer.overlayManager.register_overlay_instance(
+                rightOverlay
+            );
         });
 
         return viewer;
