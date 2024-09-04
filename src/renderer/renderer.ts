@@ -78,8 +78,8 @@ declare const canvas2pdf: any;
 declare const vscode: any | null;
 
 export type SDFGElementGroup = ('states' | 'nodes' | 'edges' | 'isedges' |
-                         'connectors' | 'controlFlowRegions' |
-                         'controlFlowBlocks');
+    'connectors' | 'controlFlowRegions' |
+    'controlFlowBlocks');
 export interface SDFGElementInfo {
     sdfg: JsonSDFG,
     id: number,
@@ -120,6 +120,13 @@ export type CFGListType = {
         nsdfgNode: NestedSDFG | null,
     }
 };
+
+export type VisibleElementsType = {
+    type: string,
+    stateId: number,
+    cfgId: number,
+    id: number,
+}[];
 
 function check_valid_add_position(
     type: SDFGElementType | null,
@@ -738,7 +745,7 @@ export class SDFGRenderer extends EventEmitter {
                             add_btn.onclick = () => {
                                 this.mouse_mode = 'add';
                                 this.add_type =
-                                    <SDFGElementType> add_btn.getAttribute(
+                                    <SDFGElementType>add_btn.getAttribute(
                                         'type'
                                     );
                                 this.add_mode_lib = null;
@@ -1326,9 +1333,14 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     // Re-layout graph and nested graphs
-    public relayout(): DagreGraph {
+    public relayout(instigator: SDFGElement | null = null): DagreGraph {
         if (!this.ctx)
             throw new Error('No context found while performing layouting');
+
+        // Collect currently-visible elements for reorientation
+        const elements = this.getVisibleElementsAsObjects(true);
+        if (instigator)
+            elements.push(instigator);
 
         for (const cfgId in this.cfgList) {
             this.cfgList[cfgId].graph = null;
@@ -1343,6 +1355,10 @@ export class SDFGRenderer extends EventEmitter {
         for (const bId of this.graph.nodes())
             topLevelBlocks.push(this.graph.node(bId));
         this.graphBoundingBox = boundingBox(topLevelBlocks);
+
+        // Reorient view based on an approximate set of visible elements
+        this.reorient(elements);
+
         this.onresize();
 
         this.update_fast_memlet_lookup();
@@ -1368,6 +1384,41 @@ export class SDFGRenderer extends EventEmitter {
             info_field_settings.innerHTML = '';
 
         return this.graph;
+    }
+
+    public reorient(old_visible_elements: SDFGElement[]): void {
+        // Reorient view based on an approximate set of visible elements
+
+        // Nothing to reorient to
+        if (!old_visible_elements || old_visible_elements.length === 0)
+            return;
+
+        // If the current view contains everything that was visible before,
+        // no need to change anything.
+        const new_visible_elements = this.getVisibleElementsAsObjects(true);
+        const old_nodes = old_visible_elements.filter(x => (
+            x instanceof ControlFlowBlock ||
+            x instanceof SDFGNode));
+        const new_nodes = new_visible_elements.filter(x => (
+            x instanceof ControlFlowBlock ||
+            x instanceof SDFGNode));
+        const old_set = new Set(old_nodes.map(x => x.guid()));
+        const new_set = new Set(new_nodes.map(x => x.guid()));
+        const diff = old_set.difference(new_set);
+        if (diff.size === 0)
+            return;
+
+        // Reorient based on old visible elements refreshed to new locations
+        const old_elements_in_new_layout: SDFGElement[] = [];
+        this.doForAllGraphElements((group: SDFGElementGroup,
+            info: GraphElementInfo, elem: SDFGElement) => {
+            if (elem instanceof ControlFlowBlock || elem instanceof SDFGNode) {
+                const guid = elem.guid();
+                if (guid && old_set.has(guid))
+                    old_elements_in_new_layout.push(elem);
+            }
+        });
+        this.zoom_to_view(old_elements_in_new_layout, true, undefined, false);
     }
 
     public translateMovedElements(): void {
@@ -1461,7 +1512,8 @@ export class SDFGRenderer extends EventEmitter {
     // Change translation and scale such that the chosen elements
     // (or entire graph if null) is in view
     public zoom_to_view(
-        elements: any = null, animate: boolean = true, padding?: number
+        elements: any = null, animate: boolean = true, padding?: number,
+        redraw: boolean = true
     ): void {
         if (!elements || elements.length === 0) {
             elements = this.graph?.nodes().map(x => this.graph?.node(x));
@@ -1483,7 +1535,8 @@ export class SDFGRenderer extends EventEmitter {
         const bb = boundingBox(elements, paddingAbs);
         this.canvas_manager?.set_view(bb, animate);
 
-        this.draw_async();
+        if (redraw)
+            this.draw_async();
     }
 
     public zoomToFitWidth(): void {
@@ -1609,7 +1662,7 @@ export class SDFGRenderer extends EventEmitter {
 
         traverseSDFGScopes(
             this.graph, (node: SDFGNode, _: DagreGraph) => {
-                if(node.attributes().is_collapsed) {
+                if (node.attributes().is_collapsed) {
                     node.attributes().is_collapsed = false;
                     return false;
                 }
@@ -2129,12 +2182,7 @@ export class SDFGRenderer extends EventEmitter {
         this.draw_async();
     }
 
-    public getVisibleElements(): {
-        type: string,
-        stateId: number,
-        cfgId: number,
-        id: number,
-    }[] {
+    public getVisibleElements(): VisibleElementsType {
         if (!this.canvas_manager)
             return [];
 
@@ -2175,6 +2223,37 @@ export class SDFGRenderer extends EventEmitter {
                     stateId: objInfo.stateId,
                     id: objInfo.id,
                 });
+            }
+        );
+        return elements;
+    }
+
+    public getVisibleElementsAsObjects(
+        entirely_visible: boolean
+    ): SDFGElement[] {
+        if (!this.canvas_manager)
+            return [];
+
+        const curx = this.canvas_manager.mapPixelToCoordsX(0);
+        const cury = this.canvas_manager.mapPixelToCoordsY(0);
+        const canvasw = this.canvas?.width;
+        const canvash = this.canvas?.height;
+        let endx = null;
+        if (canvasw)
+            endx = this.canvas_manager.mapPixelToCoordsX(canvasw);
+        let endy = null;
+        if (canvash)
+            endy = this.canvas_manager.mapPixelToCoordsY(canvash);
+        const curw = (endx ? endx : 0) - curx;
+        const curh = (endy ? endy : 0) - cury;
+        const elements: any[] = [];
+        this.doForIntersectedElements(
+            curx, cury, curw, curh,
+            (group, objInfo, _obj) => {
+                if (entirely_visible &&
+                    !_obj.contained_in(curx, cury, curw, curh))
+                    return;
+                elements.push(_obj);
             }
         );
         return elements;
@@ -2757,7 +2836,7 @@ export class SDFGRenderer extends EventEmitter {
                     }
                 } else if (e instanceof InterstateEdge) {
                     if (!e.parentElem ||
-                          (e.parentElem && e.parentElem instanceof SDFG)) {
+                        (e.parentElem && e.parentElem instanceof SDFG)) {
                         e.sdfg.edges = e.sdfg.edges.filter(
                             (_, ind: number) => ind !== e.id
                         );
@@ -2852,7 +2931,12 @@ export class SDFGRenderer extends EventEmitter {
 
     // Toggles collapsed state of foreground_elem if applicable.
     // Returns true if re-layout occured and re-draw is necessary.
-    public toggle_element_collapse(foreground_elem: any): boolean {
+    public toggle_element_collapse(
+        foreground_elem: SDFGElement | null
+    ): boolean {
+        if (!foreground_elem)
+            return false;
+
         const sdfg = (foreground_elem ? foreground_elem.sdfg : null);
         let sdfg_elem = null;
         if (foreground_elem instanceof State) {
@@ -2865,9 +2949,9 @@ export class SDFGRenderer extends EventEmitter {
             // If a scope exit node, use entry instead
             if (sdfg_elem.type.endsWith('Exit') &&
                 foreground_elem.parent_id !== null) {
-                sdfg_elem = sdfg.nodes[foreground_elem.parent_id].nodes[
-                    sdfg_elem.scope_entry
-                ];
+                const parent = sdfg!.nodes[foreground_elem.parent_id];
+                if (parent.nodes)
+                    sdfg_elem = parent.nodes[sdfg_elem.scope_entry];
             }
         } else {
             sdfg_elem = null;
@@ -2875,19 +2959,19 @@ export class SDFGRenderer extends EventEmitter {
 
         // Toggle collapsed state
         if (foreground_elem.COLLAPSIBLE) {
-            if ('is_collapsed' in sdfg_elem.attributes) {
-                sdfg_elem.attributes.is_collapsed =
-                    !sdfg_elem.attributes.is_collapsed;
-            } else {
-                sdfg_elem.attributes['is_collapsed'] = true;
-            }
-
             this.emit('collapse_state_changed');
 
             // Re-layout SDFG
             this.add_loading_animation();
             setTimeout(() => {
-                this.relayout();
+                if ('is_collapsed' in sdfg_elem.attributes) {
+                    sdfg_elem.attributes.is_collapsed =
+                        !sdfg_elem.attributes.is_collapsed;
+                } else {
+                    sdfg_elem.attributes['is_collapsed'] = true;
+                }
+
+                this.relayout(foreground_elem);
                 this.draw_async();
             }, 10);
 
@@ -3484,7 +3568,7 @@ export class SDFGRenderer extends EventEmitter {
                     if (obj.hovered && hover_changed &&
                         obj instanceof SDFGNode &&
                         (obj.in_summary_has_effect ||
-                         obj.out_summary_has_effect)) {
+                            obj.out_summary_has_effect)) {
                         // Setting these to false will cause the summary
                         // symbol not to be drawn in renderer_elements.ts
                         obj.summarize_in_edges = false;
@@ -3923,7 +4007,7 @@ export class SDFGRenderer extends EventEmitter {
         return this.cfgList;
     }
 
-    public getCFGTree(): { [key: number]: number} {
+    public getCFGTree(): { [key: number]: number } {
         return this.cfgTree;
     }
 
@@ -4557,7 +4641,7 @@ function relayoutSDFGState(
         // If it's a nested SDFG, we need to record the node as all of its
         // state's parent node.
         if ((node.type === SDFGElementType.NestedSDFG ||
-             node.type === SDFGElementType.ExternalNestedSDFG) &&
+            node.type === SDFGElementType.ExternalNestedSDFG) &&
             node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell') {
             stateParentList[node.attributes.sdfg.cfg_list_id] = obj;
             sdfgList[node.attributes.sdfg.cfg_list_id].nsdfgNode = obj;

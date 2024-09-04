@@ -208,6 +208,12 @@ export class SDFGElement {
         return this.data.label;
     }
 
+    public guid(): string {
+        // If GUID does not exist, fall back to element ID
+        return this.cfg?.cfg_list_id + '/' + (
+            this.parent_id ?? -1) + '/' + this.id;
+    }
+
     // Text used for matching the element during a search
     public text_for_find(): string {
         return this.label();
@@ -1399,8 +1405,8 @@ export abstract class Edge extends SDFGElement {
                 };
 
                 // Check if the two rectangles intersect
-                if (r.x + r.w >= x && r.x <= x+w &&
-                    r.y + r.h >= y && r.y <= y+h)
+                if (r.x + r.w >= x && r.x <= x + w &&
+                    r.y + r.h >= y && r.y <= y + h)
                     return true;
             }
             return false;
@@ -1810,6 +1816,10 @@ export class Connector extends SDFGElement {
     public custom_label: string | null = null;
     public linkedElem?: SDFGElement;
     public connectorType: 'in' | 'out' = 'in';
+
+    public guid(): string {
+        return '';  // Connectors have no GUID
+    }
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
@@ -3350,7 +3360,7 @@ export function drawOctagon(
 export function drawEllipse(
     ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number
 ): void {
-    ctx.ellipse(x+w/2, y+h/2, w/2, h/2, 0, 0, 2 * Math.PI);
+    ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, 2 * Math.PI);
 }
 
 export function drawTrapezoid(
