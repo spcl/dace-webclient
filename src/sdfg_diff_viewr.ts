@@ -109,9 +109,11 @@ export abstract class SDFGDiffViewer implements ISDFV {
         const bKeys = new Set(elementsDictB.keys());
 
         const changedKeys: Set<string> = new Set();
-        const addedKeys = bKeys.difference(aKeys);
-        const removedKeys = aKeys.difference(bKeys);
-        const remainingKeys = aKeys.difference(removedKeys);
+        const addedKeys = new Set([...bKeys].filter(x => !aKeys.has(x)));
+        const removedKeys = new Set([...aKeys].filter(x => !bKeys.has(x)));
+        const remainingKeys = new Set(
+            [...aKeys].filter(x => !removedKeys.has(x))
+        );
 
         for (const key of remainingKeys) {
             const elA: JsonSDFGElement = elementsDictA.get(key);
