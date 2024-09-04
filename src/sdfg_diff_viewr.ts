@@ -679,6 +679,20 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
                 }
             }
         }
+        while (lIdx < leftLinearized.length) {
+            const lEntry = leftLinearized[lIdx];
+            if (lEntry.changeStatus !== 'removed')
+                throw Error('Unexpected or unknown change status');
+            addElemEntry(lEntry, undefined);
+            lIdx++;
+        }
+        while (rIdx < rightLinearized.length) {
+            const rEntry = rightLinearized[rIdx];
+            if (rEntry.changeStatus !== 'added')
+                throw Error('Unexpected or unknown change status');
+            addElemEntry(undefined, rEntry);
+            rIdx++;
+        }
 
         SDFVWebUI.getInstance().infoShow();
     }
