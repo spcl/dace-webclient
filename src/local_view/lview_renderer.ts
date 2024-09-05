@@ -254,15 +254,11 @@ export class LViewRenderer {
     }
 
     private initLocalViewSidebar(): void {
-        /*
-        this.sdfvInstance.sidebar_set_title('Local View');
-        this.sdfvInstance.close_menu();
-        this.sdfvInstance.disable_menu_close();
+        this.sdfvInstance.linkedUI.infoSetTitle('Local View');
+        this.sdfvInstance.linkedUI.infoClear();
+        this.sdfvInstance.linkedUI.disableInfoClear();
 
-        const rawContents = this.sdfvInstance.sidebar_get_contents();
-        if (!rawContents)
-            return;
-        const contents = $(rawContents);
+        const contents = this.sdfvInstance.linkedUI.infoContentContainer;
         contents.html(`
 <div id="lview-sidebar">
     <label for="map-playback-speed-input">
@@ -356,8 +352,7 @@ export class LViewRenderer {
         this.chartContainer = $('#lview-chart-container');
         this.sidebarContents = $('#lview-sidebar-contents');
 
-        this.sdfvInstance.sidebar_show();
-        */
+        this.sdfvInstance.linkedUI.infoShow();
     }
 
     public clearGraphAccesses(g: Graph, redraw: boolean = true): void {

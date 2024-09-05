@@ -29,7 +29,7 @@ import { LViewGraphParseError, LViewParser } from '../local_view/lview_parser';
 import { LViewRenderer } from '../local_view/lview_renderer';
 import { OverlayManager } from '../overlay_manager';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
-import { ISDFV, SDFV } from '../sdfv';
+import { ISDFV, SDFV, WebSDFV } from '../sdfv';
 import {
     boundingBox,
     calculateBoundingBox,
@@ -4101,8 +4101,10 @@ export class SDFGRenderer extends EventEmitter {
         if (!(this.sdfv_instance instanceof SDFV))
             return;
 
-        //reload_file(this.sdfv_instance);
-        // TODO: exit correctly.
+        if (this.sdfv_instance instanceof WebSDFV) {
+            this.container.innerHTML = '';
+            this.sdfv_instance.setSDFG(this.sdfg);
+        }
     }
 
     public async localViewSelection(): Promise<void> {
