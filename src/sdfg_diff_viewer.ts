@@ -3,6 +3,7 @@
 import $ from 'jquery';
 
 import {
+    ControlFlowRegion,
     DagreGraph,
     graphFindRecursive,
     htmlSanitize,
@@ -13,10 +14,12 @@ import {
     JsonSDFGEdge,
     JsonSDFGElement,
     JsonSDFGState,
+    NestedSDFG,
     SDFG,
     SDFGElement,
     SDFGNode,
     SDFVWebUI,
+    State,
     traverseSDFGScopes,
     WebSDFV,
 } from '.';
@@ -67,10 +70,8 @@ export abstract class SDFGDiffViewer implements ISDFV {
         this.rightRenderer.destroy();
     }
 
-    public static async diff(
-        graphA: JsonSDFG, graphB: JsonSDFG
-    ): Promise<DiffMap> {
-        if (!graphA.attributes.guid || !graphB.attributes.guid) {
+    public static async diff(graphA: SDFG, graphB: SDFG): Promise<DiffMap> {
+        if (!graphA.guid() || !graphB.guid()) {
             return {
                 addedKeys: new Set(),
                 removedKeys: new Set(),
@@ -78,32 +79,30 @@ export abstract class SDFGDiffViewer implements ISDFV {
             };
         }
 
-        const elementsDictA: Map<string, any> = new Map();
-        const elementsDictB: Map<string, any> = new Map();
+        const elementsDictA: Map<string, SDFGElement> = new Map();
+        const elementsDictB: Map<string, SDFGElement> = new Map();
 
         function recursiveAddIds(
-            graph: JsonSDFGControlFlowRegion | JsonSDFGState,
-            dict: Map<string, any>
+            graph: DagreGraph, dict: Map<string, SDFGElement>
         ) {
-            for (const node of graph.nodes) {
-                dict.set(node.attributes.guid, node);
-                if (Object.hasOwn(node, 'nodes')) {
-                    recursiveAddIds(
-                        node as (JsonSDFGControlFlowRegion | JsonSDFGState),
-                        dict
-                    );
-                } else if (node.type === 'NestedSDFG') {
-                    recursiveAddIds(node.attributes.sdfg as JsonSDFG, dict);
-                }
+            for (const nid of graph.nodes()) {
+                const node = graph.node(nid);
+                dict.set(node.guid(), node);
+                if (node instanceof ControlFlowRegion ||
+                    node instanceof State ||
+                    node instanceof NestedSDFG)
+                    recursiveAddIds(node.data.graph, dict);
             }
-            for (const edge of graph.edges)
-                dict.set(edge.attributes.data.attributes.guid, edge);
+            for (const eid of graph.edges()) {
+                const edge = graph.edge(eid);
+                dict.set(edge.guid(), edge as any);
+            }
         }
 
-        elementsDictA.set(graphA.attributes.guid, graphA);
-        recursiveAddIds(graphA, elementsDictA);
-        elementsDictB.set(graphB.attributes.guid, graphB);
-        recursiveAddIds(graphB, elementsDictB);
+        elementsDictA.set(graphA.guid(), graphA);
+        recursiveAddIds(graphA.sdfgDagreGraph!, elementsDictA);
+        elementsDictB.set(graphB.guid(), graphB);
+        recursiveAddIds(graphB.sdfgDagreGraph!, elementsDictB);
 
         const aKeys = new Set(elementsDictA.keys());
         const bKeys = new Set(elementsDictB.keys());
@@ -116,31 +115,21 @@ export abstract class SDFGDiffViewer implements ISDFV {
         );
 
         for (const key of remainingKeys) {
-            const elA: JsonSDFGElement = elementsDictA.get(key);
-            const elB: JsonSDFGElement = elementsDictB.get(key);
+            const elA = elementsDictA.get(key);
+            const elB = elementsDictB.get(key);
 
-            let attrARaw: any;
-            if (['MultiConnectorEdge', 'InterstateEdge'].includes(elA.type))
-                attrARaw = (elA as JsonSDFGEdge).attributes?.data.attributes;
-            else
-                attrARaw = elA.attributes;
             const attrA: any = {};
-            for (const k in attrARaw) {
+            for (const k in elA?.attributes()) {
                 if (DIFF_IGNORE_ATTRIBUTES.includes(k))
                     continue;
-                attrA[k] = attrARaw[k];
+                attrA[k] = elA.attributes()[k];
             }
 
-            let attrBRaw: any;
-            if (['MultiConnectorEdge', 'InterstateEdge'].includes(elB.type))
-                attrBRaw = (elB as JsonSDFGEdge).attributes?.data.attributes;
-            else
-                attrBRaw = elB.attributes;
             const attrB: any = {};
-            for (const k in attrBRaw) {
+            for (const k in elB?.attributes()) {
                 if (DIFF_IGNORE_ATTRIBUTES.includes(k))
                     continue;
-                attrB[k] = attrBRaw[k];
+                attrB[k] = elB.attributes()[k];
             }
 
             if (!_.isEqual(attrA, attrB))
@@ -392,9 +381,11 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             rendererSelectionChange(rightRenderer);
         });
 
-        console.log(leftRenderer.get_graph());
-        console.log(rightRenderer.get_graph());
-        SDFGDiffViewer.diff(graphA, graphB).then(diff => {
+        const lSDFG = new SDFG(graphA);
+        lSDFG.sdfgDagreGraph = leftRenderer.get_graph() ?? undefined;
+        const rSDFG = new SDFG(graphB);
+        rSDFG.sdfgDagreGraph = rightRenderer.get_graph() ?? undefined;
+        SDFGDiffViewer.diff(lSDFG, rSDFG).then(diff => {
             viewer.diffMap = diff;
             const leftOverlay = new DiffOverlay(leftRenderer, diff);
             const rightOverlay = new DiffOverlay(rightRenderer, diff);
@@ -682,17 +673,11 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             }
         }
         while (lIdx < leftLinearized.length) {
-            const lEntry = leftLinearized[lIdx];
-            if (lEntry.changeStatus !== 'removed')
-                throw Error('Unexpected or unknown change status');
-            addElemEntry(lEntry, undefined);
+            addElemEntry(leftLinearized[lIdx], undefined);
             lIdx++;
         }
         while (rIdx < rightLinearized.length) {
-            const rEntry = rightLinearized[rIdx];
-            if (rEntry.changeStatus !== 'added')
-                throw Error('Unexpected or unknown change status');
-            addElemEntry(undefined, rEntry);
+            addElemEntry(undefined, rightLinearized[rIdx]);
             rIdx++;
         }
 

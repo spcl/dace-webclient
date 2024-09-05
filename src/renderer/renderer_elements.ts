@@ -412,6 +412,8 @@ export class SDFGElement {
 // SDFG as an element (to support properties)
 export class SDFG extends SDFGElement {
 
+    public sdfgDagreGraph?: DagreGraph;
+
     public constructor(sdfg: JsonSDFG) {
         super(sdfg, -1, sdfg, null);
     }
