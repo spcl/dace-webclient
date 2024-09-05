@@ -19,7 +19,7 @@ import {
     SDFGElementType,
     Edge,
 } from '../renderer/renderer_elements';
-import { DiffMap } from '../sdfg_diff_viewr';
+import { DiffMap } from '../sdfg_diff_viewer';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class DiffOverlay extends GenericSdfgOverlay {
@@ -47,12 +47,19 @@ export class DiffOverlay extends GenericSdfgOverlay {
     public shadeElem(
         elem: Edge | SDFGNode, ctx: CanvasRenderingContext2D
     ): void {
-        if (this.diffMap?.addedKeys.has(elem.attributes().guid))
-            elem.shade(this.renderer, ctx, this.ADDED_COLOR);
-        else if (this.diffMap?.removedKeys.has(elem.attributes().guid))
-            elem.shade(this.renderer, ctx, this.REMOVED_COLOR);
-        else if (this.diffMap?.changedKeys.has(elem.attributes().guid))
-            elem.shade(this.renderer, ctx, this.CHANGED_COLOR);
+        if (this.diffMap?.addedKeys.has(elem.guid())) {
+            elem.shade(this.renderer, ctx, this.renderer.getCssProperty(
+                '--color-diff-added'
+            ), 1);
+        } else if (this.diffMap?.removedKeys.has(elem.guid())) {
+            elem.shade(this.renderer, ctx, this.renderer.getCssProperty(
+                '--color-diff-removed'
+            ), 1);
+        } else if (this.diffMap?.changedKeys.has(elem.guid())) {
+            elem.shade(this.renderer, ctx, this.renderer.getCssProperty(
+                '--color-diff-changed'
+            ), 1);
+        }
     }
 
     public recursivelyShadeCFG(

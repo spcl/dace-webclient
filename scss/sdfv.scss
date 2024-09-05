@@ -8,6 +8,8 @@
 $material-symbols-font-path: "~material-symbols/";
 @import "~material-symbols";
 
+@import "./color_schemes/default";
+
 .sdfv {
   @import "~bootstrap/scss/bootstrap";
 }
@@ -245,26 +247,26 @@ body.sdfv {
     color: rgba(20, 20, 20, 1.0);
 
     &.removed {
-      background-color: rgba(255, 109, 69, 0.5);
+      background-color: $sdfv-diff-removed;
 
       &:hover {
-        background-color: darken(rgba(212, 92, 59, 0.5), 5%);
+        background-color: darken($sdfv-diff-removed, 5%);
       }
     }
 
     &.added {
-      background-color: rgba(93, 186, 76, 0.5);
+      background-color: $sdfv-diff-added;
 
       &:hover {
-        background-color: darken(rgba(93, 186, 76, 0.8), 5%);
+        background-color: darken($sdfv-diff-added, 5%);
       }
     }
 
     &.changed {
-      background-color: rgba(255, 204, 84, 0.5);
+      background-color: $sdfv-diff-changed;
 
       &:hover {
-        background-color: darken(rgba(255, 192, 43, 0.5), 5%);
+        background-color: darken($sdfv-diff-changed, 5%);
       }
     }
 
@@ -400,6 +402,10 @@ body.sdfv {
     --local-view-edge-overlay-width: 10;
     --local-view-edge-overlay-arrowhead-length: 30;
     --local-view-edge-overlay-fontsize: 20;
+
+    --color-diff-added: #{$sdfv-diff-added};
+    --color-diff-removed: #{$sdfv-diff-removed};
+    --color-diff-changed: #{$sdfv-diff-changed};
   }
 
   #access-pattern-button-box .button {

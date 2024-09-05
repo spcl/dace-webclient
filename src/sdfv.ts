@@ -12,7 +12,6 @@ import {
     GenericSdfgOverlay,
     JsonSDFG,
     ModeButtons,
-    sdfg_property_to_string,
     showErrorModal,
     traverseSDFGScopes,
 } from './index';
@@ -23,7 +22,7 @@ import {
 import { OverlayManager } from './overlay_manager';
 import { SDFGRenderer } from './renderer/renderer';
 import {
-    AccessNode, Edge, Memlet, NestedSDFG, SDFG,
+    SDFG,
     SDFGElement,
     SDFGNode,
 } from './renderer/renderer_elements';
@@ -34,244 +33,10 @@ import {
     stringify_sdfg,
 } from './utils/sdfg/json_serializer';
 import { SDFVSettings } from './utils/sdfv_settings';
-import { WebSDFGDiffViewer } from './sdfg_diff_viewr';
+import { WebSDFGDiffViewer } from './sdfg_diff_viewer';
+import { ISDFVUserInterface, SDFVWebUI } from './sdfv_ui';
 
 declare const vscode: any;
-
-export interface ISDFVUserInterface {
-    get infoContentContainer(): JQuery<HTMLElement>;
-    init(): void;
-    infoClear(): void;
-    infoShow(): void;
-    infoSetTitle(title: string): void;
-    disableInfoClear(): void;
-    enableInfoClear(): void;
-    showElementInfo(
-        elem: SDFGElement | DagreGraph | null, renderer: SDFGRenderer
-    ): void;
-}
-
-export class SDFVWebUI implements ISDFVUserInterface {
-
-    private static readonly INSTANCE: SDFVWebUI = new SDFVWebUI();
-
-    private constructor() {
-    }
-
-    public static getInstance(): SDFVWebUI {
-        return this.INSTANCE;
-    }
-
-    public get infoContentContainer(): JQuery<HTMLElement> {
-        return $('#sidebar-contents');
-    }
-
-    private initInfo(): void {
-        const right = document.getElementById('sidebar');
-        const bar = document.getElementById('dragbar');
-
-        const drag = (e: MouseEvent) => {
-            if ((document as any).selection)
-                (document as any).selection.empty();
-            else
-                window.getSelection()?.removeAllRanges();
-
-            if (right) {
-                right.style.width = Math.max(
-                    ((e.view ? e.view.innerWidth - e.pageX : 0)), 20
-                ) + 'px';
-            }
-        };
-
-        if (bar) {
-            bar.addEventListener('mousedown', () => {
-                document.addEventListener('mousemove', drag);
-                document.addEventListener('mouseup', () => {
-                    document.removeEventListener('mousemove', drag);
-                });
-            });
-        }
-    }
-
-    public init(): void {
-        $(document).on(
-            'click.sdfv-webui', '#menuclose', this.infoClear.bind(this)
-        );
-
-        this.initInfo();
-
-        // Set up any external interaction mode buttons that may override the
-        // renderer.
-        const pan_btn = document.getElementById('pan-btn');
-        const move_btn = document.getElementById('move-btn');
-        const select_btn = document.getElementById('select-btn');
-        const add_btns: HTMLElement[] = [];
-        add_btns.push(document.getElementById('elem_map')!);
-        add_btns.push(document.getElementById('elem_consume')!);
-        add_btns.push(document.getElementById('elem_tasklet')!);
-        add_btns.push(document.getElementById('elem_nested_sdfg')!);
-        add_btns.push(document.getElementById('elem_access_node')!);
-        add_btns.push(document.getElementById('elem_stream')!);
-        add_btns.push(document.getElementById('elem_state')!);
-        if (pan_btn) {
-            WebSDFV.getInstance().setModeButtons({
-                pan: pan_btn,
-                move: move_btn,
-                select: select_btn,
-                add_btns: add_btns,
-            });
-        }
-    }
-
-    public infoClear(): void {
-        this.infoContentContainer.html('');
-        $('#sidebar').css('display', 'none');
-    }
-
-    public infoShow(): void {
-        // Open sidebar if closed
-        $('#sidebar').css('display', 'flex');
-    }
-
-    public infoSetTitle(title: string): void {
-        $('#sidebar-header')?.text(title);
-    }
-
-    public disableInfoClear(): void {
-        $('#menuclose').hide();
-    }
-
-    public enableInfoClear(): void {
-        $('#menuclose').show();
-    }
-
-    public showElementInfo(
-        elem: SDFGElement | DagreGraph | null, renderer: SDFGRenderer
-    ): void {
-        const contentsRaw = SDFVWebUI.getInstance().infoContentContainer;
-        if (!contentsRaw || !elem || !(elem instanceof SDFGElement))
-            return;
-        this.infoSetTitle(elem.type() + ' ' + elem.label());
-
-        const contents = $(contentsRaw);
-        contents.html('');
-
-        if (elem instanceof Memlet) {
-            contents.append($('<p>', {
-                html: 'Connectors: ' + elem.src_connector + ' &rarr; ' +
-                    elem.dst_connector,
-            }));
-        }
-        contents.append($('<hr>'));
-
-        if (elem instanceof Edge) {
-            const btnContainer = $('<div>', {
-                class: 'd-flex',
-            });
-            btnContainer.append($('<button>', {
-                text: 'Jump to start',
-                class: 'btn btn-sm btn-secondary',
-                css: {
-                    'margin-right': '10px',
-                },
-                click: () => {
-                    elem.setViewToSource(renderer);
-                },
-            }));
-            btnContainer.append($('<button>', {
-                text: 'Jump to end',
-                class: 'btn btn-sm btn-secondary',
-                click: () => {
-                    elem.setViewToDestination(renderer);
-                },
-            }));
-            contents.append(btnContainer);
-            contents.append($('<br>'));
-        }
-
-        for (const attr of Object.entries(elem.attributes() ?? {})) {
-            if (attr[0].startsWith('_meta_'))
-                continue;
-
-            switch (attr[0]) {
-                case 'layout':
-                case 'sdfg':
-                case '_arrays':
-                case 'orig_sdfg':
-                case 'transformation_hist':
-                case 'position':
-                    continue;
-                default:
-                    contents.append($('<b>', {
-                        html: attr[0] + ':&nbsp;&nbsp;',
-                    }));
-                    contents.append($('<span>', {
-                        html: sdfg_property_to_string(
-                            attr[1], renderer.view_settings()
-                        ),
-                    }));
-                    contents.append($('<br>'));
-                    break;
-            }
-        }
-
-        // If access node, add array information too
-        if (elem instanceof AccessNode) {
-            const sdfg_array = elem.sdfg.attributes._arrays[
-                elem.attributes().data
-            ];
-            contents.append($('<br>'));
-            contents.append($('<h4>', {
-                text: sdfg_array.type + ' properties:',
-            }));
-            for (const attr of Object.entries(sdfg_array.attributes)) {
-                if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
-                    attr[0].startsWith('_meta_'))
-                    continue;
-                contents.append($('<b>', {
-                    html: attr[0] + ':&nbsp;&nbsp;',
-                }));
-                contents.append($('<span>', {
-                    html: sdfg_property_to_string(
-                        attr[1], renderer.view_settings()
-                    ),
-                }));
-                contents.append($('<br>'));
-            }
-        }
-
-        // If nested SDFG, add SDFG information too
-        if (elem instanceof NestedSDFG && elem.attributes().sdfg) {
-            const sdfg_sdfg = elem.attributes().sdfg;
-            contents.append($('<br>'));
-            contents.append($('<h4>', {
-                text: 'SDFG properties:',
-            }));
-            for (const attr of Object.entries(sdfg_sdfg.attributes)) {
-                if (attr[0].startsWith('_meta_'))
-                    continue;
-
-                switch (attr[0]) {
-                    case 'layout':
-                    case 'sdfg':
-                        continue;
-                    default:
-                        contents.append($('<b>', {
-                            html: attr[0] + ':&nbsp;&nbsp;',
-                        }));
-                        contents.append($('<span>', {
-                            html: sdfg_property_to_string(
-                                attr[1], renderer.view_settings()
-                            ),
-                        }));
-                        contents.append($('<br>'));
-                        break;
-                }
-            }
-        }
-    }
-
-}
 
 export interface ISDFV {
     linkedUI: ISDFVUserInterface;
@@ -672,10 +437,10 @@ export class WebSDFV extends SDFV {
             if (query && this.renderer) {
                 if (advanced) {
                     const predicate = eval(query.toString());
-                    findInGraphPredicate(this.renderer, predicate);
+                    findInGraphPredicate(this.UI, this.renderer, predicate);
                 } else {
                     findInGraph(
-                        this.renderer, query.toString(),
+                        this.UI, this.renderer, query.toString(),
                         $('#search-case').is(':checked')
                     );
                 }
@@ -805,13 +570,13 @@ export function graphFindRecursive(
 }
 
 export function findInGraphPredicate(
-    renderer: SDFGRenderer, predicate: CallableFunction
+    ui: ISDFVUserInterface, renderer: SDFGRenderer, predicate: CallableFunction
 ): void {
     const sdfg = renderer.get_graph();
     if (!sdfg)
         return;
 
-    SDFVWebUI.getInstance().infoSetTitle('Search Results');
+    ui.infoSetTitle('Search Results');
 
     const results: (dagre.Node<SDFGElement> | dagre.GraphEdge)[] = [];
     graphFindRecursive(sdfg, predicate, results);
@@ -821,7 +586,7 @@ export function findInGraphPredicate(
         renderer.zoom_to_view(results);
 
     // Show clickable results in sidebar
-    const sidebar = SDFVWebUI.getInstance().infoContentContainer;
+    const sidebar = ui.infoContentContainer;
     if (sidebar) {
         sidebar.html('');
         for (const result of results) {
@@ -848,16 +613,17 @@ export function findInGraphPredicate(
         }
     }
 
-    SDFVWebUI.getInstance().infoShow();
+    ui.infoShow();
 }
 
 export function findInGraph(
-    renderer: SDFGRenderer, query: string, case_sensitive: boolean = false
+    ui: ISDFVUserInterface, renderer: SDFGRenderer, query: string,
+    case_sensitive: boolean = false
 ): void {
     if (!case_sensitive)
         query = query.toLowerCase();
     findInGraphPredicate(
-        renderer, (graph: DagreGraph, element: SDFGElement) => {
+        ui, renderer, (graph: DagreGraph, element: SDFGElement) => {
             let text = element.text_for_find();
             if (!case_sensitive)
                 text = text.toLowerCase();

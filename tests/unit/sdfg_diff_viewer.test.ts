@@ -5,7 +5,7 @@ import {
     parse_sdfg,
 } from '../../src/utils/sdfg/json_serializer';
 import { JsonSDFG } from '../../src';
-import { SDFGDiffViewer } from '../../src/sdfg_diff_viewr';
+import { SDFGDiffViewer } from '../../src/sdfg_diff_viewer';
 
 function _loadSDFG(name: string): JsonSDFG {
     const file = path.join(

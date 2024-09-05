@@ -180,25 +180,25 @@ export abstract class SDFGDiffViewer implements ISDFV {
         const addedIDs: Map<string, [any, SDFGRenderer][]> = new Map();
         const mergedResults: string[] = [];
         for (const res of lResults) {
-            const existing = addedIDs.get(res.attributes().guid);
+            const existing = addedIDs.get(res.guid());
             if (existing) {
                 existing.push([res, this.leftRenderer]);
             } else {
                 const newEntry: [any, SDFGRenderer][] =
                     [[res, this.leftRenderer]];
-                addedIDs.set(res.attributes().guid, newEntry);
-                mergedResults.push(res.attributes().guid);
+                addedIDs.set(res.guid(), newEntry);
+                mergedResults.push(res.guid());
             }
         }
         for (const res of rResults) {
-            const existing = addedIDs.get(res.attributes().guid);
+            const existing = addedIDs.get(res.guid());
             if (existing) {
                 existing.push([res, this.rightRenderer]);
             } else {
                 const newEntry: [any, SDFGRenderer][] =
                     [[res, this.rightRenderer]];
-                addedIDs.set(res.attributes().guid, newEntry);
-                mergedResults.push(res.attributes().guid);
+                addedIDs.set(res.guid(), newEntry);
+                mergedResults.push(res.guid());
             }
         }
 
@@ -212,7 +212,7 @@ export abstract class SDFGDiffViewer implements ISDFV {
                     continue;
 
                 let status: ChangeState = 'nodiff';
-                const guid = res[0][0].attributes().guid;
+                const guid = res[0][0].guid();
                 if (this.diffMap?.changedKeys.has(guid))
                     status = 'changed';
                 else if (this.diffMap?.removedKeys.has(guid))
@@ -392,6 +392,8 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             rendererSelectionChange(rightRenderer);
         });
 
+        console.log(leftRenderer.get_graph());
+        console.log(rightRenderer.get_graph());
         SDFGDiffViewer.diff(graphA, graphB).then(diff => {
             viewer.diffMap = diff;
             const leftOverlay = new DiffOverlay(leftRenderer, diff);
@@ -412,7 +414,7 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
     ): (localGraphDiffStackEntry | null)[] {
         const elemClass = (elem: SDFGElement | JsonSDFG): ChangeState => {
             const guid = elem instanceof SDFGElement ?
-                elem.attributes().guid : elem.attributes.guid;
+                elem.guid() : elem.attributes.guid;
             if (this.diffMap?.addedKeys.has(guid))
                 return 'added';
             else if (this.diffMap?.removedKeys.has(guid))
@@ -456,7 +458,7 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
 
             // Create element
             const elemEntry = {
-                guid: node.attributes().guid,
+                guid: node.guid(),
                 htmlLabel: htmlSanitize`
                     ${node_type} ${node.label()}${is_collapsed ? ' (collapsed)' : ''}
                 `,
