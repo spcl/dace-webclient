@@ -1347,9 +1347,9 @@ export class SDFGRenderer extends EventEmitter {
             this.cfgList[cfgId].nsdfgNode = null;
         }
         this.graph = relayoutStateMachine(
-            this.ctx, this.sdfg, this.sdfg, this.cfgList,
+            this.sdfg, this.sdfg, undefined, this.ctx, this.cfgList,
             this.state_parent_list,
-            !SDFVSettings.get<boolean>('showAccessNodes'), undefined
+            !SDFVSettings.get<boolean>('showAccessNodes')
         );
         const topLevelBlocks: SDFGElement[] = [];
         for (const bId of this.graph.nodes())
@@ -4286,7 +4286,7 @@ export class SDFGRenderer extends EventEmitter {
 
 
 function calculateNodeSize(
-    sdfg: JsonSDFG, node: any, ctx: CanvasRenderingContext2D
+    sdfg: JsonSDFG, node: any, ctx?: CanvasRenderingContext2D
 ): { width: number, height: number } {
     let label;
     switch (node.type) {
@@ -4306,7 +4306,7 @@ function calculateNodeSize(
             break;
     }
 
-    const labelsize = ctx.measureText(label).width;
+    const labelsize = ctx ? ctx.measureText(label).width : 1;
     const inconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
         node.attributes.layout.in_connectors
     ).length - SDFV.LINEHEIGHT;
@@ -4352,10 +4352,10 @@ function calculateNodeSize(
     return size;
 }
 
-function relayoutStateMachine(
-    ctx: CanvasRenderingContext2D, stateMachine: JsonSDFGControlFlowRegion,
-    sdfg: JsonSDFG, cfgList: CFGListType, stateParentList: any[],
-    omitAccessNodes: boolean, parent?: SDFGElement
+export function relayoutStateMachine(
+    stateMachine: JsonSDFGControlFlowRegion, sdfg: JsonSDFG,
+    parent?: SDFGElement, ctx?: CanvasRenderingContext2D, cfgList?: CFGListType,
+    stateParentList?: any[], omitAccessNodes: boolean = false
 ): DagreGraph {
     const BLOCK_MARGIN = 3 * SDFV.LINEHEIGHT;
 
@@ -4396,7 +4396,7 @@ function relayoutStateMachine(
         let blockGraph = null;
         if (block.attributes?.is_collapsed) {
             blockInfo.height = SDFV.LINEHEIGHT;
-            if (blockElem instanceof LoopRegion) {
+            if (blockElem instanceof LoopRegion && ctx) {
                 const oldFont = ctx.font;
                 ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
                 const labelWidths = [
@@ -4419,12 +4419,15 @@ function relayoutStateMachine(
                     maxLabelWidth, ctx.measureText(block.label).width
                 ) + 3 * LoopRegion.META_LABEL_MARGIN;
             } else {
-                blockInfo.width = ctx.measureText(blockInfo.label).width;
+                if (ctx)
+                    blockInfo.width = ctx.measureText(blockInfo.label).width;
+                else
+                    blockInfo.width = 1;
             }
         } else {
             blockGraph = relayoutSDFGBlock(
-                ctx, block, sdfg, cfgList, stateParentList, omitAccessNodes,
-                blockElem
+                block, sdfg, blockElem, ctx, cfgList, stateParentList,
+                omitAccessNodes
             );
             if (blockGraph)
                 blockInfo = calculateBoundingBox(blockGraph);
@@ -4537,15 +4540,16 @@ function relayoutStateMachine(
     (g as any).height = bb.height;
 
     // Add CFG graph to global store.
-    cfgList[stateMachine.cfg_list_id].graph = g;
+    if (cfgList !== undefined)
+        cfgList[stateMachine.cfg_list_id].graph = g;
 
     return g;
 }
 
 function relayoutSDFGState(
-    ctx: CanvasRenderingContext2D, state: JsonSDFGState,
-    sdfg: JsonSDFG, sdfgList: CFGListType, stateParentList: any[],
-    omitAccessNodes: boolean, parent: State
+    state: JsonSDFGState, sdfg: JsonSDFG, parent: State,
+    ctx?: CanvasRenderingContext2D, sdfgList?: CFGListType,
+    stateParentList?: any[], omitAccessNodes: boolean = false
 ): DagreGraph | null {
     if (!state.nodes && !state.edges)
         return null;
@@ -4615,8 +4619,8 @@ function relayoutSDFGState(
             if (node.attributes.sdfg &&
                 node.attributes.sdfg.type !== 'SDFGShell') {
                 nestedGraph = relayoutStateMachine(
-                    ctx, node.attributes.sdfg, node.attributes.sdfg, sdfgList,
-                    stateParentList, omitAccessNodes, parent
+                    node.attributes.sdfg, node.attributes.sdfg, parent, ctx,
+                    sdfgList, stateParentList, omitAccessNodes
                 );
                 const sdfgInfo = calculateBoundingBox(nestedGraph);
                 node.attributes.layout.width =
@@ -4625,9 +4629,13 @@ function relayoutSDFGState(
                     sdfgInfo.height + 2 * SDFV.LINEHEIGHT;
             } else {
                 const emptyNSDFGLabel = 'No SDFG loaded';
-                const textMetrics = ctx.measureText(emptyNSDFGLabel);
-                node.attributes.layout.width =
-                    textMetrics.width + 2 * SDFV.LINEHEIGHT;
+                if (ctx) {
+                    const textMetrics = ctx.measureText(emptyNSDFGLabel);
+                    node.attributes.layout.width =
+                        textMetrics.width + 2 * SDFV.LINEHEIGHT;
+                } else {
+                    node.attributes.layout.width = 1;
+                }
                 node.attributes.layout.height = 4 * SDFV.LINEHEIGHT;
             }
         }
@@ -4642,7 +4650,9 @@ function relayoutSDFGState(
         // state's parent node.
         if ((node.type === SDFGElementType.NestedSDFG ||
             node.type === SDFGElementType.ExternalNestedSDFG) &&
-            node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell') {
+            node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell' &&
+            stateParentList !== undefined && sdfgList !== undefined
+        ) {
             stateParentList[node.attributes.sdfg.cfg_list_id] = obj;
             sdfgList[node.attributes.sdfg.cfg_list_id].nsdfgNode = obj;
         }
@@ -5042,22 +5052,22 @@ function relayoutSDFGState(
 }
 
 function relayoutSDFGBlock(
-    ctx: CanvasRenderingContext2D, block: JsonSDFGBlock,
-    sdfg: JsonSDFG, sdfgList: CFGListType, stateParentList: any[],
-    omitAccessNodes: boolean, parent: SDFGElement
+    block: JsonSDFGBlock, sdfg: JsonSDFG, parent: SDFGElement,
+    ctx?: CanvasRenderingContext2D, sdfgList?: CFGListType,
+    stateParentList?: any[], omitAccessNodes: boolean = false
 ): DagreGraph | null {
     switch (block.type) {
         case SDFGElementType.LoopRegion:
         case SDFGElementType.ControlFlowRegion:
             return relayoutStateMachine(
-                ctx, block as JsonSDFGControlFlowRegion, sdfg, sdfgList,
-                stateParentList, omitAccessNodes, parent
+                block as JsonSDFGControlFlowRegion, sdfg, parent, ctx, sdfgList,
+                stateParentList, omitAccessNodes
             );
         case SDFGElementType.SDFGState:
         case SDFGElementType.BasicBlock:
             return relayoutSDFGState(
-                ctx, block as JsonSDFGState, sdfg, sdfgList, stateParentList,
-                omitAccessNodes, parent
+                block as JsonSDFGState, sdfg, parent, ctx, sdfgList,
+                stateParentList, omitAccessNodes
             );
         default:
             return null;

@@ -10,10 +10,6 @@ import {
     ISDFV,
     ISDFVUserInterface,
     JsonSDFG,
-    JsonSDFGControlFlowRegion,
-    JsonSDFGEdge,
-    JsonSDFGElement,
-    JsonSDFGState,
     NestedSDFG,
     SDFG,
     SDFGElement,
@@ -26,6 +22,7 @@ import {
 import { DiffOverlay } from './overlays/diff_overlay';
 import { SDFGRenderer } from './renderer/renderer';
 import _ from 'lodash';
+import { Modal } from 'bootstrap';
 
 type ChangeState = 'nodiff' | 'changed' | 'added' | 'removed';
 
@@ -380,6 +377,50 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             leftRenderer.deselect();
             rendererSelectionChange(rightRenderer);
         });
+
+        // Warn if one or both of the SDFGs are probably not diff-ready yet.
+        if (!(<any>graphA).dace_version ||
+            (<any>graphA).dace_version < '0.16.2' ||
+            !(<any>graphB).dace_version ||
+            (<any>graphB).dace_version < '0.16.2'
+        ) {
+            const warnModalHtml = `
+<div class="modal-dialog">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Incompatibility Warning</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>
+                One or both of the SDFGs you are trying to compare have been
+                generated with a version of DaCe that does not yet officially
+                support SDFG diffs. SDFG diffs are supported for SDFGs created
+                from DaCe version 0.16.2 or newer. The resulting diff may be
+                incorrect.
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+    </div>
+</div>
+            `;
+            const warnModal = $('<div>', {
+                class: 'modal',
+                tabindex: '-1',
+                html: warnModalHtml,
+            });
+
+            $('body.sdfv').append(warnModal);
+            const modalObj = new Modal(warnModal[0]);
+            modalObj.show();
+            warnModal[0].addEventListener('hidden.bs.modal', () => {
+                warnModal.remove();
+            });
+        }
 
         const lSDFG = new SDFG(graphA);
         lSDFG.sdfgDagreGraph = leftRenderer.get_graph() ?? undefined;
