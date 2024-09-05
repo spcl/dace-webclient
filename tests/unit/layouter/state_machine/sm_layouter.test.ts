@@ -3,7 +3,7 @@ import {
     BACKEDGE_SPACING,
     SMLayouter,
     SMLayouterEdge,
-    SMLayouterNode
+    SMLayouterNode,
 } from '../../../../src/layouter/state_machine/sm_layouter';
 
 function constructNode(
@@ -181,7 +181,7 @@ function testSelfLoop(): void {
     //  =1
     //   |
     //   2
- 
+
     constructEdge(graph, '0', '1');
     constructEdge(graph, '1', '1');
     constructEdge(graph, '1', '2');
@@ -202,7 +202,7 @@ function testSelfLoop(): void {
     //  =1==--3
     //   | |
     //   2--
- 
+
     constructEdge(graph2, '0', '1');
     constructEdge(graph2, '1', '1');
     constructEdge(graph2, '1', '2');
@@ -331,7 +331,7 @@ function testEdgeRoutingSelfLoop(): void {
     //  =1
     //   |
     //   2
- 
+
     constructEdge(graph, '0', '1');
     constructEdge(graph, '1', '1');
     constructEdge(graph, '1', '2');

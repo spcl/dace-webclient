@@ -271,6 +271,11 @@ export class OverlayManager {
         this.renderer.draw_async();
     }
 
+    public register_overlay_instance(overlay: GenericSdfgOverlay): void {
+        this.overlays.push(overlay);
+        this.renderer.draw_async();
+    }
+
     public deregister_overlay(type: typeof GenericSdfgOverlay): void {
         this.overlays = this.overlays.filter(overlay => {
             return !(overlay instanceof type);

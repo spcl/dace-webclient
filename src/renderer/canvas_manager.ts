@@ -783,7 +783,7 @@ export class CanvasManager {
         // Clear with default transform
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        ctx.fillStyle = this.renderer.get_bgcolor();
+        ctx.fillStyle = this.renderer.getBackgroundColor();
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
         this.animation_step(now);

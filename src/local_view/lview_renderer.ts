@@ -33,8 +33,9 @@ import { ReuseDistanceOverlay } from './overlays/reuse_distance_overlay';
 
 export class LViewRenderer {
 
-    public readonly pixiApp: Application | null = null;
-    public readonly viewport: Viewport | null = null;
+    public readonly resizeObserver: ResizeObserver;
+    public readonly pixiApp: Application;
+    public readonly viewport: Viewport;
 
     protected tooltipContainer?: JQuery<HTMLDivElement>;
     protected tooltipText?: JQuery<HTMLSpanElement>;
@@ -84,7 +85,7 @@ export class LViewRenderer {
             interaction: this.pixiApp.renderer.plugins.interaction,
         });
 
-        const resizeObserver = new ResizeObserver(entries => {
+        this.resizeObserver = new ResizeObserver(entries => {
             entries.forEach(entry => {
                 if (entry.contentBoxSize) {
                     this.pixiApp?.resize();
@@ -94,7 +95,7 @@ export class LViewRenderer {
                 }
             });
         });
-        resizeObserver.observe(this.container);
+        this.resizeObserver.observe(this.container);
 
         this.pixiApp.stage.addChild(this.viewport);
 
@@ -254,14 +255,11 @@ export class LViewRenderer {
     }
 
     private initLocalViewSidebar(): void {
-        this.sdfvInstance.sidebar_set_title('Local View');
-        this.sdfvInstance.close_menu();
-        this.sdfvInstance.disable_menu_close();
+        this.sdfvInstance.linkedUI.infoSetTitle('Local View');
+        this.sdfvInstance.linkedUI.infoClear();
+        this.sdfvInstance.linkedUI.disableInfoClear();
 
-        const rawContents = this.sdfvInstance.sidebar_get_contents();
-        if (!rawContents)
-            return;
-        const contents = $(rawContents);
+        const contents = this.sdfvInstance.linkedUI.infoContentContainer;
         contents.html(`
 <div id="lview-sidebar">
     <label for="map-playback-speed-input">
@@ -355,7 +353,7 @@ export class LViewRenderer {
         this.chartContainer = $('#lview-chart-container');
         this.sidebarContents = $('#lview-sidebar-contents');
 
-        this.sdfvInstance.sidebar_show();
+        this.sdfvInstance.linkedUI.infoShow();
     }
 
     public clearGraphAccesses(g: Graph, redraw: boolean = true): void {

@@ -2,10 +2,8 @@
 
 import $ from 'jquery';
 
-import {
-    Modal,
-} from 'bootstrap';
-import { SDFGRenderer } from '../renderer/renderer';
+import EventEmitter from 'events';
+import { Modal } from 'bootstrap';
 import * as settingsManifest from '../settings_manifest.json';
 import { AllFields } from './utils';
 
@@ -42,7 +40,25 @@ interface SDFVSettingRange extends SDFVSetting {
     step?: number;
 }
 
-export class SDFVSettings {
+interface SDFVSettingsEvent {
+    'setting_changed': (setting: SDFVSetting) =>  void,
+}
+
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
+export interface SDFVSettings {
+
+    on<U extends keyof SDFVSettingsEvent>(
+        event: U, listener: SDFVSettingsEvent[U]
+    ): this;
+
+    emit<U extends keyof SDFVSettingsEvent>(
+        event: U, ...args: Parameters<SDFVSettingsEvent[U]>
+    ): boolean;
+
+}
+
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
+export class SDFVSettings extends EventEmitter {
 
     private readonly _settingsDict: Map<
         SDFVSettingKey, SDFVSettingValT
@@ -51,6 +67,8 @@ export class SDFVSettings {
     private static readonly INSTANCE: SDFVSettings = new SDFVSettings();
 
     private constructor() {
+        super();
+
         const categories = settingsManifest.viewerSettings.categories;
         for (const category of Object.values(categories)) {
             for (const [sName, setting] of Object.entries(category.settings)) {
@@ -66,7 +84,6 @@ export class SDFVSettings {
     }
 
     private modal: Modal | null = null;
-    private renderer: SDFGRenderer | null = null;
 
     private addSlider(
         root: JQuery<HTMLElement>, category: string, key: SDFVSettingKey,
@@ -134,7 +151,7 @@ export class SDFVSettings {
                 nVal = +nVal;
                 numberInput.val(nVal);
                 this._settingsDict.set(key, nVal);
-                this.onSettingChanged(setting);
+                this.emit('setting_changed', setting);
             }
         });
         numberInput.on('change', () => {
@@ -152,14 +169,14 @@ export class SDFVSettings {
 
                 sliderInput.val(nVal);
                 this._settingsDict.set(key, nVal);
-                this.onSettingChanged(setting);
+                this.emit('setting_changed', setting);
             }
         });
         resetBtn.on('click', () => {
             numberInput.val(setting.default);
             sliderInput.val(setting.default);
             this._settingsDict.set(key, setting.default);
-            this.onSettingChanged(setting);
+            this.emit('setting_changed', setting);
         });
     }
 
@@ -200,7 +217,7 @@ export class SDFVSettings {
                 }
 
                 this._settingsDict.set(key, isChecked);
-                this.onSettingChanged(setting);
+                this.emit('setting_changed', setting);
             },
         }).appendTo(checkContainer);
         $('<label>', {
@@ -323,32 +340,9 @@ export class SDFVSettings {
         return modalElement;
     }
 
-    private onSettingChanged(setting: SDFVSetting): void {
-        if (setting.relayout) {
-            this.renderer?.add_loading_animation();
-            setTimeout(() => {
-                this.renderer?.relayout();
-                this.renderer?.draw_async();
-            }, 10);
-        }
-
-        if (setting.redrawUI)
-            this.renderer?.initUI();
-
-        if (setting.redraw !== false && !setting.relayout)
-            this.renderer?.draw_async();
-
-        if (this.renderer?.get_in_vscode())
-            this.renderer.emit('settings_changed', SDFVSettings.settingsDict);
-    }
-
-    public show(renderer?: SDFGRenderer): void {
+    public show(): void {
         if (!this.modal)
             this.modal = new Modal(this.constructModal()[0], {});
-
-        if (renderer)
-            this.renderer = renderer;
-
         this.modal.show();
     }
 

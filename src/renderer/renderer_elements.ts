@@ -209,8 +209,10 @@ export class SDFGElement {
     }
 
     public guid(): string {
+        if (this.attributes().guid)
+            return this.attributes().guid;
         // If GUID does not exist, fall back to element ID
-        return this.cfg?.cfg_list_id + '/' + (
+        return (this.cfg?.cfg_list_id ?? 0) + '/' + (
             this.parent_id ?? -1) + '/' + this.id;
     }
 
@@ -409,6 +411,8 @@ export class SDFGElement {
 
 // SDFG as an element (to support properties)
 export class SDFG extends SDFGElement {
+
+    public sdfgDagreGraph?: DagreGraph;
 
     public constructor(sdfg: JsonSDFG) {
         super(sdfg, -1, sdfg, null);

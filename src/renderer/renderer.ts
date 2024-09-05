@@ -29,7 +29,7 @@ import { LViewGraphParseError, LViewParser } from '../local_view/lview_parser';
 import { LViewRenderer } from '../local_view/lview_renderer';
 import { OverlayManager } from '../overlay_manager';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
-import { SDFV, reload_file } from '../sdfv';
+import { ISDFV, SDFV, WebSDFV } from '../sdfv';
 import {
     boundingBox,
     calculateBoundingBox,
@@ -149,6 +149,13 @@ function check_valid_add_position(
     return false;
 }
 
+export type RendererUIFeature = (
+    'menu' | 'settings' | 'overlays_menu' | 'zoom_to_fit_all' |
+    'zoom_to_fit_width' | 'collapse' | 'expand' | 'add_mode' | 'pan_mode' |
+    'move_mode' | 'box_select_mode' | 'cutout_selection' | 'local_view' |
+    'minimap'
+);
+
 export interface SDFGRendererEvent {
     'add_element': (
         type: SDFGElementType, parentUUID: string, lib?: string,
@@ -160,6 +167,7 @@ export interface SDFGRendererEvent {
     'element_position_changed': (type?: string) => void;
     'graph_edited': () => void;
     'selection_changed': (multiSelectionChanged: boolean) => void;
+    'element_focus_changed': (selectionChanged: boolean) => void;
     'symbol_definition_changed': (symbol: string, definition?: number) => void;
     'active_overlays_changed': () => void;
     'backend_data_requested': (type: string, overlay: string) => void;
@@ -204,14 +212,12 @@ export class SDFGRenderer extends EventEmitter {
     protected last_dragged_element: SDFGElement | null = null;
     protected tooltip: SDFVTooltipFunc | null = null;
     protected tooltip_container: HTMLElement | null = null;
-    protected overlay_manager: OverlayManager;
-    protected bgcolor: string | null = null;
+    public readonly overlayManager: OverlayManager;
     protected visible_rect: SimpleRect | null = null;
     protected static cssProps: { [key: string]: string } = {};
     protected hovered_elements_cache: Set<SDFGElement> = new Set<SDFGElement>();
 
     // Toolbar related fields.
-    protected modeButtons: ModeButtons | null = null;
     protected toolbar: JQuery<HTMLElement> | null = null;
     protected panmode_btn: HTMLElement | null = null;
     protected movemode_btn: HTMLElement | null = null;
@@ -241,8 +247,6 @@ export class SDFGRenderer extends EventEmitter {
     protected dragging: boolean = false;
     // Null if the mouse/touch is not activated.
     protected drag_start: any = null;
-    protected external_mouse_handler: ((...args: any[]) => boolean) | null =
-        null;
     protected ctrl_key_selection: boolean = false;
     protected shift_key_movement: boolean = false;
     protected add_position: Point2D | null = null;
@@ -266,24 +270,24 @@ export class SDFGRenderer extends EventEmitter {
     // Controlled by the SDFVSettings.
     protected _adaptiveHiding: boolean = true;
 
+    protected readonly diffMode: boolean = false;
+
     public constructor(
-        protected sdfv_instance: SDFV,
         protected sdfg: JsonSDFG,
         protected container: HTMLElement,
-        on_mouse_event: ((...args: any[]) => boolean) | null = null,
-        user_transform: DOMMatrix | null = null,
+        protected sdfv_instance?: ISDFV,
+        protected external_mouse_handler: (
+            (...args: any[]) => boolean
+        ) | null = null,
+        protected initialUserTransform: DOMMatrix | null = null,
         public debug_draw = false,
-        background: string | null = null,
-        mode_buttons: any = null
+        protected backgroundColor: string | null = null,
+        protected modeButtons: ModeButtons | null = null,
+        protected enableMaskUI?: RendererUIFeature[]
     ) {
         super();
 
-        sdfv_instance.enable_menu_close();
-        sdfv_instance.close_menu();
-
-        this.external_mouse_handler = on_mouse_event;
-
-        this.overlay_manager = new OverlayManager(this);
+        this.overlayManager = new OverlayManager(this);
 
         this.in_vscode = false;
         try {
@@ -292,13 +296,9 @@ export class SDFGRenderer extends EventEmitter {
                 this.in_vscode = true;
         } catch (ex) { }
 
-        this.init_elements(user_transform, background, mode_buttons);
+        this.init_elements();
 
-        this.setSDFG(sdfg, false);
-
-        this.all_memlet_trees_sdfg = memletTreeComplete(this.sdfg);
-
-        this.update_fast_memlet_lookup();
+        this.setSDFG(this.sdfg, false);
 
         this.on('collapse_state_changed', () => {
             this.emit('graph_edited');
@@ -311,6 +311,22 @@ export class SDFGRenderer extends EventEmitter {
         });
         this.on('graph_edited', () => {
             this.draw_async();
+        });
+
+        SDFVSettings.getInstance().on('setting_changed', (setting) => {
+            if (setting.relayout) {
+                this.add_loading_animation();
+                setTimeout(() => {
+                    this.relayout();
+                    this.draw_async();
+                }, 10);
+            }
+
+            if (setting.redrawUI)
+                this.initUI();
+
+            if (setting.redraw !== false && !setting.relayout)
+                this.draw_async();
         });
     }
 
@@ -470,10 +486,14 @@ export class SDFGRenderer extends EventEmitter {
      * Initialize the UI based on the user's settings.
      */
     public initUI(): void {
-        if (SDFVSettings.get<boolean>('minimap'))
-            this.enableMinimap();
-        else
+        if (!this.enableMaskUI || this.enableMaskUI.includes('minimap')) {
+            if (SDFVSettings.get<boolean>('minimap'))
+                this.enableMinimap();
+            else
+                this.disableMinimap();
+        } else {
             this.disableMinimap();
+        }
 
         if (SDFVSettings.get<boolean>('toolbar')) {
             // If the toolbar is already present, don't do anything.
@@ -492,79 +512,84 @@ export class SDFGRenderer extends EventEmitter {
             this.container.appendChild(this.toolbar[0]);
 
             // Construct menu.
-            const menuDropdown = $('<div>', {
-                class: 'dropdown',
-            });
-            $('<button>', {
-                class: 'btn btn-secondary btn-sm btn-material',
-                html: '<i class="material-symbols-outlined">menu</i>',
-                title: 'Menu',
-                'data-bs-toggle': 'dropdown',
-            }).appendTo(menuDropdown);
-            const menu = $('<ul>', {
-                class: 'dropdown-menu',
-            }).appendTo(menuDropdown);
-            $('<div>', {
-                class: 'btn-group',
-            }).appendTo(this.toolbar).append(menuDropdown);
+            if (!this.enableMaskUI || this.enableMaskUI.includes('menu')) {
+                const menuDropdown = $('<div>', {
+                    class: 'dropdown',
+                });
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">menu</i>',
+                    title: 'Menu',
+                    'data-bs-toggle': 'dropdown',
+                }).appendTo(menuDropdown);
+                const menu = $('<ul>', {
+                    class: 'dropdown-menu',
+                }).appendTo(menuDropdown);
+                $('<div>', {
+                    class: 'btn-group',
+                }).appendTo(this.toolbar).append(menuDropdown);
 
-            $('<li>').appendTo(menu).append($('<span>', {
-                class: 'dropdown-item',
-                text: 'Save SDFG',
-                click: () => this.save_sdfg(),
-            }));
-            $('<li>').appendTo(menu).append($('<span>', {
-                class: 'dropdown-item',
-                text: 'Save view as PNG',
-                click: () => this.save_as_png(),
-            }));
-            if (this.has_pdf()) {
                 $('<li>').appendTo(menu).append($('<span>', {
                     class: 'dropdown-item',
-                    text: 'Save view as PDF',
-                    click: () => this.save_as_pdf(false),
+                    text: 'Save SDFG',
+                    click: () => this.save_sdfg(),
                 }));
                 $('<li>').appendTo(menu).append($('<span>', {
                     class: 'dropdown-item',
-                    text: 'Save SDFG as PDF',
-                    click: () => this.save_as_pdf(true),
+                    text: 'Save view as PNG',
+                    click: () => this.save_as_png(),
+                }));
+                if (this.has_pdf()) {
+                    $('<li>').appendTo(menu).append($('<span>', {
+                        class: 'dropdown-item',
+                        text: 'Save view as PDF',
+                        click: () => this.save_as_pdf(false),
+                    }));
+                    $('<li>').appendTo(menu).append($('<span>', {
+                        class: 'dropdown-item',
+                        text: 'Save SDFG as PDF',
+                        click: () => this.save_as_pdf(true),
+                    }));
+                }
+                $('<li>').appendTo(menu).append($('<span>', {
+                    class: 'dropdown-item',
+                    text: 'Export top-level CFG as DOT graph',
+                    click: () => {
+                        this.save(
+                            (this.sdfg.attributes?.name ?? 'program') + '.dot',
+                            'data:text/plain;charset=utf-8,' +
+                            encodeURIComponent(cfgToDotGraph(this.sdfg))
+                        );
+                    },
+                }));
+
+                $('<li>').appendTo(menu).append($('<hr>', {
+                    class: 'dropdown-divider',
+                }));
+
+                $('<li>').appendTo(menu).append($('<span>', {
+                    class: 'dropdown-item',
+                    text: 'Reset positions',
+                    click: () => this.reset_positions(),
                 }));
             }
-            $('<li>').appendTo(menu).append($('<span>', {
-                class: 'dropdown-item',
-                text: 'Export top-level CFG as DOT graph',
-                click: () => {
-                    this.save(
-                        (this.sdfg.attributes?.name ?? 'program') + '.dot',
-                        'data:text/plain;charset=utf-8,' + encodeURIComponent(
-                            cfgToDotGraph(this.sdfg)
-                        )
-                    );
-                },
-            }));
-
-            $('<li>').appendTo(menu).append($('<hr>', {
-                class: 'dropdown-divider',
-            }));
-
-            $('<li>').appendTo(menu).append($('<span>', {
-                class: 'dropdown-item',
-                text: 'Reset positions',
-                click: () => this.reset_positions(),
-            }));
 
             // SDFV Options.
-            $('<button>', {
-                class: 'btn btn-secondary btn-sm btn-material',
-                html: '<i class="material-symbols-outlined">settings</i>',
-                title: 'Settings',
-                click: () => {
-                    SDFVSettings.getInstance().show(this);
-                },
-            }).appendTo(this.toolbar);
+            if (!this.enableMaskUI || this.enableMaskUI.includes('settings')) {
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">settings</i>',
+                    title: 'Settings',
+                    click: () => {
+                        SDFVSettings.getInstance().show();
+                    },
+                }).appendTo(this.toolbar);
+            }
 
             // Overlays menu.
-            if (!this.in_vscode) {
+            if ((!this.enableMaskUI ||
+                 this.enableMaskUI.includes('overlays_menu')) &&
+                !this.in_vscode) {
                 const overlayDropdown = $('<div>', {
                     class: 'dropdown',
                 });
@@ -604,9 +629,9 @@ export class SDFGRenderer extends EventEmitter {
                         checked: default_state,
                         change: () => {
                             if (olInput.prop('checked'))
-                                this.overlay_manager?.register_overlay(ol);
+                                this.overlayManager.register_overlay(ol);
                             else
-                                this.overlay_manager?.deregister_overlay(ol);
+                                this.overlayManager.deregister_overlay(ol);
                         },
                     }).appendTo(olContainer);
                     $('<label>', {
@@ -616,7 +641,7 @@ export class SDFGRenderer extends EventEmitter {
                 };
 
                 // Register overlays that are turned on by default.
-                this.overlay_manager.register_overlay(LogicalGroupOverlay);
+                this.overlayManager.register_overlay(LogicalGroupOverlay);
                 addOverlayToMenu('Logical groups', LogicalGroupOverlay, true);
 
                 // Add overlays that are turned off by default.
@@ -632,53 +657,67 @@ export class SDFGRenderer extends EventEmitter {
                 class: 'btn-group',
                 role: 'group',
             }).appendTo(this.toolbar);
-            // Zoom to fit.
-            $('<button>', {
-                class: 'btn btn-secondary btn-sm btn-material',
-                html: '<i class="material-symbols-outlined">fit_screen</i>',
-                title: 'Zoom to fit SDFG',
-                click: () => {
-                    this.zoom_to_view();
-                },
-            }).appendTo(zoomButtonGroup);
-            $('<button>', {
-                class: 'btn btn-secondary btn-sm btn-material',
-                html: '<i class="material-symbols-outlined">fit_width</i>',
-                title: 'Zoom to fit width',
-                click: () => {
-                    this.zoomToFitWidth();
-                },
-            }).appendTo(zoomButtonGroup);
+            if (!this.enableMaskUI ||
+                 this.enableMaskUI.includes('zoom_to_fit_all')) {
+                // Zoom to fit.
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">fit_screen</i>',
+                    title: 'Zoom to fit SDFG',
+                    click: () => {
+                        this.zoom_to_view();
+                    },
+                }).appendTo(zoomButtonGroup);
+            }
+            if (!this.enableMaskUI ||
+                 this.enableMaskUI.includes('zoom_to_fit_width')) {
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">fit_width</i>',
+                    title: 'Zoom to fit width',
+                    click: () => {
+                        this.zoomToFitWidth();
+                    },
+                }).appendTo(zoomButtonGroup);
+            }
 
             const collapseButtonGroup = $('<div>', {
                 class: 'btn-group',
                 role: 'group',
             }).appendTo(this.toolbar);
-            // Collapse all.
-            $('<button>', {
-                class: 'btn btn-secondary btn-sm btn-material',
-                html: '<i class="material-symbols-outlined">unfold_less</i>',
-                title: 'Collapse next level (Shift+click to collapse all)',
-                click: (e: MouseEvent) => {
-                    if (e.shiftKey)
-                        this.collapseAll();
-                    else
-                        this.collapseNextLevel();
-                },
-            }).appendTo(collapseButtonGroup);
+            if (!this.enableMaskUI ||
+                 this.enableMaskUI.includes('collapse')) {
+                // Collapse all.
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">' +
+                        'unfold_less</i>',
+                    title: 'Collapse next level (Shift+click to collapse all)',
+                    click: (e: MouseEvent) => {
+                        if (e.shiftKey)
+                            this.collapseAll();
+                        else
+                            this.collapseNextLevel();
+                    },
+                }).appendTo(collapseButtonGroup);
+            }
 
-            // Expand all.
-            $('<button>', {
-                class: 'btn btn-secondary btn-sm btn-material',
-                html: '<i class="material-symbols-outlined">unfold_more</i>',
-                title: 'Expand next level (Shift+click to expand all)',
-                click: (e: MouseEvent) => {
-                    if (e.shiftKey)
-                        this.expandAll();
-                    else
-                        this.expandNextLevel();
-                },
-            }).appendTo(collapseButtonGroup);
+            if (!this.enableMaskUI ||
+                 this.enableMaskUI.includes('expand')) {
+                // Expand all.
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">' +
+                        'unfold_more</i>',
+                    title: 'Expand next level (Shift+click to expand all)',
+                    click: (e: MouseEvent) => {
+                        if (e.shiftKey)
+                            this.expandAll();
+                        else
+                            this.expandNextLevel();
+                    },
+                }).appendTo(collapseButtonGroup);
+            }
 
             if (this.modeButtons) {
                 // If we get the "external" mode buttons we are in vscode and do
@@ -687,29 +726,34 @@ export class SDFGRenderer extends EventEmitter {
                 this.movemode_btn = this.modeButtons.move;
                 this.selectmode_btn = this.modeButtons.select;
                 this.addmode_btns = this.modeButtons.add_btns;
-                for (const add_btn of this.addmode_btns) {
-                    if (add_btn.getAttribute('type') ===
-                        SDFGElementType.LibraryNode) {
-                        add_btn.onclick = () => {
-                            const libnode_callback = () => {
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('add_mode')) {
+                    for (const add_btn of this.addmode_btns) {
+                        if (add_btn.getAttribute('type') ===
+                            SDFGElementType.LibraryNode) {
+                            add_btn.onclick = () => {
+                                const libnode_callback = () => {
+                                    this.mouse_mode = 'add';
+                                    this.add_type = SDFGElementType.LibraryNode;
+                                    this.add_edge_start = null;
+                                    this.add_edge_start_conn = null;
+                                    this.update_toggle_buttons();
+                                };
+                                this.emit('query_libnode', libnode_callback);
+                            };
+                        } else {
+                            add_btn.onclick = () => {
                                 this.mouse_mode = 'add';
-                                this.add_type = SDFGElementType.LibraryNode;
+                                this.add_type =
+                                    <SDFGElementType>add_btn.getAttribute(
+                                        'type'
+                                    );
+                                this.add_mode_lib = null;
                                 this.add_edge_start = null;
                                 this.add_edge_start_conn = null;
                                 this.update_toggle_buttons();
                             };
-                            this.emit('query_libnode', libnode_callback);
-                        };
-                    } else {
-                        add_btn.onclick = () => {
-                            this.mouse_mode = 'add';
-                            this.add_type =
-                                <SDFGElementType>add_btn.getAttribute('type');
-                            this.add_mode_lib = null;
-                            this.add_edge_start = null;
-                            this.add_edge_start_conn = null;
-                            this.update_toggle_buttons();
-                        };
+                        }
                     }
                 }
                 this.mode_selected_bg_color = '#22A4FE';
@@ -717,86 +761,118 @@ export class SDFGRenderer extends EventEmitter {
                 // Mode buttons are empty in standalone SDFV.
                 this.addmode_btns = [];
 
-                // Enter pan mode.
                 const modeButtonGroup = $('<div>', {
                     class: 'btn-group',
                     role: 'group',
                 }).appendTo(this.toolbar);
-                this.panmode_btn = $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material selected',
-                    html: '<i class="material-symbols-outlined">pan_tool</i>',
-                    title: 'Pan mode',
-                }).appendTo(modeButtonGroup)[0];
+
+                // Enter pan mode.
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('pan_mode')) {
+                    this.panmode_btn = $('<button>', {
+                        class: 'btn btn-secondary btn-sm btn-material selected',
+                        html: '<i class="material-symbols-outlined">' +
+                            'pan_tool</i>',
+                        title: 'Pan mode',
+                    }).appendTo(modeButtonGroup)[0];
+                }
 
                 // Enter move mode.
-                this.movemode_btn = $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">open_with</i>',
-                    title: 'Object moving mode',
-                }).appendTo(modeButtonGroup)[0];
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('move_mode')) {
+                    this.movemode_btn = $('<button>', {
+                        class: 'btn btn-secondary btn-sm btn-material',
+                        html: '<i class="material-symbols-outlined">' +
+                            'open_with</i>',
+                        title: 'Object moving mode',
+                    }).appendTo(modeButtonGroup)[0];
+                }
 
                 // Enter box select mode.
-                this.selectmode_btn = $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">select</i>',
-                    title: 'Select mode',
-                }).appendTo(modeButtonGroup)[0];
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('box_select_mode')) {
+                    this.selectmode_btn = $('<button>', {
+                        class: 'btn btn-secondary btn-sm btn-material',
+                        html: '<i class="material-symbols-outlined">select</i>',
+                        title: 'Select mode',
+                    }).appendTo(modeButtonGroup)[0];
+                }
             }
 
             // Enter pan mode
             if (this.panmode_btn) {
-                this.panmode_btn.onclick = () => {
-                    this.mouse_mode = 'pan';
-                    this.add_type = null;
-                    this.add_mode_lib = null;
-                    this.add_edge_start = null;
-                    this.add_edge_start_conn = null;
-                    this.update_toggle_buttons();
-                };
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('pan_mode')) {
+                    $(this.panmode_btn).prop('disabled', false);
+                    this.panmode_btn.onclick = () => {
+                        this.mouse_mode = 'pan';
+                        this.add_type = null;
+                        this.add_mode_lib = null;
+                        this.add_edge_start = null;
+                        this.add_edge_start_conn = null;
+                        this.update_toggle_buttons();
+                    };
+                } else {
+                    $(this.panmode_btn).prop('disabled', true);
+                }
             }
 
             // Enter object moving mode
             if (this.movemode_btn) {
-                this.movemode_btn.onclick = (
-                    _: MouseEvent, shift_click: boolean | undefined = undefined
-                ): void => {
-                    // shift_click is false if shift key has been released and
-                    // undefined if it has been a normal mouse click
-                    if (this.shift_key_movement && shift_click === false)
-                        this.mouse_mode = 'pan';
-                    else
-                        this.mouse_mode = 'move';
-                    this.add_type = null;
-                    this.add_mode_lib = null;
-                    this.add_edge_start = null;
-                    this.add_edge_start_conn = null;
-                    this.shift_key_movement = (
-                        shift_click === undefined ? false : shift_click
-                    );
-                    this.update_toggle_buttons();
-                };
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('move_mode')) {
+                    $(this.movemode_btn).prop('disabled', false);
+                    this.movemode_btn.onclick = (
+                        _: MouseEvent,
+                        shift_click: boolean | undefined = undefined
+                    ): void => {
+                        // shift_click is false if shift key has been released
+                        // and undefined if it has been a normal mouse click.
+                        if (this.shift_key_movement && shift_click === false)
+                            this.mouse_mode = 'pan';
+                        else
+                            this.mouse_mode = 'move';
+                        this.add_type = null;
+                        this.add_mode_lib = null;
+                        this.add_edge_start = null;
+                        this.add_edge_start_conn = null;
+                        this.shift_key_movement = (
+                            shift_click === undefined ? false : shift_click
+                        );
+                        this.update_toggle_buttons();
+                    };
+                } else {
+                    $(this.movemode_btn).prop('disabled', true);
+                }
             }
 
             // Enter box selection mode
             if (this.selectmode_btn) {
-                this.selectmode_btn.onclick = (
-                    _: MouseEvent, ctrl_click: boolean | undefined = undefined
-                ): void => {
-                    // ctrl_click is false if ctrl key has been released and
-                    // undefined if it has been a normal mouse click
-                    if (this.ctrl_key_selection && ctrl_click === false)
-                        this.mouse_mode = 'pan';
-                    else
-                        this.mouse_mode = 'select';
-                    this.add_type = null;
-                    this.add_mode_lib = null;
-                    this.add_edge_start = null;
-                    this.add_edge_start_conn = null;
-                    this.ctrl_key_selection = (
-                        ctrl_click === undefined ? false : ctrl_click
-                    );
-                    this.update_toggle_buttons();
-                };
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('box_select_mode')) {
+                    $(this.selectmode_btn).prop('disabled', false);
+                    this.selectmode_btn.onclick = (
+                        _: MouseEvent,
+                        ctrl_click: boolean | undefined = undefined
+                    ): void => {
+                        // ctrl_click is false if ctrl key has been released and
+                        // undefined if it has been a normal mouse click
+                        if (this.ctrl_key_selection && ctrl_click === false)
+                            this.mouse_mode = 'pan';
+                        else
+                            this.mouse_mode = 'select';
+                        this.add_type = null;
+                        this.add_mode_lib = null;
+                        this.add_edge_start = null;
+                        this.add_edge_start_conn = null;
+                        this.ctrl_key_selection = (
+                            ctrl_click === undefined ? false : ctrl_click
+                        );
+                        this.update_toggle_buttons();
+                    };
+                } else {
+                    $(this.selectmode_btn).prop('disabled', true);
+                }
             }
 
             // React to ctrl and shift key presses
@@ -807,32 +883,39 @@ export class SDFGRenderer extends EventEmitter {
             });
 
             // Filter graph to selection (visual cutout).
-            this.cutoutBtn = $('<button>', {
-                id: 'cutout-button',
-                class: 'btn btn-secondary btn-sm btn-material',
-                css: {
-                    'display': 'none',
-                },
-                html: '<i class="material-symbols-outlined">content_cut</i>',
-                title: 'Filter selection (cutout)',
-                click: () => {
-                    this.cutoutSelection();
-                },
-            }).appendTo(this.toolbar);
+            if (!this.enableMaskUI ||
+                this.enableMaskUI.includes('cutout_selection')) {
+                this.cutoutBtn = $('<button>', {
+                    id: 'cutout-button',
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    css: {
+                        'display': 'none',
+                    },
+                    html: '<i class="material-symbols-outlined">' +
+                        'content_cut</i>',
+                    title: 'Filter selection (cutout)',
+                    click: () => {
+                        this.cutoutSelection();
+                    },
+                }).appendTo(this.toolbar);
+            }
 
             // Transition to local view with selection.
-            this.localViewBtn = $('<button>', {
-                id: 'local-view-button',
-                class: 'btn btn-secondary btn-sm btn-material',
-                css: {
-                    'display': 'none',
-                },
-                html: '<i class="material-symbols-outlined">memory</i>',
-                title: 'Inspect access patterns (local view)',
-                click: () => {
-                    this.localViewSelection();
-                },
-            }).appendTo(this.toolbar);
+            if (!this.enableMaskUI ||
+                this.enableMaskUI.includes('local_view')) {
+                this.localViewBtn = $('<button>', {
+                    id: 'local-view-button',
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    css: {
+                        'display': 'none',
+                    },
+                    html: '<i class="material-symbols-outlined">memory</i>',
+                    title: 'Inspect access patterns (local view)',
+                    click: () => {
+                        this.localViewSelection();
+                    },
+                }).appendTo(this.toolbar);
+            }
 
             // Exit previewing mode.
             if (this.in_vscode) {
@@ -859,18 +942,12 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     // Initializes the DOM
-    public init_elements(
-        user_transform: DOMMatrix | null,
-        background: string | null,
-        mode_buttons: ModeButtons | null
-    ): void {
-        this.modeButtons = mode_buttons;
-
+    public init_elements(): void {
         // Set up the canvas.
         this.canvas = document.createElement('canvas');
         this.canvas.classList.add('sdfg_canvas');
-        if (background)
-            this.canvas.style.backgroundColor = background;
+        if (this.backgroundColor)
+            this.canvas.style.backgroundColor = this.backgroundColor;
         else
             this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
@@ -960,8 +1037,8 @@ export class SDFGRenderer extends EventEmitter {
 
         // Translation/scaling management
         this.canvas_manager = new CanvasManager(this.ctx, this, this.canvas);
-        if (user_transform !== null)
-            this.canvas_manager.set_user_transform(user_transform);
+        if (this.initialUserTransform !== null)
+            this.canvas_manager.set_user_transform(this.initialUserTransform);
 
         // Resize event for container
         const observer = new MutationObserver(() => {
@@ -976,11 +1053,10 @@ export class SDFGRenderer extends EventEmitter {
         resizeObserver.observe(this.container);
 
         // Set inherited properties
-        if (background)
-            this.bgcolor = background;
-        else
-            this.bgcolor = window.getComputedStyle(this.canvas).backgroundColor;
-
+        if (!this.backgroundColor) {
+            this.backgroundColor =
+                window.getComputedStyle(this.canvas).backgroundColor;
+        }
 
         this.updateCFGList();
 
@@ -993,7 +1069,7 @@ export class SDFGRenderer extends EventEmitter {
         this.set_mouse_handlers();
 
         // Set initial zoom, if not already set
-        if (user_transform === null)
+        if (this.initialUserTransform === null)
             this.zoom_to_view();
 
         const svgs: { [key: string]: string } = {};
@@ -1104,6 +1180,10 @@ export class SDFGRenderer extends EventEmitter {
         this.canvas_manager?.draw_async();
     }
 
+    public setSDFVInstance(instance: ISDFV): void {
+        this.sdfv_instance = instance;
+    }
+
     public updateCFGList() {
         // Update SDFG metadata
         this.cfgTree = {};
@@ -1145,8 +1225,8 @@ export class SDFGRenderer extends EventEmitter {
         if (this.selected_elements.length === 1) {
             const uuid = getGraphElementUUID(this.selected_elements[0]);
             if (this.graph) {
-                this.sdfv_instance.fill_info(
-                    findGraphElementByUUID(this.cfgList, uuid)
+                this.sdfv_instance?.linkedUI.showElementInfo(
+                    findGraphElementByUUID(this.cfgList, uuid), this
                 );
             }
         }
@@ -1160,6 +1240,10 @@ export class SDFGRenderer extends EventEmitter {
                 this.draw_async();
             }, 10);
         }
+
+        this.all_memlet_trees_sdfg = memletTreeComplete(this.sdfg);
+
+        this.update_fast_memlet_lookup();
     }
 
     // Set mouse events (e.g., click, drag, zoom)
@@ -1263,9 +1347,9 @@ export class SDFGRenderer extends EventEmitter {
             this.cfgList[cfgId].nsdfgNode = null;
         }
         this.graph = relayoutStateMachine(
-            this.ctx, this.sdfg, this.sdfg, this.cfgList,
+            this.sdfg, this.sdfg, undefined, this.ctx, this.cfgList,
             this.state_parent_list,
-            !SDFVSettings.get<boolean>('showAccessNodes'), undefined
+            !SDFVSettings.get<boolean>('showAccessNodes')
         );
         const topLevelBlocks: SDFGElement[] = [];
         for (const bId of this.graph.nodes())
@@ -1283,12 +1367,11 @@ export class SDFGRenderer extends EventEmitter {
         this.translateMovedElements();
 
         // Make sure all visible overlays get recalculated if there are any.
-        if (this.overlay_manager !== null)
-            this.overlay_manager.refresh();
+        this.overlayManager.refresh();
 
         // If we're in a VSCode context, we also want to refresh the outline.
         if (this.in_vscode)
-            this.sdfv_instance.outline(this, this.graph);
+            this.sdfv_instance?.outline();
 
         // Remove loading animation
         const info_field = document.getElementById('task-info-field');
@@ -2009,8 +2092,7 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     public on_post_draw(): void {
-        if (this.overlay_manager !== null)
-            this.overlay_manager.draw();
+        this.overlayManager.draw();
 
         this.draw_minimap();
 
@@ -3860,8 +3942,8 @@ export class SDFGRenderer extends EventEmitter {
             dirty = dirty || ext_mh_dirty;
         }
 
-        if (this.overlay_manager !== null) {
-            const ol_manager_dirty = this.overlay_manager.on_mouse_event(
+        if (this.overlayManager) {
+            const ol_manager_dirty = this.overlayManager.on_mouse_event(
                 evtype,
                 event,
                 { x: mouse_x, y: mouse_y },
@@ -3875,10 +3957,22 @@ export class SDFGRenderer extends EventEmitter {
         if (dirty)
             this.draw_async();
 
-        if (element_focus_changed || selection_changed)
+        if (selection_changed || multi_selection_changed)
             this.emit('selection_changed', multi_selection_changed);
+        if (element_focus_changed) {
+            this.emit(
+                'element_focus_changed',
+                selection_changed || multi_selection_changed
+            );
+        }
 
         return false;
+    }
+
+    public registerExternalMouseHandler(
+        handler: ((...args: any[]) => boolean) | null
+    ): void {
+        this.external_mouse_handler = handler;
     }
 
     public get_canvas(): HTMLCanvasElement | null {
@@ -3893,10 +3987,6 @@ export class SDFGRenderer extends EventEmitter {
         return this.ctx;
     }
 
-    public get_overlay_manager(): OverlayManager {
-        return this.overlay_manager;
-    }
-
     public get_visible_rect(): SimpleRect | null {
         return this.visible_rect;
     }
@@ -3905,8 +3995,8 @@ export class SDFGRenderer extends EventEmitter {
         return this.mouse_mode;
     }
 
-    public get_bgcolor(): string {
-        return (this.bgcolor ? this.bgcolor : '');
+    public getBackgroundColor(): string {
+        return (this.backgroundColor ? this.backgroundColor : '');
     }
 
     public get_sdfg(): JsonSDFG {
@@ -3945,8 +4035,8 @@ export class SDFGRenderer extends EventEmitter {
         this.tooltip = tooltip_func;
     }
 
-    public set_bgcolor(bgcolor: string): void {
-        this.bgcolor = bgcolor;
+    public setBackgroundColor(backgroundColor: string): void {
+        this.backgroundColor = backgroundColor;
     }
 
     public on_selection_changed(): void {
@@ -4004,14 +4094,22 @@ export class SDFGRenderer extends EventEmitter {
         });
         this.selected_elements = [];
         this.on_selection_changed();
+        this.draw_async();
     }
 
     public exitLocalView(): void {
-        reload_file(this.sdfv_instance);
+        if (!(this.sdfv_instance instanceof SDFV))
+            return;
+
+        const sdfv = this.sdfv_instance;
+        if (sdfv instanceof WebSDFV) {
+            sdfv.setSDFG(this.sdfg);
+            sdfv.getLocalViewRenderer()?.resizeObserver.disconnect();
+        }
     }
 
     public async localViewSelection(): Promise<void> {
-        if (!this.graph)
+        if (!this.graph || !(this.sdfv_instance instanceof SDFV))
             return;
 
         // Transition to the local view by first cutting out the selection.
@@ -4042,6 +4140,9 @@ export class SDFGRenderer extends EventEmitter {
                 this.container.appendChild(exitBtn);
 
                 this.sdfv_instance.setLocalViewRenderer(lRenderer);
+
+                if (this.canvas)
+                    $(this.canvas).remove();
             }
         } catch (e) {
             if (e instanceof LViewGraphParseError)
@@ -4191,7 +4292,7 @@ export class SDFGRenderer extends EventEmitter {
 
 
 function calculateNodeSize(
-    sdfg: JsonSDFG, node: any, ctx: CanvasRenderingContext2D
+    sdfg: JsonSDFG, node: any, ctx?: CanvasRenderingContext2D
 ): { width: number, height: number } {
     let label;
     switch (node.type) {
@@ -4211,7 +4312,7 @@ function calculateNodeSize(
             break;
     }
 
-    const labelsize = ctx.measureText(label).width;
+    const labelsize = ctx ? ctx.measureText(label).width : 1;
     const inconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
         node.attributes.layout.in_connectors
     ).length - SDFV.LINEHEIGHT;
@@ -4257,10 +4358,10 @@ function calculateNodeSize(
     return size;
 }
 
-function relayoutStateMachine(
-    ctx: CanvasRenderingContext2D, stateMachine: JsonSDFGControlFlowRegion,
-    sdfg: JsonSDFG, cfgList: CFGListType, stateParentList: any[],
-    omitAccessNodes: boolean, parent?: SDFGElement
+export function relayoutStateMachine(
+    stateMachine: JsonSDFGControlFlowRegion, sdfg: JsonSDFG,
+    parent?: SDFGElement, ctx?: CanvasRenderingContext2D, cfgList?: CFGListType,
+    stateParentList?: any[], omitAccessNodes: boolean = false
 ): DagreGraph {
     const BLOCK_MARGIN = 3 * SDFV.LINEHEIGHT;
 
@@ -4301,7 +4402,7 @@ function relayoutStateMachine(
         let blockGraph = null;
         if (block.attributes?.is_collapsed) {
             blockInfo.height = SDFV.LINEHEIGHT;
-            if (blockElem instanceof LoopRegion) {
+            if (blockElem instanceof LoopRegion && ctx) {
                 const oldFont = ctx.font;
                 ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
                 const labelWidths = [
@@ -4324,12 +4425,15 @@ function relayoutStateMachine(
                     maxLabelWidth, ctx.measureText(block.label).width
                 ) + 3 * LoopRegion.META_LABEL_MARGIN;
             } else {
-                blockInfo.width = ctx.measureText(blockInfo.label).width;
+                if (ctx)
+                    blockInfo.width = ctx.measureText(blockInfo.label).width;
+                else
+                    blockInfo.width = 1;
             }
         } else {
             blockGraph = relayoutSDFGBlock(
-                ctx, block, sdfg, cfgList, stateParentList, omitAccessNodes,
-                blockElem
+                block, sdfg, blockElem, ctx, cfgList, stateParentList,
+                omitAccessNodes
             );
             if (blockGraph)
                 blockInfo = calculateBoundingBox(blockGraph);
@@ -4442,15 +4546,16 @@ function relayoutStateMachine(
     (g as any).height = bb.height;
 
     // Add CFG graph to global store.
-    cfgList[stateMachine.cfg_list_id].graph = g;
+    if (cfgList !== undefined)
+        cfgList[stateMachine.cfg_list_id].graph = g;
 
     return g;
 }
 
 function relayoutSDFGState(
-    ctx: CanvasRenderingContext2D, state: JsonSDFGState,
-    sdfg: JsonSDFG, sdfgList: CFGListType, stateParentList: any[],
-    omitAccessNodes: boolean, parent: State
+    state: JsonSDFGState, sdfg: JsonSDFG, parent: State,
+    ctx?: CanvasRenderingContext2D, sdfgList?: CFGListType,
+    stateParentList?: any[], omitAccessNodes: boolean = false
 ): DagreGraph | null {
     if (!state.nodes && !state.edges)
         return null;
@@ -4520,8 +4625,8 @@ function relayoutSDFGState(
             if (node.attributes.sdfg &&
                 node.attributes.sdfg.type !== 'SDFGShell') {
                 nestedGraph = relayoutStateMachine(
-                    ctx, node.attributes.sdfg, node.attributes.sdfg, sdfgList,
-                    stateParentList, omitAccessNodes, parent
+                    node.attributes.sdfg, node.attributes.sdfg, parent, ctx,
+                    sdfgList, stateParentList, omitAccessNodes
                 );
                 const sdfgInfo = calculateBoundingBox(nestedGraph);
                 node.attributes.layout.width =
@@ -4530,9 +4635,13 @@ function relayoutSDFGState(
                     sdfgInfo.height + 2 * SDFV.LINEHEIGHT;
             } else {
                 const emptyNSDFGLabel = 'No SDFG loaded';
-                const textMetrics = ctx.measureText(emptyNSDFGLabel);
-                node.attributes.layout.width =
-                    textMetrics.width + 2 * SDFV.LINEHEIGHT;
+                if (ctx) {
+                    const textMetrics = ctx.measureText(emptyNSDFGLabel);
+                    node.attributes.layout.width =
+                        textMetrics.width + 2 * SDFV.LINEHEIGHT;
+                } else {
+                    node.attributes.layout.width = 1;
+                }
                 node.attributes.layout.height = 4 * SDFV.LINEHEIGHT;
             }
         }
@@ -4547,7 +4656,9 @@ function relayoutSDFGState(
         // state's parent node.
         if ((node.type === SDFGElementType.NestedSDFG ||
             node.type === SDFGElementType.ExternalNestedSDFG) &&
-            node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell') {
+            node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell' &&
+            stateParentList !== undefined && sdfgList !== undefined
+        ) {
             stateParentList[node.attributes.sdfg.cfg_list_id] = obj;
             sdfgList[node.attributes.sdfg.cfg_list_id].nsdfgNode = obj;
         }
@@ -4947,25 +5058,24 @@ function relayoutSDFGState(
 }
 
 function relayoutSDFGBlock(
-    ctx: CanvasRenderingContext2D, block: JsonSDFGBlock,
-    sdfg: JsonSDFG, sdfgList: CFGListType, stateParentList: any[],
-    omitAccessNodes: boolean, parent: SDFGElement
+    block: JsonSDFGBlock, sdfg: JsonSDFG, parent: SDFGElement,
+    ctx?: CanvasRenderingContext2D, sdfgList?: CFGListType,
+    stateParentList?: any[], omitAccessNodes: boolean = false
 ): DagreGraph | null {
     switch (block.type) {
         case SDFGElementType.LoopRegion:
         case SDFGElementType.ControlFlowRegion:
             return relayoutStateMachine(
-                ctx, block as JsonSDFGControlFlowRegion, sdfg, sdfgList,
-                stateParentList, omitAccessNodes, parent
+                block as JsonSDFGControlFlowRegion, sdfg, parent, ctx, sdfgList,
+                stateParentList, omitAccessNodes
             );
         case SDFGElementType.SDFGState:
         case SDFGElementType.BasicBlock:
             return relayoutSDFGState(
-                ctx, block as JsonSDFGState, sdfg, sdfgList, stateParentList,
-                omitAccessNodes, parent
+                block as JsonSDFGState, sdfg, parent, ctx, sdfgList,
+                stateParentList, omitAccessNodes
             );
         default:
             return null;
     }
 }
-
