@@ -4101,9 +4101,10 @@ export class SDFGRenderer extends EventEmitter {
         if (!(this.sdfv_instance instanceof SDFV))
             return;
 
-        if (this.sdfv_instance instanceof WebSDFV) {
-            this.container.innerHTML = '';
-            this.sdfv_instance.setSDFG(this.sdfg);
+        const sdfv = this.sdfv_instance;
+        if (sdfv instanceof WebSDFV) {
+            sdfv.setSDFG(this.sdfg);
+            sdfv.getLocalViewRenderer()?.resizeObserver.disconnect();
         }
     }
 
@@ -4139,6 +4140,9 @@ export class SDFGRenderer extends EventEmitter {
                 this.container.appendChild(exitBtn);
 
                 this.sdfv_instance.setLocalViewRenderer(lRenderer);
+
+                if (this.canvas)
+                    $(this.canvas).remove();
             }
         } catch (e) {
             if (e instanceof LViewGraphParseError)

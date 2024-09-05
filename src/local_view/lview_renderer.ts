@@ -33,8 +33,9 @@ import { ReuseDistanceOverlay } from './overlays/reuse_distance_overlay';
 
 export class LViewRenderer {
 
-    public readonly pixiApp: Application | null = null;
-    public readonly viewport: Viewport | null = null;
+    public readonly resizeObserver: ResizeObserver;
+    public readonly pixiApp: Application;
+    public readonly viewport: Viewport;
 
     protected tooltipContainer?: JQuery<HTMLDivElement>;
     protected tooltipText?: JQuery<HTMLSpanElement>;
@@ -84,7 +85,7 @@ export class LViewRenderer {
             interaction: this.pixiApp.renderer.plugins.interaction,
         });
 
-        const resizeObserver = new ResizeObserver(entries => {
+        this.resizeObserver = new ResizeObserver(entries => {
             entries.forEach(entry => {
                 if (entry.contentBoxSize) {
                     this.pixiApp?.resize();
@@ -94,7 +95,7 @@ export class LViewRenderer {
                 }
             });
         });
-        resizeObserver.observe(this.container);
+        this.resizeObserver.observe(this.container);
 
         this.pixiApp.stage.addChild(this.viewport);
 
