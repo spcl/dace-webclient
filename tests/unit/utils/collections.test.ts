@@ -1,6 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { AccessStack, LinkedStack } from "../../../src/utils/collections";
+import { AccessStack, LinkedStack } from '../../../src/utils/collections';
 
 function testLinkedStackConstruction(): void {
     const lStack = new LinkedStack();
