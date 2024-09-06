@@ -21,6 +21,7 @@ import {
     SDFVTooltipFunc,
     SimpleRect,
     checkCompatSave,
+    parse_sdfg,
     stringify_sdfg,
 } from '../index';
 import { SMLayouter } from '../layouter/state_machine/sm_layouter';
@@ -298,19 +299,19 @@ export class SDFGRenderer extends EventEmitter {
 
         this.init_elements();
 
-        this.setSDFG(this.sdfg, false);
-
-        this.on('collapse_state_changed', () => {
-            this.emit('graph_edited');
-        });
-        this.on('element_position_changed', () => {
-            this.emit('graph_edited');
-        });
-        this.on('selection_changed', () => {
-            this.on_selection_changed();
-        });
-        this.on('graph_edited', () => {
-            this.draw_async();
+        this.setSDFG(this.sdfg, false).then(() => {
+            this.on('collapse_state_changed', () => {
+                this.emit('graph_edited');
+            });
+            this.on('element_position_changed', () => {
+                this.emit('graph_edited');
+            });
+            this.on('selection_changed', () => {
+                this.on_selection_changed();
+            });
+            this.on('graph_edited', () => {
+                this.draw_async();
+            });
         });
 
         SDFVSettings.getInstance().on('setting_changed', (setting) => {
@@ -1218,32 +1219,40 @@ export class SDFGRenderer extends EventEmitter {
         );
     }
 
-    public setSDFG(new_sdfg: JsonSDFG, layout: boolean = true): void {
-        this.sdfg = new_sdfg;
+    public async setSDFG(
+        new_sdfg: JsonSDFG, layout: boolean = true
+    ): Promise<void> {
+        return new Promise((resolve)=> {
+            this.sdfg = new_sdfg;
 
-        // Update info box
-        if (this.selected_elements.length === 1) {
-            const uuid = getGraphElementUUID(this.selected_elements[0]);
-            if (this.graph) {
-                this.sdfv_instance?.linkedUI.showElementInfo(
-                    findGraphElementByUUID(this.cfgList, uuid), this
-                );
+            // Update info box
+            if (this.selected_elements.length === 1) {
+                const uuid = getGraphElementUUID(this.selected_elements[0]);
+                if (this.graph) {
+                    this.sdfv_instance?.linkedUI.showElementInfo(
+                        findGraphElementByUUID(this.cfgList, uuid), this
+                    );
+                }
             }
-        }
 
-        if (layout) {
-            this.updateCFGList();
+            if (layout) {
+                this.updateCFGList();
 
-            this.add_loading_animation();
-            setTimeout(() => {
-                this.relayout();
-                this.draw_async();
-            }, 10);
-        }
+                this.add_loading_animation();
+                setTimeout(() => {
+                    this.relayout();
+                    this.draw_async();
+                    resolve();
+                }, 1);
+            }
 
-        this.all_memlet_trees_sdfg = memletTreeComplete(this.sdfg);
+            this.all_memlet_trees_sdfg = memletTreeComplete(this.sdfg);
 
-        this.update_fast_memlet_lookup();
+            this.update_fast_memlet_lookup();
+
+            if (!layout)
+                resolve();
+        });
     }
 
     // Set mouse events (e.g., click, drag, zoom)
@@ -2857,8 +2866,9 @@ export class SDFGRenderer extends EventEmitter {
                 }
             }
             this.deselect();
-            this.setSDFG(this.sdfg);
-            this.emit('graph_edited');
+            this.setSDFG(this.sdfg).then(() => {
+                this.emit('graph_edited');
+            });
         }
 
         // Ctrl + Shift Accelerators temporarily disabled due to a bug with
@@ -4101,11 +4111,8 @@ export class SDFGRenderer extends EventEmitter {
         if (!(this.sdfv_instance instanceof SDFV))
             return;
 
-        const sdfv = this.sdfv_instance;
-        if (sdfv instanceof WebSDFV) {
-            sdfv.setSDFG(this.sdfg);
-            sdfv.getLocalViewRenderer()?.resizeObserver.disconnect();
-        }
+        if (this.sdfv_instance instanceof WebSDFV)
+            this.sdfv_instance.setSDFG(this.sdfg);
     }
 
     public async localViewSelection(): Promise<void> {
@@ -4114,7 +4121,8 @@ export class SDFGRenderer extends EventEmitter {
 
         // Transition to the local view by first cutting out the selection.
         try {
-            this.cutoutSelection(true);
+            const origSdfg = stringify_sdfg(this.sdfg);
+            await this.cutoutSelection(true);
             const lRenderer =
                 new LViewRenderer(this.sdfv_instance, this.container);
             const lGraph = await LViewParser.parseGraph(this.graph, lRenderer);
@@ -4134,6 +4142,7 @@ export class SDFGRenderer extends EventEmitter {
                 exitBtn.style.left = '10px';
                 exitBtn.title = 'Exit local view';
                 exitBtn.onclick = () => {
+                    this.sdfg = parse_sdfg(origSdfg);
                     this.exitLocalView();
                     this.container.removeChild(exitBtn);
                 };
@@ -4152,7 +4161,9 @@ export class SDFGRenderer extends EventEmitter {
         }
     }
 
-    public cutoutSelection(_suppressSave: boolean = false): void {
+    public async cutoutSelection(
+        _suppressSave: boolean = false
+    ): Promise<void> {
         /* Rule set for creating a cutout subgraph:
          * Edges are selected according to the subgraph nodes - all edges
          * between subgraph nodes are preserved.
@@ -4276,7 +4287,7 @@ export class SDFGRenderer extends EventEmitter {
             }
 
             // Set root SDFG as the new SDFG
-            this.setSDFG(rootSDFG as JsonSDFG);
+            return this.setSDFG(rootSDFG as JsonSDFG);
         }
     }
 
