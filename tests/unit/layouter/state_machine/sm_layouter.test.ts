@@ -343,7 +343,7 @@ function testEdgeRoutingSelfLoop(): void {
     const node = graph.get('1')!;
     const lowerY = node.y + (node.height / 4);
     const upperY = node.y - (node.height / 4);
-    const leftX = node.x - ((node.width / 2) + BACKEDGE_SPACING);
+    const leftX = node.x - ((node.width / 2) + (BACKEDGE_SPACING / 2));
     const rightX = node.x - (node.width / 2);
     expect(selfEdge.points.length).toBe(4);
     expect(selfEdge.points[0].x).toBeCloseTo(rightX);
