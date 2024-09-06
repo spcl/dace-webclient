@@ -1,3 +1,5 @@
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { DiGraph } from '../../../../src/layouter/graphlib/di_graph';
 
 function testAddEdges(): void {
