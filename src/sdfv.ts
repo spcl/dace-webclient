@@ -134,6 +134,7 @@ export abstract class SDFV implements ISDFV {
     public set_renderer(renderer: SDFGRenderer | null): void {
         if (renderer) {
             this.localViewRenderer?.destroy();
+            this.localViewRenderer?.resizeObserver.disconnect();
             this.localViewRenderer = null;
         }
         this.renderer = renderer;

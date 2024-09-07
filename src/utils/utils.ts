@@ -161,12 +161,17 @@ function tempColor(badness: number): [number, number, number] {
     let saturation = 1.0;
     let lightness = 0.75;
     try {
-        saturation = parseFloat(
+        const rSaturation = parseFloat(
             SDFGRenderer.getCssProperty('--overlay-color-saturation')
         );
-        lightness = parseFloat(
+        if (rSaturation !== undefined && !Number.isNaN(rSaturation))
+            saturation = rSaturation;
+
+        const rLightness = parseFloat(
             SDFGRenderer.getCssProperty('--overlay-color-lightness')
         );
+        if (rLightness !== undefined && !Number.isNaN(rLightness))
+            lightness = rLightness;
     } catch (_ignored) {
         // Ignored.
     }
