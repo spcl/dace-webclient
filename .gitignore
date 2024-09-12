@@ -103,5 +103,5 @@ typings/
 .tern-port
 
 out/
-dist/
+#dist/
 *.hot-update.*
