@@ -35,7 +35,7 @@ import {
     stringify_sdfg,
 } from './utils/sdfg/json_serializer';
 import { SDFVSettings } from './utils/sdfv_settings';
-import { WebSDFGDiffViewer } from './sdfg_diff_viewer';
+import { DiffMap, WebSDFGDiffViewer } from './sdfg_diff_viewer';
 import { ISDFVUserInterface, SDFVWebUI } from './sdfv_ui';
 
 declare const vscode: any;
@@ -244,7 +244,7 @@ export class WebSDFV extends SDFV {
         fileReader.readAsArrayBuffer(this.currentSDFGFile);
     }
 
-    public enterDiffView(sdfgA: JsonSDFG, sdfgB: JsonSDFG): void {
+    public enterDiffView(sdfgA: JsonSDFG, sdfgB: JsonSDFG, precomputedDiff?: DiffMap): void {
         $('#contents').hide();
 
         this.renderer?.destroy();
@@ -252,7 +252,7 @@ export class WebSDFV extends SDFV {
         this.UI.infoClear();
         this.deregisterEventListeners();
 
-        WebSDFGDiffViewer.init(sdfgA, sdfgB);
+        WebSDFGDiffViewer.init(sdfgA, sdfgB, precomputedDiff);
 
         $('#diff-container').show();
     }
