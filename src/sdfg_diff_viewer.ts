@@ -318,7 +318,7 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         );
     }
 
-    public static init(graphA: JsonSDFG, graphB: JsonSDFG): WebSDFGDiffViewer {
+    public static init(graphA: JsonSDFG, graphB: JsonSDFG, precomputedDiff?: DiffMap): WebSDFGDiffViewer {
         const leftContainer = document.getElementById('diff-contents-A');
         const rightContainer = document.getElementById('diff-contents-B');
         if (!leftContainer || !rightContainer)
@@ -426,7 +426,8 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         lSDFG.sdfgDagreGraph = leftRenderer.get_graph() ?? undefined;
         const rSDFG = new SDFG(graphB);
         rSDFG.sdfgDagreGraph = rightRenderer.get_graph() ?? undefined;
-        SDFGDiffViewer.diff(lSDFG, rSDFG).then(diff => {
+
+        const onDiffCreated = (diff: DiffMap) => {
             viewer.diffMap = diff;
             const leftOverlay = new DiffOverlay(leftRenderer, diff);
             const rightOverlay = new DiffOverlay(rightRenderer, diff);
@@ -436,7 +437,15 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             rightRenderer.overlayManager.register_overlay_instance(
                 rightOverlay
             );
-        });
+        };
+
+        if (precomputedDiff) {
+            onDiffCreated(precomputedDiff);
+        } else {
+            SDFGDiffViewer.diff(lSDFG, rSDFG).then(diff => {
+                onDiffCreated(diff);
+            });
+        }
 
         return viewer;
     }

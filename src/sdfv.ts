@@ -6,6 +6,7 @@ import 'bootstrap';
 
 import '../scss/sdfv.scss';
 
+import { EventEmitter } from 'events';
 import { mean, median } from 'mathjs';
 import {
     DagreGraph,
@@ -29,11 +30,12 @@ import {
 import { htmlSanitize } from './utils/sanitization';
 import {
     checkCompatLoad,
+    checkCompatSave,
     parse_sdfg,
     stringify_sdfg,
 } from './utils/sdfg/json_serializer';
 import { SDFVSettings } from './utils/sdfv_settings';
-import { WebSDFGDiffViewer } from './sdfg_diff_viewer';
+import { DiffMap, WebSDFGDiffViewer } from './sdfg_diff_viewer';
 import { ISDFVUserInterface, SDFVWebUI } from './sdfv_ui';
 
 declare const vscode: any;
@@ -44,7 +46,7 @@ export interface ISDFV {
     outline(): void;
 }
 
-export abstract class SDFV implements ISDFV {
+export abstract class SDFV extends EventEmitter implements ISDFV {
 
     public static LINEHEIGHT: number = 10;
     // Points-per-pixel threshold for not drawing Arrowheads of
@@ -61,6 +63,7 @@ export abstract class SDFV implements ISDFV {
     protected localViewRenderer: LViewRenderer | null = null;
 
     public constructor() {
+        super();
         return;
     }
 
@@ -164,6 +167,7 @@ export abstract class SDFV implements ISDFV {
 export class WebSDFV extends SDFV {
 
     private static readonly INSTANCE: WebSDFV = new WebSDFV();
+    private _initialized: boolean = false;
 
     private constructor() {
         super();
@@ -182,9 +186,20 @@ export class WebSDFV extends SDFV {
     private currentSDFGFile: File | null = null;
     private modeButtons: ModeButtons | null = null;
 
+    public get inittialized(): boolean {
+        return this._initialized;
+    }
+
     public init(): void {
+        if (this._initialized)
+            return;
+
         this.registerEventListeners();
         this.UI.init();
+
+        this._initialized = true;
+
+        this.emit('initialized');
     }
 
     public setModeButtons(modeButtons: ModeButtons): void {
@@ -229,28 +244,29 @@ export class WebSDFV extends SDFV {
         fileReader.readAsArrayBuffer(this.currentSDFGFile);
     }
 
+    public enterDiffView(sdfgA: JsonSDFG, sdfgB: JsonSDFG, precomputedDiff?: DiffMap): void {
+        $('#contents').hide();
+
+        this.renderer?.destroy();
+
+        this.UI.infoClear();
+        this.deregisterEventListeners();
+
+        WebSDFGDiffViewer.init(sdfgA, sdfgB, precomputedDiff);
+
+        $('#diff-container').show();
+    }
+
     private loadDiffSDFG(e: any): void {
         if (e.target.files.length < 1 || !e.target.files[0])
             return;
 
         const fileReader = new FileReader();
         fileReader.onload = (e) => {
-            const sdfvContainer = $('#contents');
-            const diffContainer = $('#diff-container');
             const sdfgB = this.renderer?.get_sdfg();
-
-            if (e.target?.result && sdfvContainer && diffContainer && sdfgB) {
-                sdfvContainer.hide();
-
-                this.renderer?.destroy();
-
-                this.UI.infoClear();
-                this.deregisterEventListeners();
-
+            if (e.target?.result && sdfgB) {
                 const sdfgA = checkCompatLoad(parse_sdfg(e.target.result));
-                WebSDFGDiffViewer.init(sdfgA, sdfgB);
-
-                diffContainer.show();
+                this.enterDiffView(sdfgA, sdfgB);
             }
         };
         fileReader.readAsArrayBuffer(e.target.files[0]);
@@ -690,25 +706,28 @@ $(() => {
 
     WebSDFV.getInstance().init();
 
-    if (document.currentScript?.hasAttribute('data-sdfg-json')) {
-        const sdfg_string =
-            document.currentScript?.getAttribute('data-sdfg-json');
-        if (sdfg_string) {
-            WebSDFV.getInstance().setSDFG(
-                checkCompatLoad(parse_sdfg(sdfg_string)), null, false
-            );
+    // If the renderer is not null, an SDFG has already been set from somewhere else.
+    if (WebSDFV.getInstance().get_renderer() === null) {
+        if (document.currentScript?.hasAttribute('data-sdfg-json')) {
+            const sdfg_string =
+                document.currentScript?.getAttribute('data-sdfg-json');
+            if (sdfg_string) {
+                WebSDFV.getInstance().setSDFG(
+                    checkCompatLoad(parse_sdfg(sdfg_string)), null, false
+                );
+            }
+        } else if (document.currentScript?.hasAttribute('data-url')) {
+            const url =
+                document.currentScript?.getAttribute('data-url');
+            if (url)
+                loadSDFGFromURL(url);
+        } else {
+            const url = getParameterByName('url');
+            if (url)
+                loadSDFGFromURL(url);
+            else
+                WebSDFV.getInstance().setSDFG(null);
         }
-    } else if (document.currentScript?.hasAttribute('data-url')) {
-        const url =
-            document.currentScript?.getAttribute('data-url');
-        if (url)
-            loadSDFGFromURL(url);
-    } else {
-        const url = getParameterByName('url');
-        if (url)
-            loadSDFGFromURL(url);
-        else
-            WebSDFV.getInstance().setSDFG(null);
     }
 });
 
@@ -722,11 +741,14 @@ declare global {
 
         // API classes
         SDFV: typeof SDFV;
+        WebSDFV: typeof WebSDFV;
         SDFGRenderer: typeof SDFGRenderer;
 
         // Exported functions
         parse_sdfg: (sdfg_json: string) => JsonSDFG;
         stringify_sdfg: (sdfg: JsonSDFG) => string;
+        checkCompatLoad: (sdfg: JsonSDFG) => JsonSDFG;
+        checkCompatSave: (sdfg: JsonSDFG) => JsonSDFG;
     }
 }
 
@@ -734,6 +756,9 @@ window.OverlayManager = OverlayManager;
 window.GenericSdfgOverlay = GenericSdfgOverlay;
 window.SDFGElement = SDFGElement;
 window.SDFV = SDFV;
+window.WebSDFV = WebSDFV;
 window.SDFGRenderer = SDFGRenderer;
 window.parse_sdfg = parse_sdfg;
 window.stringify_sdfg = stringify_sdfg;
+window.checkCompatLoad = checkCompatLoad;
+window.checkCompatSave = checkCompatSave;
