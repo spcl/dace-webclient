@@ -27,6 +27,7 @@ export * from './utils/sanitization';
 export * from './utils/utils';
 export * from './overlay_manager';
 export * from './sdfv';
+export * from './sdfv_ui';
 
 export type SymbolMap = {
     [symbol: string]: number | undefined,

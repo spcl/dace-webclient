@@ -4,13 +4,16 @@ import { GraphEdge } from 'dagre';
 import { Edge, SDFGElement } from '../renderer/renderer_elements';
 import { DagreGraph } from '../index';
 
-export function calculateBoundingBox(g: DagreGraph): DOMRect {
+export function calculateBoundingBox(g: DagreGraph): {
+    x: number, y: number, width: number, height: number
+} {
     // iterate over all objects, calculate the size of the bounding box
-    const bb = new DOMRect();
-    bb.x = 0;
-    bb.x = 0;
-    bb.width = 0;
-    bb.height = 0;
+    const bb = {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+    };
 
     g.nodes().forEach((v) => {
         const x = g.node(v).x + g.node(v).width / 2.0;
@@ -74,7 +77,9 @@ export function boundingBox(
     return ret_bb;
 }
 
-export function calculateEdgeBoundingBox(edge: Edge | GraphEdge): DOMRect {
+export function calculateEdgeBoundingBox(edge: Edge | GraphEdge): {
+    x: number, y: number, width: number, height: number
+} {
     // iterate over all points, calculate the size of the bounding box
     const points = edge.get_points();
     const bb = {
@@ -91,7 +96,12 @@ export function calculateEdgeBoundingBox(edge: Edge | GraphEdge): DOMRect {
         bb.y2 = p.y > bb.y2 ? p.y : bb.y2;
     });
 
-    const ret_bb = new DOMRect(bb.x1, bb.y1, bb.x2 - bb.x1, bb.y2 - bb.y1);
+    const ret_bb = {
+        x: bb.x1,
+        y: bb.y1,
+        width: bb.x2 - bb.x1,
+        height: bb.y2 - bb.y1,
+    };
     if (ret_bb.width <= 5) {
         ret_bb.width = 10;
         ret_bb.x -= 5;

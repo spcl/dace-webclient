@@ -382,10 +382,10 @@ export class CanvasManager {
         if (parent_graph && !(el instanceof Edge)) {
             // Find all the edges connected to the moving node
             parent_graph.outEdges(el.id.toString())?.forEach(edge_id => {
-                out_edges.push(parent_graph.edge(edge_id));
+                out_edges.push(parent_graph!.edge(edge_id));
             });
             parent_graph.inEdges(el.id.toString())?.forEach(edge_id => {
-                in_edges.push(parent_graph.edge(edge_id));
+                in_edges.push(parent_graph!.edge(edge_id));
             });
         }
 
@@ -783,7 +783,7 @@ export class CanvasManager {
         // Clear with default transform
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        ctx.fillStyle = this.renderer.get_bgcolor();
+        ctx.fillStyle = this.renderer.getBackgroundColor();
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
         this.animation_step(now);

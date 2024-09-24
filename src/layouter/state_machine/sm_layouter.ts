@@ -884,7 +884,7 @@ export class SMLayouter {
             if (edge[0] === edge[1]) {
                 // Self edge.
                 const nodeLeftX = src.x - (src.width / 2);
-                const edgeLeftX = nodeLeftX - BACKEDGE_SPACING;
+                const edgeLeftX = nodeLeftX - BACKEDGE_SPACING / 2;
                 const edgeBottomY = src.y + (src.height / 4);
                 const edgeTopY = src.y - (src.height / 4);
                 edgeData.points = [

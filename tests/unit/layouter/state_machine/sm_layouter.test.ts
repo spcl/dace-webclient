@@ -1,9 +1,11 @@
+// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { DiGraph } from '../../../../src/layouter/graphlib/di_graph';
 import {
     BACKEDGE_SPACING,
     SMLayouter,
     SMLayouterEdge,
-    SMLayouterNode
+    SMLayouterNode,
 } from '../../../../src/layouter/state_machine/sm_layouter';
 
 function constructNode(
@@ -181,7 +183,7 @@ function testSelfLoop(): void {
     //  =1
     //   |
     //   2
- 
+
     constructEdge(graph, '0', '1');
     constructEdge(graph, '1', '1');
     constructEdge(graph, '1', '2');
@@ -202,7 +204,7 @@ function testSelfLoop(): void {
     //  =1==--3
     //   | |
     //   2--
- 
+
     constructEdge(graph2, '0', '1');
     constructEdge(graph2, '1', '1');
     constructEdge(graph2, '1', '2');
@@ -304,6 +306,50 @@ function testSkipLoopWithBreakReturn(): void {
     expect(graph.get('7')?.rank).toBe(7);
 }
 
+function testMultiEntryExit(): void {
+    const graph = new DiGraph<SMLayouterNode, SMLayouterEdge>();
+
+    // Construct graph.
+    //   0  1
+    //   |  |
+    //   2--|
+    //   |
+    //   3
+
+    constructEdge(graph, '0', '2');
+    constructEdge(graph, '1', '2');
+    constructEdge(graph, '2', '3');
+
+    const layouter = new SMLayouter(graph);
+    layouter.doLayout();
+
+    expect(graph.get('0')?.rank).toBe(1);
+    expect(graph.get('1')?.rank).toBe(1);
+    expect(graph.get('2')?.rank).toBe(2);
+    expect(graph.get('3')?.rank).toBe(3);
+
+    const graph2 = new DiGraph<SMLayouterNode, SMLayouterEdge>();
+
+    // Construct graph.
+    //   0
+    //   |
+    //   1--|
+    //   |  |
+    //   2  3
+
+    constructEdge(graph2, '0', '1');
+    constructEdge(graph2, '1', '2');
+    constructEdge(graph2, '1', '3');
+
+    const layouter2 = new SMLayouter(graph2);
+    layouter2.doLayout();
+
+    expect(graph2.get('0')?.rank).toBe(0);
+    expect(graph2.get('1')?.rank).toBe(1);
+    expect(graph2.get('2')?.rank).toBe(2);
+    expect(graph2.get('3')?.rank).toBe(2);
+}
+
 describe('Test vertical state machine layout ranking', () => {
     test('Basic branching', testBasicBranching);
     test('Nested branching', testNestedBranching);
@@ -320,6 +366,7 @@ describe('Test vertical state machine layout ranking', () => {
         'Test conditionally skipped loop with break and returns',
         testSkipLoopWithBreakReturn
     );
+    test('Test multiple source nodes and sink nodes', testMultiEntryExit);
 });
 
 function testEdgeRoutingSelfLoop(): void {
@@ -331,7 +378,7 @@ function testEdgeRoutingSelfLoop(): void {
     //  =1
     //   |
     //   2
- 
+
     constructEdge(graph, '0', '1');
     constructEdge(graph, '1', '1');
     constructEdge(graph, '1', '2');
@@ -343,7 +390,7 @@ function testEdgeRoutingSelfLoop(): void {
     const node = graph.get('1')!;
     const lowerY = node.y + (node.height / 4);
     const upperY = node.y - (node.height / 4);
-    const leftX = node.x - ((node.width / 2) + BACKEDGE_SPACING);
+    const leftX = node.x - ((node.width / 2) + (BACKEDGE_SPACING / 2));
     const rightX = node.x - (node.width / 2);
     expect(selfEdge.points.length).toBe(4);
     expect(selfEdge.points[0].x).toBeCloseTo(rightX);

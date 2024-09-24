@@ -8,6 +8,8 @@
 $material-symbols-font-path: "~material-symbols/";
 @import "~material-symbols";
 
+@import "./color_schemes/default";
+
 .sdfv {
   @import "~bootstrap/scss/bootstrap";
 }
@@ -72,6 +74,25 @@ body.sdfv {
     height: 90%;
     border: 1px solid;
     overflow: hidden;
+  }
+
+  #diff-container {
+    resize: both;
+    width: 90%;
+    height: 90%;
+    border: 1px solid;
+    overflow: hidden;
+    display: flex;
+
+    .diff-contents {
+      position: relative;
+      width: 50%;
+      height: 100%;
+    }
+
+    #diff-contents-A {
+      border-right: 1px solid;
+    }
   }
 
   #minimap {
@@ -206,11 +227,54 @@ body.sdfv {
     font-size: 1rem;
     font-family: "Segoe UI", Arial, sans-serif;
     padding: 0.5rem 2rem 0.5rem 0.4rem;
+    user-select: none;
     cursor: pointer;
   }
 
   .context_menu_option:hover {
     background-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .diff-outline-entry {
+    padding-top: .5rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid rgba(20, 20, 20, 0.1);
+
+    font-size: 1rem;
+    font-family: "Segoe UI", Arial, sans-serif;
+    user-select: none;
+    cursor: pointer;
+    color: rgba(20, 20, 20, 1.0);
+
+    &.removed {
+      background-color: $sdfv-diff-removed;
+
+      &:hover {
+        background-color: darken($sdfv-diff-removed, 5%);
+      }
+    }
+
+    &.added {
+      background-color: $sdfv-diff-added;
+
+      &:hover {
+        background-color: darken($sdfv-diff-added, 5%);
+      }
+    }
+
+    &.changed {
+      background-color: $sdfv-diff-changed;
+
+      &:hover {
+        background-color: darken($sdfv-diff-changed, 5%);
+      }
+    }
+
+    &.nodiff {
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+      }
+    }
   }
 
   .sdfv_modal_background {
@@ -341,6 +405,10 @@ body.sdfv {
     --local-view-edge-overlay-width: 10;
     --local-view-edge-overlay-arrowhead-length: 30;
     --local-view-edge-overlay-fontsize: 20;
+
+    --color-diff-added: #{$sdfv-diff-added};
+    --color-diff-removed: #{$sdfv-diff-removed};
+    --color-diff-changed: #{$sdfv-diff-changed};
   }
 
   #access-pattern-button-box .button {
@@ -392,6 +460,14 @@ body.sdfv {
       font-size: 1.4rem;
     }
 
+  }
+
+  .sdfv-setting-separator {
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+    margin-left: calc(-1 * var(--bs-accordion-body-padding-x)) !important;
+    margin-right: calc(-1 * var(--bs-accordion-body-padding-x)) !important;
+    opacity: 0.1 !important;
   }
 
 }

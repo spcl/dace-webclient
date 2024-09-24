@@ -32,7 +32,7 @@ export class GenericSdfgOverlay {
     public constructor(
         protected renderer: SDFGRenderer
     ) {
-        this.overlay_manager = renderer.get_overlay_manager();
+        this.overlay_manager = renderer.overlayManager;
         this.symbolResolver = this.overlay_manager.get_symbol_resolver();
         this.vscode = typeof vscode !== 'undefined' && vscode;
         this.heatmap_scale_center = 5;

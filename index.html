@@ -50,8 +50,29 @@
                        style="display: none;">
                 <button id="load-instrumentation-report-btn"
                     class="btn btn-sm btn-light"
+                    disabled="disabled"
                     onclick="document.getElementById('instrumentation-report-file-input').click();">
                     Load Instrumentation Report
+                </button>
+            </div>
+            <div class="col-auto" id="diff-view-btn-container">
+                <input type="file"
+                       accept=".sdfg,.json,.sdfgz,.sdfg.gz"
+                       id="second-sdfg-file-input"
+                       style="display: none;">
+                <button id="diff-view-btn"
+                    disabled="disabled"
+                    class="btn btn-sm btn-light"
+                    onclick="document.getElementById('second-sdfg-file-input').click();">
+                    Compare With Other SDFG
+                </button>
+            </div>
+            <div class="col-auto"
+                 id="exit-diff-view-btn-container"
+                 style="display: none;">
+                <button id="exit-diff-view-btn"
+                    class="btn btn-sm btn-light">
+                    Exit Comparison
                 </button>
             </div>
         </div>
@@ -107,6 +128,12 @@ return false;
         </div>
     </div>
     <div id="contents"></div>
+    <div id="diff-container" style="display: none;">
+        <div id="diff-contents-A" class="diff-contents">
+        </div>
+        <div id="diff-contents-B" class="diff-contents">
+        </div>
+    </div>
 </body>
 
 </html>

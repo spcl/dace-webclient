@@ -22,6 +22,7 @@ import {
     SDFVTooltipFunc,
     SimpleRect,
     checkCompatSave,
+    parse_sdfg,
     stringify_sdfg,
 } from '../index';
 import { SMLayouter } from '../layouter/state_machine/sm_layouter';
@@ -30,7 +31,7 @@ import { LViewGraphParseError, LViewParser } from '../local_view/lview_parser';
 import { LViewRenderer } from '../local_view/lview_renderer';
 import { OverlayManager } from '../overlay_manager';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
-import { SDFV, reload_file } from '../sdfv';
+import { ISDFV, SDFV, WebSDFV } from '../sdfv';
 import {
     boundingBox,
     calculateBoundingBox,
@@ -70,6 +71,7 @@ import {
     ConditionalRegion,
     offset_conditional_region,
 } from './renderer_elements';
+import { cfgToDotGraph } from '../utils/sdfg/dotgraph';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -80,8 +82,8 @@ declare const canvas2pdf: any;
 declare const vscode: any | null;
 
 export type SDFGElementGroup = ('states' | 'nodes' | 'edges' | 'isedges' |
-                         'connectors' | 'controlFlowRegions' |
-                         'controlFlowBlocks');
+    'connectors' | 'controlFlowRegions' |
+    'controlFlowBlocks');
 export interface SDFGElementInfo {
     sdfg: JsonSDFG,
     id: number,
@@ -123,6 +125,13 @@ export type CFGListType = {
     }
 };
 
+export type VisibleElementsType = {
+    type: string,
+    stateId: number,
+    cfgId: number,
+    id: number,
+}[];
+
 function check_valid_add_position(
     type: SDFGElementType | null,
     foreground_elem: SDFGElement | undefined | null, lib: any, _mousepos: any
@@ -144,6 +153,13 @@ function check_valid_add_position(
     return false;
 }
 
+export type RendererUIFeature = (
+    'menu' | 'settings' | 'overlays_menu' | 'zoom_to_fit_all' |
+    'zoom_to_fit_width' | 'collapse' | 'expand' | 'add_mode' | 'pan_mode' |
+    'move_mode' | 'box_select_mode' | 'cutout_selection' | 'local_view' |
+    'minimap'
+);
+
 export interface SDFGRendererEvent {
     'add_element': (
         type: SDFGElementType, parentUUID: string, lib?: string,
@@ -155,6 +171,7 @@ export interface SDFGRendererEvent {
     'element_position_changed': (type?: string) => void;
     'graph_edited': () => void;
     'selection_changed': (multiSelectionChanged: boolean) => void;
+    'element_focus_changed': (selectionChanged: boolean) => void;
     'symbol_definition_changed': (symbol: string, definition?: number) => void;
     'active_overlays_changed': () => void;
     'backend_data_requested': (type: string, overlay: string) => void;
@@ -181,6 +198,7 @@ export class SDFGRenderer extends EventEmitter {
 
     protected cfgList: CFGListType = {};
     protected graph: DagreGraph | null = null;
+    protected graphBoundingBox: DOMRect | null = null;
     // Parent-pointing CFG tree.
     protected cfgTree: { [key: number]: number } = {};
     // List of all state's parent elements.
@@ -198,14 +216,12 @@ export class SDFGRenderer extends EventEmitter {
     protected last_dragged_element: SDFGElement | null = null;
     protected tooltip: SDFVTooltipFunc | null = null;
     protected tooltip_container: HTMLElement | null = null;
-    protected overlay_manager: OverlayManager;
-    protected bgcolor: string | null = null;
+    public readonly overlayManager: OverlayManager;
     protected visible_rect: SimpleRect | null = null;
     protected static cssProps: { [key: string]: string } = {};
     protected hovered_elements_cache: Set<SDFGElement> = new Set<SDFGElement>();
 
     // Toolbar related fields.
-    protected modeButtons: ModeButtons | null = null;
     protected toolbar: JQuery<HTMLElement> | null = null;
     protected panmode_btn: HTMLElement | null = null;
     protected movemode_btn: HTMLElement | null = null;
@@ -235,8 +251,6 @@ export class SDFGRenderer extends EventEmitter {
     protected dragging: boolean = false;
     // Null if the mouse/touch is not activated.
     protected drag_start: any = null;
-    protected external_mouse_handler: ((...args: any[]) => boolean) | null =
-        null;
     protected ctrl_key_selection: boolean = false;
     protected shift_key_movement: boolean = false;
     protected add_position: Point2D | null = null;
@@ -260,24 +274,24 @@ export class SDFGRenderer extends EventEmitter {
     // Controlled by the SDFVSettings.
     protected _adaptiveHiding: boolean = true;
 
+    protected readonly diffMode: boolean = false;
+
     public constructor(
-        protected sdfv_instance: SDFV,
         protected sdfg: JsonSDFG,
         protected container: HTMLElement,
-        on_mouse_event: ((...args: any[]) => boolean) | null = null,
-        user_transform: DOMMatrix | null = null,
+        protected sdfv_instance?: ISDFV,
+        protected external_mouse_handler: (
+            (...args: any[]) => boolean
+        ) | null = null,
+        protected initialUserTransform: DOMMatrix | null = null,
         public debug_draw = false,
-        background: string | null = null,
-        mode_buttons: any = null
+        protected backgroundColor: string | null = null,
+        protected modeButtons: ModeButtons | null = null,
+        protected enableMaskUI?: RendererUIFeature[]
     ) {
         super();
 
-        sdfv_instance.enable_menu_close();
-        sdfv_instance.close_menu();
-
-        this.external_mouse_handler = on_mouse_event;
-
-        this.overlay_manager = new OverlayManager(this);
+        this.overlayManager = new OverlayManager(this);
 
         this.in_vscode = false;
         try {
@@ -286,25 +300,37 @@ export class SDFGRenderer extends EventEmitter {
                 this.in_vscode = true;
         } catch (ex) { }
 
-        this.init_elements(user_transform, background, mode_buttons);
+        this.init_elements();
 
-        this.setSDFG(sdfg, false);
-
-        this.all_memlet_trees_sdfg = memletTreeComplete(this.sdfg);
-
-        this.update_fast_memlet_lookup();
-
-        this.on('collapse_state_changed', () => {
-            this.emit('graph_edited');
+        this.setSDFG(this.sdfg, false).then(() => {
+            this.on('collapse_state_changed', () => {
+                this.emit('graph_edited');
+            });
+            this.on('element_position_changed', () => {
+                this.emit('graph_edited');
+            });
+            this.on('selection_changed', () => {
+                this.on_selection_changed();
+            });
+            this.on('graph_edited', () => {
+                this.draw_async();
+            });
         });
-        this.on('element_position_changed', () => {
-            this.emit('graph_edited');
-        });
-        this.on('selection_changed', () => {
-            this.on_selection_changed();
-        });
-        this.on('graph_edited', () => {
-            this.draw_async();
+
+        SDFVSettings.getInstance().on('setting_changed', (setting) => {
+            if (setting.relayout) {
+                this.add_loading_animation();
+                setTimeout(() => {
+                    this.relayout();
+                    this.draw_async();
+                }, 10);
+            }
+
+            if (setting.redrawUI)
+                this.initUI();
+
+            if (setting.redraw !== false && !setting.relayout)
+                this.draw_async();
         });
     }
 
@@ -464,10 +490,14 @@ export class SDFGRenderer extends EventEmitter {
      * Initialize the UI based on the user's settings.
      */
     public initUI(): void {
-        if (SDFVSettings.get<boolean>('minimap'))
-            this.enableMinimap();
-        else
+        if (!this.enableMaskUI || this.enableMaskUI.includes('minimap')) {
+            if (SDFVSettings.get<boolean>('minimap'))
+                this.enableMinimap();
+            else
+                this.disableMinimap();
+        } else {
             this.disableMinimap();
+        }
 
         if (SDFVSettings.get<boolean>('toolbar')) {
             // If the toolbar is already present, don't do anything.
@@ -486,67 +516,84 @@ export class SDFGRenderer extends EventEmitter {
             this.container.appendChild(this.toolbar[0]);
 
             // Construct menu.
-            const menuDropdown = $('<div>', {
-                class: 'dropdown',
-            });
-            $('<button>', {
-                class: 'btn btn-secondary btn-sm btn-material',
-                html: '<i class="material-symbols-outlined">menu</i>',
-                title: 'Menu',
-                'data-bs-toggle': 'dropdown',
-            }).appendTo(menuDropdown);
-            const menu = $('<ul>', {
-                class: 'dropdown-menu',
-            }).appendTo(menuDropdown);
-            $('<div>', {
-                class: 'btn-group',
-            }).appendTo(this.toolbar).append(menuDropdown);
+            if (!this.enableMaskUI || this.enableMaskUI.includes('menu')) {
+                const menuDropdown = $('<div>', {
+                    class: 'dropdown',
+                });
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">menu</i>',
+                    title: 'Menu',
+                    'data-bs-toggle': 'dropdown',
+                }).appendTo(menuDropdown);
+                const menu = $('<ul>', {
+                    class: 'dropdown-menu',
+                }).appendTo(menuDropdown);
+                $('<div>', {
+                    class: 'btn-group',
+                }).appendTo(this.toolbar).append(menuDropdown);
 
-            $('<li>').appendTo(menu).append($('<span>', {
-                class: 'dropdown-item',
-                text: 'Save SDFG',
-                click: () => this.save_sdfg(),
-            }));
-            $('<li>').appendTo(menu).append($('<span>', {
-                class: 'dropdown-item',
-                text: 'Save view as PNG',
-                click: () => this.save_as_png(),
-            }));
-            if (this.has_pdf()) {
                 $('<li>').appendTo(menu).append($('<span>', {
                     class: 'dropdown-item',
-                    text: 'Save view as PDF',
-                    click: () => this.save_as_pdf(false),
+                    text: 'Save SDFG',
+                    click: () => this.save_sdfg(),
                 }));
                 $('<li>').appendTo(menu).append($('<span>', {
                     class: 'dropdown-item',
-                    text: 'Save SDFG as PDF',
-                    click: () => this.save_as_pdf(true),
+                    text: 'Save view as PNG',
+                    click: () => this.save_as_png(),
+                }));
+                if (this.has_pdf()) {
+                    $('<li>').appendTo(menu).append($('<span>', {
+                        class: 'dropdown-item',
+                        text: 'Save view as PDF',
+                        click: () => this.save_as_pdf(false),
+                    }));
+                    $('<li>').appendTo(menu).append($('<span>', {
+                        class: 'dropdown-item',
+                        text: 'Save SDFG as PDF',
+                        click: () => this.save_as_pdf(true),
+                    }));
+                }
+                $('<li>').appendTo(menu).append($('<span>', {
+                    class: 'dropdown-item',
+                    text: 'Export top-level CFG as DOT graph',
+                    click: () => {
+                        this.save(
+                            (this.sdfg.attributes?.name ?? 'program') + '.dot',
+                            'data:text/plain;charset=utf-8,' +
+                            encodeURIComponent(cfgToDotGraph(this.sdfg))
+                        );
+                    },
+                }));
+
+                $('<li>').appendTo(menu).append($('<hr>', {
+                    class: 'dropdown-divider',
+                }));
+
+                $('<li>').appendTo(menu).append($('<span>', {
+                    class: 'dropdown-item',
+                    text: 'Reset positions',
+                    click: () => this.reset_positions(),
                 }));
             }
 
-            $('<li>').appendTo(menu).append($('<hr>', {
-                class: 'dropdown-divider',
-            }));
-
-            $('<li>').appendTo(menu).append($('<span>', {
-                class: 'dropdown-item',
-                text: 'Reset positions',
-                click: () => this.reset_positions(),
-            }));
-
             // SDFV Options.
-            $('<button>', {
-                class: 'btn btn-secondary btn-sm btn-material',
-                html: '<i class="material-symbols-outlined">settings</i>',
-                title: 'Settings',
-                click: () => {
-                    SDFVSettings.getInstance().show(this);
-                },
-            }).appendTo(this.toolbar);
+            if (!this.enableMaskUI || this.enableMaskUI.includes('settings')) {
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">settings</i>',
+                    title: 'Settings',
+                    click: () => {
+                        SDFVSettings.getInstance().show();
+                    },
+                }).appendTo(this.toolbar);
+            }
 
             // Overlays menu.
-            if (!this.in_vscode) {
+            if ((!this.enableMaskUI ||
+                 this.enableMaskUI.includes('overlays_menu')) &&
+                !this.in_vscode) {
                 const overlayDropdown = $('<div>', {
                     class: 'dropdown',
                 });
@@ -586,9 +633,9 @@ export class SDFGRenderer extends EventEmitter {
                         checked: default_state,
                         change: () => {
                             if (olInput.prop('checked'))
-                                this.overlay_manager?.register_overlay(ol);
+                                this.overlayManager.register_overlay(ol);
                             else
-                                this.overlay_manager?.deregister_overlay(ol);
+                                this.overlayManager.deregister_overlay(ol);
                         },
                     }).appendTo(olContainer);
                     $('<label>', {
@@ -598,7 +645,7 @@ export class SDFGRenderer extends EventEmitter {
                 };
 
                 // Register overlays that are turned on by default.
-                this.overlay_manager.register_overlay(LogicalGroupOverlay);
+                this.overlayManager.register_overlay(LogicalGroupOverlay);
                 addOverlayToMenu('Logical groups', LogicalGroupOverlay, true);
 
                 // Add overlays that are turned off by default.
@@ -614,53 +661,67 @@ export class SDFGRenderer extends EventEmitter {
                 class: 'btn-group',
                 role: 'group',
             }).appendTo(this.toolbar);
-            // Zoom to fit.
-            $('<button>', {
-                class: 'btn btn-secondary btn-sm btn-material',
-                html: '<i class="material-symbols-outlined">fit_screen</i>',
-                title: 'Zoom to fit SDFG',
-                click: () => {
-                    this.zoom_to_view();
-                },
-            }).appendTo(zoomButtonGroup);
-            $('<button>', {
-                class: 'btn btn-secondary btn-sm btn-material',
-                html: '<i class="material-symbols-outlined">fit_width</i>',
-                title: 'Zoom to fit width',
-                click: () => {
-                    this.zoomToFitWidth();
-                },
-            }).appendTo(zoomButtonGroup);
+            if (!this.enableMaskUI ||
+                 this.enableMaskUI.includes('zoom_to_fit_all')) {
+                // Zoom to fit.
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">fit_screen</i>',
+                    title: 'Zoom to fit SDFG',
+                    click: () => {
+                        this.zoom_to_view();
+                    },
+                }).appendTo(zoomButtonGroup);
+            }
+            if (!this.enableMaskUI ||
+                 this.enableMaskUI.includes('zoom_to_fit_width')) {
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">fit_width</i>',
+                    title: 'Zoom to fit width',
+                    click: () => {
+                        this.zoomToFitWidth();
+                    },
+                }).appendTo(zoomButtonGroup);
+            }
 
             const collapseButtonGroup = $('<div>', {
                 class: 'btn-group',
                 role: 'group',
             }).appendTo(this.toolbar);
-            // Collapse all.
-            $('<button>', {
-                class: 'btn btn-secondary btn-sm btn-material',
-                html: '<i class="material-symbols-outlined">unfold_less</i>',
-                title: 'Collapse next level (Shift+click to collapse all)',
-                click: (e: MouseEvent) => {
-                    if (e.shiftKey)
-                        this.collapseAll();
-                    else
-                        this.collapseNextLevel();
-                },
-            }).appendTo(collapseButtonGroup);
+            if (!this.enableMaskUI ||
+                 this.enableMaskUI.includes('collapse')) {
+                // Collapse all.
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">' +
+                        'unfold_less</i>',
+                    title: 'Collapse next level (Shift+click to collapse all)',
+                    click: (e: MouseEvent) => {
+                        if (e.shiftKey)
+                            this.collapseAll();
+                        else
+                            this.collapseNextLevel();
+                    },
+                }).appendTo(collapseButtonGroup);
+            }
 
-            // Expand all.
-            $('<button>', {
-                class: 'btn btn-secondary btn-sm btn-material',
-                html: '<i class="material-symbols-outlined">unfold_more</i>',
-                title: 'Expand next level (Shift+click to expand all)',
-                click: (e: MouseEvent) => {
-                    if (e.shiftKey)
-                        this.expandAll();
-                    else
-                        this.expandNextLevel();
-                },
-            }).appendTo(collapseButtonGroup);
+            if (!this.enableMaskUI ||
+                 this.enableMaskUI.includes('expand')) {
+                // Expand all.
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">' +
+                        'unfold_more</i>',
+                    title: 'Expand next level (Shift+click to expand all)',
+                    click: (e: MouseEvent) => {
+                        if (e.shiftKey)
+                            this.expandAll();
+                        else
+                            this.expandNextLevel();
+                    },
+                }).appendTo(collapseButtonGroup);
+            }
 
             if (this.modeButtons) {
                 // If we get the "external" mode buttons we are in vscode and do
@@ -669,29 +730,34 @@ export class SDFGRenderer extends EventEmitter {
                 this.movemode_btn = this.modeButtons.move;
                 this.selectmode_btn = this.modeButtons.select;
                 this.addmode_btns = this.modeButtons.add_btns;
-                for (const add_btn of this.addmode_btns) {
-                    if (add_btn.getAttribute('type') ===
-                        SDFGElementType.LibraryNode) {
-                        add_btn.onclick = () => {
-                            const libnode_callback = () => {
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('add_mode')) {
+                    for (const add_btn of this.addmode_btns) {
+                        if (add_btn.getAttribute('type') ===
+                            SDFGElementType.LibraryNode) {
+                            add_btn.onclick = () => {
+                                const libnode_callback = () => {
+                                    this.mouse_mode = 'add';
+                                    this.add_type = SDFGElementType.LibraryNode;
+                                    this.add_edge_start = null;
+                                    this.add_edge_start_conn = null;
+                                    this.update_toggle_buttons();
+                                };
+                                this.emit('query_libnode', libnode_callback);
+                            };
+                        } else {
+                            add_btn.onclick = () => {
                                 this.mouse_mode = 'add';
-                                this.add_type = SDFGElementType.LibraryNode;
+                                this.add_type =
+                                    <SDFGElementType>add_btn.getAttribute(
+                                        'type'
+                                    );
+                                this.add_mode_lib = null;
                                 this.add_edge_start = null;
                                 this.add_edge_start_conn = null;
                                 this.update_toggle_buttons();
                             };
-                            this.emit('query_libnode', libnode_callback);
-                        };
-                    } else {
-                        add_btn.onclick = () => {
-                            this.mouse_mode = 'add';
-                            this.add_type =
-                                <SDFGElementType> add_btn.getAttribute('type');
-                            this.add_mode_lib = null;
-                            this.add_edge_start = null;
-                            this.add_edge_start_conn = null;
-                            this.update_toggle_buttons();
-                        };
+                        }
                     }
                 }
                 this.mode_selected_bg_color = '#22A4FE';
@@ -699,86 +765,118 @@ export class SDFGRenderer extends EventEmitter {
                 // Mode buttons are empty in standalone SDFV.
                 this.addmode_btns = [];
 
-                // Enter pan mode.
                 const modeButtonGroup = $('<div>', {
                     class: 'btn-group',
                     role: 'group',
                 }).appendTo(this.toolbar);
-                this.panmode_btn = $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material selected',
-                    html: '<i class="material-symbols-outlined">pan_tool</i>',
-                    title: 'Pan mode',
-                }).appendTo(modeButtonGroup)[0];
+
+                // Enter pan mode.
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('pan_mode')) {
+                    this.panmode_btn = $('<button>', {
+                        class: 'btn btn-secondary btn-sm btn-material selected',
+                        html: '<i class="material-symbols-outlined">' +
+                            'pan_tool</i>',
+                        title: 'Pan mode',
+                    }).appendTo(modeButtonGroup)[0];
+                }
 
                 // Enter move mode.
-                this.movemode_btn = $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">open_with</i>',
-                    title: 'Object moving mode',
-                }).appendTo(modeButtonGroup)[0];
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('move_mode')) {
+                    this.movemode_btn = $('<button>', {
+                        class: 'btn btn-secondary btn-sm btn-material',
+                        html: '<i class="material-symbols-outlined">' +
+                            'open_with</i>',
+                        title: 'Object moving mode',
+                    }).appendTo(modeButtonGroup)[0];
+                }
 
                 // Enter box select mode.
-                this.selectmode_btn = $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">select</i>',
-                    title: 'Select mode',
-                }).appendTo(modeButtonGroup)[0];
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('box_select_mode')) {
+                    this.selectmode_btn = $('<button>', {
+                        class: 'btn btn-secondary btn-sm btn-material',
+                        html: '<i class="material-symbols-outlined">select</i>',
+                        title: 'Select mode',
+                    }).appendTo(modeButtonGroup)[0];
+                }
             }
 
             // Enter pan mode
             if (this.panmode_btn) {
-                this.panmode_btn.onclick = () => {
-                    this.mouse_mode = 'pan';
-                    this.add_type = null;
-                    this.add_mode_lib = null;
-                    this.add_edge_start = null;
-                    this.add_edge_start_conn = null;
-                    this.update_toggle_buttons();
-                };
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('pan_mode')) {
+                    $(this.panmode_btn).prop('disabled', false);
+                    this.panmode_btn.onclick = () => {
+                        this.mouse_mode = 'pan';
+                        this.add_type = null;
+                        this.add_mode_lib = null;
+                        this.add_edge_start = null;
+                        this.add_edge_start_conn = null;
+                        this.update_toggle_buttons();
+                    };
+                } else {
+                    $(this.panmode_btn).prop('disabled', true);
+                }
             }
 
             // Enter object moving mode
             if (this.movemode_btn) {
-                this.movemode_btn.onclick = (
-                    _: MouseEvent, shift_click: boolean | undefined = undefined
-                ): void => {
-                    // shift_click is false if shift key has been released and
-                    // undefined if it has been a normal mouse click
-                    if (this.shift_key_movement && shift_click === false)
-                        this.mouse_mode = 'pan';
-                    else
-                        this.mouse_mode = 'move';
-                    this.add_type = null;
-                    this.add_mode_lib = null;
-                    this.add_edge_start = null;
-                    this.add_edge_start_conn = null;
-                    this.shift_key_movement = (
-                        shift_click === undefined ? false : shift_click
-                    );
-                    this.update_toggle_buttons();
-                };
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('move_mode')) {
+                    $(this.movemode_btn).prop('disabled', false);
+                    this.movemode_btn.onclick = (
+                        _: MouseEvent,
+                        shift_click: boolean | undefined = undefined
+                    ): void => {
+                        // shift_click is false if shift key has been released
+                        // and undefined if it has been a normal mouse click.
+                        if (this.shift_key_movement && shift_click === false)
+                            this.mouse_mode = 'pan';
+                        else
+                            this.mouse_mode = 'move';
+                        this.add_type = null;
+                        this.add_mode_lib = null;
+                        this.add_edge_start = null;
+                        this.add_edge_start_conn = null;
+                        this.shift_key_movement = (
+                            shift_click === undefined ? false : shift_click
+                        );
+                        this.update_toggle_buttons();
+                    };
+                } else {
+                    $(this.movemode_btn).prop('disabled', true);
+                }
             }
 
             // Enter box selection mode
             if (this.selectmode_btn) {
-                this.selectmode_btn.onclick = (
-                    _: MouseEvent, ctrl_click: boolean | undefined = undefined
-                ): void => {
-                    // ctrl_click is false if ctrl key has been released and
-                    // undefined if it has been a normal mouse click
-                    if (this.ctrl_key_selection && ctrl_click === false)
-                        this.mouse_mode = 'pan';
-                    else
-                        this.mouse_mode = 'select';
-                    this.add_type = null;
-                    this.add_mode_lib = null;
-                    this.add_edge_start = null;
-                    this.add_edge_start_conn = null;
-                    this.ctrl_key_selection = (
-                        ctrl_click === undefined ? false : ctrl_click
-                    );
-                    this.update_toggle_buttons();
-                };
+                if (!this.enableMaskUI ||
+                    this.enableMaskUI.includes('box_select_mode')) {
+                    $(this.selectmode_btn).prop('disabled', false);
+                    this.selectmode_btn.onclick = (
+                        _: MouseEvent,
+                        ctrl_click: boolean | undefined = undefined
+                    ): void => {
+                        // ctrl_click is false if ctrl key has been released and
+                        // undefined if it has been a normal mouse click
+                        if (this.ctrl_key_selection && ctrl_click === false)
+                            this.mouse_mode = 'pan';
+                        else
+                            this.mouse_mode = 'select';
+                        this.add_type = null;
+                        this.add_mode_lib = null;
+                        this.add_edge_start = null;
+                        this.add_edge_start_conn = null;
+                        this.ctrl_key_selection = (
+                            ctrl_click === undefined ? false : ctrl_click
+                        );
+                        this.update_toggle_buttons();
+                    };
+                } else {
+                    $(this.selectmode_btn).prop('disabled', true);
+                }
             }
 
             // React to ctrl and shift key presses
@@ -789,32 +887,39 @@ export class SDFGRenderer extends EventEmitter {
             });
 
             // Filter graph to selection (visual cutout).
-            this.cutoutBtn = $('<button>', {
-                id: 'cutout-button',
-                class: 'btn btn-secondary btn-sm btn-material',
-                css: {
-                    'display': 'none',
-                },
-                html: '<i class="material-symbols-outlined">content_cut</i>',
-                title: 'Filter selection (cutout)',
-                click: () => {
-                    this.cutoutSelection();
-                },
-            }).appendTo(this.toolbar);
+            if (!this.enableMaskUI ||
+                this.enableMaskUI.includes('cutout_selection')) {
+                this.cutoutBtn = $('<button>', {
+                    id: 'cutout-button',
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    css: {
+                        'display': 'none',
+                    },
+                    html: '<i class="material-symbols-outlined">' +
+                        'content_cut</i>',
+                    title: 'Filter selection (cutout)',
+                    click: () => {
+                        this.cutoutSelection();
+                    },
+                }).appendTo(this.toolbar);
+            }
 
             // Transition to local view with selection.
-            this.localViewBtn = $('<button>', {
-                id: 'local-view-button',
-                class: 'btn btn-secondary btn-sm btn-material',
-                css: {
-                    'display': 'none',
-                },
-                html: '<i class="material-symbols-outlined">memory</i>',
-                title: 'Inspect access patterns (local view)',
-                click: () => {
-                    this.localViewSelection();
-                },
-            }).appendTo(this.toolbar);
+            if (!this.enableMaskUI ||
+                this.enableMaskUI.includes('local_view')) {
+                this.localViewBtn = $('<button>', {
+                    id: 'local-view-button',
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    css: {
+                        'display': 'none',
+                    },
+                    html: '<i class="material-symbols-outlined">memory</i>',
+                    title: 'Inspect access patterns (local view)',
+                    click: () => {
+                        this.localViewSelection();
+                    },
+                }).appendTo(this.toolbar);
+            }
 
             // Exit previewing mode.
             if (this.in_vscode) {
@@ -841,18 +946,12 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     // Initializes the DOM
-    public init_elements(
-        user_transform: DOMMatrix | null,
-        background: string | null,
-        mode_buttons: ModeButtons | null
-    ): void {
-        this.modeButtons = mode_buttons;
-
+    public init_elements(): void {
         // Set up the canvas.
         this.canvas = document.createElement('canvas');
         this.canvas.classList.add('sdfg_canvas');
-        if (background)
-            this.canvas.style.backgroundColor = background;
+        if (this.backgroundColor)
+            this.canvas.style.backgroundColor = this.backgroundColor;
         else
             this.canvas.style.backgroundColor = 'inherit';
         this.container.append(this.canvas);
@@ -942,8 +1041,8 @@ export class SDFGRenderer extends EventEmitter {
 
         // Translation/scaling management
         this.canvas_manager = new CanvasManager(this.ctx, this, this.canvas);
-        if (user_transform !== null)
-            this.canvas_manager.set_user_transform(user_transform);
+        if (this.initialUserTransform !== null)
+            this.canvas_manager.set_user_transform(this.initialUserTransform);
 
         // Resize event for container
         const observer = new MutationObserver(() => {
@@ -958,11 +1057,10 @@ export class SDFGRenderer extends EventEmitter {
         resizeObserver.observe(this.container);
 
         // Set inherited properties
-        if (background)
-            this.bgcolor = background;
-        else
-            this.bgcolor = window.getComputedStyle(this.canvas).backgroundColor;
-
+        if (!this.backgroundColor) {
+            this.backgroundColor =
+                window.getComputedStyle(this.canvas).backgroundColor;
+        }
 
         this.updateCFGList();
 
@@ -975,7 +1073,7 @@ export class SDFGRenderer extends EventEmitter {
         this.set_mouse_handlers();
 
         // Set initial zoom, if not already set
-        if (user_transform === null)
+        if (this.initialUserTransform === null)
             this.zoom_to_view();
 
         const svgs: { [key: string]: string } = {};
@@ -1086,6 +1184,10 @@ export class SDFGRenderer extends EventEmitter {
         this.canvas_manager?.draw_async();
     }
 
+    public setSDFVInstance(instance: ISDFV): void {
+        this.sdfv_instance = instance;
+    }
+
     public updateCFGList() {
         // Update SDFG metadata
         this.cfgTree = {};
@@ -1120,28 +1222,40 @@ export class SDFGRenderer extends EventEmitter {
         );
     }
 
-    public setSDFG(new_sdfg: JsonSDFG, layout: boolean = true): void {
-        this.sdfg = new_sdfg;
+    public async setSDFG(
+        new_sdfg: JsonSDFG, layout: boolean = true
+    ): Promise<void> {
+        return new Promise((resolve)=> {
+            this.sdfg = new_sdfg;
 
-        // Update info box
-        if (this.selected_elements.length === 1) {
-            const uuid = getGraphElementUUID(this.selected_elements[0]);
-            if (this.graph) {
-                this.sdfv_instance.fill_info(
-                    findGraphElementByUUID(this.cfgList, uuid)
-                );
+            // Update info box
+            if (this.selected_elements.length === 1) {
+                const uuid = getGraphElementUUID(this.selected_elements[0]);
+                if (this.graph) {
+                    this.sdfv_instance?.linkedUI.showElementInfo(
+                        findGraphElementByUUID(this.cfgList, uuid), this
+                    );
+                }
             }
-        }
 
-        if (layout) {
-            this.updateCFGList();
+            if (layout) {
+                this.updateCFGList();
 
-            this.add_loading_animation();
-            setTimeout(() => {
-                this.relayout();
-                this.draw_async();
-            }, 10);
-        }
+                this.add_loading_animation();
+                setTimeout(() => {
+                    this.relayout();
+                    this.draw_async();
+                    resolve();
+                }, 1);
+            }
+
+            this.all_memlet_trees_sdfg = memletTreeComplete(this.sdfg);
+
+            this.update_fast_memlet_lookup();
+
+            if (!layout)
+                resolve();
+        });
     }
 
     // Set mouse events (e.g., click, drag, zoom)
@@ -1231,19 +1345,32 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     // Re-layout graph and nested graphs
-    public relayout(): DagreGraph {
+    public relayout(instigator: SDFGElement | null = null): DagreGraph {
         if (!this.ctx)
             throw new Error('No context found while performing layouting');
+
+        // Collect currently-visible elements for reorientation
+        const elements = this.getVisibleElementsAsObjects(true);
+        if (instigator)
+            elements.push(instigator);
 
         for (const cfgId in this.cfgList) {
             this.cfgList[cfgId].graph = null;
             this.cfgList[cfgId].nsdfgNode = null;
         }
         this.graph = relayoutStateMachine(
-            this.ctx, this.sdfg, this.sdfg, this.cfgList,
+            this.sdfg, this.sdfg, undefined, this.ctx, this.cfgList,
             this.state_parent_list,
-            !SDFVSettings.get<boolean>('showAccessNodes'), undefined
+            !SDFVSettings.get<boolean>('showAccessNodes')
         );
+        const topLevelBlocks: SDFGElement[] = [];
+        for (const bId of this.graph.nodes())
+            topLevelBlocks.push(this.graph.node(bId));
+        this.graphBoundingBox = boundingBox(topLevelBlocks);
+
+        // Reorient view based on an approximate set of visible elements
+        this.reorient(elements);
+
         this.onresize();
 
         this.update_fast_memlet_lookup();
@@ -1252,12 +1379,11 @@ export class SDFGRenderer extends EventEmitter {
         this.translateMovedElements();
 
         // Make sure all visible overlays get recalculated if there are any.
-        if (this.overlay_manager !== null)
-            this.overlay_manager.refresh();
+        this.overlayManager.refresh();
 
         // If we're in a VSCode context, we also want to refresh the outline.
         if (this.in_vscode)
-            this.sdfv_instance.outline(this, this.graph);
+            this.sdfv_instance?.outline();
 
         // Remove loading animation
         const info_field = document.getElementById('task-info-field');
@@ -1270,6 +1396,41 @@ export class SDFGRenderer extends EventEmitter {
             info_field_settings.innerHTML = '';
 
         return this.graph;
+    }
+
+    public reorient(old_visible_elements: SDFGElement[]): void {
+        // Reorient view based on an approximate set of visible elements
+
+        // Nothing to reorient to
+        if (!old_visible_elements || old_visible_elements.length === 0)
+            return;
+
+        // If the current view contains everything that was visible before,
+        // no need to change anything.
+        const new_visible_elements = this.getVisibleElementsAsObjects(true);
+        const old_nodes = old_visible_elements.filter(x => (
+            x instanceof ControlFlowBlock ||
+            x instanceof SDFGNode));
+        const new_nodes = new_visible_elements.filter(x => (
+            x instanceof ControlFlowBlock ||
+            x instanceof SDFGNode));
+        const old_set = new Set(old_nodes.map(x => x.guid()));
+        const new_set = new Set(new_nodes.map(x => x.guid()));
+        const diff = old_set.difference(new_set);
+        if (diff.size === 0)
+            return;
+
+        // Reorient based on old visible elements refreshed to new locations
+        const old_elements_in_new_layout: SDFGElement[] = [];
+        this.doForAllGraphElements((group: SDFGElementGroup,
+            info: GraphElementInfo, elem: SDFGElement) => {
+            if (elem instanceof ControlFlowBlock || elem instanceof SDFGNode) {
+                const guid = elem.guid();
+                if (guid && old_set.has(guid))
+                    old_elements_in_new_layout.push(elem);
+            }
+        });
+        this.zoom_to_view(old_elements_in_new_layout, true, undefined, false);
     }
 
     public translateMovedElements(): void {
@@ -1363,7 +1524,8 @@ export class SDFGRenderer extends EventEmitter {
     // Change translation and scale such that the chosen elements
     // (or entire graph if null) is in view
     public zoom_to_view(
-        elements: any = null, animate: boolean = true, padding?: number
+        elements: any = null, animate: boolean = true, padding?: number,
+        redraw: boolean = true
     ): void {
         if (!elements || elements.length === 0) {
             elements = this.graph?.nodes().map(x => this.graph?.node(x));
@@ -1385,7 +1547,8 @@ export class SDFGRenderer extends EventEmitter {
         const bb = boundingBox(elements, paddingAbs);
         this.canvas_manager?.set_view(bb, animate);
 
-        this.draw_async();
+        if (redraw)
+            this.draw_async();
     }
 
     public zoomToFitWidth(): void {
@@ -1511,7 +1674,7 @@ export class SDFGRenderer extends EventEmitter {
 
         traverseSDFGScopes(
             this.graph, (node: SDFGNode, _: DagreGraph) => {
-                if(node.attributes().is_collapsed) {
+                if (node.attributes().is_collapsed) {
                     node.attributes().is_collapsed = false;
                     return false;
                 }
@@ -1941,8 +2104,7 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     public on_post_draw(): void {
-        if (this.overlay_manager !== null)
-            this.overlay_manager.draw();
+        this.overlayManager.draw();
 
         this.draw_minimap();
 
@@ -2032,12 +2194,7 @@ export class SDFGRenderer extends EventEmitter {
         this.draw_async();
     }
 
-    public getVisibleElements(): {
-        type: string,
-        stateId: number,
-        cfgId: number,
-        id: number,
-    }[] {
+    public getVisibleElements(): VisibleElementsType {
         if (!this.canvas_manager)
             return [];
 
@@ -2078,6 +2235,37 @@ export class SDFGRenderer extends EventEmitter {
                     stateId: objInfo.stateId,
                     id: objInfo.id,
                 });
+            }
+        );
+        return elements;
+    }
+
+    public getVisibleElementsAsObjects(
+        entirely_visible: boolean
+    ): SDFGElement[] {
+        if (!this.canvas_manager)
+            return [];
+
+        const curx = this.canvas_manager.mapPixelToCoordsX(0);
+        const cury = this.canvas_manager.mapPixelToCoordsY(0);
+        const canvasw = this.canvas?.width;
+        const canvash = this.canvas?.height;
+        let endx = null;
+        if (canvasw)
+            endx = this.canvas_manager.mapPixelToCoordsX(canvasw);
+        let endy = null;
+        if (canvash)
+            endy = this.canvas_manager.mapPixelToCoordsY(canvash);
+        const curw = (endx ? endx : 0) - curx;
+        const curh = (endy ? endy : 0) - cury;
+        const elements: any[] = [];
+        this.doForIntersectedElements(
+            curx, cury, curw, curh,
+            (group, objInfo, _obj) => {
+                if (entirely_visible &&
+                    !_obj.contained_in(curx, cury, curw, curh))
+                    return;
+                elements.push(_obj);
             }
         );
         return elements;
@@ -2660,7 +2848,7 @@ export class SDFGRenderer extends EventEmitter {
                     }
                 } else if (e instanceof InterstateEdge) {
                     if (!e.parentElem ||
-                          (e.parentElem && e.parentElem instanceof SDFG)) {
+                        (e.parentElem && e.parentElem instanceof SDFG)) {
                         e.sdfg.edges = e.sdfg.edges.filter(
                             (_, ind: number) => ind !== e.id
                         );
@@ -2681,8 +2869,9 @@ export class SDFGRenderer extends EventEmitter {
                 }
             }
             this.deselect();
-            this.setSDFG(this.sdfg);
-            this.emit('graph_edited');
+            this.setSDFG(this.sdfg).then(() => {
+                this.emit('graph_edited');
+            });
         }
 
         // Ctrl + Shift Accelerators temporarily disabled due to a bug with
@@ -2710,24 +2899,30 @@ export class SDFGRenderer extends EventEmitter {
     public pan_movement_in_bounds(
         visible_rect: SimpleRect, movX: number, movY: number
     ) {
-        const visible_rectCenter = {
-            x: (visible_rect.x + (visible_rect.w / 2)),
-            y: (visible_rect.y + (visible_rect.h / 2)),
-        };
+        if (!SDFVSettings.get<boolean>('bindToViewport') ||
+            !this.graphBoundingBox) {
+            return {
+                x: movX,
+                y: movY,
+            };
+        }
 
         // Compute where the visible_rectCenter is out of bounds:
         // outofboundsX/Y === 0 means not out of bounds
         let outofboundsX = 0;
         let outofboundsY = 0;
 
-        if (visible_rectCenter.x < this.minimapBounds.minX)
+        const padding = 50;
+        if (visible_rect.x + visible_rect.w <
+            (this.graphBoundingBox.left + padding))
             outofboundsX = -1;
-        else if (visible_rectCenter.x > this.minimapBounds.maxX)
+        else if (visible_rect.x > (this.graphBoundingBox.right - padding))
             outofboundsX = 1;
 
-        if (visible_rectCenter.y < this.minimapBounds.minY)
+        if (visible_rect.y + visible_rect.h <
+            (this.graphBoundingBox.top + padding))
             outofboundsY = -1;
-        else if (visible_rectCenter.y > this.minimapBounds.maxY)
+        else if (visible_rect.y > (this.graphBoundingBox.bottom) - padding)
             outofboundsY = 1;
 
         // Take uncorrected mouse event movement as default
@@ -2749,7 +2944,12 @@ export class SDFGRenderer extends EventEmitter {
 
     // Toggles collapsed state of foreground_elem if applicable.
     // Returns true if re-layout occured and re-draw is necessary.
-    public toggle_element_collapse(foreground_elem: any): boolean {
+    public toggle_element_collapse(
+        foreground_elem: SDFGElement | null
+    ): boolean {
+        if (!foreground_elem)
+            return false;
+
         const sdfg = (foreground_elem ? foreground_elem.sdfg : null);
         let sdfg_elem = null;
         if (foreground_elem instanceof State) {
@@ -2762,9 +2962,9 @@ export class SDFGRenderer extends EventEmitter {
             // If a scope exit node, use entry instead
             if (sdfg_elem.type.endsWith('Exit') &&
                 foreground_elem.parent_id !== null) {
-                sdfg_elem = sdfg.nodes[foreground_elem.parent_id].nodes[
-                    sdfg_elem.scope_entry
-                ];
+                const parent = sdfg!.nodes[foreground_elem.parent_id];
+                if (parent.nodes)
+                    sdfg_elem = parent.nodes[sdfg_elem.scope_entry];
             }
         } else {
             sdfg_elem = null;
@@ -2772,19 +2972,19 @@ export class SDFGRenderer extends EventEmitter {
 
         // Toggle collapsed state
         if (foreground_elem.COLLAPSIBLE) {
-            if ('is_collapsed' in sdfg_elem.attributes) {
-                sdfg_elem.attributes.is_collapsed =
-                    !sdfg_elem.attributes.is_collapsed;
-            } else {
-                sdfg_elem.attributes['is_collapsed'] = true;
-            }
-
             this.emit('collapse_state_changed');
 
             // Re-layout SDFG
             this.add_loading_animation();
             setTimeout(() => {
-                this.relayout();
+                if ('is_collapsed' in sdfg_elem.attributes) {
+                    sdfg_elem.attributes.is_collapsed =
+                        !sdfg_elem.attributes.is_collapsed;
+                } else {
+                    sdfg_elem.attributes['is_collapsed'] = true;
+                }
+
+                this.relayout(foreground_elem);
                 this.draw_async();
             }, 10);
 
@@ -3155,7 +3355,7 @@ export class SDFGRenderer extends EventEmitter {
         // large graphs.
         if (this.canvas_manager) {
             const ppp = this.canvas_manager.points_per_pixel();
-            if (ppp < SDFV.NODE_LOD) {
+            if (ppp < SDFVSettings.get<number>('nodeLOD')) {
                 // Global change boolean. Determines if repaint necessary.
                 let highlighting_changed = false;
 
@@ -3381,7 +3581,7 @@ export class SDFGRenderer extends EventEmitter {
                     if (obj.hovered && hover_changed &&
                         obj instanceof SDFGNode &&
                         (obj.in_summary_has_effect ||
-                         obj.out_summary_has_effect)) {
+                            obj.out_summary_has_effect)) {
                         // Setting these to false will cause the summary
                         // symbol not to be drawn in renderer_elements.ts
                         obj.summarize_in_edges = false;
@@ -3755,8 +3955,8 @@ export class SDFGRenderer extends EventEmitter {
             dirty = dirty || ext_mh_dirty;
         }
 
-        if (this.overlay_manager !== null) {
-            const ol_manager_dirty = this.overlay_manager.on_mouse_event(
+        if (this.overlayManager) {
+            const ol_manager_dirty = this.overlayManager.on_mouse_event(
                 evtype,
                 event,
                 { x: mouse_x, y: mouse_y },
@@ -3770,10 +3970,22 @@ export class SDFGRenderer extends EventEmitter {
         if (dirty)
             this.draw_async();
 
-        if (element_focus_changed || selection_changed)
+        if (selection_changed || multi_selection_changed)
             this.emit('selection_changed', multi_selection_changed);
+        if (element_focus_changed) {
+            this.emit(
+                'element_focus_changed',
+                selection_changed || multi_selection_changed
+            );
+        }
 
         return false;
+    }
+
+    public registerExternalMouseHandler(
+        handler: ((...args: any[]) => boolean) | null
+    ): void {
+        this.external_mouse_handler = handler;
     }
 
     public get_canvas(): HTMLCanvasElement | null {
@@ -3788,10 +4000,6 @@ export class SDFGRenderer extends EventEmitter {
         return this.ctx;
     }
 
-    public get_overlay_manager(): OverlayManager {
-        return this.overlay_manager;
-    }
-
     public get_visible_rect(): SimpleRect | null {
         return this.visible_rect;
     }
@@ -3800,8 +4008,8 @@ export class SDFGRenderer extends EventEmitter {
         return this.mouse_mode;
     }
 
-    public get_bgcolor(): string {
-        return (this.bgcolor ? this.bgcolor : '');
+    public getBackgroundColor(): string {
+        return (this.backgroundColor ? this.backgroundColor : '');
     }
 
     public get_sdfg(): JsonSDFG {
@@ -3812,7 +4020,7 @@ export class SDFGRenderer extends EventEmitter {
         return this.cfgList;
     }
 
-    public getCFGTree(): { [key: number]: number} {
+    public getCFGTree(): { [key: number]: number } {
         return this.cfgTree;
     }
 
@@ -3840,8 +4048,8 @@ export class SDFGRenderer extends EventEmitter {
         this.tooltip = tooltip_func;
     }
 
-    public set_bgcolor(bgcolor: string): void {
-        this.bgcolor = bgcolor;
+    public setBackgroundColor(backgroundColor: string): void {
+        this.backgroundColor = backgroundColor;
     }
 
     public on_selection_changed(): void {
@@ -3899,19 +4107,25 @@ export class SDFGRenderer extends EventEmitter {
         });
         this.selected_elements = [];
         this.on_selection_changed();
+        this.draw_async();
     }
 
     public exitLocalView(): void {
-        reload_file(this.sdfv_instance);
+        if (!(this.sdfv_instance instanceof SDFV))
+            return;
+
+        if (this.sdfv_instance instanceof WebSDFV)
+            this.sdfv_instance.setSDFG(this.sdfg);
     }
 
     public async localViewSelection(): Promise<void> {
-        if (!this.graph)
+        if (!this.graph || !(this.sdfv_instance instanceof SDFV))
             return;
 
         // Transition to the local view by first cutting out the selection.
         try {
-            this.cutoutSelection(true);
+            const origSdfg = stringify_sdfg(this.sdfg);
+            await this.cutoutSelection(true);
             const lRenderer =
                 new LViewRenderer(this.sdfv_instance, this.container);
             const lGraph = await LViewParser.parseGraph(this.graph, lRenderer);
@@ -3931,12 +4145,16 @@ export class SDFGRenderer extends EventEmitter {
                 exitBtn.style.left = '10px';
                 exitBtn.title = 'Exit local view';
                 exitBtn.onclick = () => {
+                    this.sdfg = parse_sdfg(origSdfg);
                     this.exitLocalView();
                     this.container.removeChild(exitBtn);
                 };
                 this.container.appendChild(exitBtn);
 
                 this.sdfv_instance.setLocalViewRenderer(lRenderer);
+
+                if (this.canvas)
+                    $(this.canvas).remove();
             }
         } catch (e) {
             if (e instanceof LViewGraphParseError)
@@ -3946,7 +4164,9 @@ export class SDFGRenderer extends EventEmitter {
         }
     }
 
-    public cutoutSelection(_suppressSave: boolean = false): void {
+    public async cutoutSelection(
+        _suppressSave: boolean = false
+    ): Promise<void> {
         /* Rule set for creating a cutout subgraph:
          * Edges are selected according to the subgraph nodes - all edges
          * between subgraph nodes are preserved.
@@ -4070,7 +4290,7 @@ export class SDFGRenderer extends EventEmitter {
             }
 
             // Set root SDFG as the new SDFG
-            this.setSDFG(rootSDFG as JsonSDFG);
+            return this.setSDFG(rootSDFG as JsonSDFG);
         }
     }
 
@@ -4086,7 +4306,7 @@ export class SDFGRenderer extends EventEmitter {
 
 
 function calculateNodeSize(
-    sdfg: JsonSDFG, node: any, ctx: CanvasRenderingContext2D
+    sdfg: JsonSDFG, node: any, ctx?: CanvasRenderingContext2D
 ): { width: number, height: number } {
     let label;
     switch (node.type) {
@@ -4106,7 +4326,7 @@ function calculateNodeSize(
             break;
     }
 
-    const labelsize = ctx.measureText(label).width;
+    const labelsize = ctx ? ctx.measureText(label).width : 1;
     const inconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
         node.attributes.layout.in_connectors
     ).length - SDFV.LINEHEIGHT;
@@ -4152,10 +4372,10 @@ function calculateNodeSize(
     return size;
 }
 
-function relayoutStateMachine(
-    ctx: CanvasRenderingContext2D, stateMachine: JsonSDFGControlFlowRegion,
-    sdfg: JsonSDFG, cfgList: CFGListType, stateParentList: any[],
-    omitAccessNodes: boolean, parent?: SDFGElement
+export function relayoutStateMachine(
+    stateMachine: JsonSDFGControlFlowRegion, sdfg: JsonSDFG,
+    parent?: SDFGElement, ctx?: CanvasRenderingContext2D, cfgList?: CFGListType,
+    stateParentList?: any[], omitAccessNodes: boolean = false
 ): DagreGraph {
     const BLOCK_MARGIN = 3 * SDFV.LINEHEIGHT;
 
@@ -4196,7 +4416,7 @@ function relayoutStateMachine(
         let blockGraph = null;
         if (block.attributes?.is_collapsed) {
             blockInfo.height = SDFV.LINEHEIGHT;
-            if (blockElem instanceof LoopRegion) {
+            if (blockElem instanceof LoopRegion && ctx) {
                 const oldFont = ctx.font;
                 ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
                 const labelWidths = [
@@ -4218,31 +4438,45 @@ function relayoutStateMachine(
                 blockInfo.width = Math.max(
                     maxLabelWidth, ctx.measureText(block.label).width
                 ) + 3 * LoopRegion.META_LABEL_MARGIN;
-            } else if (blockElem instanceof ConditionalRegion) {
-                const maxLabelWidth = Math.max(...blockElem.branches
-                    .map(branch => ctx.measureText(branch[0].string_data + 'if ').width));
+            } else if (blockElem instanceof ConditionalRegion && ctx) {
+                const maxLabelWidth = Math.max(...blockElem.branches.map(
+                    br => ctx.measureText(br[0].string_data + 'if ').width
+                ));
                 blockInfo.width = Math.max(
                     maxLabelWidth, ctx.measureText(block.label).width
                 ) + 3 * LoopRegion.META_LABEL_MARGIN;
-                blockInfo.height += LoopRegion.CONDITION_SPACING
+                blockInfo.height += LoopRegion.CONDITION_SPACING;
             } else {
-                blockInfo.width = ctx.measureText(blockInfo.label).width;
+                if (ctx)
+                    blockInfo.width = ctx.measureText(blockInfo.label).width;
+                else
+                    blockInfo.width = 1;
             }
         } else {
             blockGraph = relayoutSDFGBlock(
-                ctx, block, sdfg, cfgList, stateParentList, omitAccessNodes,
-                blockElem
+                block, sdfg, blockElem, ctx, cfgList, stateParentList,
+                omitAccessNodes
             );
-            if (block.type == SDFGElementType.ConditionalRegion && blockGraph) {
-                for (const [condition, region] of (blockElem as ConditionalRegion).branches) {
-                    blockInfo.width = Math.max(blockInfo.width, region.width)
-                    blockInfo.width = Math.max(blockInfo.width, ctx.measureText("if " + condition.string_data).width)
-                    blockInfo.height += region.height
+            if (block.type == SDFGElementType.ConditionalRegion && blockGraph &&
+                ctx
+            ) {
+                const branches = (blockElem as ConditionalRegion).branches;
+                for (const [condition, region] of branches) {
+                    blockInfo.width = Math.max(blockInfo.width, region.width);
+                    blockInfo.width = Math.max(
+                        blockInfo.width, ctx.measureText(
+                            'if ' + condition.string_data
+                        ).width
+                    );
+                    blockInfo.height += region.height;
                 }
-            } else if (blockGraph)
+            } else if (blockGraph) {
                 blockInfo = calculateBoundingBox(blockGraph);
+            }
         }
-        if (block.type !== SDFGElementType.ConditionalRegion || block.attributes?.is_collapsed) {
+        if (block.type !== SDFGElementType.ConditionalRegion ||
+            block.attributes?.is_collapsed
+        ) {
             blockInfo.width += 2 * BLOCK_MARGIN;
             blockInfo.height += 2 * BLOCK_MARGIN;
         }
@@ -4258,7 +4492,9 @@ function relayoutStateMachine(
             if (block.attributes.update_statement)
                 blockInfo.height += LoopRegion.UPDATE_SPACING;
         } else if (blockElem instanceof ConditionalRegion) {
-            blockInfo.height += ConditionalRegion.CONDITION_SPACING * blockElem.branches.length
+            blockInfo.height += (
+                ConditionalRegion.CONDITION_SPACING * blockElem.branches.length
+            );
         }
 
         blockElem.data.layout = blockInfo;
@@ -4338,10 +4574,12 @@ function relayoutStateMachine(
                     y: topleft.y + BLOCK_MARGIN,
                 });
             } else if (block.type === SDFGElementType.ConditionalRegion) {
-                offset_conditional_region(block as JsonSDFGConditionalRegion, gBlock.data.graph, {
-                    x: topleft.x,
-                    y: topleft.y,
-                })
+                offset_conditional_region(
+                    block as JsonSDFGConditionalRegion, gBlock.data.graph, {
+                        x: topleft.x,
+                        y: topleft.y,
+                    }
+                );
             } else {
                 // Base spacing for the inside.
                 let topSpacing = BLOCK_MARGIN;
@@ -4367,15 +4605,17 @@ function relayoutStateMachine(
     (g as any).height = bb.height;
 
     // Add CFG graph to global store.
-    cfgList[stateMachine.cfg_list_id].graph = g;
+    if (cfgList !== undefined)
+        cfgList[stateMachine.cfg_list_id].graph = g;
 
     return g;
 }
 
 function relayoutConditionalRegion(
-    ctx: CanvasRenderingContext2D, stateMachine: JsonSDFGConditionalRegion,
-    sdfg: JsonSDFG, cfgList: CFGListType, stateParentList: any[],
-    omitAccessNodes: boolean, parent: ConditionalRegion
+    region: JsonSDFGConditionalRegion, sdfg: JsonSDFG,
+    parent?: ConditionalRegion, ctx?: CanvasRenderingContext2D,
+    cfgList?: CFGListType, stateParentList?: any[],
+    omitAccessNodes: boolean = false
 ): DagreGraph {
     const BLOCK_MARGIN = 3 * SDFV.LINEHEIGHT;
 
@@ -4387,11 +4627,11 @@ function relayoutConditionalRegion(
     });
 
     // layout each block individually to get its size.
-    for (let id = 0; id < stateMachine.branches.length; id++) {
-        const [condition, block] = stateMachine.branches[id]
+    for (let id = 0; id < region.branches.length; id++) {
+        const [condition, block] = region.branches[id];
         if (block == null)
             continue
-        block.id = id
+        block.id = id;
         let blockInfo: {
             label?: string,
             width: number,
@@ -4407,18 +4647,20 @@ function relayoutConditionalRegion(
         );
         g.setNode(block.id.toString(), blockElem);
         blockElem.data.block = block;
-        parent.branches.push([condition, blockElem])
+        parent?.branches.push([condition, blockElem]);
 
         blockInfo.label = block.id.toString();
-        blockInfo.width = ctx.measureText(condition.string_data).width
-        blockInfo.height = SDFV.LINEHEIGHT
+        blockInfo.width = ctx?.measureText(condition.string_data).width ?? 0;
+        blockInfo.height = SDFV.LINEHEIGHT;
         if (!block.attributes?.is_collapsed) {
             const blockGraph = relayoutStateMachine(
-                ctx, block, sdfg, cfgList, stateParentList, omitAccessNodes,
-                blockElem
+                block, sdfg, blockElem, ctx, cfgList, stateParentList,
+                omitAccessNodes,
             );
-            blockInfo.width = Math.max(blockInfo.width, (blockGraph as any).width)
-            blockInfo.height += (blockGraph as any).height
+            blockInfo.width = Math.max(
+                blockInfo.width, (blockGraph as any).width
+            );
+            blockInfo.height += (blockGraph as any).height;
             blockElem.data.graph = blockGraph;
         }
         blockInfo.width += 2 * BLOCK_MARGIN;
@@ -4430,9 +4672,9 @@ function relayoutConditionalRegion(
 }
 
 function relayoutSDFGState(
-    ctx: CanvasRenderingContext2D, state: JsonSDFGState,
-    sdfg: JsonSDFG, sdfgList: CFGListType, stateParentList: any[],
-    omitAccessNodes: boolean, parent: State
+    state: JsonSDFGState, sdfg: JsonSDFG, parent: State,
+    ctx?: CanvasRenderingContext2D, sdfgList?: CFGListType,
+    stateParentList?: any[], omitAccessNodes: boolean = false
 ): DagreGraph | null {
     if (!state.nodes && !state.edges)
         return null;
@@ -4502,8 +4744,8 @@ function relayoutSDFGState(
             if (node.attributes.sdfg &&
                 node.attributes.sdfg.type !== 'SDFGShell') {
                 nestedGraph = relayoutStateMachine(
-                    ctx, node.attributes.sdfg, node.attributes.sdfg, sdfgList,
-                    stateParentList, omitAccessNodes, parent
+                    node.attributes.sdfg, node.attributes.sdfg, parent, ctx,
+                    sdfgList, stateParentList, omitAccessNodes
                 );
                 const sdfgInfo = calculateBoundingBox(nestedGraph);
                 node.attributes.layout.width =
@@ -4512,9 +4754,13 @@ function relayoutSDFGState(
                     sdfgInfo.height + 2 * SDFV.LINEHEIGHT;
             } else {
                 const emptyNSDFGLabel = 'No SDFG loaded';
-                const textMetrics = ctx.measureText(emptyNSDFGLabel);
-                node.attributes.layout.width =
-                    textMetrics.width + 2 * SDFV.LINEHEIGHT;
+                if (ctx) {
+                    const textMetrics = ctx.measureText(emptyNSDFGLabel);
+                    node.attributes.layout.width =
+                        textMetrics.width + 2 * SDFV.LINEHEIGHT;
+                } else {
+                    node.attributes.layout.width = 1;
+                }
                 node.attributes.layout.height = 4 * SDFV.LINEHEIGHT;
             }
         }
@@ -4528,8 +4774,10 @@ function relayoutSDFGState(
         // If it's a nested SDFG, we need to record the node as all of its
         // state's parent node.
         if ((node.type === SDFGElementType.NestedSDFG ||
-             node.type === SDFGElementType.ExternalNestedSDFG) &&
-            node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell') {
+            node.type === SDFGElementType.ExternalNestedSDFG) &&
+            node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell' &&
+            stateParentList !== undefined && sdfgList !== undefined
+        ) {
             stateParentList[node.attributes.sdfg.cfg_list_id] = obj;
             sdfgList[node.attributes.sdfg.cfg_list_id].nsdfgNode = obj;
         }
@@ -4929,30 +5177,30 @@ function relayoutSDFGState(
 }
 
 function relayoutSDFGBlock(
-    ctx: CanvasRenderingContext2D, block: JsonSDFGBlock,
-    sdfg: JsonSDFG, sdfgList: CFGListType, stateParentList: any[],
-    omitAccessNodes: boolean, parent: SDFGElement
+    block: JsonSDFGBlock, sdfg: JsonSDFG, parent: SDFGElement,
+    ctx?: CanvasRenderingContext2D, sdfgList?: CFGListType,
+    stateParentList?: any[], omitAccessNodes: boolean = false
 ): DagreGraph | null {
     switch (block.type) {
         case SDFGElementType.LoopRegion:
         case SDFGElementType.ControlFlowRegion:
             return relayoutStateMachine(
-                ctx, block as JsonSDFGControlFlowRegion, sdfg, sdfgList,
-                stateParentList, omitAccessNodes, parent
+                block as JsonSDFGControlFlowRegion, sdfg, parent, ctx, sdfgList,
+                stateParentList, omitAccessNodes
             );
         case SDFGElementType.SDFGState:
         case SDFGElementType.BasicBlock:
            return relayoutSDFGState(
-                ctx, block as JsonSDFGState, sdfg, sdfgList, stateParentList,
-                omitAccessNodes, parent
+                block as JsonSDFGState, sdfg, parent, ctx, sdfgList,
+                stateParentList, omitAccessNodes
             ); 
         case SDFGElementType.ConditionalRegion:
             return relayoutConditionalRegion(
-                ctx, block as JsonSDFGConditionalRegion, sdfg, sdfgList, stateParentList,
-                omitAccessNodes, parent as ConditionalRegion
+                block as JsonSDFGConditionalRegion, sdfg,
+                parent as ConditionalRegion, ctx, sdfgList, stateParentList,
+                omitAccessNodes
             );
         default:
             return null;
     }
 }
-
