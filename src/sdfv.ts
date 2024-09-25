@@ -466,48 +466,42 @@ export class WebSDFV extends SDFV {
     }
 
     public setSDFG(
-        sdfg: any | null = null,
+        sdfg: JsonSDFG | null = null,
         userTransform: DOMMatrix | null = null,
         debugDraw: boolean = false
     ): void {
+        this.renderer?.destroy();
         const container = document.getElementById('contents');
-        if (container) {
-            this.renderer?.destroy();
-            if (sdfg) {
-                const renderer = new SDFGRenderer(
-                    sdfg, container, this, null, userTransform, debugDraw, null,
-                    this.modeButtons
-                );
-                this.set_renderer(renderer);
-                renderer.on('selection_changed', () => {
-                    const selectedElements = renderer.get_selected_elements();
-                    let element;
-                    if (selectedElements.length === 0)
-                        element = new SDFG(renderer.get_sdfg());
-                    else if (selectedElements.length === 1)
-                        element = selectedElements[0];
-                    else
-                        element = null;
-
-                    if (element !== null) {
-                        SDFVWebUI.getInstance().showElementInfo(
-                            element, renderer
-                        );
-                    } else {
-                        SDFVWebUI.getInstance().infoClear();
-                        SDFVWebUI.getInstance().infoSetTitle(
-                            'Multiple elements selected'
-                        );
-                    }
-                    SDFVWebUI.getInstance().infoShow();
-                });
-            }
-            this.UI.infoClear();
-            $('#load-instrumentation-report-btn').prop(
-                'disabled', false
+        if (container && sdfg) {
+            const renderer = new SDFGRenderer(
+                sdfg, container, this, null, userTransform, debugDraw, null,
+                this.modeButtons
             );
-            $('#diff-view-btn').prop('disabled', false);
+            this.set_renderer(renderer);
+            renderer.on('selection_changed', () => {
+                const selectedElements = renderer.get_selected_elements();
+                let element;
+                if (selectedElements.length === 0)
+                    element = new SDFG(renderer.get_sdfg());
+                else if (selectedElements.length === 1)
+                    element = selectedElements[0];
+                else
+                    element = null;
+
+                if (element !== null) {
+                    SDFVWebUI.getInstance().showElementInfo(element, renderer);
+                } else {
+                    SDFVWebUI.getInstance().infoClear();
+                    SDFVWebUI.getInstance().infoSetTitle(
+                        'Multiple elements selected'
+                    );
+                }
+                SDFVWebUI.getInstance().infoShow();
+            });
         }
+        this.UI.infoClear();
+        $('#load-instrumentation-report-btn').prop('disabled', false);
+        $('#diff-view-btn').prop('disabled', false);
     }
 
 }

@@ -9,7 +9,7 @@ import {
     GenericSdfgOverlay,
     JsonSDFG,
     JsonSDFGBlock,
-    JsonSDFGConditionalRegion,
+    JsonSDFGConditionalBlock,
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGElement,
@@ -68,7 +68,7 @@ import {
     drawSDFG,
     offset_sdfg,
     offset_state,
-    ConditionalRegion,
+    ConditionalBlock,
     offset_conditional_region,
 } from './renderer_elements';
 import { cfgToDotGraph } from '../utils/sdfg/dotgraph';
@@ -2550,6 +2550,26 @@ export class SDFGRenderer extends EventEmitter {
                         stateId: -1,
                     }, block);
                     doRecursive(block as JsonSDFGControlFlowRegion, sdfg);
+                } else if ('branches' in block) {
+                    func('controlFlowBlocks', {
+                        sdfg: sdfg,
+                        graph: cfg,
+                        id: blockId,
+                        cfgId: cfg.cfg_list_id,
+                        stateId: block.id,
+                    }, block);
+                    const conditRegion = block as JsonSDFGConditionalBlock;
+                    for (const el of conditRegion.branches) {
+                        // Control flow region.
+                        func('controlFlowRegions', {
+                            sdfg: sdfg,
+                            graph: cfg,
+                            id: blockId,
+                            cfgId: cfg.cfg_list_id,
+                            stateId: -1,
+                        }, el[1]);
+                        doRecursive(el[1] as JsonSDFGControlFlowRegion, sdfg);
+                    }
                 }
             });
 
@@ -2954,7 +2974,7 @@ export class SDFGRenderer extends EventEmitter {
         let sdfg_elem = null;
         if (foreground_elem instanceof State) {
             sdfg_elem = foreground_elem.data.state;
-        } else if (foreground_elem instanceof ControlFlowRegion) {
+        } else if (foreground_elem instanceof ControlFlowBlock) {
             sdfg_elem = foreground_elem.data.block;
         } else if (foreground_elem instanceof SDFGNode) {
             sdfg_elem = foreground_elem.data.node;
@@ -4438,9 +4458,11 @@ export function relayoutStateMachine(
                 blockInfo.width = Math.max(
                     maxLabelWidth, ctx.measureText(block.label).width
                 ) + 3 * LoopRegion.META_LABEL_MARGIN;
-            } else if (blockElem instanceof ConditionalRegion && ctx) {
+            } else if (blockElem instanceof ConditionalBlock && ctx) {
                 const maxLabelWidth = Math.max(...blockElem.branches.map(
-                    br => ctx.measureText(br[0].string_data + 'if ').width
+                    br => ctx.measureText(
+                        br[0] ? br[0].string_data + 'if ' : 'else'
+                    ).width
                 ));
                 blockInfo.width = Math.max(
                     maxLabelWidth, ctx.measureText(block.label).width
@@ -4457,15 +4479,15 @@ export function relayoutStateMachine(
                 block, sdfg, blockElem, ctx, cfgList, stateParentList,
                 omitAccessNodes
             );
-            if (block.type == SDFGElementType.ConditionalRegion && blockGraph &&
+            if (block.type == SDFGElementType.ConditionalBlock && blockGraph &&
                 ctx
             ) {
-                const branches = (blockElem as ConditionalRegion).branches;
+                const branches = (blockElem as ConditionalBlock).branches;
                 for (const [condition, region] of branches) {
                     blockInfo.width = Math.max(blockInfo.width, region.width);
                     blockInfo.width = Math.max(
                         blockInfo.width, ctx.measureText(
-                            'if ' + condition.string_data
+                            condition ? 'if ' + condition.string_data : 'else'
                         ).width
                     );
                     blockInfo.height += region.height;
@@ -4474,7 +4496,7 @@ export function relayoutStateMachine(
                 blockInfo = calculateBoundingBox(blockGraph);
             }
         }
-        if (block.type !== SDFGElementType.ConditionalRegion ||
+        if (block.type !== SDFGElementType.ConditionalBlock ||
             block.attributes?.is_collapsed
         ) {
             blockInfo.width += 2 * BLOCK_MARGIN;
@@ -4491,9 +4513,9 @@ export function relayoutStateMachine(
             // If there's an update statement, also add space for it.
             if (block.attributes.update_statement)
                 blockInfo.height += LoopRegion.UPDATE_SPACING;
-        } else if (blockElem instanceof ConditionalRegion) {
+        } else if (blockElem instanceof ConditionalBlock) {
             blockInfo.height += (
-                ConditionalRegion.CONDITION_SPACING * blockElem.branches.length
+                ConditionalBlock.CONDITION_SPACING * blockElem.branches.length
             );
         }
 
@@ -4533,12 +4555,12 @@ export function relayoutStateMachine(
         block.attributes.layout.y = gnode.y;
         block.attributes.layout.width = gnode.width;
         block.attributes.layout.height = gnode.height;
-        if (gnode instanceof ConditionalRegion) {
-            let y = ConditionalRegion.CONDITION_SPACING;
+        if (gnode instanceof ConditionalBlock) {
+            let y = ConditionalBlock.CONDITION_SPACING;
             for (const [_, region] of gnode.branches) {
                 region.x += region.width / 2
                 region.y = y + region.height / 2;
-                y += region.height + ConditionalRegion.CONDITION_SPACING
+                y += region.height + ConditionalBlock.CONDITION_SPACING
             }
         }
     }
@@ -4573,9 +4595,9 @@ export function relayoutStateMachine(
                     x: topleft.x + BLOCK_MARGIN,
                     y: topleft.y + BLOCK_MARGIN,
                 });
-            } else if (block.type === SDFGElementType.ConditionalRegion) {
+            } else if (block.type === SDFGElementType.ConditionalBlock) {
                 offset_conditional_region(
-                    block as JsonSDFGConditionalRegion, gBlock.data.graph, {
+                    block as JsonSDFGConditionalBlock, gBlock.data.graph, {
                         x: topleft.x,
                         y: topleft.y,
                     }
@@ -4612,8 +4634,8 @@ export function relayoutStateMachine(
 }
 
 function relayoutConditionalRegion(
-    region: JsonSDFGConditionalRegion, sdfg: JsonSDFG,
-    parent?: ConditionalRegion, ctx?: CanvasRenderingContext2D,
+    region: JsonSDFGConditionalBlock, sdfg: JsonSDFG,
+    parent?: ConditionalBlock, ctx?: CanvasRenderingContext2D,
     cfgList?: CFGListType, stateParentList?: any[],
     omitAccessNodes: boolean = false
 ): DagreGraph {
@@ -4629,8 +4651,6 @@ function relayoutConditionalRegion(
     // layout each block individually to get its size.
     for (let id = 0; id < region.branches.length; id++) {
         const [condition, block] = region.branches[id];
-        if (block == null)
-            continue
         block.id = id;
         let blockInfo: {
             label?: string,
@@ -4650,7 +4670,9 @@ function relayoutConditionalRegion(
         parent?.branches.push([condition, blockElem]);
 
         blockInfo.label = block.id.toString();
-        blockInfo.width = ctx?.measureText(condition.string_data).width ?? 0;
+        blockInfo.width = ctx?.measureText(
+            condition?.string_data ?? 'else'
+        ).width ?? 0;
         blockInfo.height = SDFV.LINEHEIGHT;
         if (!block.attributes?.is_collapsed) {
             const blockGraph = relayoutStateMachine(
@@ -5189,15 +5211,14 @@ function relayoutSDFGBlock(
                 stateParentList, omitAccessNodes
             );
         case SDFGElementType.SDFGState:
-        case SDFGElementType.BasicBlock:
            return relayoutSDFGState(
                 block as JsonSDFGState, sdfg, parent, ctx, sdfgList,
                 stateParentList, omitAccessNodes
             ); 
-        case SDFGElementType.ConditionalRegion:
+        case SDFGElementType.ConditionalBlock:
             return relayoutConditionalRegion(
-                block as JsonSDFGConditionalRegion, sdfg,
-                parent as ConditionalRegion, ctx, sdfgList, stateParentList,
+                block as JsonSDFGConditionalBlock, sdfg,
+                parent as ConditionalBlock, ctx, sdfgList, stateParentList,
                 omitAccessNodes
             );
         default:

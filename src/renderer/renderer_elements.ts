@@ -4,7 +4,7 @@ import {
     DagreGraph,
     JsonSDFG,
     JsonSDFGBlock,
-    JsonSDFGConditionalRegion,
+    JsonSDFGConditionalBlock,
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGNode,
@@ -26,10 +26,20 @@ import { SDFGRenderer } from './renderer';
 export enum SDFGElementType {
     Edge = 'Edge',
     MultiConnectorEdge = 'MultiConnectorEdge',
-    SDFGState = 'SDFGState',
+
+    ControlFlowBlock = 'ControlFlowBlock',
     ContinueBlock = 'ContinueBlock',
     BreakBlock = 'BreakBlock',
     ReturnBlock = 'ReturnBlock',
+    ConditionalBlock = 'ConditionalBlock',
+    SDFGState = 'SDFGState',
+
+    ControlFlowRegion = 'ControlFlowRegion',
+    LoopRegion = 'LoopRegion',
+    BranchRegion = 'BranchRegion',
+    NamedRegion = 'NamedRegion',
+    FunctionCallRegion = 'FunctionCallRegion',
+
     AccessNode = 'AccessNode',
     Tasklet = 'Tasklet',
     LibraryNode = 'LibraryNode',
@@ -42,11 +52,6 @@ export enum SDFGElementType {
     PipelineEntry = 'PipelineEntry',
     PipelineExit = 'PipelineExit',
     Reduce = 'Reduce',
-    BasicBlock = 'BasicBlock',
-    ControlFlowBlock = 'ControlFlowBlock',
-    ControlFlowRegion = 'ControlFlowRegion',
-    LoopRegion = 'LoopRegion',
-    ConditionalRegion = 'ConditionalRegion'
 }
 
 function draw_summary_symbol(
@@ -439,10 +444,6 @@ export class ControlFlowBlock extends SDFGElement {
         return true;
     }
 
-}
-
-export class BasicBlock extends ControlFlowBlock {
-
     public label(): string {
         return this.data.block.label;
     }
@@ -497,6 +498,10 @@ export class BasicBlock extends ControlFlowBlock {
         mousepos?: Point2D
     ): void {
         this._internal_draw(renderer, ctx, mousepos, undefined, true);
+    }
+
+    public attributes(): any {
+        return this.data.block.attributes;
     }
 
     public type(): string {
@@ -651,21 +656,9 @@ export class ControlFlowRegion extends ControlFlowBlock {
         container.innerText = 'Control Flow Region: ' + this.label();
     }
 
-    public attributes(): any {
-        return this.data.block.attributes;
-    }
-
-    public label(): string {
-        return this.data.block.label;
-    }
-
-    public type(): string {
-        return this.data.block.type;
-    }
-
 }
 
-export class State extends BasicBlock {
+export class State extends ControlFlowBlock {
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
@@ -811,7 +804,11 @@ export class State extends BasicBlock {
 
 }
 
-export class BreakBlock extends BasicBlock {
+export class BreakBlock extends ControlFlowBlock {
+
+    public get COLLAPSIBLE(): boolean {
+        return false;
+    }
 
     public simple_draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
@@ -833,7 +830,11 @@ export class BreakBlock extends BasicBlock {
 
 }
 
-export class ContinueBlock extends BasicBlock {
+export class ContinueBlock extends ControlFlowBlock {
+
+    public get COLLAPSIBLE(): boolean {
+        return false;
+    }
 
     public simple_draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
@@ -855,7 +856,11 @@ export class ContinueBlock extends BasicBlock {
 
 }
 
-export class ReturnBlock extends BasicBlock {
+export class ReturnBlock extends ControlFlowBlock {
+
+    public get COLLAPSIBLE(): boolean {
+        return false;
+    }
 
     public simple_draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
@@ -877,7 +882,7 @@ export class ReturnBlock extends BasicBlock {
 
 }
 
-export class ConditionalRegion extends ControlFlowRegion {
+export class ConditionalBlock extends ControlFlowBlock {
     
     public static get CONDITION_SPACING(): number {
         return 3 * SDFV.LINEHEIGHT;
@@ -889,7 +894,10 @@ export class ConditionalRegion extends ControlFlowRegion {
     }
 
     public branches: (
-        [{string_data: string, language: string}, region: ControlFlowRegion]
+        [
+            {string_data: string, language: string} | null,
+            region: ControlFlowRegion,
+        ]
     )[] = [];
 
     public draw(
@@ -960,8 +968,8 @@ export class ConditionalRegion extends ControlFlowRegion {
         let remainingHeight = this.height;
         let x = topleft.x, y = topleft.y
         for (const [condition, region] of this.branches) {
-            topSpacing += ConditionalRegion.CONDITION_SPACING;
-            const initBottomLineY = y + ConditionalRegion.CONDITION_SPACING;
+            topSpacing += ConditionalBlock.CONDITION_SPACING;
+            const initBottomLineY = y + ConditionalBlock.CONDITION_SPACING;
             ctx.beginPath();
             ctx.moveTo(x, initBottomLineY);
             ctx.lineTo(x + this.width, initBottomLineY);
@@ -969,12 +977,16 @@ export class ConditionalRegion extends ControlFlowRegion {
 
             if (!too_far_away_for_text(renderer)) {
                 const initTextY = (
-                    (y + (ConditionalRegion.CONDITION_SPACING / 2)) +
+                    (y + (ConditionalBlock.CONDITION_SPACING / 2)) +
                     (SDFV.LINEHEIGHT / 2)
                 );
-                const initTextMetrics = ctx.measureText(condition.string_data);
+                const initTextMetrics = ctx.measureText(
+                    condition?.string_data ?? 'else'
+                );
                 const initTextX = x + (initTextMetrics.width / 2);
-                ctx.fillText(condition.string_data, initTextX, initTextY);
+                ctx.fillText(
+                    condition?.string_data ?? 'else', initTextX, initTextY
+                );
 
                 ctx.fillText(
                     'if', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
@@ -1260,6 +1272,12 @@ export class LoopRegion extends ControlFlowRegion {
     }
 
 }
+
+export class BranchRegion extends ControlFlowRegion {}
+
+export class NamedRegion extends ControlFlowRegion {}
+
+export class FunctionCallRegion extends ControlFlowRegion {}
 
 export class SDFGNode extends SDFGElement {
 
@@ -3303,12 +3321,15 @@ export function offset_sdfg(
         g.x += offset.x;
         g.y += offset.y;
         if (!state.attributes.is_collapsed) {
-            if (state.type === SDFGElementType.SDFGState)
+            if (state.type === SDFGElementType.SDFGState) {
                 offset_state(state as JsonSDFGState, g, offset);
-            else if (state.type === SDFGElementType.ConditionalRegion)
-                offset_conditional_region((state as JsonSDFGConditionalRegion), g.data.graph, offset)
-            else
+            } else if (state.type === SDFGElementType.ConditionalBlock) {
+                offset_conditional_region(
+                    (state as JsonSDFGConditionalBlock), g.data.graph, offset
+                );
+            } else {
                 offset_sdfg(state as any, g.data.graph, offset);
+            }
         }
     });
     sdfg.edges?.forEach((e: JsonSDFGEdge, _eid: number) => {
@@ -3323,7 +3344,7 @@ export function offset_sdfg(
 }
 
 export function offset_conditional_region(
-    region: JsonSDFGConditionalRegion, sdfg_graph: DagreGraph, offset: Point2D
+    region: JsonSDFGConditionalBlock, sdfg_graph: DagreGraph, offset: Point2D
 ): void {
     for (let id = 0; id < region.branches.length; id++) {
         const state = region.branches[id][1]
@@ -3575,12 +3596,28 @@ export function ptLineDistance(
 
 export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     SDFGElement,
+    Connector,
+
+    ControlFlowRegion,
+    LoopRegion,
+    BranchRegion,
+    NamedRegion,
+    FunctionCallRegion,
+
+    ControlFlowBlock,
+    State,
+    BreakBlock,
+    ContinueBlock,
+    ReturnBlock,
+    ConditionalBlock,
+
     SDFG,
     SDFGShell,
-    SDFGNode,
+
     InterstateEdge,
     Memlet,
-    Connector,
+
+    SDFGNode,
     AccessNode,
     ScopeNode,
     EntryNode,
@@ -3596,13 +3633,4 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     NestedSDFG,
     ExternalNestedSDFG,
     LibraryNode,
-    ControlFlowBlock,
-    BasicBlock,
-    State,
-    ControlFlowRegion,
-    LoopRegion,
-    BreakBlock,
-    ContinueBlock,
-    ReturnBlock,
-    ConditionalRegion
 };

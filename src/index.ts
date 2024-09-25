@@ -17,7 +17,6 @@ export * from './renderer/renderer_elements';
 export * from './renderer/renderer';
 export * from './utils/sdfg/display';
 export * from './utils/sdfg/json_serializer';
-export * from './utils/sdfg/sdfg_parser';
 export * from './utils/sdfg/sdfg_utils';
 export * from './utils/sdfg/traversal';
 export * from './utils/sdfv_settings';
@@ -75,8 +74,13 @@ export interface JsonSDFGBlock extends JsonSDFGElement {
     label: string,
 }
 
-export interface JsonSDFGConditionalRegion extends JsonSDFGBlock {
-    branches: ([{string_data: string, language: string}, JsonSDFGControlFlowRegion | null])[]
+type CodeBlock = {
+    string_data: string,
+    language: string,
+};
+
+export interface JsonSDFGConditionalBlock extends JsonSDFGBlock {
+    branches: ([CodeBlock | null, JsonSDFGControlFlowRegion])[];
 }
 
 export interface JsonSDFGControlFlowRegion extends JsonSDFGBlock {
