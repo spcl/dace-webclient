@@ -439,6 +439,10 @@ export class SDFGShell extends SDFG {
 }
 
 export class ControlFlowBlock extends SDFGElement {
+    
+    public static get BLOCK_MARGIN(): number {
+        return 3 * SDFV.LINEHEIGHT;
+    }
 
     public get COLLAPSIBLE(): boolean {
         return true;
@@ -563,7 +567,7 @@ export class ControlFlowRegion extends ControlFlowBlock {
             renderer, '--control-flow-region-background-color'
         );
         ctx.strokeStyle = this.getCssProperty(
-            renderer, '--control-flow-region-foreground-color'
+            renderer, '--control-flow-region-border-color'
         );
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
 
@@ -949,7 +953,7 @@ export class ConditionalBlock extends ControlFlowBlock {
             renderer, '--conditional-background-color'
         );
         ctx.strokeStyle = this.getCssProperty(
-            renderer, '--conditional-foreground-color'
+            renderer, '--conditional-border-color'
         );
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
 
@@ -961,7 +965,7 @@ export class ConditionalBlock extends ControlFlowBlock {
         }
 
         ctx.fillStyle = this.getCssProperty(
-            renderer, '--loop-foreground-color'
+            renderer, '--conditional-foreground-color'
         );
 
         let topSpacing = LoopRegion.META_LABEL_MARGIN;
@@ -1108,7 +1112,7 @@ export class LoopRegion extends ControlFlowRegion {
             renderer, '--loop-background-color'
         );
         ctx.strokeStyle = this.getCssProperty(
-            renderer, '--loop-foreground-color'
+            renderer, '--loop-border-color'
         );
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
 
@@ -3313,22 +3317,22 @@ export function drawSDFG(
 }
 
 // Translate an SDFG by a given offset
-export function offset_sdfg(
-    sdfg: JsonSDFG, sdfg_graph: DagreGraph, offset: Point2D
+export function offsetControlFlowRegion(
+    sdfg: JsonSDFGControlFlowRegion, sdfg_graph: DagreGraph, offset: Point2D
 ): void {
     sdfg.nodes?.forEach((state: JsonSDFGBlock, id: number) => {
         const g = sdfg_graph.node(id.toString());
         g.x += offset.x;
         g.y += offset.y;
         if (!state.attributes.is_collapsed) {
-            if (state.type === SDFGElementType.SDFGState) {
+            if (g instanceof State) {
                 offset_state(state as JsonSDFGState, g, offset);
-            } else if (state.type === SDFGElementType.ConditionalBlock) {
-                offset_conditional_region(
+            } else if (g instanceof ConditionalBlock) {
+                offsetConditionalBlock(
                     (state as JsonSDFGConditionalBlock), g.data.graph, offset
                 );
-            } else {
-                offset_sdfg(state as any, g.data.graph, offset);
+            } else if (g instanceof ControlFlowRegion) {
+                offsetControlFlowRegion(state as any, g.data.graph, offset);
             }
         }
     });
@@ -3343,19 +3347,27 @@ export function offset_sdfg(
     });
 }
 
-export function offset_conditional_region(
-    region: JsonSDFGConditionalBlock, sdfg_graph: DagreGraph, offset: Point2D
+export function offsetConditionalBlock(
+    block: JsonSDFGConditionalBlock, blockGraph: DagreGraph, offset: Point2D 
 ): void {
-    for (let id = 0; id < region.branches.length; id++) {
-        const state = region.branches[id][1]
-        if (!state)
+    let prevRegion = null;
+    for (let id = 0; id < block.branches.length; id++) {
+        const region = block.branches[id][1]
+        if (!region)
             continue
-        const g = sdfg_graph.node(id.toString());   
-        g.x += offset.x;
-        g.y += offset.y;
-        if (!state.attributes.is_collapsed) {
-            offset_sdfg(state as any, g.data.graph, offset);
+        const regionG = blockGraph.node(id.toString());   
+        regionG.x += offset.x;
+        const newOffsX = prevRegion !== null ? prevRegion.width : 0;
+        regionG.y += offset.y;
+        if (!region.attributes.is_collapsed) {
+            offsetControlFlowRegion(
+                region, regionG.data.graph, {
+                    y: offset.y,
+                    x: offset.x + newOffsX,
+                }
+            );
         }
+        prevRegion = regionG;
     }
 }
 
@@ -3384,7 +3396,7 @@ export function offset_state(
 
         if (node.data.node.type === SDFGElementType.NestedSDFG &&
             node.data.node.attributes.sdfg) {
-            offset_sdfg(
+            offsetControlFlowRegion(
                 node.data.node.attributes.sdfg, node.data.graph, offset
             );
         }
@@ -3605,7 +3617,8 @@ export const SDFGElements: { [name: string]: typeof SDFGElement } = {
     FunctionCallRegion,
 
     ControlFlowBlock,
-    State,
+    'State': State,
+    'SDFGState': State,
     BreakBlock,
     ContinueBlock,
     ReturnBlock,

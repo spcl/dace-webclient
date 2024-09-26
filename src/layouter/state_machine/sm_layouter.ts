@@ -840,6 +840,7 @@ export class SMLayouter {
         const sortedRanks = Array.from(this.rankDict.keys()).sort((a, b) => {
             return a - b;
         });
+        let i = 0;
         for (const rank of sortedRanks) {
             const rankNodes = this.rankDict.get(rank)!;
             let thisHeight = 0;
@@ -850,23 +851,28 @@ export class SMLayouter {
             this.rankHeights.set(rank, thisHeight);
 
             const thisY = (
-                lastY + (lastHeight / 2) + LAYER_SPACING + (thisHeight / 2)
+                lastY + (lastHeight / 2) + (i === 0 ? 0 : LAYER_SPACING) +
+                (thisHeight / 2)
             );
             lastY = thisY;
             lastHeight = thisHeight;
 
             let lastX = 0;
             let lastWidth = 0;
+            let j = 0;
             for (const nodeId of rankNodes) {
                 const node = this.graph.get(nodeId)!;
                 const thisX = (
-                    lastX + (lastWidth / 2) + NODE_SPACING + (node.width / 2)
+                    lastX + (lastWidth / 2) + (j === 0 ? 0 : NODE_SPACING) +
+                    (node.width / 2)
                 );
                 lastX = thisX;
                 lastWidth = node.width;
                 node.x = thisX;
                 node.y = thisY;
+                j++;
             }
+            i++;
         }
 
         for (const edge of this.graph.edgesIter()) {
