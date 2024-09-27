@@ -114,9 +114,9 @@ export type Point2D = {
     y: number,
 };
 
-export type SimpleRect = {
-    x: number,
-    y: number,
+export type Size2D = {
     w: number,
     h: number,
 };
+
+export type SimpleRect = Point2D & Size2D;

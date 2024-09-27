@@ -542,7 +542,7 @@ function loadSDFGFromURL(url: string): void {
     request.onload = () => {
         if (request.status === 200) {
             const sdfg = checkCompatLoad(parse_sdfg(request.response));
-            WebSDFV.getInstance().setSDFG(sdfg, null, false);
+            WebSDFV.getInstance().setSDFG(sdfg, null);
         } else {
             showErrorModal('Failed to load SDFG from URL');
             WebSDFV.getInstance().setSDFG(null);
@@ -707,7 +707,7 @@ $(() => {
                 document.currentScript?.getAttribute('data-sdfg-json');
             if (sdfg_string) {
                 WebSDFV.getInstance().setSDFG(
-                    checkCompatLoad(parse_sdfg(sdfg_string)), null, false
+                    checkCompatLoad(parse_sdfg(sdfg_string)), null
                 );
             }
         } else if (document.currentScript?.hasAttribute('data-url')) {

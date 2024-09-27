@@ -996,7 +996,6 @@ export class ConditionalBlock extends ControlFlowBlock {
                     'if', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
                 );
             }
-            region.draw(renderer, ctx, _mousepos)
             y = initBottomLineY + region.height
         }
 
@@ -3293,10 +3292,20 @@ export function drawStateMachine(
                 drawStateContents(
                     ng, ctx, renderer, ppp, visibleRect, mousePos
                 );
-            } else {
+            } else if (block instanceof ControlFlowRegion) {
                 drawStateMachine(
                     ng, ctx, renderer, ppp, visibleRect, mousePos
                 );
+            } else if (block instanceof ConditionalBlock) {
+                for (const [_, region] of block.branches) {
+                    region.draw(renderer, ctx, mousePos);
+                    if (!region.attributes().is_collapsed) {
+                        drawStateMachine(
+                            region.data.graph, ctx, renderer, ppp, visibleRect,
+                            mousePos
+                        );
+                    }
+                }
             }
         }
     }
@@ -3315,109 +3324,6 @@ export function drawSDFG(
 
     drawStateMachine(g, ctx, renderer, ppp, visibleRect, mousePos);
 }
-
-// Translate an SDFG by a given offset
-export function offsetControlFlowRegion(
-    sdfg: JsonSDFGControlFlowRegion, sdfg_graph: DagreGraph, offset: Point2D
-): void {
-    sdfg.nodes?.forEach((state: JsonSDFGBlock, id: number) => {
-        const g = sdfg_graph.node(id.toString());
-        g.x += offset.x;
-        g.y += offset.y;
-        if (!state.attributes.is_collapsed) {
-            if (g instanceof State) {
-                offset_state(state as JsonSDFGState, g, offset);
-            } else if (g instanceof ConditionalBlock) {
-                offsetConditionalBlock(
-                    (state as JsonSDFGConditionalBlock), g.data.graph, offset
-                );
-            } else if (g instanceof ControlFlowRegion) {
-                offsetControlFlowRegion(state as any, g.data.graph, offset);
-            }
-        }
-    });
-    sdfg.edges?.forEach((e: JsonSDFGEdge, _eid: number) => {
-        const edge = sdfg_graph.edge(e.src, e.dst);
-        edge.x += offset.x;
-        edge.y += offset.y;
-        edge.points.forEach((p) => {
-            p.x += offset.x;
-            p.y += offset.y;
-        });
-    });
-}
-
-export function offsetConditionalBlock(
-    block: JsonSDFGConditionalBlock, blockGraph: DagreGraph, offset: Point2D 
-): void {
-    let prevRegion = null;
-    for (let id = 0; id < block.branches.length; id++) {
-        const region = block.branches[id][1]
-        if (!region)
-            continue
-        const regionG = blockGraph.node(id.toString());   
-        regionG.x += offset.x;
-        const newOffsX = prevRegion !== null ? prevRegion.width : 0;
-        regionG.y += offset.y;
-        if (!region.attributes.is_collapsed) {
-            offsetControlFlowRegion(
-                region, regionG.data.graph, {
-                    y: offset.y,
-                    x: offset.x + newOffsX,
-                }
-            );
-        }
-        prevRegion = regionG;
-    }
-}
-
-// Translate nodes, edges, and connectors in a given SDFG state by an offset
-export function offset_state(
-    state: JsonSDFGState, state_graph: State, offset: Point2D
-): void {
-    const drawn_nodes: Set<string> = new Set();
-
-    state.nodes.forEach((_n: JsonSDFGNode, nid: number) => {
-        const node = state_graph.data.graph.node(nid);
-        if (!node)
-            return;
-        drawn_nodes.add(nid.toString());
-
-        node.x += offset.x;
-        node.y += offset.y;
-        node.in_connectors.forEach((c: Connector) => {
-            c.x += offset.x;
-            c.y += offset.y;
-        });
-        node.out_connectors.forEach((c: Connector) => {
-            c.x += offset.x;
-            c.y += offset.y;
-        });
-
-        if (node.data.node.type === SDFGElementType.NestedSDFG &&
-            node.data.node.attributes.sdfg) {
-            offsetControlFlowRegion(
-                node.data.node.attributes.sdfg, node.data.graph, offset
-            );
-        }
-    });
-    state.edges.forEach((e: JsonSDFGEdge, eid: number) => {
-        const ne = check_and_redirect_edge(e, drawn_nodes, state);
-        if (!ne)
-            return;
-        e = ne;
-        const edge = state_graph.data.graph.edge(e.src, e.dst, eid);
-        if (!edge)
-            return;
-        edge.x += offset.x;
-        edge.y += offset.y;
-        edge.points.forEach((p: Point2D) => {
-            p.x += offset.x;
-            p.y += offset.y;
-        });
-    });
-}
-
 
 ///////////////////////////////////////////////////////
 
