@@ -779,7 +779,7 @@ function layoutConditionalBlock(
     });
 
     // layout each block individually to get its size.
-    let offsetAmount = 0;
+    let maxBranchHeight = 0;
     for (let id = 0; id < condBlock.branches.length; id++) {
         const [condition, block] = condBlock.branches[id];
         block.id = id;
@@ -817,19 +817,26 @@ function layoutConditionalBlock(
         blockEl.data.layout = blockInfo;
         blockEl.set_layout();
 
-        blockEl.y = (
-            condBlockElem.y + (blockInfo.height / 2) +
+        maxBranchHeight = Math.max(maxBranchHeight, blockInfo.height);
+    }
+
+    // Offset each branch inside the conditional region and size it according
+    // to the height of the highest / longest branch.
+    let offsetAmount = 0;
+    for (const [_, branch] of condBlockElem.branches) {
+        branch.height = maxBranchHeight;
+        branch.y = (
+            condBlockElem.y + (maxBranchHeight / 2) +
             ConditionalBlock.CONDITION_SPACING
         );
-        blockEl.x = condBlockElem.x + (blockInfo.width / 2) + offsetAmount;
-        if (!blockEl.attributes()?.is_collapsed) {
-            offsetControlFlowRegion(block, blockEl, {
+        branch.x = condBlockElem.x + (branch.width / 2) + offsetAmount;
+        if (!branch.attributes()?.is_collapsed) {
+            offsetControlFlowRegion(branch.data.block, branch, {
                 x: offsetAmount + BLOCK_MARGIN,
                 y: BLOCK_MARGIN + ConditionalBlock.CONDITION_SPACING,
             });
         }
-
-        offsetAmount += blockInfo.width;
+        offsetAmount += branch.width;
     }
 
     // Annotate the JSON with layout information
