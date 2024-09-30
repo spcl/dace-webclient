@@ -1,8 +1,7 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { log, mean, median } from 'mathjs';
-import { DagreGraph, Point2D, SDFVSettings, SimpleRect } from '../index';
-import { OverlayManager, SymbolResolver } from '../overlay_manager';
+import { DagreGraph, OverlayManager, Point2D, SDFVSettings, SimpleRect, SymbolResolver } from '../index';
 import {
     GraphElementInfo,
     SDFGElementGroup,

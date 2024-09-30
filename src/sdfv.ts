@@ -10,7 +10,6 @@ import { EventEmitter } from 'events';
 import { mean, median } from 'mathjs';
 import {
     DagreGraph,
-    GenericSdfgOverlay,
     JsonSDFG,
     ModeButtons,
     showErrorModal,
@@ -38,6 +37,7 @@ import {
 import { SDFVSettings } from './utils/sdfv_settings';
 import { DiffMap, WebSDFGDiffViewer } from './sdfg_diff_viewer';
 import { ISDFVUserInterface, SDFVWebUI } from './sdfv_ui';
+import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
 
 declare const vscode: any;
 

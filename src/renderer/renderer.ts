@@ -6,7 +6,6 @@ import dagre from 'dagre';
 import EventEmitter from 'events';
 import {
     DagreGraph,
-    GenericSdfgOverlay,
     JsonSDFG,
     JsonSDFGBlock,
     JsonSDFGConditionalBlock,
@@ -61,6 +60,7 @@ import {
 } from './renderer_elements';
 import { cfgToDotGraph } from '../utils/sdfg/dotgraph';
 import { layoutSDFG } from '../layouter/layout';
+import { GenericSdfgOverlay } from '../overlays/generic_sdfg_overlay';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
