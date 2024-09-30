@@ -3,8 +3,6 @@
 import {
     DagreGraph,
     Point2D,
-    SDFVSettings,
-    SimpleRect,
     SymbolMap,
     getGraphElementUUID,
 } from '../index';
@@ -14,6 +12,8 @@ import {
     SDFGRenderer,
 } from '../renderer/renderer';
 import {
+    ConditionalBlock,
+    ControlFlowBlock,
     Edge,
     NestedSDFG,
     SDFGElement,
@@ -73,49 +73,63 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         g: DagreGraph, symbol_map: SymbolMap, flops_values: number[]
     ): void {
         g.nodes().forEach(v => {
-            const state = g.node(v);
-            this.calculate_flops_node(state, symbol_map, flops_values);
-            const state_graph = state.data.graph;
-            if (state_graph) {
-                state_graph.nodes().forEach((v: string) => {
-                    const node = state_graph.node(v);
-                    if (node instanceof NestedSDFG) {
-                        const nested_symbols_map: SymbolMap = {};
-                        const mapping =
-                            node.data.node.attributes.symbol_mapping ?? {};
-                        // Translate the symbol mappings for the nested SDFG
-                        // based on the mapping described on the node.
-                        Object.keys(mapping).forEach((symbol: string) => {
-                            nested_symbols_map[symbol] =
-                                this.symbolResolver.parse_symbol_expression(
-                                    mapping[symbol],
-                                    symbol_map
-                                );
-                        });
-                        // Merge in the parent mappings.
-                        Object.keys(symbol_map).forEach((symbol) => {
-                            if (!(symbol in nested_symbols_map))
-                                nested_symbols_map[symbol] = symbol_map[symbol];
-                        });
-
-                        this.calculate_flops_node(
-                            node,
-                            nested_symbols_map,
-                            flops_values
-                        );
+            const node = g.node(v);
+            this.calculate_flops_node(node, symbol_map, flops_values);
+            if (node instanceof ConditionalBlock) {
+                for (const [_, branch] of node.branches) {
+                    this.calculate_flops_node(branch, symbol_map, flops_values);
+                    if (branch.data.graph) {
                         this.calculate_flops_graph(
-                            node.data.graph,
-                            nested_symbols_map,
-                            flops_values
-                        );
-                    } else {
-                        this.calculate_flops_node(
-                            node,
-                            symbol_map,
-                            flops_values
+                            branch.data.graph, symbol_map, flops_values
                         );
                     }
-                });
+                }
+            } else {
+                const state_graph = node.data.graph;
+                if (state_graph) {
+                    state_graph.nodes().forEach((v: string) => {
+                        const node = state_graph.node(v);
+                        if (node instanceof NestedSDFG) {
+                            const nested_symbols_map: SymbolMap = {};
+                            const mapping =
+                                node.data.node.attributes.symbol_mapping ?? {};
+                            // Translate the symbol mappings for the nested SDFG
+                            // based on the mapping described on the node.
+                            Object.keys(mapping).forEach((symbol: string) => {
+                                nested_symbols_map[symbol] =
+                                    this.symbolResolver.parse_symbol_expression(
+                                        mapping[symbol],
+                                        symbol_map
+                                    );
+                            });
+                            // Merge in the parent mappings.
+                            Object.keys(symbol_map).forEach((symbol) => {
+                                if (!(symbol in nested_symbols_map)) {
+                                    nested_symbols_map[symbol] = symbol_map[
+                                        symbol
+                                    ];
+                                }
+                            });
+
+                            this.calculate_flops_node(
+                                node,
+                                nested_symbols_map,
+                                flops_values
+                            );
+                            this.calculate_flops_graph(
+                                node.data.graph,
+                                nested_symbols_map,
+                                flops_values
+                            );
+                        } else {
+                            this.calculate_flops_node(
+                                node,
+                                symbol_map,
+                                flops_values
+                            );
+                        }
+                    });
+                }
             }
         });
     }
@@ -151,13 +165,15 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         this.renderer.draw_async();
     }
 
-    public shade_node(node: SDFGNode, ctx: CanvasRenderingContext2D): void {
-        const flops = node.data.flops;
-        const flops_string = node.data.flops_string;
+    private shadeElem(
+        elem: SDFGElement, ctx: CanvasRenderingContext2D
+    ): void {
+        const flops = elem.data.flops;
+        const flops_string = elem.data.flops_string;
 
         const mousepos = this.renderer.get_mousepos();
         if (flops_string !== undefined && mousepos &&
-            node.intersect(mousepos.x, mousepos.y)) {
+            elem.intersect(mousepos.x, mousepos.y)) {
             // Show the computed FLOPS value if applicable.
             if (isNaN(flops_string) && flops !== undefined) {
                 this.renderer.set_tooltip(() => {
@@ -182,7 +198,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
             // node's FLOPS, that means that there's an unresolved symbol. Shade
             // the node grey to indicate that.
             if (flops_string !== undefined) {
-                node.shade(this.renderer, ctx, 'gray');
+                elem.shade(this.renderer, ctx, 'gray');
                 return;
             } else {
                 return;
@@ -196,78 +212,25 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         // Calculate the severity color.
         const color = getTempColorHslString(this.getSeverityValue(flops));
 
-        node.shade(this.renderer, ctx, color);
+        elem.shade(this.renderer, ctx, color);
     }
 
-    public recursively_shade_sdfg(
-        graph: DagreGraph,
-        ctx: CanvasRenderingContext2D,
-        ppp: number,
-        visible_rect: SimpleRect
+    protected shadeNode(
+        node: SDFGNode, ctx: CanvasRenderingContext2D, ...args: any[]
     ): void {
-        // First go over visible states, skipping invisible ones. We only draw
-        // something if the state is collapsed or we're zoomed out far enough.
-        // In that case, we draw the FLOPS calculated for the entire state.
-        // If it's expanded or zoomed in close enough, we traverse inside.
-        graph.nodes().forEach(v => {
-            const state = graph.node(v);
+        this.shadeElem(node, ctx);
+    }
 
-            // If the node's invisible, we skip it.
-            if (this.renderer.viewportOnly && !state.intersect(
-                visible_rect.x, visible_rect.y,
-                visible_rect.w, visible_rect.h
-            ))
-                return;
-
-            const stateppp = Math.sqrt(state.width * state.height) / ppp;
-            if ((this.renderer.adaptiveHiding &&
-                (stateppp < SDFVSettings.get<number>('nestedLOD'))) ||
-                state.data.state.attributes.is_collapsed) {
-                this.shade_node(state, ctx);
-            } else {
-                const state_graph = state.data.graph;
-                if (state_graph) {
-                    state_graph.nodes().forEach((v: any) => {
-                        const node = state_graph.node(v);
-
-                        // Skip the node if it's not visible.
-                        if (this.renderer.viewportOnly && !node.intersect(
-                            visible_rect.x, visible_rect.y, visible_rect.w,
-                            visible_rect.h
-                        ))
-                            return;
-
-                        if (node instanceof NestedSDFG &&
-                            !node.data.node.attributes.is_collapsed) {
-                            const nodeppp = Math.sqrt(
-                                node.width * node.height
-                            ) / ppp;
-                            if (this.renderer.adaptiveHiding &&
-                                nodeppp <
-                                SDFVSettings.get<number>('nestedLOD')) {
-                                this.shade_node(node, ctx);
-                            } else if (node.attributes().sdfg &&
-                                node.attributes().sdfg.type !== 'SDFGShell') {
-                                this.recursively_shade_sdfg(
-                                    node.data.graph, ctx, ppp, visible_rect
-                                );
-                            }
-                        } else {
-                            this.shade_node(node, ctx);
-                        }
-                    });
-                }
-            }
-        });
+    protected shadeBlock(
+        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ...args: any[]
+    ): void {
+        this.shadeElem(block, ctx);
     }
 
     public draw(): void {
-        const graph = this.renderer.get_graph();
-        const ppp = this.renderer.get_canvas_manager()?.points_per_pixel();
-        const context = this.renderer.get_context();
-        const visible_rect = this.renderer.get_visible_rect();
-        if (graph && ppp !== undefined && context && visible_rect)
-            this.recursively_shade_sdfg(graph, context, ppp, visible_rect);
+        this.shadeSDFG((elem) => {
+            return elem instanceof SDFGNode || elem instanceof ControlFlowBlock;
+        });
     }
 
     public on_mouse_event(

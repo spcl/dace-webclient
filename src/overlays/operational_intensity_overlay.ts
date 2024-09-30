@@ -3,8 +3,6 @@
 import {
     DagreGraph,
     Point2D,
-    SDFVSettings,
-    SimpleRect,
     SymbolMap,
     getGraphElementUUID,
 } from '../index';
@@ -14,6 +12,8 @@ import {
     SDFGRenderer,
 } from '../renderer/renderer';
 import {
+    ConditionalBlock,
+    ControlFlowBlock,
     Edge,
     NestedSDFG,
     SDFGElement,
@@ -139,49 +139,63 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         g: DagreGraph, symbol_map: SymbolMap, flops_values: number[]
     ): void {
         g.nodes().forEach(v => {
-            const state = g.node(v);
-            this.calculate_opint_node(state, symbol_map, flops_values);
-            const state_graph = state.data.graph;
-            if (state_graph) {
-                state_graph.nodes().forEach((v: string) => {
-                    const node = state_graph.node(v);
-                    if (node instanceof NestedSDFG) {
-                        const nested_symbols_map: SymbolMap = {};
-                        const mapping =
-                            node.data.node.attributes.symbol_mapping ?? {};
-                        // Translate the symbol mappings for the nested SDFG
-                        // based on the mapping described on the node.
-                        Object.keys(mapping).forEach((symbol: string) => {
-                            nested_symbols_map[symbol] =
-                                this.symbolResolver.parse_symbol_expression(
-                                    mapping[symbol],
-                                    symbol_map
-                                );
-                        });
-                        // Merge in the parent mappings.
-                        Object.keys(symbol_map).forEach((symbol) => {
-                            if (!(symbol in nested_symbols_map))
-                                nested_symbols_map[symbol] = symbol_map[symbol];
-                        });
-
-                        this.calculate_opint_node(
-                            node,
-                            nested_symbols_map,
-                            flops_values
-                        );
+            const node = g.node(v);
+            this.calculate_opint_node(node, symbol_map, flops_values);
+            if (node instanceof ConditionalBlock) {
+                for (const [_, branch] of node.branches) {
+                    this.calculate_opint_node(branch, symbol_map, flops_values);
+                    if (branch.data.graph) {
                         this.calculate_opint_graph(
-                            node.data.graph,
-                            nested_symbols_map,
-                            flops_values
-                        );
-                    } else {
-                        this.calculate_opint_node(
-                            node,
-                            symbol_map,
-                            flops_values
+                            branch.data.graph, symbol_map, flops_values
                         );
                     }
-                });
+                }
+            } else {
+                const state_graph = node.data.graph;
+                if (state_graph) {
+                    state_graph.nodes().forEach((v: string) => {
+                        const node = state_graph.node(v);
+                        if (node instanceof NestedSDFG) {
+                            const nested_symbols_map: SymbolMap = {};
+                            const mapping =
+                                node.data.node.attributes.symbol_mapping ?? {};
+                            // Translate the symbol mappings for the nested SDFG
+                            // based on the mapping described on the node.
+                            Object.keys(mapping).forEach((symbol: string) => {
+                                nested_symbols_map[symbol] =
+                                    this.symbolResolver.parse_symbol_expression(
+                                        mapping[symbol],
+                                        symbol_map
+                                    );
+                            });
+                            // Merge in the parent mappings.
+                            Object.keys(symbol_map).forEach((symbol) => {
+                                if (!(symbol in nested_symbols_map)) {
+                                    nested_symbols_map[symbol] = symbol_map[
+                                        symbol
+                                    ];
+                                }
+                            });
+
+                            this.calculate_opint_node(
+                                node,
+                                nested_symbols_map,
+                                flops_values
+                            );
+                            this.calculate_opint_graph(
+                                node.data.graph,
+                                nested_symbols_map,
+                                flops_values
+                            );
+                        } else {
+                            this.calculate_opint_node(
+                                node,
+                                symbol_map,
+                                flops_values
+                            );
+                        }
+                    });
+                }
             }
         });
     }
@@ -217,12 +231,12 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         this.renderer.draw_async();
     }
 
-    public shade_node(node: SDFGNode, ctx: CanvasRenderingContext2D): void {
-        const opint = node.data.opint;
+    private shadeElem(elem: SDFGElement, ctx: CanvasRenderingContext2D): void {
+        const opint = elem.data.opint;
 
         const mousepos = this.renderer.get_mousepos();
         if (opint !== undefined && mousepos &&
-            node.intersect(mousepos.x, mousepos.y)) {
+            elem.intersect(mousepos.x, mousepos.y)) {
             // Show the computed OP-INT value if applicable.
             this.renderer.set_tooltip(() => {
                 const tt_cont = this.renderer.get_tooltip_container();
@@ -241,77 +255,23 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         // Calculate the severity color.
         const color = getTempColorHslString(this.getSeverityValue(opint));
 
-        node.shade(this.renderer, ctx, color);
+        elem.shade(this.renderer, ctx, color);
     }
 
-    public recursively_shade_sdfg(
-        graph: DagreGraph,
-        ctx: CanvasRenderingContext2D,
-        ppp: number,
-        visible_rect: SimpleRect
+    protected shadeNode(
+        node: SDFGNode, ctx: CanvasRenderingContext2D, ...args: any[]
     ): void {
-        // First go over visible states, skipping invisible ones. We only draw
-        // something if the state is collapsed or we're zoomed out far enough.
-        // In that case, we draw the OP-INT calculated for the entire state.
-        // If it's expanded or zoomed in close enough, we traverse inside.
-        graph.nodes().forEach(v => {
-            const state = graph.node(v);
+        this.shadeElem(node, ctx);
+    }
 
-            // If the node's invisible, we skip it.
-            if (this.renderer.viewportOnly && !state.intersect(
-                visible_rect.x, visible_rect.y,
-                visible_rect.w, visible_rect.h
-            ))
-                return;
-
-            const stateppp = Math.sqrt(state.width * state.height) / ppp;
-            if ((this.renderer.adaptiveHiding &&
-                (stateppp < SDFVSettings.get<number>('nestedLOD'))) ||
-                state.data.state.attributes.is_collapsed) {
-                this.shade_node(state, ctx);
-            } else {
-                const state_graph = state.data.graph;
-                if (state_graph) {
-                    state_graph.nodes().forEach((v: any) => {
-                        const node = state_graph.node(v);
-
-                        // Skip the node if it's not visible.
-                        if (this.renderer.viewportOnly && !node.intersect(
-                            visible_rect.x, visible_rect.y, visible_rect.w,
-                            visible_rect.h
-                        ))
-                            return;
-
-                        if (node instanceof NestedSDFG &&
-                            !node.data.node.attributes.is_collapsed) {
-                            const nodeppp = Math.sqrt(
-                                node.width * node.height
-                            ) / ppp;
-                            if (this.renderer.adaptiveHiding &&
-                                nodeppp < SDFVSettings.get<number>('nodeLOD')) {
-                                this.shade_node(node, ctx);
-                            } else if (node.attributes().sdfg &&
-                                node.attributes().sdfg.type !== 'SDFGShell') {
-                                this.recursively_shade_sdfg(
-                                    node.data.graph, ctx, ppp, visible_rect
-                                );
-                            }
-                        } else {
-                            this.shade_node(node, ctx);
-                        }
-                    });
-                }
-            }
-        });
+    protected shadeBlock(
+        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ...args: any[]
+    ): void {
+        this.shadeElem(block, ctx);
     }
 
     public draw(): void {
-        const graph = this.renderer.get_graph();
-        const ppp = this.renderer.get_canvas_manager()?.points_per_pixel();
-        const context = this.renderer.get_context();
-        const visible_rect = this.renderer.get_visible_rect();
-        if (graph && ppp !== undefined && context && visible_rect)
-            this.recursively_shade_sdfg(graph, context, ppp, visible_rect);
+        this.shadeSDFG();
     }
 
     public on_mouse_event(

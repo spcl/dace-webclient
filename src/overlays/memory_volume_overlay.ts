@@ -1,24 +1,18 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import {
-    DagreGraph,
-    Point2D,
-    SDFVSettings,
-    SimpleRect,
-    SymbolMap,
-} from '../index';
+import { DagreGraph, Point2D, SymbolMap } from '../index';
 import {
     GraphElementInfo,
     SDFGElementGroup,
     SDFGRenderer,
 } from '../renderer/renderer';
 import {
+    ConditionalBlock,
     ControlFlowBlock,
     ControlFlowRegion,
     Edge,
     NestedSDFG,
     SDFGElement,
-    SDFGNode,
     State,
 } from '../renderer/renderer_elements';
 import { getTempColorHslString } from '../utils/utils';
@@ -126,9 +120,19 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                     });
                 }
             } else if (block instanceof ControlFlowRegion) {
-                this.calculateVolumeGraph(
-                    block.data.graph, symbolMaps, volumes
-                );
+                if (block.data.graph) {
+                    this.calculateVolumeGraph(
+                        block.data.graph, symbolMaps, volumes
+                    );
+                }
+            } else if (block instanceof ConditionalBlock) {
+                for (const [_, branch] of block.branches) {
+                    if (branch.data.graph) {
+                        this.calculateVolumeGraph(
+                            branch.data.graph, symbolMaps, volumes
+                        );
+                    }
+                }
             }
         });
     }
@@ -159,100 +163,16 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         this.renderer.draw_async();
     }
 
-    public shadeEdge(edge: Edge, ctx: CanvasRenderingContext2D): void {
+    protected shadeEdge(edge: Edge, ctx: CanvasRenderingContext2D): void {
         const volume = edge.data.volume;
-        if (volume !== undefined) {
-            // Only draw positive volumes.
-            if (volume <= 0)
-                return;
-
-            // Calculate the severity color.
-            const color = getTempColorHslString(
-                this.getSeverityValue(volume)
-            );
-
-            edge.shade(this.renderer, ctx, color);
-        }
-    }
-
-    public recursivelyShadeCFG(
-        graph: DagreGraph, ctx: CanvasRenderingContext2D, ppp: number,
-        visibleRect: SimpleRect
-    ): void {
-        graph.nodes().forEach(v => {
-            const block: ControlFlowBlock = graph.node(v);
-
-            // If the node's invisible, we skip it.
-            if (this.renderer.viewportOnly && !block.intersect(
-                visibleRect.x, visibleRect.y,
-                visibleRect.w, visibleRect.h
-            ) || block.attributes()?.is_collapsed)
-                return;
-
-            // If we're zoomed out enough that the contents aren't visible, we
-            // skip the state.
-            const stateppp = Math.sqrt(block.width * block.height) / ppp;
-            if (this.renderer.adaptiveHiding &&
-                (stateppp < SDFVSettings.get<number>('nestedLOD')))
-                return;
-
-            if (block instanceof State) {
-                const state_graph = block.data.graph;
-                if (state_graph) {
-                    state_graph.nodes().forEach((v: string) => {
-                        const node: SDFGNode = state_graph.node(v);
-
-                        // Skip the node if it's not visible.
-                        if (this.renderer.viewportOnly && !node.intersect(
-                            visibleRect.x, visibleRect.y,
-                            visibleRect.w, visibleRect.h
-                        ))
-                            return;
-
-                        // If we're zoomed out enough that the node's contents
-                        // aren't visible or the node is collapsed, we skip it.
-                        if (node.data.node.attributes.is_collapsed ||
-                            (this.renderer.adaptiveHiding &&
-                             ppp > SDFVSettings.get<number>('nodeLOD')))
-                            return;
-
-                        if (node instanceof NestedSDFG &&
-                            node.attributes().sdfg &&
-                            node.attributes().sdfg.type !== 'SDFGShell') {
-                            this.recursivelyShadeCFG(
-                                node.data.graph, ctx, ppp, visibleRect
-                            );
-                        }
-                    });
-
-                    state_graph.edges().forEach((e: any) => {
-                        const edge: Edge = state_graph.edge(e);
-
-                        // Skip if edge is invisible, or zoomed out far
-                        if (this.renderer.adaptiveHiding && (!edge.intersect(
-                            visibleRect.x, visibleRect.y,
-                            visibleRect.w, visibleRect.h
-                        ) || ppp > SDFVSettings.get<number>('edgeLOD')))
-                            return;
-
-                        this.shadeEdge(edge, ctx);
-                    });
-                }
-            } else if (block instanceof ControlFlowRegion) {
-                this.recursivelyShadeCFG(
-                    block.data.graph, ctx, ppp, visibleRect
-                );
-            }
-        });
+        const color = getTempColorHslString(this.getSeverityValue(volume));
+        edge.shade(this.renderer, ctx, color);
     }
 
     public draw(): void {
-        const graph = this.renderer.get_graph();
-        const ppp = this.renderer.get_canvas_manager()?.points_per_pixel();
-        const context = this.renderer.get_context();
-        const visible_rect = this.renderer.get_visible_rect();
-        if (graph && ppp !== undefined && context && visible_rect)
-            this.recursivelyShadeCFG(graph, context, ppp, visible_rect);
+        this.shadeSDFG((elem) => {
+            return elem.data?.volume !== undefined && elem.data.volume > 0;
+        });
     }
 
     public on_mouse_event(

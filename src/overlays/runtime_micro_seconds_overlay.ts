@@ -1,14 +1,12 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { Node } from 'dagre';
-import {
-    DagreGraph,
-    SDFVSettings,
-    SimpleRect,
-    getGraphElementUUID,
-} from '../index';
+import { getGraphElementUUID } from '../index';
 import { SDFGRenderer } from '../renderer/renderer';
-import { NestedSDFG, SDFGNode } from '../renderer/renderer_elements';
+import {
+    ControlFlowBlock,
+    SDFGElement,
+    SDFGNode,
+} from '../renderer/renderer_elements';
 import { getTempColorHslString } from '../utils/utils';
 import {
     GenericSdfgOverlay,
@@ -69,14 +67,14 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
         return value.toString() + ' ' + unit;
     }
 
-    public shade_node(node: SDFGNode, ctx: CanvasRenderingContext2D): void {
-        const rt_summary = this.runtime_map[getGraphElementUUID(node)];
+    private shadeElem(elem: SDFGElement, ctx: CanvasRenderingContext2D): void {
+        const rt_summary = this.runtime_map[getGraphElementUUID(elem)];
 
         if (rt_summary === undefined)
             return;
 
         const mousepos = this.renderer.get_mousepos();
-        if (mousepos && node.intersect(mousepos.x, mousepos.y)) {
+        if (mousepos && elem.intersect(mousepos.x, mousepos.y)) {
             // Show the measured runtime.
             if (rt_summary['min'] === rt_summary['max']) {
                 this.renderer.set_tooltip(() => {
@@ -112,78 +110,23 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
         const micros = rt_summary[this.criterium];
         const color = getTempColorHslString(this.getSeverityValue(micros));
 
-        node.shade(this.renderer, ctx, color);
+        elem.shade(this.renderer, ctx, color);
     }
 
-    public recursively_shade_sdfg(
-        graph: DagreGraph,
-        ctx: CanvasRenderingContext2D,
-        ppp: number,
-        visible_rect: SimpleRect
+    protected shadeBlock(
+        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ...args: any[]
     ): void {
-        // First go over visible states, skipping invisible ones. We only draw
-        // something if the state is collapsed or we're zoomed out far enough.
-        // In that case, we draw the measured runtime for the entire state.
-        // If it's expanded or zoomed in close enough, we traverse inside.
-        graph.nodes().forEach(v => {
-            const state: Node<SDFGNode> = graph.node(v);
+        this.shadeElem(block, ctx);
+    }
 
-            // If the node's invisible, we skip it.
-            if (this.renderer.viewportOnly && !state.intersect(
-                visible_rect.x, visible_rect.y,
-                visible_rect.w, visible_rect.h
-            ))
-                return;
-
-            const stateppp = Math.sqrt(state.width * state.height) / ppp;
-            if ((this.renderer.adaptiveHiding &&
-                (stateppp < SDFVSettings.get<number>('nestedLOD'))) ||
-                state.data.state.attributes.is_collapsed) {
-                this.shade_node(state, ctx);
-            } else {
-                const state_graph = state.data.graph;
-                if (state_graph) {
-                    state_graph.nodes().forEach((v: string) => {
-                        const node = state_graph.node(v);
-
-                        // Skip the node if it's not visible.
-                        if (this.renderer.viewportOnly && !node.intersect(
-                            visible_rect.x, visible_rect.y, visible_rect.w,
-                            visible_rect.h
-                        ))
-                            return;
-
-                        if (node instanceof NestedSDFG &&
-                            !node.data.node.attributes.is_collapsed) {
-                            const nodeppp = Math.sqrt(
-                                node.width * node.height
-                            ) / ppp;
-                            if (this.renderer.adaptiveHiding &&
-                                nodeppp <
-                                SDFVSettings.get<number>('nestedLOD')) {
-                                this.shade_node(node, ctx);
-                            } else if (node.attributes().sdfg &&
-                                node.attributes().sdfg.type !== 'SDFGShell') {
-                                this.recursively_shade_sdfg(
-                                    node.data.graph, ctx, ppp, visible_rect
-                                );
-                            }
-                        } else {
-                            this.shade_node(node, ctx);
-                        }
-                    });
-                }
-            }
-        });
+    protected shadeNode(
+        node: SDFGNode, ctx: CanvasRenderingContext2D, ...args: any[]
+    ): void {
+        this.shadeElem(node, ctx);
     }
 
     public draw(): void {
-        const graph = this.renderer.get_graph();
-        const ppp = this.renderer.get_canvas_manager()?.points_per_pixel();
-        const context = this.renderer.get_context();
-        const visible_rect = this.renderer.get_visible_rect();
-        if (graph && ppp !== undefined && context && visible_rect)
-            this.recursively_shade_sdfg(graph, context, ppp, visible_rect);
+        this.shadeSDFG();
     }
 
     public set_runtime_map(runtime_map: { [uuids: string]: any }): void {

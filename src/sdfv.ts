@@ -23,6 +23,7 @@ import {
 import { OverlayManager } from './overlay_manager';
 import { SDFGRenderer } from './renderer/renderer';
 import {
+    ConditionalBlock,
     SDFG,
     SDFGElement,
     SDFGNode,
@@ -570,8 +571,14 @@ export function graphFindRecursive(
         if (predicate(graph, node))
             results.push(node);
         // Enter states or nested SDFGs recursively
-        if (node.data.graph)
+        if (node.data.graph) {
             graphFindRecursive(node.data.graph, predicate, results);
+        } else if (node instanceof ConditionalBlock) {
+            for (const [_, branch] of node.branches) {
+                if (branch.data.graph)
+                    graphFindRecursive(branch.data.graph, predicate, results);
+            }
+        }
     }
     for (const edgeid of graph.edges()) {
         const edge = graph.edge(edgeid);

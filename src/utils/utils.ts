@@ -51,16 +51,16 @@ export function deepCopy<T>(obj: T): T {
  *
  * If a parent is provided, the element is automatically added as a child.
  *
- * @param {*} type      Element tag (div, span, etc.)
- * @param {*} id        Optional element id
- * @param {*} classList Optional array of class names
- * @param {*} parent    Optional parent element
+ * @param type      Element tag (div, span, etc.)
+ * @param id        Optional element id
+ * @param classList Optional array of class names
+ * @param parent    Optional parent element
  *
  * @returns             The created DOM element
  */
 export function createElement<K extends keyof HTMLElementTagNameMap>(
     type: K,
-    id = '',
+    id: string = '',
     classList: string[] = [],
     parent: Node | undefined = undefined
 ): HTMLElementTagNameMap[K] {
@@ -180,8 +180,8 @@ function tempColor(badness: number): [number, number, number] {
 
 /**
  * Get the color on a green-red temperature scale based on a fractional value.
- * @param {Number} val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
- * @returns            HSL color string
+ * @param val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
+ * @returns   HSL color string
  */
 export function getTempColorHslString(badness: number): string {
     const col = tempColor(badness);
@@ -191,8 +191,8 @@ export function getTempColorHslString(badness: number): string {
 
 /**
  * Get the color on a green-red temperature scale based on a fractional value.
- * @param {Number} val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
- * @returns            Hex color number
+ * @param val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
+ * @returns   Hex color number
  */
 export function getTempColorHEX(badness: number): number {
     return rgb2hex(hsl2rgb(...tempColor(badness)));

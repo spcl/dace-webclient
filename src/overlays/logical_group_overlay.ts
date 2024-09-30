@@ -1,23 +1,17 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import {
-    DagreGraph,
-    JsonSDFG,
-    Point2D,
-    SDFVSettings,
-    SimpleRect,
-} from '../index';
+import { Point2D } from '../index';
 import {
     GraphElementInfo,
     SDFGElementGroup,
     SDFGRenderer,
 } from '../renderer/renderer';
 import {
-    NestedSDFG,
     SDFGNode,
     SDFGElement,
     State,
-    SDFGElementType,
+    ControlFlowBlock,
+    Edge,
 } from '../renderer/renderer_elements';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
@@ -43,22 +37,23 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         this.renderer.draw_async();
     }
 
-    public shadeNode(
-        node: SDFGNode, groups: LogicalGroup[], ctx: CanvasRenderingContext2D
+    private shadeElem(
+        elem: SDFGElement, ctx: CanvasRenderingContext2D, ...args: any[]
     ): void {
+        const groups: LogicalGroup[] = args[0];
         const allGroups: LogicalGroup[] = [];
-        if (node instanceof State) {
+        if (elem instanceof State) {
             groups.forEach(group => {
-                if (group.states.includes(node.id)) {
-                    node.shade(this.renderer, ctx, group.color, 0.3);
+                if (group.states.includes(elem.id)) {
+                    elem.shade(this.renderer, ctx, group.color, 0.3);
                     allGroups.push(group);
                 }
             });
         } else {
             groups.forEach(group => {
                 group.nodes.forEach(n => {
-                    if (n[0] === node.parent_id && n[1] === node.id) {
-                        node.shade(this.renderer, ctx, group.color, 0.3);
+                    if (n[0] === elem.parent_id && n[1] === elem.id) {
+                        elem.shade(this.renderer, ctx, group.color, 0.3);
                         allGroups.push(group);
                     }
                 });
@@ -67,7 +62,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
 
         const mousepos = this.renderer.get_mousepos();
         if (allGroups.length > 0 && mousepos &&
-            node.intersect(mousepos.x, mousepos.y)) {
+            elem.intersect(mousepos.x, mousepos.y)) {
             // Show the corresponding group.
             this.renderer.set_tooltip(() => {
                 const tt_cont = this.renderer.get_tooltip_container();
@@ -88,90 +83,31 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         }
     }
 
-    public recursivelyShadeCFG(
-        sdfg: JsonSDFG, graph: DagreGraph, ctx: CanvasRenderingContext2D,
-        ppp: number, visibleRect: SimpleRect
+    protected shadeBlock(
+        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ...args: any[]
     ): void {
-        // First go over visible states, skipping invisible ones. We only draw
-        // something if the state is collapsed or we're zoomed out far enough.
-        // In that case, we overlay the correct grouping color(s).
-        // If it's expanded or zoomed in close enough, we traverse inside.
-        const sdfgGroups = sdfg.attributes.logical_groups;
-        if (sdfgGroups === undefined || sdfgGroups.length === 0)
-            return;
+        this.shadeElem(block, ctx, args);
+    }
 
-        if (!graph)
-            return;
+    protected shadeNode(
+        node: SDFGNode, ctx: CanvasRenderingContext2D, ...args: any[]
+    ): void {
+        this.shadeElem(node, ctx, args);
+    }
 
-        graph?.nodes().forEach(v => {
-            const block = graph.node(v);
-
-            // If the node's invisible, we skip it.
-            if (this.renderer.viewportOnly && !block.intersect(
-                visibleRect.x, visibleRect.y,
-                visibleRect.w, visibleRect.h
-            ))
-                return;
-
-            const blockppp = Math.sqrt(block.width * block.height) / ppp;
-            if ((this.renderer.adaptiveHiding &&
-                (blockppp < SDFVSettings.get<number>('nestedLOD'))) ||
-                block.attributes().is_collapsed
-            ) {
-                this.shadeNode(block, sdfgGroups, ctx);
-            } else {
-                if (block.type() === SDFGElementType.SDFGState) {
-                    const stateGraph = block.data.graph;
-                    if (stateGraph) {
-                        stateGraph.nodes().forEach((v: string) => {
-                            const node = stateGraph.node(v);
-
-                            // Skip the node if it's not visible.
-                            if (this.renderer.viewportOnly && !node.intersect(
-                                visibleRect.x,
-                                visibleRect.y, visibleRect.w, visibleRect.h
-                            ))
-                                return;
-
-                            if (node.attributes().is_collapsed ||
-                                (this.renderer.adaptiveHiding &&
-                                 ppp > SDFVSettings.get<number>('nodeLOD'))) {
-                                this.shadeNode(node, sdfgGroups, ctx);
-                            } else {
-                                if (node instanceof NestedSDFG &&
-                                    node.attributes().sdfg &&
-                                    node.attributes().sdfg.type !== 'SDFGShell'
-                                ) {
-                                    this.recursivelyShadeCFG(
-                                        node.data.node.attributes.sdfg,
-                                        node.data.graph, ctx, ppp, visibleRect
-                                    );
-                                } else {
-                                    this.shadeNode(node, sdfgGroups, ctx);
-                                }
-                            }
-                        });
-                    }
-                } else {
-                    this.recursivelyShadeCFG(
-                        sdfg, block.data.graph, ctx, ppp, visibleRect
-                    );
-                }
-            }
-        });
+    protected shadeEdge(
+        edge: Edge, ctx: CanvasRenderingContext2D, ...args: any[]
+    ): void {
+        this.shadeElem(edge, ctx, args);
     }
 
     public draw(): void {
         const sdfg = this.renderer.get_sdfg();
-        const graph = this.renderer.get_graph();
-        const ppp = this.renderer.get_canvas_manager()?.points_per_pixel();
-        const context = this.renderer.get_context();
-        const visible_rect = this.renderer.get_visible_rect();
-        if (graph && ppp !== undefined && context && visible_rect) {
-            this.recursivelyShadeCFG(
-                sdfg, graph, context, ppp, visible_rect
-            );
-        }
+        const sdfgGroups = sdfg.attributes.logical_groups;
+        if (sdfgGroups === undefined || sdfgGroups.length === 0)
+            return;
+
+        this.shadeSDFG(() => true, true, [sdfgGroups]);
     }
 
     public on_mouse_event(

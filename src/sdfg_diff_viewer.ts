@@ -3,6 +3,7 @@
 import $ from 'jquery';
 
 import {
+    ConditionalBlock,
     ControlFlowRegion,
     DagreGraph,
     graphFindRecursive,
@@ -87,8 +88,14 @@ export abstract class SDFGDiffViewer implements ISDFV {
                 dict.set(node.guid(), node);
                 if (node instanceof ControlFlowRegion ||
                     node instanceof State ||
-                    node instanceof NestedSDFG)
+                    node instanceof NestedSDFG) {
                     recursiveAddIds(node.data.graph, dict);
+                } else if (node instanceof ConditionalBlock) {
+                    for (const [_, branch] of node.branches) {
+                        if (branch.data.graph)
+                            recursiveAddIds(branch.data.graph, dict);
+                    }
+                }
             }
             for (const eid of graph.edges()) {
                 const edge = graph.edge(eid);
@@ -318,7 +325,9 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         );
     }
 
-    public static init(graphA: JsonSDFG, graphB: JsonSDFG, precomputedDiff?: DiffMap): WebSDFGDiffViewer {
+    public static init(
+        graphA: JsonSDFG, graphB: JsonSDFG, precomputedDiff?: DiffMap
+    ): WebSDFGDiffViewer {
         const leftContainer = document.getElementById('diff-contents-A');
         const rightContainer = document.getElementById('diff-contents-B');
         if (!leftContainer || !rightContainer)

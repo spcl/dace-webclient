@@ -47,7 +47,7 @@ import {
 import { showErrorModal } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
 import {
-    AccessNode, Connector,
+    AccessNode, ConditionalBlock, Connector,
     ControlFlowBlock,
     ControlFlowRegion,
     Edge, EntryNode, InterstateEdge, Memlet, NestedSDFG,
@@ -70,9 +70,10 @@ declare const canvas2pdf: any;
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any | null;
 
-export type SDFGElementGroup = ('states' | 'nodes' | 'edges' | 'isedges' |
-    'connectors' | 'controlFlowRegions' |
-    'controlFlowBlocks');
+export type SDFGElementGroup = (
+    'states' | 'nodes' | 'edges' | 'isedges' | 'connectors' |
+    'controlFlowRegions' | 'controlFlowBlocks'
+);
 export interface SDFGElementInfo {
     sdfg: JsonSDFG,
     id: number,
@@ -2698,6 +2699,34 @@ export class SDFGRenderer extends EventEmitter {
                     const ng = block.data.graph;
                     if (ng)
                         doRecursive(ng, block.data.block, sdfg);
+                } else if (block instanceof ConditionalBlock) {
+                    func(
+                        'controlFlowBlocks',
+                        {
+                            sdfg: sdfg,
+                            graph: g,
+                            id: blockId,
+                            cfgId: cfg.cfg_list_id,
+                            stateId: -1,
+                        },
+                        block
+                    );
+                    for (const [_, branch] of block.branches) {
+                        func(
+                            'controlFlowRegions',
+                            {
+                                sdfg: sdfg,
+                                graph: g,
+                                id: blockId,
+                                cfgId: cfg.cfg_list_id,
+                                stateId: -1,
+                            },
+                            branch
+                        );
+                        const ng = branch.data.graph;
+                        if (ng)
+                            doRecursive(ng, branch.data.block, sdfg);
+                    }
                 } else {
                     // Other (unknown) control flow blocks.
                     func(
