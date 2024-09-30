@@ -87,7 +87,7 @@ export class Graph extends Graphics {
     public contractGraph(): void {
         const contractionRegions = this.findContractionRegions();
         for (const region of contractionRegions) {
-            const regionId = region.values()?.next()?.value.id;
+            const regionId = region.values().next()!.value!.id;
             const regionInEdges = new Set<Edge>();
             const regionOutEdges = new Set<Edge>();
             const removedContainers = new Set<DataContainer>();
