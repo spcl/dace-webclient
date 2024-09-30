@@ -159,7 +159,7 @@ class MemoryTile extends Graphics {
                 const nodeRet =
                     this.memoryNode.parentGraph.memoryNodesMap.get(key);
                 if (nodeRet !== undefined && nodeRet.size) {
-                    const node = nodeRet.values().next().value[1];
+                    const node = nodeRet.values()?.next()?.value[1];
 
                     val.forEach(v => {
                         node.applyToIdx(

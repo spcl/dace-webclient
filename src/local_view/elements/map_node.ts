@@ -365,7 +365,7 @@ export class MapNode extends Node {
                     access.dataContainer
                 );
                 if (nodes) {
-                    const node = nodes.values().next().value[1];
+                    const node = nodes.values()?.next()?.value[1];
 
                     if (node && !access.index.includes(undefined)) {
                         const cl = node.getCacheLine(access.index as number[]);
