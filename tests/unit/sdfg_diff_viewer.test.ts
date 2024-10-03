@@ -6,8 +6,9 @@ import {
     checkCompatLoad,
     parse_sdfg,
 } from '../../src/utils/sdfg/json_serializer';
-import { JsonSDFG, relayoutStateMachine, SDFG } from '../../src';
+import { JsonSDFG, SDFG } from '../../src';
 import { SDFGDiffViewer } from '../../src/sdfg_diff_viewer';
+import { layoutSDFG } from '../../src/layouter/layout';
 
 function _loadSDFG(name: string): JsonSDFG {
     const file = path.join(
@@ -23,8 +24,8 @@ async function testDiffTiledGemm(): Promise<void> {
     const sdfgAjson = _loadSDFG('gemm_expanded_pure');
     const sdfgBjson = _loadSDFG('gemm_expanded_pure_tiled');
 
-    const graphA = relayoutStateMachine(sdfgAjson, sdfgAjson);
-    const graphB = relayoutStateMachine(sdfgBjson, sdfgBjson);
+    const graphA = layoutSDFG(sdfgAjson);
+    const graphB = layoutSDFG(sdfgBjson);
 
     const sdfgA = new SDFG(sdfgAjson);
     sdfgA.sdfgDagreGraph = graphA;

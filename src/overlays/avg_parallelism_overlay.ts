@@ -3,8 +3,6 @@
 import {
     DagreGraph,
     Point2D,
-    SDFVSettings,
-    SimpleRect,
     SymbolMap,
     getGraphElementUUID,
 } from '../index';
@@ -14,15 +12,13 @@ import {
     SDFGRenderer,
 } from '../renderer/renderer';
 import {
+    ConditionalBlock,
     ControlFlowBlock,
-    ControlFlowRegion,
     Edge,
     NestedSDFG,
     SDFGElement,
     SDFGNode,
-    State,
 } from '../renderer/renderer_elements';
-import { SDFV } from '../sdfv';
 import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
@@ -79,51 +75,68 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
         g: DagreGraph, symbol_map: SymbolMap, avg_parallelism_values: number[]
     ): void {
         g.nodes().forEach(v => {
-            const state = g.node(v);
+            const node = g.node(v);
             this.calculate_avg_parallelism_node(
-                state, symbol_map, avg_parallelism_values
+                node, symbol_map, avg_parallelism_values
             );
-            const state_graph = state.data.graph;
-            if (state_graph) {
-                state_graph.nodes().forEach((v: string) => {
-                    const node = state_graph.node(v);
-                    if (node instanceof NestedSDFG) {
-                        const nested_symbols_map: SymbolMap = {};
-                        const mapping =
-                            node.data.node.attributes.symbol_mapping ?? {};
-                        // Translate the symbol mappings for the nested SDFG
-                        // based on the mapping described on the node.
-                        Object.keys(mapping).forEach((symbol: string) => {
-                            nested_symbols_map[symbol] =
-                                this.symbolResolver.parse_symbol_expression(
-                                    mapping[symbol],
-                                    symbol_map
-                                );
-                        });
-                        // Merge in the parent mappings.
-                        Object.keys(symbol_map).forEach((symbol) => {
-                            if (!(symbol in nested_symbols_map))
-                                nested_symbols_map[symbol] = symbol_map[symbol];
-                        });
-
-                        this.calculate_avg_parallelism_node(
-                            node,
-                            nested_symbols_map,
-                            avg_parallelism_values
-                        );
+            if (node instanceof ConditionalBlock) {
+                for (const [_, branch] of node.branches) {
+                    this.calculate_avg_parallelism_node(
+                        branch, symbol_map, avg_parallelism_values
+                    );
+                    if (branch.data.graph) {
                         this.calculate_avg_parallelism_graph(
-                            node.data.graph,
-                            nested_symbols_map,
-                            avg_parallelism_values
-                        );
-                    } else {
-                        this.calculate_avg_parallelism_node(
-                            node,
-                            symbol_map,
+                            branch.data.graph, symbol_map,
                             avg_parallelism_values
                         );
                     }
-                });
+                }
+            } else {
+                const state_graph = node.data.graph;
+                if (state_graph) {
+                    state_graph.nodes().forEach((v: string) => {
+                        const node = state_graph.node(v);
+                        if (node instanceof NestedSDFG) {
+                            const nested_symbols_map: SymbolMap = {};
+                            const mapping =
+                                node.data.node.attributes.symbol_mapping ?? {};
+                            // Translate the symbol mappings for the nested SDFG
+                            // based on the mapping described on the node.
+                            Object.keys(mapping).forEach((symbol: string) => {
+                                nested_symbols_map[symbol] =
+                                    this.symbolResolver.parse_symbol_expression(
+                                        mapping[symbol],
+                                        symbol_map
+                                    );
+                            });
+                            // Merge in the parent mappings.
+                            Object.keys(symbol_map).forEach((symbol) => {
+                                if (!(symbol in nested_symbols_map)) {
+                                    nested_symbols_map[symbol] = symbol_map[
+                                        symbol
+                                    ];
+                                }
+                            });
+
+                            this.calculate_avg_parallelism_node(
+                                node,
+                                nested_symbols_map,
+                                avg_parallelism_values
+                            );
+                            this.calculate_avg_parallelism_graph(
+                                node.data.graph,
+                                nested_symbols_map,
+                                avg_parallelism_values
+                            );
+                        } else {
+                            this.calculate_avg_parallelism_node(
+                                node,
+                                symbol_map,
+                                avg_parallelism_values
+                            );
+                        }
+                    });
+                }
             }
         });
     }
@@ -161,13 +174,13 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
         this.renderer.draw_async();
     }
 
-    public shadeNode(node: SDFGNode, ctx: CanvasRenderingContext2D): void {
-        const avgParallelism = node.data.avg_parallelism;
-        const avgParallelismString = node.data.avg_parallelism_string;
+    private shadeElem(elem: SDFGNode, ctx: CanvasRenderingContext2D): void {
+        const avgParallelism = elem.data.avg_parallelism;
+        const avgParallelismString = elem.data.avg_parallelism_string;
 
         const mousepos = this.renderer.get_mousepos();
         if (avgParallelismString !== undefined && mousepos &&
-            node.intersect(mousepos.x, mousepos.y)) {
+            elem.intersect(mousepos.x, mousepos.y)) {
             // Show the computed avg_parallelism value if applicable.
             if (isNaN(avgParallelismString) &&
                 avgParallelism !== undefined) {
@@ -196,7 +209,7 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
             // for this node's avg_parallelism, that means that there's an
             // unresolved symbol. Shade the node grey to indicate that.
             if (avgParallelismString !== undefined) {
-                node.shade(this.renderer, ctx, 'gray');
+                elem.shade(this.renderer, ctx, 'gray');
                 return;
             } else {
                 return;
@@ -212,83 +225,23 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
             1 - this.getSeverityValue(avgParallelism)
         );
 
-        node.shade(this.renderer, ctx, color);
+        elem.shade(this.renderer, ctx, color);
     }
 
-    public recursivelyShadeCFG(
-        graph: DagreGraph,
-        ctx: CanvasRenderingContext2D,
-        ppp: number,
-        visibleRect: SimpleRect
+    protected shadeNode(
+        node: SDFGNode, ctx: CanvasRenderingContext2D, ...args: any[]
     ): void {
-        // First go over visible states, skipping invisible ones. We only draw
-        // something if the state is collapsed or we're zoomed out far enough.
-        // In that case, we draw the avg_parallelism calculated for the entire
-        // state. If expanded or zoomed in close enough, we traverse inside.
-        graph.nodes().forEach(v => {
-            const block: ControlFlowBlock = graph.node(v);
+        this.shadeElem(node, ctx);
+    }
 
-            // If the node's invisible, we skip it.
-            if (this.renderer.viewportOnly && !block.intersect(
-                visibleRect.x, visibleRect.y,
-                visibleRect.w, visibleRect.h
-            ))
-                return;
-
-            const stateppp = Math.sqrt(block.width * block.height) / ppp;
-            if ((this.renderer.adaptiveHiding &&
-                (stateppp < SDFVSettings.get<number>('nestedLOD'))) ||
-                block.attributes()?.is_collapsed) {
-                this.shadeNode(block, ctx);
-            } else if (block instanceof State) {
-                const stateGraph = block.data.graph;
-                if (stateGraph) {
-                    stateGraph.nodes().forEach((v: any) => {
-                        const node = stateGraph.node(v);
-
-                        // Skip the node if it's not visible.
-                        if (this.renderer.viewportOnly &&
-                            !node.intersect(
-                                visibleRect.x, visibleRect.y, visibleRect.w,
-                                visibleRect.h
-                            ))
-                            return;
-
-                        if (node instanceof NestedSDFG &&
-                            !node.data.node.attributes.is_collapsed) {
-                            const nodeppp = Math.sqrt(
-                                node.width * node.height
-                            ) / ppp;
-                            if (this.renderer.adaptiveHiding &&
-                                nodeppp <
-                                SDFVSettings.get<number>('nestedLOD')) {
-                                this.shadeNode(node, ctx);
-                            } else if (node.attributes().sdfg &&
-                                node.attributes().sdfg.type !== 'SDFGShell') {
-                                this.recursivelyShadeCFG(
-                                    node.data.graph, ctx, ppp, visibleRect
-                                );
-                            }
-                        } else {
-                            this.shadeNode(node, ctx);
-                        }
-                    });
-                }
-            } else if (block instanceof ControlFlowRegion) {
-                this.recursivelyShadeCFG(
-                    block.data.graph, ctx, ppp, visibleRect
-                );
-            }
-        });
+    protected shadeBlock(
+        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ...args: any[]
+    ): void {
+        this.shadeElem(block, ctx);
     }
 
     public draw(): void {
-        const graph = this.renderer.get_graph();
-        const ppp = this.renderer.get_canvas_manager()?.points_per_pixel();
-        const context = this.renderer.get_context();
-        const visible_rect = this.renderer.get_visible_rect();
-        if (graph && ppp !== undefined && context && visible_rect)
-            this.recursivelyShadeCFG(graph, context, ppp, visible_rect);
+        this.shadeSDFG();
     }
 
     public on_mouse_event(

@@ -6,9 +6,9 @@ import dagre from 'dagre';
 import EventEmitter from 'events';
 import {
     DagreGraph,
-    GenericSdfgOverlay,
     JsonSDFG,
     JsonSDFGBlock,
+    JsonSDFGConditionalBlock,
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGElement,
@@ -24,24 +24,18 @@ import {
     parse_sdfg,
     stringify_sdfg,
 } from '../index';
-import { SMLayouter } from '../layouter/state_machine/sm_layouter';
 import { LViewLayouter } from '../local_view/lview_layouter';
 import { LViewGraphParseError, LViewParser } from '../local_view/lview_parser';
 import { LViewRenderer } from '../local_view/lview_renderer';
 import { OverlayManager } from '../overlay_manager';
 import { LogicalGroupOverlay } from '../overlays/logical_group_overlay';
 import { ISDFV, SDFV, WebSDFV } from '../sdfv';
-import {
-    boundingBox,
-    calculateBoundingBox,
-    calculateEdgeBoundingBox,
-} from '../utils/bounding_box';
-import { sdfg_property_to_string } from '../utils/sdfg/display';
+import { boundingBox } from '../utils/bounding_box';
 import { memletTreeComplete } from '../utils/sdfg/memlet_trees';
 import {
-    check_and_redirect_edge, deletePositioningInfo, deleteSDFGNodes,
-    deleteCFGBlocks, findExitForEntry, findGraphElementByUUID,
-    getPositioningInfo, getGraphElementUUID, findRootCFG,
+    deletePositioningInfo, deleteSDFGNodes, deleteCFGBlocks,
+    findGraphElementByUUID, getPositioningInfo, getGraphElementUUID,
+    findRootCFG,
 } from '../utils/sdfg/sdfg_utils';
 import { traverseSDFGScopes } from '../utils/sdfg/traversal';
 import {
@@ -49,26 +43,24 @@ import {
     SDFVSettingValT,
     SDFVSettings,
 } from '../utils/sdfv_settings';
-import { deepCopy, intersectRect, showErrorModal } from '../utils/utils';
+import { showErrorModal } from '../utils/utils';
 import { CanvasManager } from './canvas_manager';
 import {
-    AccessNode, Connector,
+    AccessNode, ConditionalBlock, Connector,
     ControlFlowBlock,
     ControlFlowRegion,
-    Edge, EntryNode, InterstateEdge, LoopRegion, Memlet, NestedSDFG,
-    ScopeNode,
+    Edge, EntryNode, InterstateEdge, Memlet, NestedSDFG,
     SDFG,
     SDFGElement,
     SDFGElementType,
-    SDFGElements,
     SDFGNode,
     State,
     Tasklet,
     drawSDFG,
-    offset_sdfg,
-    offset_state,
 } from './renderer_elements';
 import { cfgToDotGraph } from '../utils/sdfg/dotgraph';
+import { layoutSDFG } from '../layouter/layout';
+import { GenericSdfgOverlay } from '../overlays/generic_sdfg_overlay';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -78,9 +70,10 @@ declare const canvas2pdf: any;
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any | null;
 
-export type SDFGElementGroup = ('states' | 'nodes' | 'edges' | 'isedges' |
-    'connectors' | 'controlFlowRegions' |
-    'controlFlowBlocks');
+export type SDFGElementGroup = (
+    'states' | 'nodes' | 'edges' | 'isedges' | 'connectors' |
+    'controlFlowRegions' | 'controlFlowBlocks'
+);
 export interface SDFGElementInfo {
     sdfg: JsonSDFG,
     id: number,
@@ -1355,9 +1348,8 @@ export class SDFGRenderer extends EventEmitter {
             this.cfgList[cfgId].graph = null;
             this.cfgList[cfgId].nsdfgNode = null;
         }
-        this.graph = relayoutStateMachine(
-            this.sdfg, this.sdfg, undefined, this.ctx, this.cfgList,
-            this.state_parent_list,
+        this.graph = layoutSDFG(
+            this.sdfg, this.ctx, this.cfgList, this.state_parent_list,
             !SDFVSettings.get<boolean>('showAccessNodes')
         );
         const topLevelBlocks: SDFGElement[] = [];
@@ -2547,6 +2539,26 @@ export class SDFGRenderer extends EventEmitter {
                         stateId: -1,
                     }, block);
                     doRecursive(block as JsonSDFGControlFlowRegion, sdfg);
+                } else if ('branches' in block) {
+                    func('controlFlowBlocks', {
+                        sdfg: sdfg,
+                        graph: cfg,
+                        id: blockId,
+                        cfgId: cfg.cfg_list_id,
+                        stateId: block.id,
+                    }, block);
+                    const conditRegion = block as JsonSDFGConditionalBlock;
+                    for (const el of conditRegion.branches) {
+                        // Control flow region.
+                        func('controlFlowRegions', {
+                            sdfg: sdfg,
+                            graph: cfg,
+                            id: blockId,
+                            cfgId: cfg.cfg_list_id,
+                            stateId: -1,
+                        }, el[1]);
+                        doRecursive(el[1] as JsonSDFGControlFlowRegion, sdfg);
+                    }
                 }
             });
 
@@ -2687,6 +2699,34 @@ export class SDFGRenderer extends EventEmitter {
                     const ng = block.data.graph;
                     if (ng)
                         doRecursive(ng, block.data.block, sdfg);
+                } else if (block instanceof ConditionalBlock) {
+                    func(
+                        'controlFlowBlocks',
+                        {
+                            sdfg: sdfg,
+                            graph: g,
+                            id: blockId,
+                            cfgId: cfg.cfg_list_id,
+                            stateId: -1,
+                        },
+                        block
+                    );
+                    for (const [_, branch] of block.branches) {
+                        func(
+                            'controlFlowRegions',
+                            {
+                                sdfg: sdfg,
+                                graph: g,
+                                id: blockId,
+                                cfgId: cfg.cfg_list_id,
+                                stateId: -1,
+                            },
+                            branch
+                        );
+                        const ng = branch.data.graph;
+                        if (ng)
+                            doRecursive(ng, branch.data.block, sdfg);
+                    }
                 } else {
                     // Other (unknown) control flow blocks.
                     func(
@@ -2951,7 +2991,7 @@ export class SDFGRenderer extends EventEmitter {
         let sdfg_elem = null;
         if (foreground_elem instanceof State) {
             sdfg_elem = foreground_elem.data.state;
-        } else if (foreground_elem instanceof ControlFlowRegion) {
+        } else if (foreground_elem instanceof ControlFlowBlock) {
             sdfg_elem = foreground_elem.data.block;
         } else if (foreground_elem instanceof SDFGNode) {
             sdfg_elem = foreground_elem.data.node;
@@ -4299,794 +4339,4 @@ export class SDFGRenderer extends EventEmitter {
         return this._adaptiveHiding;
     }
 
-}
-
-
-function calculateNodeSize(
-    sdfg: JsonSDFG, node: any, ctx?: CanvasRenderingContext2D
-): { width: number, height: number } {
-    let label;
-    switch (node.type) {
-        case SDFGElementType.AccessNode:
-            label = node.label;
-            if (SDFVSettings.get<boolean>('showDataDescriptorSizes')) {
-                const nodedesc = sdfg.attributes._arrays[label];
-                if (nodedesc && nodedesc.attributes.shape) {
-                    label = ' ' + sdfg_property_to_string(
-                        nodedesc.attributes.shape
-                    );
-                }
-            }
-            break;
-        default:
-            label = node.label;
-            break;
-    }
-
-    const labelsize = ctx ? ctx.measureText(label).width : 1;
-    const inconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
-        node.attributes.layout.in_connectors
-    ).length - SDFV.LINEHEIGHT;
-    const outconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
-        node.attributes.layout.out_connectors
-    ).length - SDFV.LINEHEIGHT;
-    const maxwidth = Math.max(labelsize, inconnsize, outconnsize);
-    let maxheight = 2 * SDFV.LINEHEIGHT;
-    maxheight += 4 * SDFV.LINEHEIGHT;
-
-    const size = { width: maxwidth, height: maxheight };
-
-    // add something to the size based on the shape of the node
-    switch (node.type) {
-        case SDFGElementType.AccessNode:
-            size.height -= 4 * SDFV.LINEHEIGHT;
-            size.width += size.height;
-            break;
-        case SDFGElementType.MapEntry:
-        case SDFGElementType.ConsumeEntry:
-        case SDFGElementType.PipelineEntry:
-        case SDFGElementType.MapExit:
-        case SDFGElementType.ConsumeExit:
-        case SDFGElementType.PipelineExit:
-            size.width += 2.0 * size.height;
-            size.height /= 1.75;
-            break;
-        case SDFGElementType.Tasklet:
-            size.width += 2.0 * (size.height / 3.0);
-            size.height /= 1.75;
-            break;
-        case SDFGElementType.LibraryNode:
-            size.width += 2.0 * (size.height / 3.0);
-            size.height /= 1.75;
-            break;
-        case SDFGElementType.Reduce:
-            size.height -= 4 * SDFV.LINEHEIGHT;
-            size.width *= 2;
-            size.height = size.width / 3.0;
-            break;
-    }
-
-    return size;
-}
-
-export function relayoutStateMachine(
-    stateMachine: JsonSDFGControlFlowRegion, sdfg: JsonSDFG,
-    parent?: SDFGElement, ctx?: CanvasRenderingContext2D, cfgList?: CFGListType,
-    stateParentList?: any[], omitAccessNodes: boolean = false
-): DagreGraph {
-    const BLOCK_MARGIN = 3 * SDFV.LINEHEIGHT;
-
-    // Layout the state machine as a dagre graph.
-    const g: DagreGraph = new dagre.graphlib.Graph();
-    g.setGraph({});
-    g.setDefaultEdgeLabel(() => {
-        return {};
-    });
-
-    if (!parent)
-        parent = new SDFG(sdfg);
-
-    // layout each block individually to get its size.
-    for (const block of stateMachine.nodes) {
-        let blockInfo: {
-            label?: string,
-            width: number,
-            height: number,
-        } = {
-            label: undefined,
-            width: 0,
-            height: 0,
-        };
-
-        const btype =
-            block.type === SDFGElementType.SDFGState ? 'State' : block.type;
-        const blockElem = new SDFGElements[btype](
-            { layout: { width: 0, height: 0 } }, block.id, sdfg, stateMachine,
-            null, parent
-        );
-        if (block.type === SDFGElementType.SDFGState)
-            blockElem.data.state = block;
-        else
-            blockElem.data.block = block;
-
-        blockInfo.label = block.id.toString();
-        let blockGraph = null;
-        if (block.attributes?.is_collapsed) {
-            blockInfo.height = SDFV.LINEHEIGHT;
-            if (blockElem instanceof LoopRegion && ctx) {
-                const oldFont = ctx.font;
-                ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
-                const labelWidths = [
-                    ctx.measureText(
-                        (block.attributes.scope_condition?.string_data ?? '') +
-                        'while'
-                    ).width,
-                    ctx.measureText(
-                        (block.attributes.init_statement?.string_data ?? '') +
-                        'init'
-                    ).width,
-                    ctx.measureText(
-                        (block.attributes.update_statement?.string_data ?? '') +
-                        'update'
-                    ).width,
-                ];
-                const maxLabelWidth = Math.max(...labelWidths);
-                ctx.font = oldFont;
-                blockInfo.width = Math.max(
-                    maxLabelWidth, ctx.measureText(block.label).width
-                ) + 3 * LoopRegion.META_LABEL_MARGIN;
-            } else {
-                if (ctx)
-                    blockInfo.width = ctx.measureText(blockInfo.label).width;
-                else
-                    blockInfo.width = 1;
-            }
-        } else {
-            blockGraph = relayoutSDFGBlock(
-                block, sdfg, blockElem, ctx, cfgList, stateParentList,
-                omitAccessNodes
-            );
-            if (blockGraph)
-                blockInfo = calculateBoundingBox(blockGraph);
-        }
-        blockInfo.width += 2 * BLOCK_MARGIN;
-        blockInfo.height += 2 * BLOCK_MARGIN;
-
-        if (blockElem instanceof LoopRegion) {
-            // Add spacing for the condition if the loop is not inverted.
-            if (!block.attributes.inverted)
-                blockInfo.height += LoopRegion.CONDITION_SPACING;
-            // If there's an init statement, add space for it.
-            if (block.attributes.init_statement)
-                blockInfo.height += LoopRegion.INIT_SPACING;
-            // If there's an update statement, also add space for it.
-            if (block.attributes.update_statement)
-                blockInfo.height += LoopRegion.UPDATE_SPACING;
-        }
-
-        blockElem.data.layout = blockInfo;
-        blockElem.data.graph = blockGraph;
-        blockElem.set_layout();
-        g.setNode(block.id.toString(), blockElem);
-    }
-
-    for (let id = 0; id < stateMachine.edges.length; id++) {
-        const edge = stateMachine.edges[id];
-        g.setEdge(edge.src, edge.dst, new InterstateEdge(
-            edge.attributes.data, id, sdfg, stateMachine, parent.id, parent,
-            edge.src, edge.dst
-        ));
-    }
-
-    if (SDFVSettings.get<boolean>('useVerticalStateMachineLayout')) {
-        // Fall back to dagre for anything that cannot be laid out with
-        // the vertical layout (e.g., irreducible control flow).
-        try {
-            SMLayouter.layoutDagreCompat(g, sdfg.start_block?.toString());
-        } catch (_ignored) {
-            dagre.layout(g);
-        }
-    } else {
-        dagre.layout(g);
-    }
-
-    // Annotate the sdfg with its layout info
-    for (const block of stateMachine.nodes) {
-        const gnode = g.node(block.id.toString());
-        if (!block.attributes)
-            block.attributes = {};
-        block.attributes.layout = {};
-        block.attributes.layout.x = gnode.x;
-        block.attributes.layout.y = gnode.y;
-        block.attributes.layout.width = gnode.width;
-        block.attributes.layout.height = gnode.height;
-    }
-
-    for (const edge of stateMachine.edges) {
-        const gedge = g.edge(edge.src, edge.dst);
-        const bb = calculateEdgeBoundingBox(gedge);
-        // Convert from top-left to center
-        (bb as any).x += bb.width / 2.0;
-        (bb as any).y += bb.height / 2.0;
-
-        gedge.x = (bb as any).x;
-        gedge.y = (bb as any).y;
-        gedge.width = bb.width;
-        gedge.height = bb.height;
-        edge.attributes.layout = {};
-        edge.attributes.layout.width = bb.width;
-        edge.attributes.layout.height = bb.height;
-        edge.attributes.layout.x = (bb as any).x;
-        edge.attributes.layout.y = (bb as any).y;
-        edge.attributes.layout.points = gedge.points;
-    }
-
-    // Offset node and edge locations to be in state margins
-    for (let blockId = 0; blockId < stateMachine.nodes.length; blockId++) {
-        const block = stateMachine.nodes[blockId];
-        if (!block.attributes.is_collapsed) {
-            const gBlock: any = g.node(blockId.toString());
-            const topleft = gBlock.topleft();
-            if (block.type === SDFGElementType.SDFGState) {
-                offset_state(block as JsonSDFGState, gBlock, {
-                    x: topleft.x + BLOCK_MARGIN,
-                    y: topleft.y + BLOCK_MARGIN,
-                });
-            } else {
-                // Base spacing for the inside.
-                let topSpacing = BLOCK_MARGIN;
-
-                if (gBlock instanceof LoopRegion) {
-                    // Add spacing for the condition if the loop isn't inverted.
-                    if (!block.attributes.inverted)
-                        topSpacing += LoopRegion.CONDITION_SPACING;
-                    // If there's an init statement, add space for it.
-                    if (block.attributes.init_statement)
-                        topSpacing += LoopRegion.INIT_SPACING;
-                }
-                offset_sdfg(block as any, gBlock.data.graph, {
-                    x: topleft.x + BLOCK_MARGIN,
-                    y: topleft.y + topSpacing,
-                });
-            }
-        }
-    }
-
-    const bb = calculateBoundingBox(g);
-    (g as any).width = bb.width;
-    (g as any).height = bb.height;
-
-    // Add CFG graph to global store.
-    if (cfgList !== undefined)
-        cfgList[stateMachine.cfg_list_id].graph = g;
-
-    return g;
-}
-
-function relayoutSDFGState(
-    state: JsonSDFGState, sdfg: JsonSDFG, parent: State,
-    ctx?: CanvasRenderingContext2D, sdfgList?: CFGListType,
-    stateParentList?: any[], omitAccessNodes: boolean = false
-): DagreGraph | null {
-    if (!state.nodes && !state.edges)
-        return null;
-
-    // layout the sdfg block as a dagre graph.
-    const g: DagreGraph = new dagre.graphlib.Graph({ multigraph: true });
-
-    // Set layout options and a simpler algorithm for large graphs.
-    const layoutOptions: any = { ranksep: SDFVSettings.get<number>('ranksep') };
-    if (state.nodes.length >= 1000)
-        layoutOptions.ranker = 'longest-path';
-
-    layoutOptions.nodesep = SDFVSettings.get<number>('nodesep');
-    g.setGraph(layoutOptions);
-
-    // Set an object for the graph label.
-    g.setDefaultEdgeLabel(() => {
-        return {};
-    });
-
-    // Add nodes to the graph. The first argument is the node id. The
-    // second is metadata about the node (label, width, height),
-    // which will be updated by dagre.layout (will add x,y).
-
-    // Process nodes hierarchically.
-    let topLevelNodes = state.scope_dict[-1];
-    if (topLevelNodes === undefined)
-        topLevelNodes = Object.keys(state.nodes);
-    const drawnNodes: Set<string> = new Set();
-    const hiddenNodes = new Map();
-
-    function layoutNode(node: any) {
-        if (omitAccessNodes && node.type === SDFGElementType.AccessNode) {
-            // add access node to hidden nodes; source and destinations will be
-            // set later.
-            hiddenNodes.set(
-                node.id.toString(), { node: node, src: null, dsts: [] }
-            );
-            return;
-        }
-
-        let nestedGraph = null;
-        node.attributes.layout = {};
-
-        // Set connectors prior to computing node size
-        node.attributes.layout.in_connectors =
-            node.attributes.in_connectors ?? [];
-        if ('is_collapsed' in node.attributes && node.attributes.is_collapsed &&
-            node.type !== SDFGElementType.NestedSDFG &&
-            node.type !== SDFGElementType.ExternalNestedSDFG) {
-            node.attributes.layout.out_connectors = findExitForEntry(
-                state.nodes, node
-            )?.attributes.out_connectors ?? [];
-        } else {
-            node.attributes.layout.out_connectors =
-                node.attributes.out_connectors ?? [];
-        }
-
-        const nodeSize = calculateNodeSize(sdfg, node, ctx);
-        node.attributes.layout.width = nodeSize.width;
-        node.attributes.layout.height = nodeSize.height;
-        node.attributes.layout.label = node.label;
-
-        // Recursively lay out nested SDFGs.
-        if (node.type === SDFGElementType.NestedSDFG ||
-            node.type === SDFGElementType.ExternalNestedSDFG) {
-            if (node.attributes.sdfg &&
-                node.attributes.sdfg.type !== 'SDFGShell') {
-                nestedGraph = relayoutStateMachine(
-                    node.attributes.sdfg, node.attributes.sdfg, parent, ctx,
-                    sdfgList, stateParentList, omitAccessNodes
-                );
-                const sdfgInfo = calculateBoundingBox(nestedGraph);
-                node.attributes.layout.width =
-                    sdfgInfo.width + 2 * SDFV.LINEHEIGHT;
-                node.attributes.layout.height =
-                    sdfgInfo.height + 2 * SDFV.LINEHEIGHT;
-            } else {
-                const emptyNSDFGLabel = 'No SDFG loaded';
-                if (ctx) {
-                    const textMetrics = ctx.measureText(emptyNSDFGLabel);
-                    node.attributes.layout.width =
-                        textMetrics.width + 2 * SDFV.LINEHEIGHT;
-                } else {
-                    node.attributes.layout.width = 1;
-                }
-                node.attributes.layout.height = 4 * SDFV.LINEHEIGHT;
-            }
-        }
-
-        // Dynamically create node type.
-        const obj = new SDFGElements[node.type](
-            { node: node, graph: nestedGraph }, node.id, sdfg, parent.cfg,
-            state.id, parent
-        );
-
-        // If it's a nested SDFG, we need to record the node as all of its
-        // state's parent node.
-        if ((node.type === SDFGElementType.NestedSDFG ||
-            node.type === SDFGElementType.ExternalNestedSDFG) &&
-            node.attributes.sdfg && node.attributes.sdfg.type !== 'SDFGShell' &&
-            stateParentList !== undefined && sdfgList !== undefined
-        ) {
-            stateParentList[node.attributes.sdfg.cfg_list_id] = obj;
-            sdfgList[node.attributes.sdfg.cfg_list_id].nsdfgNode = obj;
-        }
-
-        // Add input connectors.
-        let i = 0;
-        let conns;
-        if (Array.isArray(node.attributes.layout.in_connectors))
-            conns = node.attributes.layout.in_connectors;
-        else
-            conns = Object.keys(node.attributes.layout.in_connectors);
-        for (const cname of conns) {
-            const conn = new Connector(
-                { name: cname }, i, sdfg, parent.cfg, node.id, obj
-            );
-            conn.connectorType = 'in';
-            conn.linkedElem = obj;
-            obj.in_connectors.push(conn);
-            i += 1;
-        }
-
-        // Add output connectors -- if collapsed, uses exit node connectors.
-        i = 0;
-        if (Array.isArray(node.attributes.layout.out_connectors))
-            conns = node.attributes.layout.out_connectors;
-        else
-            conns = Object.keys(node.attributes.layout.out_connectors);
-        for (const cname of conns) {
-            const conn = new Connector(
-                { name: cname }, i, sdfg, parent.cfg, node.id, obj
-            );
-            conn.connectorType = 'out';
-            conn.linkedElem = obj;
-            obj.out_connectors.push(conn);
-            i += 1;
-        }
-
-        g.setNode(node.id, obj);
-        drawnNodes.add(node.id.toString());
-
-        // Recursively draw nodes.
-        if (node.id in state.scope_dict) {
-            if (node.attributes.is_collapsed)
-                return;
-            state.scope_dict[node.id].forEach((nodeid: number) => {
-                const node = state.nodes[nodeid];
-                layoutNode(node);
-            });
-        }
-    }
-
-
-    topLevelNodes.forEach((nodeid: number) => {
-        const node = state.nodes[nodeid];
-        layoutNode(node);
-    });
-
-    // Add info to calculate shortcut edges.
-    function addEdgeInfoIfHidden(edge: any) {
-        const hiddenSrc = hiddenNodes.get(edge.src);
-        const hiddenDst = hiddenNodes.get(edge.dst);
-
-        if (hiddenSrc && hiddenDst) {
-            // If we have edges from an AccessNode to an AccessNode then just
-            // connect destinations.
-            hiddenSrc.dsts = hiddenDst.dsts;
-            edge.attributes.data.attributes.shortcut = false;
-        } else if (hiddenSrc) {
-            // If edge starts at hidden node, then add it as destination.
-            hiddenSrc.dsts.push(edge);
-            edge.attributes.data.attributes.shortcut = false;
-            return true;
-        } else if (hiddenDst) {
-            // If edge ends at hidden node, then add it as source.
-            hiddenDst.src = edge;
-            edge.attributes.data.attributes.shortcut = false;
-            return true;
-        }
-
-        // If it is a shortcut edge, but we don't omit access nodes, then ignore
-        // this edge.
-        if (!omitAccessNodes && edge.attributes.data.attributes.shortcut)
-            return true;
-
-        return false;
-    }
-
-    state.edges.forEach((edge: any, id: any) => {
-        if (addEdgeInfoIfHidden(edge))
-            return;
-        edge = check_and_redirect_edge(edge, drawnNodes, state);
-
-        if (!edge)
-            return;
-
-        const e = new Memlet(
-            edge.attributes.data, id, sdfg, parent.cfg, state.id, parent
-        );
-        edge.attributes.data.edge = e;
-        (e as any).src_connector = edge.src_connector;
-        (e as any).dst_connector = edge.dst_connector;
-        g.setEdge(edge.src, edge.dst, e, id);
-    });
-
-    hiddenNodes.forEach(hiddenNode => {
-        if (hiddenNode.src) {
-            hiddenNode.dsts.forEach((e: any) => {
-                // Create shortcut edge with new destination.
-                const tmpEdge = e.attributes.data.edge;
-                e.attributes.data.edge = null;
-                const shortCutEdge = deepCopy(e);
-                e.attributes.data.edge = tmpEdge;
-                shortCutEdge.src = hiddenNode.src.src;
-                shortCutEdge.src_connector = hiddenNode.src.src_connector;
-                shortCutEdge.dst_connector = e.dst_connector;
-                // Attribute that only shortcut edges have; if it is explicitly
-                // false, then edge is ignored in omit access node mode.
-                shortCutEdge.attributes.data.attributes.shortcut = true;
-
-                // Draw the redirected edge.
-                const redirectedEdge = check_and_redirect_edge(
-                    shortCutEdge, drawnNodes, state
-                );
-                if (!redirectedEdge)
-                    return;
-
-                // Abort if shortcut edge already exists.
-                const edges = g.outEdges(redirectedEdge.src);
-                if (edges) {
-                    for (const oe of edges) {
-                        if (oe.w === e.dst && oe.name &&
-                            state.edges[
-                                parseInt(oe.name)
-                            ].dst_connector === e.dst_connector
-                        )
-                            return;
-                    }
-                }
-
-                // Add shortcut edge (redirection is not done in this list).
-                state.edges.push(shortCutEdge);
-
-                // Add redirected shortcut edge to graph.
-                const edgeId = state.edges.length - 1;
-                const newShortCutEdge = new Memlet(
-                    deepCopy(redirectedEdge.attributes.data), edgeId, sdfg,
-                    parent.cfg, state.id
-                );
-                (newShortCutEdge as any).src_connector =
-                    redirectedEdge.src_connector;
-                (newShortCutEdge as any).dst_connector =
-                    redirectedEdge.dst_connector;
-                newShortCutEdge.data.attributes.shortcut = true;
-
-                g.setEdge(
-                    redirectedEdge.src, redirectedEdge.dst, newShortCutEdge,
-                    edgeId.toString()
-                );
-            });
-        }
-    });
-
-    dagre.layout(g);
-
-    // Layout connectors and nested SDFGs.
-    state.nodes.forEach((node: JsonSDFGNode, id: number) => {
-        const gnode: any = g.node(id.toString());
-        if (!gnode || (omitAccessNodes && gnode instanceof AccessNode)) {
-            // Ignore nodes that should not be drawn.
-            return;
-        }
-        const topleft = gnode.topleft();
-
-        // Offset nested SDFG.
-        if (node.type === SDFGElementType.NestedSDFG && node.attributes.sdfg) {
-            offset_sdfg(node.attributes.sdfg, gnode.data.graph, {
-                x: topleft.x + SDFV.LINEHEIGHT,
-                y: topleft.y + SDFV.LINEHEIGHT,
-            });
-        }
-        // Write back layout information.
-        node.attributes.layout.x = gnode.x;
-        node.attributes.layout.y = gnode.y;
-        // Connector management.
-        const SPACING = SDFV.LINEHEIGHT;
-        const iConnLength = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
-            node.attributes.layout.in_connectors
-        ).length - SPACING;
-        const oConnLength = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
-            node.attributes.layout.out_connectors
-        ).length - SPACING;
-        let iConnX = gnode.x - iConnLength / 2.0 + SDFV.LINEHEIGHT / 2.0;
-        let oConnX = gnode.x - oConnLength / 2.0 + SDFV.LINEHEIGHT / 2.0;
-
-        for (const c of gnode.in_connectors) {
-            c.width = SDFV.LINEHEIGHT;
-            c.height = SDFV.LINEHEIGHT;
-            c.x = iConnX;
-            iConnX += SDFV.LINEHEIGHT + SPACING;
-            c.y = topleft.y;
-        }
-        for (const c of gnode.out_connectors) {
-            c.width = SDFV.LINEHEIGHT;
-            c.height = SDFV.LINEHEIGHT;
-            c.x = oConnX;
-            oConnX += SDFV.LINEHEIGHT + SPACING;
-            c.y = topleft.y + gnode.height;
-        }
-    });
-
-    // Re-order in_connectors for the edges to not intertwine
-    state.nodes.forEach((node: JsonSDFGNode, id: number) => {
-        const gnode: any = g.node(id.toString());
-        if (!gnode || (omitAccessNodes && gnode instanceof AccessNode)) {
-            // Ignore nodes that should not be drawn.
-            return;
-        }
-
-        // Summarize edges for NestedSDFGs and ScopeNodes
-        if (SDFVSettings.get<boolean>('summarizeLargeNumbersOfEdges')) {
-            if (gnode instanceof NestedSDFG || gnode instanceof ScopeNode) {
-                const n_of_in_connectors = gnode.in_connectors.length;
-                const n_of_out_connectors = gnode.out_connectors.length;
-
-                if (n_of_in_connectors > 10) {
-                    gnode.summarize_in_edges = true;
-                    gnode.in_summary_has_effect = true;
-                }
-                if (n_of_out_connectors > 10) {
-                    gnode.summarize_out_edges = true;
-                    gnode.out_summary_has_effect = true;
-                }
-            }
-        }
-        const SPACING = SDFV.LINEHEIGHT;
-        const iConnLength = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
-            node.attributes.layout.in_connectors
-        ).length - SPACING;
-        let iConnX = gnode.x - iConnLength / 2.0 + SDFV.LINEHEIGHT / 2.0;
-
-        // Dictionary that saves the x coordinates of each connector's source
-        // node or source connector. This is later used to reorder the
-        // in_connectors based on the sources' x coordinates.
-        const sources_x_coordinates: { [key: string]: number } = {};
-
-        // For each in_connector, find the x coordinate of the source node
-        // connector.
-        for (const c of gnode.in_connectors) {
-            state.edges.forEach((edge: JsonSDFGEdge, id: number) => {
-                if (edge.dst === gnode.id.toString() &&
-                    edge.dst_connector === c.data.name) {
-                    // If in-edges are to be summarized, set Memlet.summarized
-                    const gedge = g.edge(
-                        edge.src, edge.dst, id.toString()
-                    ) as Memlet;
-                    if (gedge && gnode.summarize_in_edges)
-                        gedge.summarized = true;
-
-                    const source_node: SDFGNode = g.node(edge.src);
-                    if (source_node) {
-                        // If source node doesn't have out_connectors, take
-                        // the source node's own x coordinate
-                        if (source_node.out_connectors.length === 0) {
-                            sources_x_coordinates[c.data.name] = source_node.x;
-                        } else {
-                            // Find the corresponding out_connector and take its
-                            // x coordinate.
-                            const nOutConn = source_node.out_connectors.length;
-                            for (let i = 0; i < nOutConn; ++i) {
-                                if (source_node.out_connectors[i].data.name ===
-                                    edge.src_connector) {
-                                    sources_x_coordinates[c.data.name] =
-                                        source_node.out_connectors[i].x;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Sort the dictionary by x coordinate values
-        const sources_x_coordinates_sorted = Object.entries(
-            sources_x_coordinates
-        );
-        sources_x_coordinates_sorted.sort((a, b) => a[1] - b[1]);
-
-        // In the order of the sorted source x coordinates, set the x
-        // coordinates of the in_connectors.
-        for (const element of sources_x_coordinates_sorted) {
-            for (const c of gnode.in_connectors) {
-                if (c.data.name === element[0]) {
-                    c.x = iConnX;
-                    iConnX += SDFV.LINEHEIGHT + SPACING;
-                    continue;
-                }
-            }
-        }
-
-        // For out_connectors set Memlet.summarized for all out-edges if needed
-        if (gnode.summarize_out_edges) {
-            for (const c of gnode.out_connectors) {
-                state.edges.forEach((edge: JsonSDFGEdge, id: number) => {
-                    if (edge.src === gnode.id.toString() &&
-                        edge.src_connector === c.data.name) {
-                        const gedge = g.edge(
-                            edge.src, edge.dst, id.toString()
-                        ) as Memlet;
-                        if (gedge)
-                            gedge.summarized = true;
-                    }
-                });
-            }
-        }
-    });
-
-    state.edges.forEach((edge: JsonSDFGEdge, id: number) => {
-        const nedge = check_and_redirect_edge(edge, drawnNodes, state);
-        if (!nedge)
-            return;
-        edge = nedge;
-        const gedge = g.edge(edge.src, edge.dst, id.toString());
-        if (!gedge || (omitAccessNodes &&
-            gedge.data.attributes.shortcut === false ||
-            !omitAccessNodes && gedge.data.attributes.shortcut)) {
-            // If access nodes omitted, don't draw non-shortcut edges and
-            // vice versa.
-            return;
-        }
-
-        // Reposition first and last points according to connectors.
-        let srcConn = null;
-        let dstConn = null;
-        if (edge.src_connector) {
-            const src_node: SDFGNode = g.node(edge.src);
-            let cindex = -1;
-            for (let i = 0; i < src_node.out_connectors.length; i++) {
-                if (
-                    src_node.out_connectors[i].data.name === edge.src_connector
-                ) {
-                    cindex = i;
-                    break;
-                }
-            }
-            if (cindex >= 0) {
-                gedge.points[0].x = src_node.out_connectors[cindex].x;
-                gedge.points[0].y = src_node.out_connectors[cindex].y;
-                srcConn = src_node.out_connectors[cindex];
-            }
-        }
-        if (edge.dst_connector) {
-            const dstNode: SDFGNode = g.node(edge.dst);
-            let cindex = -1;
-            for (let i = 0; i < dstNode.in_connectors.length; i++) {
-                const c = dstNode.in_connectors[i];
-                if (c.data.name === edge.dst_connector) {
-                    cindex = i;
-                    break;
-                }
-            }
-            if (cindex >= 0) {
-                gedge.points[gedge.points.length - 1].x =
-                    dstNode.in_connectors[cindex].x;
-                gedge.points[gedge.points.length - 1].y =
-                    dstNode.in_connectors[cindex].y;
-                dstConn = dstNode.in_connectors[cindex];
-            }
-        }
-
-        const n = gedge.points.length - 1;
-        if (srcConn !== null)
-            gedge.points[0] = intersectRect(srcConn, gedge.points[n]);
-        if (dstConn !== null)
-            gedge.points[n] = intersectRect(dstConn, gedge.points[0]);
-
-        if (gedge.points.length === 3 &&
-            gedge.points[0].x === gedge.points[n].x)
-            gedge.points = [gedge.points[0], gedge.points[n]];
-
-        const bb = calculateEdgeBoundingBox(gedge);
-        // Convert from top-left to center
-        (bb as any).x += bb.width / 2.0;
-        (bb as any).y += bb.height / 2.0;
-
-        edge.width = bb.width;
-        edge.height = bb.height;
-        edge.x = (bb as any).x;
-        edge.y = (bb as any).y;
-        gedge.width = bb.width;
-        gedge.height = bb.height;
-        gedge.x = (bb as any).x;
-        gedge.y = (bb as any).y;
-    });
-
-    return g;
-}
-
-function relayoutSDFGBlock(
-    block: JsonSDFGBlock, sdfg: JsonSDFG, parent: SDFGElement,
-    ctx?: CanvasRenderingContext2D, sdfgList?: CFGListType,
-    stateParentList?: any[], omitAccessNodes: boolean = false
-): DagreGraph | null {
-    switch (block.type) {
-        case SDFGElementType.LoopRegion:
-        case SDFGElementType.ControlFlowRegion:
-            return relayoutStateMachine(
-                block as JsonSDFGControlFlowRegion, sdfg, parent, ctx, sdfgList,
-                stateParentList, omitAccessNodes
-            );
-        case SDFGElementType.SDFGState:
-        case SDFGElementType.BasicBlock:
-            return relayoutSDFGState(
-                block as JsonSDFGState, sdfg, parent, ctx, sdfgList,
-                stateParentList, omitAccessNodes
-            );
-        default:
-            return null;
-    }
 }

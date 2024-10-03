@@ -10,7 +10,6 @@ import { EventEmitter } from 'events';
 import { mean, median } from 'mathjs';
 import {
     DagreGraph,
-    GenericSdfgOverlay,
     JsonSDFG,
     ModeButtons,
     showErrorModal,
@@ -23,6 +22,7 @@ import {
 import { OverlayManager } from './overlay_manager';
 import { SDFGRenderer } from './renderer/renderer';
 import {
+    ConditionalBlock,
     SDFG,
     SDFGElement,
     SDFGNode,
@@ -37,6 +37,7 @@ import {
 import { SDFVSettings } from './utils/sdfv_settings';
 import { DiffMap, WebSDFGDiffViewer } from './sdfg_diff_viewer';
 import { ISDFVUserInterface, SDFVWebUI } from './sdfv_ui';
+import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
 
 declare const vscode: any;
 
@@ -466,48 +467,42 @@ export class WebSDFV extends SDFV {
     }
 
     public setSDFG(
-        sdfg: any | null = null,
+        sdfg: JsonSDFG | null = null,
         userTransform: DOMMatrix | null = null,
         debugDraw: boolean = false
     ): void {
+        this.renderer?.destroy();
         const container = document.getElementById('contents');
-        if (container) {
-            this.renderer?.destroy();
-            if (sdfg) {
-                const renderer = new SDFGRenderer(
-                    sdfg, container, this, null, userTransform, debugDraw, null,
-                    this.modeButtons
-                );
-                this.set_renderer(renderer);
-                renderer.on('selection_changed', () => {
-                    const selectedElements = renderer.get_selected_elements();
-                    let element;
-                    if (selectedElements.length === 0)
-                        element = new SDFG(renderer.get_sdfg());
-                    else if (selectedElements.length === 1)
-                        element = selectedElements[0];
-                    else
-                        element = null;
-
-                    if (element !== null) {
-                        SDFVWebUI.getInstance().showElementInfo(
-                            element, renderer
-                        );
-                    } else {
-                        SDFVWebUI.getInstance().infoClear();
-                        SDFVWebUI.getInstance().infoSetTitle(
-                            'Multiple elements selected'
-                        );
-                    }
-                    SDFVWebUI.getInstance().infoShow();
-                });
-            }
-            this.UI.infoClear();
-            $('#load-instrumentation-report-btn').prop(
-                'disabled', false
+        if (container && sdfg) {
+            const renderer = new SDFGRenderer(
+                sdfg, container, this, null, userTransform, debugDraw, null,
+                this.modeButtons
             );
-            $('#diff-view-btn').prop('disabled', false);
+            this.set_renderer(renderer);
+            renderer.on('selection_changed', () => {
+                const selectedElements = renderer.get_selected_elements();
+                let element;
+                if (selectedElements.length === 0)
+                    element = new SDFG(renderer.get_sdfg());
+                else if (selectedElements.length === 1)
+                    element = selectedElements[0];
+                else
+                    element = null;
+
+                if (element !== null) {
+                    SDFVWebUI.getInstance().showElementInfo(element, renderer);
+                } else {
+                    SDFVWebUI.getInstance().infoClear();
+                    SDFVWebUI.getInstance().infoSetTitle(
+                        'Multiple elements selected'
+                    );
+                }
+                SDFVWebUI.getInstance().infoShow();
+            });
         }
+        this.UI.infoClear();
+        $('#load-instrumentation-report-btn').prop('disabled', false);
+        $('#diff-view-btn').prop('disabled', false);
     }
 
 }
@@ -548,7 +543,7 @@ function loadSDFGFromURL(url: string): void {
     request.onload = () => {
         if (request.status === 200) {
             const sdfg = checkCompatLoad(parse_sdfg(request.response));
-            WebSDFV.getInstance().setSDFG(sdfg, null, false);
+            WebSDFV.getInstance().setSDFG(sdfg, null);
         } else {
             showErrorModal('Failed to load SDFG from URL');
             WebSDFV.getInstance().setSDFG(null);
@@ -576,8 +571,14 @@ export function graphFindRecursive(
         if (predicate(graph, node))
             results.push(node);
         // Enter states or nested SDFGs recursively
-        if (node.data.graph)
+        if (node.data.graph) {
             graphFindRecursive(node.data.graph, predicate, results);
+        } else if (node instanceof ConditionalBlock) {
+            for (const [_, branch] of node.branches) {
+                if (branch.data.graph)
+                    graphFindRecursive(branch.data.graph, predicate, results);
+            }
+        }
     }
     for (const edgeid of graph.edges()) {
         const edge = graph.edge(edgeid);
@@ -713,7 +714,7 @@ $(() => {
                 document.currentScript?.getAttribute('data-sdfg-json');
             if (sdfg_string) {
                 WebSDFV.getInstance().setSDFG(
-                    checkCompatLoad(parse_sdfg(sdfg_string)), null, false
+                    checkCompatLoad(parse_sdfg(sdfg_string)), null
                 );
             }
         } else if (document.currentScript?.hasAttribute('data-url')) {

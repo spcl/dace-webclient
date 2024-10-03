@@ -1,6 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph, Point2D, SDFVSettings, SimpleRect } from '../index';
+import { Point2D } from '../index';
 import {
     GraphElementInfo,
     SDFGElementGroup,
@@ -8,12 +8,8 @@ import {
 } from '../renderer/renderer';
 import {
     AccessNode,
-    ControlFlowBlock,
-    ControlFlowRegion,
-    NestedSDFG,
     SDFGElement,
     SDFGNode,
-    State,
 } from '../renderer/renderer_elements';
 import { KELLY_COLORS } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
@@ -205,7 +201,7 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
         };
     }
 
-    public shadeNode(node: AccessNode, ctx: CanvasRenderingContext2D): void {
+    protected shadeNode(node: AccessNode, ctx: CanvasRenderingContext2D): void {
         const storageType = MemoryLocationOverlay.getStorageType(node);
         const mousepos = this.renderer.get_mousepos();
         if (mousepos && node.intersect(mousepos.x, mousepos.y)) {
@@ -228,73 +224,10 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
             node.shade(this.renderer, ctx, '#' + color);
     }
 
-    public recursivelyShadeCFG(
-        graph: DagreGraph,
-        ctx: CanvasRenderingContext2D,
-        ppp: number,
-        visibleRect: SimpleRect
-    ): void {
-        // First go over visible control flow blocks, skipping invisible ones.
-        // We traverse inside to shade memory nodes wherever applicable.
-        graph.nodes().forEach(v => {
-            const block: ControlFlowBlock = graph.node(v);
-
-            // If the node's invisible, we skip it.
-            if (this.renderer.viewportOnly && !block.intersect(
-                visibleRect.x, visibleRect.y,
-                visibleRect.w, visibleRect.h
-            ))
-                return;
-
-            const stateppp = Math.sqrt(block.width * block.height) / ppp;
-            if ((this.renderer.adaptiveHiding &&
-                (stateppp < SDFVSettings.get<number>('nestedLOD'))) ||
-                block.attributes()?.is_collapsed) {
-                // The state is collapsed or too small, so we don't need to
-                // traverse its insides.
-                return;
-            } else if (block instanceof State) {
-                const stateGraph = block.data.graph;
-                if (stateGraph) {
-                    stateGraph.nodes().forEach((v: any) => {
-                        const node = stateGraph.node(v);
-
-                        // Skip the node if it's not visible.
-                        if (this.renderer.viewportOnly &&
-                            !node.intersect(
-                                visibleRect.x, visibleRect.y, visibleRect.w,
-                                visibleRect.h
-                            ))
-                            return;
-
-                        if (node instanceof NestedSDFG &&
-                            node.attributes().sdfg &&
-                            node.attributes().sdfg.type !== 'SDFGShell') {
-                            this.recursivelyShadeCFG(
-                                node.data.graph, ctx, ppp, visibleRect
-                            );
-                        } else if (node instanceof AccessNode) {
-                            if (!this.renderer.adaptiveHiding ||
-                                ppp < SDFVSettings.get<number>('nodeLOD'))
-                                this.shadeNode(node, ctx);
-                        }
-                    });
-                }
-            } else if (block instanceof ControlFlowRegion) {
-                this.recursivelyShadeCFG(
-                    block.data.graph, ctx, ppp, visibleRect
-                );
-            }
-        });
-    }
-
     public draw(): void {
-        const graph = this.renderer.get_graph();
-        const ppp = this.renderer.get_canvas_manager()?.points_per_pixel();
-        const context = this.renderer.get_context();
-        const visibleRect = this.renderer.get_visible_rect();
-        if (graph && ppp !== undefined && context && visibleRect)
-            this.recursivelyShadeCFG(graph, context, ppp, visibleRect);
+        this.shadeSDFG((elem) => {
+            return elem instanceof AccessNode;
+        });
     }
 
     public on_mouse_event(

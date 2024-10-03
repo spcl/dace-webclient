@@ -3,6 +3,7 @@
 import {
     JsonSDFG,
     JsonSDFGBlock,
+    JsonSDFGConditionalBlock,
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGNode,
@@ -90,10 +91,14 @@ export function memletTreeNested(
                         );
                     }
                 });
-            } else {
+            } else if (block.type.endsWith('Region')) {
                 checkNested(
                     block as JsonSDFGControlFlowRegion, nsdfg, name, direction
                 );
+            } else if (block.type === SDFGElementType.ConditionalBlock) {
+                const condBlock = block as JsonSDFGConditionalBlock;
+                for (const [_, branch] of condBlock.branches)
+                    checkNested(branch, nsdfg, name, direction);
             }
         });
     }
@@ -212,10 +217,14 @@ export function memletTreeRecursive(
                     trees = trees.concat(t);
                 }
             });
-        } else {
+        } else if (block.type.endsWith('Region')) {
             trees = trees.concat(memletTreeRecursive(
                 block as JsonSDFGControlFlowRegion, sdfg
             ));
+        } else if (block.type === SDFGElementType.ConditionalBlock) {
+            const condBlock = block as JsonSDFGConditionalBlock;
+            for (const [_, branch] of condBlock.branches)
+                trees = trees.concat(memletTreeRecursive(branch, sdfg));
         }
     });
 

@@ -364,8 +364,9 @@ export class MapNode extends Node {
                 const nodes = this.parentGraph.memoryNodesMap.get(
                     access.dataContainer
                 );
-                if (nodes) {
-                    const node = nodes.values().next().value[1];
+                const nxt = nodes?.values().next().value;
+                if (nxt) {
+                    const node = nxt[1];
 
                     if (node && !access.index.includes(undefined)) {
                         const cl = node.getCacheLine(access.index as number[]);
