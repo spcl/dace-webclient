@@ -1702,9 +1702,16 @@ export class Memlet extends Edge {
         contents += sdfg_property_to_string(attr.subset, dsettings);
 
         if (attr.other_subset) {
-            contents += ' -> ' + sdfg_property_to_string(
-                attr.other_subset, dsettings
-            );
+            // TODO: Obtain other data name, if possible
+            if (attr.is_data_src) {
+                contents += ' -> ' + sdfg_property_to_string(
+                    attr.other_subset, dsettings
+                );
+            } else {
+                contents = sdfg_property_to_string(
+                    attr.other_subset, dsettings
+                ) + ' -> ' + contents;
+            }
         }
 
         if (attr.wcr) {
