@@ -1,7 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import $ from 'jquery';
-import { DagreGraph, JsonSDFG } from '..';
 import {
     AccessNode,
     Edge,
@@ -28,6 +27,8 @@ import { MemoryNode } from './elements/memory_node';
 import { Element } from './elements/element';
 import { LViewRenderer } from './lview_renderer';
 import { evaluate } from 'mathjs';
+import type { DagreGraph } from '../renderer/renderer';
+import { JsonSDFG } from '../types';
 
 export class LViewGraphParseError extends Error {}
 

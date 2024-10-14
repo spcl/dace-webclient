@@ -4,26 +4,6 @@ import $ from 'jquery';
 
 import dagre from 'dagre';
 import EventEmitter from 'events';
-import {
-    DagreGraph,
-    JsonSDFG,
-    JsonSDFGBlock,
-    JsonSDFGConditionalBlock,
-    JsonSDFGControlFlowRegion,
-    JsonSDFGEdge,
-    JsonSDFGElement,
-    JsonSDFGNode,
-    JsonSDFGState,
-    MemoryLocationOverlay,
-    MemoryVolumeOverlay,
-    ModeButtons,
-    Point2D,
-    SDFVTooltipFunc,
-    SimpleRect,
-    checkCompatSave,
-    parse_sdfg,
-    stringify_sdfg,
-} from '../index';
 import { LViewLayouter } from '../local_view/lview_layouter';
 import { LViewGraphParseError, LViewParser } from '../local_view/lview_parser';
 import { LViewRenderer } from '../local_view/lview_renderer';
@@ -61,6 +41,23 @@ import {
 import { cfgToDotGraph } from '../utils/sdfg/dotgraph';
 import { layoutSDFG } from '../layouter/layout';
 import { GenericSdfgOverlay } from '../overlays/generic_sdfg_overlay';
+import {
+    JsonSDFG,
+    JsonSDFGBlock,
+    JsonSDFGConditionalBlock,
+    JsonSDFGControlFlowRegion,
+    JsonSDFGEdge,
+    JsonSDFGElement,
+    JsonSDFGNode,
+    JsonSDFGState,
+    ModeButtons,
+    Point2D,
+    SDFVTooltipFunc,
+    SimpleRect,
+} from '../types';
+import { MemoryLocationOverlay } from '../overlays/memory_location_overlay';
+import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
+import { checkCompatSave, parse_sdfg, stringify_sdfg } from '../utils/sdfg/json_serializer';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -69,6 +66,8 @@ declare const canvas2pdf: any;
 
 // Some global functions and variables which are only accessible within VSCode:
 declare const vscode: any | null;
+
+export type DagreGraph = dagre.graphlib.Graph<SDFGElement>;
 
 export type SDFGElementGroup = (
     'states' | 'nodes' | 'edges' | 'isedges' | 'connectors' |
@@ -582,7 +581,7 @@ export class SDFGRenderer extends EventEmitter {
 
             // Overlays menu.
             if ((!this.enableMaskUI ||
-                 this.enableMaskUI.includes('overlays_menu')) &&
+                this.enableMaskUI.includes('overlays_menu')) &&
                 !this.in_vscode) {
                 const overlayDropdown = $('<div>', {
                     class: 'dropdown',
@@ -652,7 +651,7 @@ export class SDFGRenderer extends EventEmitter {
                 role: 'group',
             }).appendTo(this.toolbar);
             if (!this.enableMaskUI ||
-                 this.enableMaskUI.includes('zoom_to_fit_all')) {
+                this.enableMaskUI.includes('zoom_to_fit_all')) {
                 // Zoom to fit.
                 $('<button>', {
                     class: 'btn btn-secondary btn-sm btn-material',
@@ -664,7 +663,7 @@ export class SDFGRenderer extends EventEmitter {
                 }).appendTo(zoomButtonGroup);
             }
             if (!this.enableMaskUI ||
-                 this.enableMaskUI.includes('zoom_to_fit_width')) {
+                this.enableMaskUI.includes('zoom_to_fit_width')) {
                 $('<button>', {
                     class: 'btn btn-secondary btn-sm btn-material',
                     html: '<i class="material-symbols-outlined">fit_width</i>',
@@ -680,7 +679,7 @@ export class SDFGRenderer extends EventEmitter {
                 role: 'group',
             }).appendTo(this.toolbar);
             if (!this.enableMaskUI ||
-                 this.enableMaskUI.includes('collapse')) {
+                this.enableMaskUI.includes('collapse')) {
                 // Collapse all.
                 $('<button>', {
                     class: 'btn btn-secondary btn-sm btn-material',
@@ -697,7 +696,7 @@ export class SDFGRenderer extends EventEmitter {
             }
 
             if (!this.enableMaskUI ||
-                 this.enableMaskUI.includes('expand')) {
+                this.enableMaskUI.includes('expand')) {
                 // Expand all.
                 $('<button>', {
                     class: 'btn btn-secondary btn-sm btn-material',
@@ -1215,7 +1214,7 @@ export class SDFGRenderer extends EventEmitter {
     public async setSDFG(
         new_sdfg: JsonSDFG, layout: boolean = true
     ): Promise<void> {
-        return new Promise((resolve)=> {
+        return new Promise((resolve) => {
             this.sdfg = new_sdfg;
 
             // Update info box
@@ -2478,12 +2477,12 @@ export class SDFGRenderer extends EventEmitter {
                 if (block.type === SDFGElementType.SDFGState) {
                     func(
                         'states', {
-                            sdfg: sdfg,
-                            graph: cfg,
-                            id: blockId,
-                            cfgId: cfg.cfg_list_id,
-                            stateId: -1,
-                        }, block
+                        sdfg: sdfg,
+                        graph: cfg,
+                        id: blockId,
+                        cfgId: cfg.cfg_list_id,
+                        stateId: -1,
+                    }, block
                     );
 
                     const state: JsonSDFGState = block as JsonSDFGState;
@@ -2640,14 +2639,14 @@ export class SDFGRenderer extends EventEmitter {
                             (c: Connector, i: number) => {
                                 func(
                                     'connectors', {
-                                        sdfg: sdfg,
-                                        graph: ng,
-                                        id: nodeId,
-                                        cfgId: cfg.cfg_list_id,
-                                        stateId: blockId,
-                                        connector: i,
-                                        conntype: 'in',
-                                    }, c
+                                    sdfg: sdfg,
+                                    graph: ng,
+                                    id: nodeId,
+                                    cfgId: cfg.cfg_list_id,
+                                    stateId: blockId,
+                                    connector: i,
+                                    conntype: 'in',
+                                }, c
                                 );
                             }
                         );
@@ -2655,14 +2654,14 @@ export class SDFGRenderer extends EventEmitter {
                             (c: Connector, i: number) => {
                                 func(
                                     'connectors', {
-                                        sdfg: sdfg,
-                                        graph: ng,
-                                        id: nodeId,
-                                        cfgId: cfg.cfg_list_id,
-                                        stateId: blockId,
-                                        connector: i,
-                                        conntype: 'out',
-                                    }, c
+                                    sdfg: sdfg,
+                                    graph: ng,
+                                    id: nodeId,
+                                    cfgId: cfg.cfg_list_id,
+                                    stateId: blockId,
+                                    connector: i,
+                                    conntype: 'out',
+                                }, c
                                 );
                             }
                         );

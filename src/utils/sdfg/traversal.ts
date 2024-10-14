@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph, SDFGNode } from '../../index';
+import type { DagreGraph } from '../../renderer/renderer';
+import type { SDFGNode } from '../../renderer/renderer_elements';
 
 /**
  * Receives a callback that accepts (node, parent graph) and returns a value.

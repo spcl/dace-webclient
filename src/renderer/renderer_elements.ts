@@ -1,12 +1,5 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import {
-    DagreGraph,
-    JsonSDFG,
-    JsonSDFGControlFlowRegion,
-    Point2D,
-    SimpleRect,
-} from '../index';
 import { SDFV } from '../sdfv';
 import { editor } from 'monaco-editor';
 import {
@@ -15,7 +8,13 @@ import {
     sdfg_range_elem_to_string,
 } from '../utils/sdfg/display';
 import { SDFVSettings } from '../utils/sdfv_settings';
-import { SDFGRenderer } from './renderer';
+import type { DagreGraph, SDFGRenderer } from './renderer';
+import {
+    JsonSDFG,
+    JsonSDFGControlFlowRegion,
+    Point2D,
+    SimpleRect
+} from '../types';
 
 export enum SDFGElementType {
     Edge = 'Edge',

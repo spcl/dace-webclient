@@ -1,8 +1,8 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { Point2D } from '..';
 import { rgb2hex } from '@pixi/utils';
 import $ from 'jquery';
+import { Point2D } from '../types';
 
 declare const SDFGRenderer: any;
 

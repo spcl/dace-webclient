@@ -2,28 +2,24 @@
 
 import $ from 'jquery';
 
+import { DiffOverlay } from './overlays/diff_overlay';
+import { DagreGraph, SDFGRenderer } from './renderer/renderer';
+import _ from 'lodash';
+import { Modal } from 'bootstrap';
 import {
     ConditionalBlock,
     ControlFlowRegion,
-    DagreGraph,
-    graphFindRecursive,
-    htmlSanitize,
-    ISDFV,
-    ISDFVUserInterface,
-    JsonSDFG,
     NestedSDFG,
     SDFG,
     SDFGElement,
     SDFGNode,
-    SDFVWebUI,
     State,
-    traverseSDFGScopes,
-    WebSDFV,
-} from '.';
-import { DiffOverlay } from './overlays/diff_overlay';
-import { SDFGRenderer } from './renderer/renderer';
-import _ from 'lodash';
-import { Modal } from 'bootstrap';
+} from './renderer/renderer_elements';
+import { graphFindRecursive, ISDFV, WebSDFV } from './sdfv';
+import { ISDFVUserInterface, SDFVWebUI } from './sdfv_ui';
+import { htmlSanitize } from './utils/sanitization';
+import { JsonSDFG } from './types';
+import { traverseSDFGScopes } from './utils/sdfg/traversal';
 
 type ChangeState = 'nodiff' | 'changed' | 'added' | 'removed';
 

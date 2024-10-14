@@ -1,12 +1,14 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { log, mean, median } from 'mathjs';
-import { DagreGraph, OverlayManager, Point2D, SDFVSettings, SimpleRect, SymbolResolver } from '../index';
-import {
+import type {
+    DagreGraph,
     GraphElementInfo,
     SDFGElementGroup,
     SDFGRenderer,
 } from '../renderer/renderer';
+import { OverlayManager, SymbolResolver } from '../overlay_manager';
+import { SDFVSettings } from '../utils/sdfv_settings';
 import {
     ConditionalBlock,
     ControlFlowBlock,
@@ -17,6 +19,7 @@ import {
     SDFGNode,
     State,
 } from '../renderer/renderer_elements';
+import { Point2D, SimpleRect } from '../types';
 
 declare const vscode: any;
 

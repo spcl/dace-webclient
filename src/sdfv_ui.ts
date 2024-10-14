@@ -8,12 +8,9 @@ import {
     NestedSDFG,
     SDFGElement,
 } from './renderer/renderer_elements';
-import {
-    DagreGraph,
-    sdfg_property_to_string,
-    SDFGRenderer,
-    WebSDFV,
-} from '.';
+import type { DagreGraph, SDFGRenderer } from './renderer/renderer';
+import { WebSDFV } from './sdfv';
+import { sdfg_property_to_string } from './utils/sdfg/display';
 
 export interface ISDFVUserInterface {
     get infoContentContainer(): JQuery<HTMLElement>;

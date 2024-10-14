@@ -1,13 +1,13 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { getGraphElementUUID } from '../index';
-import { SDFGRenderer } from '../renderer/renderer';
+import type { SDFGRenderer } from '../renderer/renderer';
 import {
     ControlFlowBlock,
     SDFGElement,
     SDFGNode,
 } from '../renderer/renderer_elements';
 import { getTempColorHslString } from '../utils/utils';
+import { getGraphElementUUID } from '../utils/sdfg/sdfg_utils';
 import {
     GenericSdfgOverlay,
     OverlayType,

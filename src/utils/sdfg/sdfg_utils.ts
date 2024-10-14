@@ -1,13 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import {
-    CFGListType,
-    JsonSDFGBlock,
-    JsonSDFGControlFlowRegion,
-    JsonSDFGEdge,
-    JsonSDFGNode,
-    JsonSDFGState,
-} from '../../index';
+import type { CFGListType } from '../../renderer/renderer';
 import {
     ControlFlowRegion,
     Edge,
@@ -16,6 +9,13 @@ import {
     SDFGNode,
     State,
 } from '../../renderer/renderer_elements';
+import {
+    JsonSDFGBlock,
+    JsonSDFGControlFlowRegion,
+    JsonSDFGEdge,
+    JsonSDFGNode,
+    JsonSDFGState,
+} from '../../types';
 
 export function findExitForEntry(
     nodes: JsonSDFGNode[], entryNode: JsonSDFGNode

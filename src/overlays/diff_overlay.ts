@@ -1,7 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { Point2D } from '../index';
-import {
+import type {
     GraphElementInfo,
     SDFGElementGroup,
     SDFGRenderer,
@@ -13,6 +12,7 @@ import {
     ControlFlowBlock,
 } from '../renderer/renderer_elements';
 import { DiffMap } from '../sdfg_diff_viewer';
+import { Point2D } from '../types';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
 export class DiffOverlay extends GenericSdfgOverlay {

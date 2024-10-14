@@ -1,5 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
+import { SDFGElementType } from '../../renderer/renderer_elements';
 import {
     JsonSDFG,
     JsonSDFGBlock,
@@ -8,8 +9,7 @@ import {
     JsonSDFGEdge,
     JsonSDFGNode,
     JsonSDFGState,
-} from '../../index';
-import { SDFGElementType } from '../../renderer/renderer_elements';
+} from '../../types';
 
 
 /**
