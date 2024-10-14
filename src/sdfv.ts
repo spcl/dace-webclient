@@ -8,19 +8,12 @@ import '../scss/sdfv.scss';
 
 import { EventEmitter } from 'events';
 import { mean, median } from 'mathjs';
-import {
-    DagreGraph,
-    JsonSDFG,
-    ModeButtons,
-    showErrorModal,
-    traverseSDFGScopes,
-} from './index';
 import { LViewRenderer } from './local_view/lview_renderer';
 import {
     RuntimeMicroSecondsOverlay,
 } from './overlays/runtime_micro_seconds_overlay';
 import { OverlayManager } from './overlay_manager';
-import { SDFGRenderer } from './renderer/renderer';
+import { DagreGraph, SDFGRenderer } from './renderer/renderer';
 import {
     ConditionalBlock,
     SDFG,
@@ -38,6 +31,9 @@ import { SDFVSettings } from './utils/sdfv_settings';
 import { DiffMap, WebSDFGDiffViewer } from './sdfg_diff_viewer';
 import { ISDFVUserInterface, SDFVWebUI } from './sdfv_ui';
 import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
+import { JsonSDFG, ModeButtons } from './types';
+import { traverseSDFGScopes } from './utils/sdfg/traversal';
+import { showErrorModal } from './utils/utils';
 
 declare const vscode: any;
 
@@ -245,7 +241,9 @@ export class WebSDFV extends SDFV {
         fileReader.readAsArrayBuffer(this.currentSDFGFile);
     }
 
-    public enterDiffView(sdfgA: JsonSDFG, sdfgB: JsonSDFG, precomputedDiff?: DiffMap): void {
+    public enterDiffView(
+        sdfgA: JsonSDFG, sdfgB: JsonSDFG, precomputedDiff?: DiffMap
+    ): void {
         $('#contents').hide();
 
         this.renderer?.destroy();

@@ -1,6 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { JsonSDFGControlFlowRegion, JsonSDFGEdge } from '../..';
+import { JsonSDFGControlFlowRegion, JsonSDFGEdge } from '../../types';
 
 function cfgEdgeToDotGraphEdge(
     cfg: JsonSDFGControlFlowRegion, edge: JsonSDFGEdge

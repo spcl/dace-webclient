@@ -1,12 +1,7 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import {
+import type {
     DagreGraph,
-    Point2D,
-    SymbolMap,
-    getGraphElementUUID,
-} from '../index';
-import {
     GraphElementInfo,
     SDFGElementGroup,
     SDFGRenderer,
@@ -19,6 +14,8 @@ import {
     SDFGElement,
     SDFGNode,
 } from '../renderer/renderer_elements';
+import { Point2D, SymbolMap } from '../types';
+import { getGraphElementUUID } from '../utils/sdfg/sdfg_utils';
 import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 

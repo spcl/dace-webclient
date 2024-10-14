@@ -1,15 +1,15 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { MathNode, parse, SymbolNode } from 'mathjs';
-import { Point2D, SymbolMap } from './index';
-import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
-import {
+import type { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
+import type {
     GraphElementInfo,
     SDFGElementGroup,
     SDFGRenderer,
 } from './renderer/renderer';
-import { SDFGElement } from './renderer/renderer_elements';
+import type { SDFGElement } from './renderer/renderer_elements';
 import { createElement } from './utils/utils';
+import { Point2D, SymbolMap } from './types';
 
 export class SymbolResolver {
 

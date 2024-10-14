@@ -1,8 +1,8 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { GraphEdge } from 'dagre';
-import { Edge, SDFGElement } from '../renderer/renderer_elements';
-import { DagreGraph } from '../index';
+import type { GraphEdge } from 'dagre';
+import type { Edge, SDFGElement } from '../renderer/renderer_elements';
+import type { DagreGraph } from '../renderer/renderer';
 
 export function calculateBoundingBox(g: DagreGraph): {
     x: number, y: number, width: number, height: number

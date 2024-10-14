@@ -2,42 +2,45 @@
 
 import dagre from 'dagre';
 
+import { SDFVSettings } from '../utils/sdfv_settings';
+import { SMLayouter } from './state_machine/sm_layouter';
 import {
-    AccessNode,
-    calculateBoundingBox,
-    calculateEdgeBoundingBox,
-    CFGListType,
-    check_and_redirect_edge,
-    ConditionalBlock,
-    Connector,
-    ControlFlowRegion,
-    DagreGraph,
-    deepCopy,
-    findExitForEntry,
-    intersectRect,
-    InterstateEdge,
     JsonSDFG,
     JsonSDFGBlock,
-    JsonSDFGConditionalBlock,
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGNode,
+    Point2D,
+    Size2D,
+} from '../types';
+import {
+    AccessNode,
+    ConditionalBlock,
+    Connector,
+    ControlFlowRegion,
+    InterstateEdge,
     LoopRegion,
     Memlet,
     NestedSDFG,
-    Point2D,
     ScopeNode,
     SDFG,
-    sdfg_property_to_string,
     SDFGElements,
     SDFGElementType,
     SDFGNode,
-    SDFV,
-    Size2D,
     State,
-} from '..';
-import { SDFVSettings } from '../utils/sdfv_settings';
-import { SMLayouter } from './state_machine/sm_layouter';
+} from '../renderer/renderer_elements';
+import { sdfg_property_to_string } from '../utils/sdfg/display';
+import { SDFV } from '../sdfv';
+import type { CFGListType, DagreGraph } from '../renderer/renderer';
+import {
+    check_and_redirect_edge,
+    findExitForEntry,
+} from '../utils/sdfg/sdfg_utils';
+import {
+    calculateBoundingBox,
+    calculateEdgeBoundingBox,
+} from '../utils/bounding_box';
+import { deepCopy, intersectRect } from '../utils/utils';
 
 type CFGBlockInfoT = {
     label?: string,

@@ -14,8 +14,9 @@ import {
     getPositioningInfo,
     initialize_positioning_info,
 } from '../utils/sdfg/sdfg_utils';
-import { SDFGRenderer, CFGListType } from './renderer';
-import { DagreGraph, intersectRect, Point2D } from '../index';
+import type { SDFGRenderer, CFGListType, DagreGraph } from './renderer';
+import { Point2D } from '../types';
+import { intersectRect } from '../utils/utils';
 
 const animation_duration = 1000;
 

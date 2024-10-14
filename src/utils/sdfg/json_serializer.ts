@@ -1,8 +1,9 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { Edge, JsonSDFG } from '../../index';
 import { gunzipSync } from 'zlib';
 import { Buffer } from 'buffer';
+import { JsonSDFG } from '../../types';
+import { Edge } from '../../renderer/renderer_elements';
 
 const propertyReplacements_0_16_0: { [key: string]: {
     replaceWith: string,

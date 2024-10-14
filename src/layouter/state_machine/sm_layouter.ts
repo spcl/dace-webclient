@@ -1,6 +1,5 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DagreGraph } from '../..';
 import * as dagre from 'dagre';
 import { allBackedges } from '../graphlib/algorithms/cycles';
 import {
@@ -8,6 +7,7 @@ import {
     immediateDominators,
 } from '../graphlib/algorithms/dominance';
 import { DiGraph } from '../graphlib/di_graph';
+import type { DagreGraph } from '../../renderer/renderer';
 
 /* eslint-disable @typescript-eslint/no-var-requires */
 const dagreOrder = require('dagre/lib/order');

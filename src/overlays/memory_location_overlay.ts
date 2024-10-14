@@ -1,7 +1,6 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { Point2D } from '../index';
-import {
+import type {
     GraphElementInfo,
     SDFGElementGroup,
     SDFGRenderer,
@@ -11,6 +10,7 @@ import {
     SDFGElement,
     SDFGNode,
 } from '../renderer/renderer_elements';
+import { Point2D } from '../types';
 import { KELLY_COLORS } from '../utils/utils';
 import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
 
