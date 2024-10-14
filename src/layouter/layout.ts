@@ -273,8 +273,9 @@ function layoutDFNode(
         node.type === SDFGElementType.ExternalNestedSDFG) {
         if (node.attributes.sdfg &&
             node.attributes.sdfg.type !== 'SDFGShell') {
+            const nsdfg = new SDFG(node.attributes.sdfg);
             nestedGraph = layoutControlFlowRegion(
-                node.attributes.sdfg, state, ctx, cfgList, stateParentList,
+                node.attributes.sdfg, nsdfg, ctx, cfgList, stateParentList,
                 omitAccessNodes
             );
             const sdfgInfo = calculateBoundingBox(nestedGraph);
