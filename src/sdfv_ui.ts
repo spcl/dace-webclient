@@ -6,6 +6,7 @@ import {
     Edge,
     Memlet,
     NestedSDFG,
+    SDFG,
     SDFGElement,
 } from './renderer/renderer_elements';
 import type { DagreGraph, SDFGRenderer } from './renderer/renderer';
@@ -235,6 +236,10 @@ export class SDFVWebUI implements ISDFVUserInterface {
                 switch (attr[0]) {
                     case 'layout':
                     case 'sdfg':
+                    case '_arrays':
+                    case 'orig_sdfg':
+                    case 'transformation_hist':
+                    case 'position':
                         continue;
                     default:
                         contents.append($('<b>', {
@@ -249,6 +254,34 @@ export class SDFVWebUI implements ISDFVUserInterface {
                         break;
                 }
             }
+        }
+
+        // For SDFGs and nested SDFGs, add information about the SDFG's data
+        // descriptors.
+        let descriptors = undefined;
+        if (elem instanceof SDFG)
+            descriptors = elem.attributes()._arrays;
+        else if (elem instanceof NestedSDFG)
+            descriptors = elem.attributes().sdfg.attributes._arrays;
+
+        if (descriptors) {
+            contents.append($('<hr>'));
+            contents.append($('<b>', {
+                html: 'Data containers:&nbsp;&nbsp;',
+            }));
+            contents.append($('<hr>'));
+            for (const desc in descriptors) {
+                contents.append($('<b>', {
+                    html: desc + ':&nbsp;&nbsp;',
+                }));
+                contents.append($('<span>', {
+                    html: sdfg_property_to_string(
+                        descriptors[desc], renderer.view_settings()
+                    ),
+                }));
+                contents.append($('<br>'));
+            }
+            contents.append($('<hr>'));
         }
     }
 
