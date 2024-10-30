@@ -353,9 +353,6 @@ export class SMLayouter {
             if (n !== node)
                 exitCandidates.add(n);
         }
-        const loopGuardPostdom = this.iPostDoms.get(node)
-        if (loopGuardPostdom && loopGuardPostdom !== node)
-            exitCandidates.add(loopGuardPostdom);
 
         if (exitCandidates.size < 1) {
             throw new Error('No exit candidates found.');
