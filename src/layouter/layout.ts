@@ -1004,7 +1004,7 @@ function layoutControlFlowRegion(
         // Fall back to dagre for anything that cannot be laid out with
         // the vertical layout (e.g., irreducible control flow).
         try {
-            SMLayouter.layoutDagreCompat(g, sdfg.start_block?.toString());
+            SMLayouter.layoutDagreCompat(g, cfg.start_block?.toString());
         } catch (_ignored) {
             dagre.layout(g);
         }
