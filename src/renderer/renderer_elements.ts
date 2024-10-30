@@ -3485,7 +3485,28 @@ function drawOctagon(
 function drawEllipse(
     ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number
 ): void {
-    ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, 2 * Math.PI);
+    if ((ctx as any).pdf) {
+        // The PDF rendering context does not have an `ellipse` function. As
+        // such, we revert back to the non-GPU-accelerated method of drawing
+        // ellipses that we used up to and including commit 2ceba1d.
+        // Adapted from https://stackoverflow.com/a/2173084/6489142
+        const kappa = .5522848
+        const ox = (w / 2) * kappa;
+        const oy = (h / 2) * kappa;
+        const xe = x + w;
+        const ye = y + h;
+        const xm = x + (w / 2);
+        const ym = y + (h / 2);
+        ctx.moveTo(x, ym);
+        ctx.bezierCurveTo(x, ym - oy, xm - ox, y, xm, y);
+        ctx.bezierCurveTo(xm + ox, y, xe, ym - oy, xe, ym);
+        ctx.bezierCurveTo(xe, ym + oy, xm + ox, ye, xm, ye);
+        ctx.bezierCurveTo(xm - ox, ye, x, ym + oy, x, ym);
+    } else {
+        // When drawing on a regular canvas, use the built-in method of drawing
+        // ellipses to utilize GPU acceleration where available.
+        ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, 2 * Math.PI);
+    }
 }
 
 function drawTrapezoid(
