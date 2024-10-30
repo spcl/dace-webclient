@@ -199,9 +199,7 @@ export class SDFVWebUI implements ISDFVUserInterface {
 
         // If access node, add array information too
         if (elem instanceof AccessNode) {
-            const sdfg_array = elem.sdfg.attributes._arrays[
-                elem.attributes().data
-            ];
+            const sdfg_array = elem.getDesc();
             contents.append($('<br>'));
             contents.append($('<h4>', {
                 text: sdfg_array.type + ' properties:',

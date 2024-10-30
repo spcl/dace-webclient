@@ -2099,6 +2099,35 @@ export class Connector extends SDFGElement {
 
 export class AccessNode extends SDFGNode {
 
+    public getDesc(): any {
+        const name = this.data.node.attributes.data;
+        const nameParts = name.split('.');
+        if (nameParts.length > 1) {
+            let desc = this.sdfg.attributes._arrays[nameParts[0]];
+            let i = 1;
+            while (i < nameParts.length) {
+                if (!desc.attributes?.members)
+                    return undefined;
+                const nextName = nameParts[i];
+                let foundDesc = undefined;
+                for (const mbr of desc.attributes.members) {
+                    if (mbr[0] == nextName) {
+                        foundDesc = mbr[1];
+                        break;
+                    }
+                }
+                if (foundDesc)
+                    desc = foundDesc;
+                else
+                    return undefined;
+                i++;
+            }
+            return desc;
+        } else {
+            return this.sdfg.attributes._arrays[nameParts[0]];
+        }
+    }
+
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D
@@ -2110,7 +2139,7 @@ export class AccessNode extends SDFGNode {
         ctx.strokeStyle = this.strokeStyle(renderer);
 
         const name = this.data.node.attributes.data;
-        const nodedesc = this.sdfg.attributes._arrays[name];
+        const nodedesc = this.getDesc();
         // Streams have dashed edges
         if (nodedesc && nodedesc.type === 'Stream')
             ctx.setLineDash([5, 3]);
@@ -2217,9 +2246,7 @@ export class AccessNode extends SDFGNode {
 
     public tooltip(container: HTMLElement): void {
         super.tooltip(container);
-        const nodedesc = this.sdfg.attributes._arrays[
-            this.data.node.attributes.data
-        ];
+        const nodedesc = this.getDesc();
         if (nodedesc)
             return;
         container.classList.add('sdfvtooltip--error');
