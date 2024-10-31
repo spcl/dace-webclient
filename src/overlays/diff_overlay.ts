@@ -12,8 +12,8 @@ import {
     ControlFlowBlock,
 } from '../renderer/renderer_elements';
 import { DiffMap } from '../sdfg_diff_viewer';
-import { Point2D } from '../types';
-import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
+import { OverlayType, Point2D } from '../types';
+import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 
 export class DiffOverlay extends GenericSdfgOverlay {
 

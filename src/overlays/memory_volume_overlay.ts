@@ -15,9 +15,9 @@ import {
     SDFGElement,
     State,
 } from '../renderer/renderer_elements';
-import { Point2D, SymbolMap } from '../types';
+import { OverlayType, Point2D, SymbolMap } from '../types';
 import { getTempColorHslString } from '../utils/utils';
-import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 
 export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 

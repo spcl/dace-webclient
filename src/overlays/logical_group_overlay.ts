@@ -12,8 +12,8 @@ import {
     ControlFlowBlock,
     Edge,
 } from '../renderer/renderer_elements';
-import { Point2D } from '../types';
-import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
+import { OverlayType, Point2D } from '../types';
+import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 
 export type LogicalGroup = {
     name: string,
