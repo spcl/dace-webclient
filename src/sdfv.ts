@@ -467,10 +467,11 @@ export class WebSDFV extends SDFV {
     public setSDFG(
         sdfg: JsonSDFG | null = null,
         userTransform: DOMMatrix | null = null,
-        debugDraw: boolean = false
+        debugDraw: boolean = false,
+        contents_container_id: string = 'contents'
     ): void {
         this.renderer?.destroy();
-        const container = document.getElementById('contents');
+        const container = document.getElementById(contents_container_id);
         if (container && sdfg) {
             const renderer = new SDFGRenderer(
                 sdfg, container, this, null, userTransform, debugDraw, null,

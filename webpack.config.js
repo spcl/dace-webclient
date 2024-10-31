@@ -116,6 +116,7 @@ const jupyterConfig = {
     output: {
         filename: '[name]_jupyter.js',
         path: path.resolve(__dirname, 'dist'),
+        publicPath: path.resolve(__dirname, 'dist'),
     },
     plugins: [
         new webpack.ProvidePlugin({

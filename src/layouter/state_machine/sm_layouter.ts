@@ -276,6 +276,23 @@ export class SMLayouter {
                 'The following edges were not routed:',
                 unrouted
             );
+            // To avoid crashing, simply straight-route these edges.
+            for (const edge of unrouted) {
+                const srcNode = this.graph.get((edge as any).src);
+                const dstNode = this.graph.get((edge as any).dst);
+                if (!srcNode || !dstNode)
+                    throw Error('Unrouted edge may not be straight-routed.');
+                edge.points = [
+                    {
+                        x: srcNode.x,
+                        y: srcNode.y + (srcNode.height / 2),
+                    },
+                    {
+                        x: dstNode.x,
+                        y: dstNode.y - (dstNode.height / 2),
+                    },
+                ];
+            }
         }
     }
 

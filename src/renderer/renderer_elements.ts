@@ -2099,6 +2099,35 @@ export class Connector extends SDFGElement {
 
 export class AccessNode extends SDFGNode {
 
+    public getDesc(): any {
+        const name = this.data.node.attributes.data;
+        const nameParts = name.split('.');
+        if (nameParts.length > 1) {
+            let desc = this.sdfg.attributes._arrays[nameParts[0]];
+            let i = 1;
+            while (i < nameParts.length) {
+                if (!desc.attributes?.members)
+                    return undefined;
+                const nextName = nameParts[i];
+                let foundDesc = undefined;
+                for (const mbr of desc.attributes.members) {
+                    if (mbr[0] == nextName) {
+                        foundDesc = mbr[1];
+                        break;
+                    }
+                }
+                if (foundDesc)
+                    desc = foundDesc;
+                else
+                    return undefined;
+                i++;
+            }
+            return desc;
+        } else {
+            return this.sdfg.attributes._arrays[nameParts[0]];
+        }
+    }
+
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D
@@ -2110,7 +2139,7 @@ export class AccessNode extends SDFGNode {
         ctx.strokeStyle = this.strokeStyle(renderer);
 
         const name = this.data.node.attributes.data;
-        const nodedesc = this.sdfg.attributes._arrays[name];
+        const nodedesc = this.getDesc();
         // Streams have dashed edges
         if (nodedesc && nodedesc.type === 'Stream')
             ctx.setLineDash([5, 3]);
@@ -2217,9 +2246,7 @@ export class AccessNode extends SDFGNode {
 
     public tooltip(container: HTMLElement): void {
         super.tooltip(container);
-        const nodedesc = this.sdfg.attributes._arrays[
-            this.data.node.attributes.data
-        ];
+        const nodedesc = this.getDesc();
         if (nodedesc)
             return;
         container.classList.add('sdfvtooltip--error');
@@ -3485,7 +3512,28 @@ function drawOctagon(
 function drawEllipse(
     ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number
 ): void {
-    ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, 2 * Math.PI);
+    if ((ctx as any).pdf) {
+        // The PDF rendering context does not have an `ellipse` function. As
+        // such, we revert back to the non-GPU-accelerated method of drawing
+        // ellipses that we used up to and including commit 2ceba1d.
+        // Adapted from https://stackoverflow.com/a/2173084/6489142
+        const kappa = .5522848
+        const ox = (w / 2) * kappa;
+        const oy = (h / 2) * kappa;
+        const xe = x + w;
+        const ye = y + h;
+        const xm = x + (w / 2);
+        const ym = y + (h / 2);
+        ctx.moveTo(x, ym);
+        ctx.bezierCurveTo(x, ym - oy, xm - ox, y, xm, y);
+        ctx.bezierCurveTo(xm + ox, y, xe, ym - oy, xe, ym);
+        ctx.bezierCurveTo(xe, ym + oy, xm + ox, ye, xm, ye);
+        ctx.bezierCurveTo(xm - ox, ye, x, ym + oy, x, ym);
+    } else {
+        // When drawing on a regular canvas, use the built-in method of drawing
+        // ellipses to utilize GPU acceleration where available.
+        ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, 2 * Math.PI);
+    }
 }
 
 function drawTrapezoid(
