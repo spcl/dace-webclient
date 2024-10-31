@@ -14,10 +14,10 @@ import {
     SDFGElement,
     SDFGNode,
 } from '../renderer/renderer_elements';
-import { Point2D, SymbolMap } from '../types';
+import { OverlayType, Point2D, SymbolMap } from '../types';
 import { getGraphElementUUID } from '../utils/sdfg/sdfg_utils';
 import { getTempColorHslString } from '../utils/utils';
-import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 
 export class OperationalIntensityOverlay extends GenericSdfgOverlay {
 

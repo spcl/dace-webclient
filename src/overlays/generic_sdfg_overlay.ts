@@ -19,15 +19,9 @@ import {
     SDFGNode,
     State,
 } from '../renderer/renderer_elements';
-import { Point2D, SimpleRect } from '../types';
+import { Point2D, SimpleRect, OverlayType } from '../types';
 
 declare const vscode: any;
-
-export enum OverlayType {
-    NODE,
-    EDGE,
-    BOTH,
-}
 
 export class GenericSdfgOverlay {
 

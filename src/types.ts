@@ -4,6 +4,12 @@ export type SymbolMap = {
     [symbol: string]: number | undefined,
 };
 
+export enum OverlayType {
+    NODE,
+    EDGE,
+    BOTH,
+};
+
 export type InvalidSDFGError = {
     message: string | undefined,
     sdfg_id: number | undefined,

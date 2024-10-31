@@ -10,9 +10,9 @@ import {
     SDFGElement,
     SDFGNode,
 } from '../renderer/renderer_elements';
-import { Point2D } from '../types';
+import { OverlayType, Point2D } from '../types';
 import { KELLY_COLORS } from '../utils/utils';
-import { GenericSdfgOverlay, OverlayType } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay } from './generic_sdfg_overlay';
 
 // Available data storage types in the SDFG.
 export enum StorageType {

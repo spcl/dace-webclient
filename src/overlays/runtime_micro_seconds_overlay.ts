@@ -10,9 +10,9 @@ import { getTempColorHslString } from '../utils/utils';
 import { getGraphElementUUID } from '../utils/sdfg/sdfg_utils';
 import {
     GenericSdfgOverlay,
-    OverlayType,
     RuntimeReportOverlay,
 } from './generic_sdfg_overlay';
+import { OverlayType } from '../types';
 
 
 export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
