@@ -1404,7 +1404,7 @@ export class SDFGRenderer extends EventEmitter {
             x instanceof SDFGNode));
         const old_set = new Set(old_nodes.map(x => x.guid()));
         const new_set = new Set(new_nodes.map(x => x.guid()));
-        const diff = old_set.difference(new_set);
+        const diff = new Set([...old_set].filter(x => !new_set.has(x)));
         if (diff.size === 0)
             return;
 
