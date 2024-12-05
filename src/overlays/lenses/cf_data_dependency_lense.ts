@@ -7,14 +7,11 @@ import type {
     SDFGRenderer,
 } from '../../renderer/renderer';
 import {
-    SDFGNode,
-    SDFGElement,
-    State,
-    ControlFlowBlock,
-    Edge,
-    Connector,
-    ControlFlowRegion,
     ConditionalBlock,
+    Connector,
+    ControlFlowBlock,
+    ControlFlowRegion,
+    SDFGElement
 } from '../../renderer/renderer_elements';
 import { SDFV } from '../../sdfv';
 import { JsonSDFG, OverlayType, Point2D } from '../../types';
@@ -24,6 +21,10 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
 
     public static readonly type: OverlayType = OverlayType.NODE;
     public readonly olClass: typeof GenericSdfgOverlay = CFDataDependencyLense;
+
+    private static readonly CONNECTOR_SPACING: number = 20;
+    private static readonly CONNECTOR_WIDTH: number = 10;
+    private static readonly CONNECTOR_HEIGHT: number = 10;
 
     private readonly connectorMap: Map<
         ControlFlowBlock, [Connector[], Connector[]]
@@ -91,22 +92,26 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
 
         let i = 0;
         const baseInY = block.y - block.height / 2;
-        const baseInX = (block.x - (block.width / 2)) + 20;
+        const baseInX = (block.x - (block.width / 2)) + (
+            CFDataDependencyLense.CONNECTOR_SPACING / 2
+        );
         const baseOutX = baseInX;
         const baseOutY = baseInY + block.height;
         for (const connector of readConnectors) {
-            connector.x = baseInX + i * 50;
+            connector.x = baseInX + i * CFDataDependencyLense.CONNECTOR_SPACING;
             connector.y = baseInY;
-            connector.width = 20;
-            connector.height = 20;
+            connector.width = CFDataDependencyLense.CONNECTOR_WIDTH;
+            connector.height = CFDataDependencyLense.CONNECTOR_HEIGHT;
             i++;
         }
         i = 0;
         for (const connector of writeConnectors) {
-            connector.x = baseOutX + i * 50;
+            connector.x = baseOutX + (
+                i * CFDataDependencyLense.CONNECTOR_SPACING
+            );
             connector.y = baseOutY;
-            connector.width = 20;
-            connector.height = 20;
+            connector.width = CFDataDependencyLense.CONNECTOR_WIDTH;
+            connector.height = CFDataDependencyLense.CONNECTOR_HEIGHT;
             i++;
         }
     }
@@ -156,8 +161,8 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
                     connector.hovered = false;
                     if (mPos && connector.intersect(mPos.x, mPos.y)) {
                         connector.hovered = true;
-                        if (ttCont)
-                            connector.tooltip(ttCont);
+                        //if (ttCont)
+                        //    connector.tooltip(ttCont);
                     }
                     connector.draw(this.renderer, ctx, mPos, {} as any);
                     connector.debug_draw(this.renderer, ctx);
@@ -166,8 +171,8 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
                     connector.hovered = false;
                     if (mPos && connector.intersect(mPos.x, mPos.y)) {
                         connector.hovered = true;
-                        if (ttCont)
-                            connector.tooltip(ttCont);
+                        //if (ttCont)
+                        //    connector.tooltip(ttCont);
                     }
                     connector.draw(this.renderer, ctx, mPos, {} as any);
                     connector.debug_draw(this.renderer, ctx);

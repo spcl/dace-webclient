@@ -3,6 +3,7 @@
 import { SDFV } from '../sdfv';
 import { editor } from 'monaco-editor';
 import {
+    memletToHtml,
     sdfg_consume_elem_to_string,
     sdfg_property_to_string,
     sdfg_range_elem_to_string,
@@ -1680,7 +1681,6 @@ export class Memlet extends Edge {
             }
         }
     }
-
     public tooltip(
         container: HTMLElement, renderer?: SDFGRenderer
     ): void {
@@ -1697,51 +1697,7 @@ export class Memlet extends Edge {
             return;
         }
 
-        let contents = attr.data;
-        contents += sdfg_property_to_string(attr.subset, dsettings);
-
-        if (attr.other_subset) {
-            // TODO: Obtain other data name, if possible
-            if (attr.is_data_src) {
-                contents += ' -> ' + sdfg_property_to_string(
-                    attr.other_subset, dsettings
-                );
-            } else {
-                contents = sdfg_property_to_string(
-                    attr.other_subset, dsettings
-                ) + ' -> ' + contents;
-            }
-        }
-
-        if (attr.wcr) {
-            contents += '<br /><b>CR: ' + sdfg_property_to_string(
-                attr.wcr, dsettings
-            ) + '</b>';
-        }
-
-        let num_accesses = null;
-        if (attr.volume) {
-            num_accesses = sdfg_property_to_string(attr.volume, dsettings);
-        } else {
-            num_accesses = sdfg_property_to_string(
-                attr.num_accesses, dsettings
-            );
-        }
-
-        if (attr.dynamic) {
-            if (num_accesses === '0' || num_accesses === '-1') {
-                num_accesses = '<b>Dynamic (unbounded)</b>';
-            } else {
-                num_accesses = '<b>Dynamic</b> (up to ' +
-                    num_accesses + ')';
-            }
-        } else if (num_accesses === '-1') {
-            num_accesses = '<b>Dynamic (unbounded)</b>';
-        }
-
-        contents += '<br /><font style="font-size: 14px">Volume: ' +
-            num_accesses + '</font>';
-        container.innerHTML = contents;
+        container.innerHTML = memletToHtml(renderer, attr);
     }
 
     public label(): string {
@@ -2014,43 +1970,65 @@ export class Connector extends SDFGElement {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D, edge: Edge | null = null
     ): void {
-        const scope_connector = (
-            this.data.name.startsWith('IN_') ||
-            this.data.name.startsWith('OUT_')
-        );
         const topleft = this.topleft();
         ctx.beginPath();
         drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
         ctx.closePath();
         ctx.strokeStyle = this.strokeStyle(renderer);
         let fillColor;
-        if (scope_connector) {
-            let cname = this.data.name;
-            if (cname.startsWith('IN_'))
-                cname = cname.substring(3);
-            else
-                cname = cname.substring(4);
 
-            ctx.lineWidth = 0.4;
-            ctx.stroke();
-            ctx.lineWidth = 1.0;
-            fillColor = this.getCssProperty(
-                renderer, '--connector-scoped-color'
-            );
-            this.custom_label = null;
-        } else if (!edge) {
-            ctx.stroke();
-            fillColor = this.getCssProperty(
-                renderer, '--node-missing-background-color'
-            );
-            this.custom_label = 'No edge connected';
+        let customTooltipHtml = null;
+        if (this.linkedElem && this.linkedElem instanceof ControlFlowBlock) {
+            if (this.data.memlet) {
+                customTooltipHtml = memletToHtml(
+                    renderer, this.data.memlet.attributes
+                );
+            }
+
+            if (this.data.certain_memlet) {
+                fillColor = this.getCssProperty(
+                    renderer, '--cf-connector-certain-color'
+                );
+                // TODO: highlight the certain subset.
+            } else {
+                fillColor = this.getCssProperty(
+                    renderer, '--cf-connector-uncertain-color'
+                );
+            }
         } else {
-            ctx.stroke();
-            fillColor = this.getCssProperty(
-                renderer, '--connector-unscoped-color'
+            const scope_connector = (
+                this.data.name.startsWith('IN_') ||
+                this.data.name.startsWith('OUT_')
             );
-            this.custom_label = null;
+            if (scope_connector) {
+                let cname = this.data.name;
+                if (cname.startsWith('IN_'))
+                    cname = cname.substring(3);
+                else
+                    cname = cname.substring(4);
+
+                ctx.lineWidth = 0.4;
+                ctx.stroke();
+                ctx.lineWidth = 1.0;
+                fillColor = this.getCssProperty(
+                    renderer, '--connector-scoped-color'
+                );
+                this.custom_label = null;
+            } else if (!edge) {
+                ctx.stroke();
+                fillColor = this.getCssProperty(
+                    renderer, '--node-missing-background-color'
+                );
+                this.custom_label = 'No edge connected';
+            } else {
+                ctx.stroke();
+                fillColor = this.getCssProperty(
+                    renderer, '--connector-unscoped-color'
+                );
+                this.custom_label = null;
+            }
         }
+
 
         // PDFs do not support transparent fill colors
         if ((ctx as any).pdf)
@@ -2067,8 +2045,16 @@ export class Connector extends SDFGElement {
         ctx.fill();
 
         if (this.strokeStyle(renderer) !==
-            this.getCssProperty(renderer, '--color-default'))
-            renderer.set_tooltip((c) => this.tooltip(c));
+            this.getCssProperty(renderer, '--color-default')) {
+            if (customTooltipHtml) {
+                renderer.set_tooltip((tooltipContainer) => {
+                    super.tooltip(tooltipContainer);
+                    tooltipContainer.innerHTML = customTooltipHtml;
+                });
+            } else {
+                renderer.set_tooltip((c) => this.tooltip(c));
+            }
+        }
     }
 
     public attributes(): any {
