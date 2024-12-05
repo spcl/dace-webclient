@@ -58,6 +58,7 @@ import {
 import { MemoryLocationOverlay } from '../overlays/memory_location_overlay';
 import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
 import { checkCompatSave, parse_sdfg, stringify_sdfg } from '../utils/sdfg/json_serializer';
+import { CFDataDependencyLense } from '../overlays/lenses/cf_data_dependency_lense';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -633,6 +634,10 @@ export class SDFGRenderer extends EventEmitter {
                     }).appendTo(olContainer);
                 };
 
+                $('<li>', {
+                    html: '<span class="dropdown-item-text">Overlays</span>',
+                }).appendTo(overlayMenu);
+
                 // Register overlays that are turned on by default.
                 this.overlayManager.register_overlay(LogicalGroupOverlay);
                 addOverlayToMenu('Logical groups', LogicalGroupOverlay, true);
@@ -643,6 +648,15 @@ export class SDFGRenderer extends EventEmitter {
                 );
                 addOverlayToMenu(
                     'Logical data movement volume', MemoryVolumeOverlay, false
+                );
+
+                $('<li>', {
+                    html: '<span class="dropdown-item-text">Lenses</span>',
+                }).appendTo(overlayMenu);
+
+                addOverlayToMenu(
+                    'Control flow block data dependencies',
+                    CFDataDependencyLense, false
                 );
             }
 
