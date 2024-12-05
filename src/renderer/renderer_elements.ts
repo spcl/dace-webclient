@@ -1989,7 +1989,13 @@ export class Connector extends SDFGElement {
                 fillColor = this.getCssProperty(
                     renderer, '--cf-connector-certain-color'
                 );
-                // TODO: highlight the certain subset.
+                const certainHtml = memletToHtml(
+                    renderer, this.data.certain_memlet.attributes
+                );
+                if (customTooltipHtml !== certainHtml) {
+                    customTooltipHtml += '<p>Certain:<p>'
+                    customTooltipHtml += certainHtml;
+                }
             } else {
                 fillColor = this.getCssProperty(
                     renderer, '--cf-connector-uncertain-color'
