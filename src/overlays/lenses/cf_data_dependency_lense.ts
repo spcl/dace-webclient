@@ -125,13 +125,16 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
             this.createConnectorsForBlock(block, sdfg);
 
             if (block instanceof ControlFlowRegion) {
-                this.recursiveSetConnectorsGraph(block.data.graph, sdfg);
+                if (block.data.graph)
+                    this.recursiveSetConnectorsGraph(block.data.graph, sdfg);
             } else if (block instanceof ConditionalBlock) {
-                for (const branch of block.branches) {
-                    this.createConnectorsForBlock(branch[1], sdfg);
-                    this.recursiveSetConnectorsGraph(
-                        branch[1].data.graph, sdfg
-                    );
+                if (!block.attributes().collapsed) {
+                    for (const branch of block.branches) {
+                        this.createConnectorsForBlock(branch[1], sdfg);
+                        this.recursiveSetConnectorsGraph(
+                            branch[1].data.graph, sdfg
+                        );
+                    }
                 }
             }
         }
