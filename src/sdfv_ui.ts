@@ -182,6 +182,10 @@ export class SDFVWebUI implements ISDFVUserInterface {
                 case 'orig_sdfg':
                 case 'transformation_hist':
                 case 'position':
+                case 'possible_reads':
+                case 'possible_writes':
+                case 'certain_reads':
+                case 'certain_writes':
                     continue;
                 default:
                     contents.append($('<b>', {

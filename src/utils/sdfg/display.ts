@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { simplify } from 'mathjs';
+import type { SDFGRenderer } from '../../renderer/renderer';
 
 export function sdfg_range_elem_to_string(
     range: any,
@@ -72,6 +73,15 @@ export function sdfg_property_to_string(
         for (const range of ranges)
             preview += sdfg_range_elem_to_string(range, settings) + ', ';
         return preview.slice(0, -2) + ']';
+    } else if (prop.type === 'SubsetUnion' ||
+               prop.type === 'subsets.SubsetUnion') {
+        const subsList = prop.subset_list;
+        if (subsList.length < 2)
+            return sdfg_property_to_string(subsList[0], settings);
+        let preview = '{';
+        for (const subs of subsList)
+            preview += sdfg_property_to_string(subs, settings) + '\n';
+        return preview + '}';
     } else if (prop.type === 'LogicalGroup' && prop.color !== undefined &&
         prop.name !== undefined) {
         return '<span style="color: ' + prop.color + ';">' + prop.name + ' (' +
@@ -105,6 +115,60 @@ export function sdfg_property_to_string(
     } else {
         return prop;
     }
+}
+
+export function memletToHtml(
+    renderer: SDFGRenderer, memletAttributes: any
+): string {
+        const dsettings = renderer.view_settings();
+
+        let htmlStr = memletAttributes.data;
+        htmlStr += sdfg_property_to_string(memletAttributes.subset, dsettings);
+
+        if (memletAttributes.other_subset) {
+            // TODO: Obtain other data name, if possible
+            if (memletAttributes.is_data_src) {
+                htmlStr += ' -> ' + sdfg_property_to_string(
+                    memletAttributes.other_subset, dsettings
+                );
+            } else {
+                htmlStr = sdfg_property_to_string(
+                    memletAttributes.other_subset, dsettings
+                ) + ' -> ' + htmlStr;
+            }
+        }
+
+        if (memletAttributes.wcr) {
+            htmlStr += '<br /><b>CR: ' + sdfg_property_to_string(
+                memletAttributes.wcr, dsettings
+            ) + '</b>';
+        }
+
+        let num_accesses = null;
+        if (memletAttributes.volume) {
+            num_accesses = sdfg_property_to_string(
+                memletAttributes.volume, dsettings
+            );
+        } else {
+            num_accesses = sdfg_property_to_string(
+                memletAttributes.num_accesses, dsettings
+            );
+        }
+
+        if (memletAttributes.dynamic) {
+            if (num_accesses === '0' || num_accesses === '-1') {
+                num_accesses = '<b>Dynamic (unbounded)</b>';
+            } else {
+                num_accesses = '<b>Dynamic</b> (up to ' +
+                    num_accesses + ')';
+            }
+        } else if (num_accesses === '-1') {
+            num_accesses = '<b>Dynamic (unbounded)</b>';
+        }
+        htmlStr += '<br /><font style="font-size: 14px">Volume: ' +
+            num_accesses + '</font>';
+
+        return htmlStr;
 }
 
 export function string_to_sdfg_typeclass(str: string): any {
