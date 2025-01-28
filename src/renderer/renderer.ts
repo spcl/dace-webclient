@@ -146,7 +146,7 @@ export type RendererUIFeature = (
     'menu' | 'settings' | 'overlays_menu' | 'zoom_to_fit_all' |
     'zoom_to_fit_width' | 'collapse' | 'expand' | 'add_mode' | 'pan_mode' |
     'move_mode' | 'box_select_mode' | 'cutout_selection' | 'local_view' |
-    'minimap'
+    'minimap'|'zoom_in_out'
 );
 
 export interface SDFGRendererEvent {
@@ -710,6 +710,38 @@ export class SDFGRenderer extends EventEmitter {
                             this.expandNextLevel();
                     },
                 }).appendTo(collapseButtonGroup);
+            }
+
+            if (!this.enableMaskUI || this.enableMaskUI.includes('zoom_in_out')) {
+                const zoomInOutContainer = $('<div>', {
+                    class: 'zoom-in-out-container btn-group-vertical',
+                    role: 'group',
+                    css: {
+                        position: 'absolute',
+                        bottom: '10px', // Position at the bottom
+                        right: '10px',  // Position at the right
+                        display: 'flex',
+                        flexDirection: 'column', 
+                    },
+                }).appendTo(this.container);
+                // Add Zoom In Button
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">add</i>', 
+                    title: 'Zoom In',
+                    click: (e: MouseEvent) => {
+                        this.zoomIn(e);
+                    },
+                }).appendTo(zoomInOutContainer);
+                // Add Zoom Out Button
+                $('<button>', {
+                    class: 'btn btn-secondary btn-sm btn-material',
+                    html: '<i class="material-symbols-outlined">remove</i>', 
+                    title: 'Zoom Out',
+                    click: (e:MouseEvent) => {
+                        this.zoomOut(e);
+                    },
+                }).appendTo(zoomInOutContainer);
             }
 
             if (this.modeButtons) {
@@ -4016,6 +4048,32 @@ export class SDFGRenderer extends EventEmitter {
         }
 
         return false;
+    }
+    public zoomIn(event?: MouseEvent): void {
+        if (!this.canvas || !this.canvas_manager) return;
+        // Calculate the scale factor based on the shift key
+        const scaleFactor = event?.shiftKey ? Math.pow(1.1, 5) : 1.1; 
+        // Calculate the center of the canvas
+        const canvasRect = this.canvas.getBoundingClientRect();
+        const centerX = canvasRect.width / 2;
+        const centerY = canvasRect.height / 2;
+    
+        // Zoom in by scaling up (1.1 is the same factor used in the wheel event)
+        this.canvas_manager.scale(scaleFactor, centerX, centerY);
+        this.draw_async();
+    }
+    public zoomOut(event?:MouseEvent): void {
+        if (!this.canvas || !this.canvas_manager) return;
+        // Calculate the scale factor based on the shift key
+        const scaleFactor = event?.shiftKey ? Math.pow(0.9, 5) : 0.9;
+        // Calculate the center of the canvas
+        const canvasRect = this.canvas.getBoundingClientRect();
+        const centerX = canvasRect.width / 2;
+        const centerY = canvasRect.height / 2;
+    
+        // Zoom out by scaling down (0.9 is the same factor used in the wheel event)
+        this.canvas_manager.scale(scaleFactor, centerX, centerY);
+        this.draw_async();
     }
 
     public registerExternalMouseHandler(
