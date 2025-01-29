@@ -11,7 +11,9 @@ import {
     Connector,
     ControlFlowBlock,
     ControlFlowRegion,
-    SDFGElement
+    NestedSDFG,
+    SDFGElement,
+    State
 } from '../../renderer/renderer_elements';
 import { SDFV } from '../../sdfv';
 import { JsonSDFG, OverlayType, Point2D } from '../../types';
@@ -134,6 +136,22 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
                         this.recursiveSetConnectorsGraph(
                             branch[1].data.graph, sdfg
                         );
+                    }
+                }
+            } else if (block instanceof State) {
+                if (!block.attributes().collapsed) {
+                    const stateGraph = block.data.graph;
+                    if (stateGraph) {
+                        for (const nId of stateGraph.nodes()) {
+                            const node = stateGraph.node(nId);
+                            if (node instanceof NestedSDFG &&
+                                !node.attributes().collapsed) {
+                                const nsdfg = node.data.graph;
+                                this.recursiveSetConnectorsGraph(
+                                    nsdfg, node.sdfg
+                                );
+                            }
+                        }
                     }
                 }
             }
