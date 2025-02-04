@@ -1045,6 +1045,15 @@ export class ConditionalBlock extends ControlFlowBlock {
         container.innerText = 'Conditional: ' + this.label();
     }
 
+    public text_for_find(): string {
+        let searchText = super.text_for_find();
+        for (const branch of this.branches) {
+            if (branch[0])
+                searchText += ' ' + branch[0].string_data;
+        }
+        return searchText;
+    }
+
 }
 
 export class LoopRegion extends ControlFlowRegion {
@@ -1278,6 +1287,20 @@ export class LoopRegion extends ControlFlowRegion {
         container.innerText = 'Loop: ' + this.label();
     }
 
+    public text_for_find(): string {
+        let searchText = super.text_for_find();
+        const attr = this.attributes();
+        if (attr.loop_variable)
+            searchText += ' ' + attr.loop_variable;
+        if (attr.init_statement)
+            searchText += ' ' + attr.init_statement.string_data;
+        if (attr.update_statement)
+            searchText += ' ' + attr.update_statement.string_data;
+        if (attr.loop_condition)
+            searchText += ' ' + attr.loop_condition.string_data;
+        return searchText;
+    }
+
 }
 
 export class BranchRegion extends ControlFlowRegion {}
@@ -1417,6 +1440,22 @@ export class SDFGNode extends SDFGElement {
     public set_layout(): void {
         this.width = this.data.node.attributes.layout.width;
         this.height = this.data.node.attributes.layout.height;
+    }
+
+    public text_for_find(): string {
+        let searchText = super.text_for_find();
+        // TODO: Split this out to be able to search for connectors themselves.
+        /*
+        if (this.attributes().in_connectors) {
+            for (const k in this.attributes().in_connectors)
+                searchText += ' ' + k;
+        }
+        if (this.attributes().out_connectors) {
+            for (const k in this.attributes().out_connectors)
+                searchText += ' ' + k;
+        }
+        */
+        return searchText;
     }
 
 }
@@ -3000,6 +3039,18 @@ export class NestedSDFG extends SDFGNode {
 
     public label(): string {
         return '';
+    }
+
+    public text_for_find(): string {
+        // Find should include the name of the nested SDFG, and the symbol
+        // mapping.
+        let findText = super.text_for_find();
+        findText += ' ' + this.attributes().sdfg.attributes.name;
+        if (this.attributes().symbol_mapping) {
+            for (const k in this.attributes().symbol_mapping)
+                findText += ' ' + k + ' ' + this.attributes().symbol_mapping[k];
+        }
+        return findText;
     }
 
 }
