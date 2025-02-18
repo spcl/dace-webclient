@@ -24,9 +24,9 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
     public static readonly type: OverlayType = OverlayType.NODE;
     public readonly olClass: typeof GenericSdfgOverlay = CFDataDependencyLense;
 
-    private static readonly CONNECTOR_SPACING: number = 20;
-    private static readonly CONNECTOR_WIDTH: number = 10;
-    private static readonly CONNECTOR_HEIGHT: number = 10;
+    public static readonly CONNECTOR_SPACING: number = 15;
+    public static readonly CONNECTOR_WIDTH: number = 8;
+    public static readonly CONNECTOR_HEIGHT: number = 8;
 
     private readonly connectorMap: Map<
         ControlFlowBlock, [Connector[], Connector[]]
@@ -49,15 +49,15 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
             if (attrs.possible_reads) {
                 let readIdx = 0;
                 for (const read in attrs.possible_reads) {
-                    let certain_memlet = null;
+                    let certainAccess = null;
                     if (attrs.certain_reads && read in attrs.certain_reads)
-                        certain_memlet = attrs.certain_reads[read];
+                        certainAccess = attrs.certain_reads[read];
 
                     const connector = new Connector(
                         {
                             name: read,
-                            memlet: attrs.possible_reads[read],
-                            certain_memlet: certain_memlet,
+                            access: attrs.possible_reads[read],
+                            certainAccess: certainAccess,
                         },
                         readIdx, sdfg, null
                     );
@@ -70,15 +70,15 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
             if (attrs.possible_writes) {
                 let writeIdx = 0;
                 for (const write in attrs.possible_writes) {
-                    let certain_memlet = null;
+                    let certainAccess = null;
                     if (attrs.certain_writes && write in attrs.certain_writes)
-                        certain_memlet = attrs.certain_writes[write];
+                        certainAccess = attrs.certain_writes[write];
 
                     const connector = new Connector(
                         {
                             name: write,
-                            memlet: attrs.possible_writes[write],
-                            certain_memlet: certain_memlet,
+                            access: attrs.possible_writes[write],
+                            certainAccess: certainAccess,
                         },
                         writeIdx, sdfg, null
                     );

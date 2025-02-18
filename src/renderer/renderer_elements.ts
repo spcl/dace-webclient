@@ -3,6 +3,7 @@
 import { SDFV } from '../sdfv';
 import { editor } from 'monaco-editor';
 import {
+    bytesToString,
     memletToHtml,
     sdfg_consume_elem_to_string,
     sdfg_property_to_string,
@@ -154,6 +155,14 @@ export class SDFGElement {
     public _internal_draw(
         _renderer: SDFGRenderer, _ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D
+    ): void {
+        return;
+    }
+
+    public drawSummaryInfo(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D,
+        overrideTooFarForText: boolean = false,
     ): void {
         return;
     }
@@ -464,7 +473,8 @@ export class ControlFlowBlock extends SDFGElement {
             if (SDFVSettings.get<boolean>('showStateNames')) {
                 if (!too_far_away_for_text(renderer)) {
                     ctx.fillText(
-                        this.label(), topleft.x, topleft.y + SDFV.LINEHEIGHT
+                        this.label(), topleft.x + SDFV.LABEL_MARGIN_H,
+                        topleft.y + SDFV.LINEHEIGHT + SDFV.LABEL_MARGIN_V
                     );
                 }
             }
@@ -491,6 +501,36 @@ export class ControlFlowBlock extends SDFGElement {
         this._internal_draw(renderer, ctx, mousepos, undefined, false);
     }
 
+    public drawSummaryInfo(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D,
+        overrideTooFarForText: boolean = false,
+    ): void {
+        const topleft = this.topleft();
+        if (!too_far_away_for_text(renderer) || overrideTooFarForText) {
+            if (this.attributes().maxFootprintBytes !== undefined) {
+                const oldFont = ctx.font;
+                let font_size = SDFV.DEFAULT_CANVAS_FONTSIZE * 0.8;
+                ctx.font = font_size + 'px sans-serif';
+                const footprintText = bytesToString(
+                    this.attributes().maxFootprintBytes, true, 2
+                );
+                const measurements = ctx.measureText(footprintText);
+                const txtY = (
+                    (topleft.y + this.height +
+                        measurements.fontBoundingBoxAscent) -
+                        (SDFV.LINEHEIGHT + SDFV.LABEL_MARGIN_V)
+                );
+                const txtX = (
+                    (topleft.x + this.width) -
+                    (measurements.width + SDFV.LABEL_MARGIN_H)
+                );
+                ctx.fillText(footprintText, txtX, txtY);
+                ctx.font = oldFont;
+            }
+        }
+    }
+
     public simple_draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D
@@ -509,8 +549,6 @@ export class ControlFlowBlock extends SDFGElement {
 }
 
 export class ControlFlowRegion extends ControlFlowBlock {
-
-    public static readonly META_LABEL_MARGIN: number = 5;
 
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
@@ -580,8 +618,8 @@ export class ControlFlowRegion extends ControlFlowBlock {
             SDFVSettings.get<boolean>('showStateNames')) {
             if (!too_far_away_for_text(renderer)) {
                 ctx.fillText(
-                    this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
-                    topleft.y + SDFV.LINEHEIGHT
+                    this.label(), topleft.x + SDFV.LABEL_MARGIN_H,
+                    topleft.y + SDFV.LINEHEIGHT + SDFV.LABEL_MARGIN_V
                 );
             }
         }
@@ -599,7 +637,9 @@ export class ControlFlowRegion extends ControlFlowBlock {
             }
         }
 
-        // If collapsed, draw a "+" sign in the middle
+        // If collapsed, draw a "+" sign in the middle and draw summary
+        // information about the contents and performance characteristics, to
+        // the extent they are available.
         if (this.attributes().is_collapsed) {
             ctx.beginPath();
             ctx.moveTo(this.x, this.y - SDFV.LINEHEIGHT);
@@ -607,6 +647,8 @@ export class ControlFlowRegion extends ControlFlowBlock {
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, this.y);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, this.y);
             ctx.stroke();
+
+            this.drawSummaryInfo(renderer, ctx, _mousepos, false);
         }
 
         ctx.strokeStyle = 'black';
@@ -714,7 +756,8 @@ export class State extends ControlFlowBlock {
             SDFVSettings.get<boolean>('showStateNames')) {
             if (!too_far_away_for_text(renderer)) {
                 ctx.fillText(
-                    this.label(), topleft.x, topleft.y + SDFV.LINEHEIGHT
+                    this.label(), topleft.x + SDFV.LABEL_MARGIN_H,
+                    topleft.y + SDFV.LINEHEIGHT + SDFV.LABEL_MARGIN_V
                 );
             }
         }
@@ -741,6 +784,8 @@ export class State extends ControlFlowBlock {
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, this.y);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, this.y);
             ctx.stroke();
+
+            this.drawSummaryInfo(renderer, ctx, _mousepos, false);
         }
 
         ctx.strokeStyle = 'black';
@@ -1006,8 +1051,8 @@ export class ConditionalBlock extends ControlFlowBlock {
             if (!too_far_away_for_text(renderer)) {
                 ctx.fillText(
                     this.label(),
-                    topleft.x + ControlFlowRegion.META_LABEL_MARGIN,
-                    topleft.y + SDFV.LINEHEIGHT
+                    topleft.x + SDFV.LABEL_MARGIN_H,
+                    topleft.y + SDFV.LINEHEIGHT + SDFV.LABEL_MARGIN_V
                 );
             }
         }
@@ -1037,6 +1082,8 @@ export class ConditionalBlock extends ControlFlowBlock {
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, plusCenterY);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, plusCenterY);
             ctx.stroke();
+
+            this.drawSummaryInfo(renderer, ctx, _mousepos, false);
         }
 
         ctx.strokeStyle = 'black';
@@ -1140,7 +1187,7 @@ export class LoopRegion extends ControlFlowRegion {
         );
 
         const oldFont = ctx.font;
-        let topSpacing = LoopRegion.META_LABEL_MARGIN;
+        let topSpacing = SDFV.LABEL_MARGIN_V;
         let remainingHeight = this.height;
 
         // Draw the init statement if there is one.
@@ -1168,7 +1215,7 @@ export class LoopRegion extends ControlFlowRegion {
 
                 ctx.font = oldFont;
                 ctx.fillText(
-                    'init', topleft.x + LoopRegion.META_LABEL_MARGIN, initTextY
+                    'init', topleft.x + SDFV.LABEL_MARGIN_H, initTextY
                 );
             }
         }
@@ -1207,7 +1254,7 @@ export class LoopRegion extends ControlFlowRegion {
                 ctx.fillText(condStatement, condTextX, condTextY);
                 ctx.font = oldFont;
                 ctx.fillText(
-                    'while', topleft.x + LoopRegion.META_LABEL_MARGIN, condTextY
+                    'while', topleft.x + SDFV.LABEL_MARGIN_H, condTextY
                 );
             }
         }
@@ -1237,7 +1284,7 @@ export class LoopRegion extends ControlFlowRegion {
                 ctx.fillText(updateStatement, updateTextX, updateTextY);
                 ctx.font = oldFont;
                 ctx.fillText(
-                    'update', topleft.x + LoopRegion.META_LABEL_MARGIN,
+                    'update', topleft.x + SDFV.LABEL_MARGIN_H,
                     updateTextY
                 );
             }
@@ -1251,7 +1298,7 @@ export class LoopRegion extends ControlFlowRegion {
             SDFVSettings.get<boolean>('showStateNames')) {
             if (!too_far_away_for_text(renderer)) {
                 ctx.fillText(
-                    this.label(), topleft.x + LoopRegion.META_LABEL_MARGIN,
+                    this.label(), topleft.x + SDFV.LABEL_MARGIN_H,
                     topleft.y + topSpacing + SDFV.LINEHEIGHT
                 );
             }
@@ -1279,6 +1326,8 @@ export class LoopRegion extends ControlFlowRegion {
             ctx.moveTo(this.x - SDFV.LINEHEIGHT, plusCenterY);
             ctx.lineTo(this.x + SDFV.LINEHEIGHT, plusCenterY);
             ctx.stroke();
+
+            this.drawSummaryInfo(renderer, ctx, _mousepos, false);
         }
 
         ctx.strokeStyle = 'black';
@@ -1441,22 +1490,6 @@ export class SDFGNode extends SDFGElement {
     public set_layout(): void {
         this.width = this.data.node.attributes.layout.width;
         this.height = this.data.node.attributes.layout.height;
-    }
-
-    public text_for_find(): string {
-        let searchText = super.text_for_find();
-        // TODO: Split this out to be able to search for connectors themselves.
-        /*
-        if (this.attributes().in_connectors) {
-            for (const k in this.attributes().in_connectors)
-                searchText += ' ' + k;
-        }
-        if (this.attributes().out_connectors) {
-            for (const k in this.attributes().out_connectors)
-                searchText += ' ' + k;
-        }
-        */
-        return searchText;
     }
 
 }
@@ -1720,6 +1753,7 @@ export class Memlet extends Edge {
             }
         }
     }
+
     public tooltip(
         container: HTMLElement, renderer?: SDFGRenderer
     ): void {
@@ -2016,29 +2050,17 @@ export class Connector extends SDFGElement {
         ctx.strokeStyle = this.strokeStyle(renderer);
         let fillColor;
 
-        let customTooltipHtml = null;
         if (this.linkedElem && this.linkedElem instanceof ControlFlowBlock) {
-            if (this.data.memlet) {
-                customTooltipHtml = memletToHtml(
-                    renderer, this.data.memlet.attributes
-                );
-            }
-
-            if (this.data.certain_memlet) {
-                fillColor = this.getCssProperty(
-                    renderer, '--cf-connector-certain-color'
-                );
-                const certainHtml = memletToHtml(
-                    renderer, this.data.certain_memlet.attributes
-                );
-                if (customTooltipHtml !== certainHtml) {
-                    customTooltipHtml += '<p>Certain:<p>'
-                    customTooltipHtml += certainHtml;
+            if (this.data.name) {
+                if (this.data.certainAccess) {
+                    fillColor = this.getCssProperty(
+                        renderer, '--cf-connector-certain-color'
+                    );
+                } else {
+                    fillColor = this.getCssProperty(
+                        renderer, '--cf-connector-uncertain-color'
+                    );
                 }
-            } else {
-                fillColor = this.getCssProperty(
-                    renderer, '--cf-connector-uncertain-color'
-                );
             }
         } else {
             const scope_connector = (
@@ -2077,9 +2099,10 @@ export class Connector extends SDFGElement {
 
         // PDFs do not support transparent fill colors
         if ((ctx as any).pdf)
-            fillColor = fillColor.substr(0, 7);
+            fillColor = fillColor?.slice(0, 7);
 
-        ctx.fillStyle = fillColor;
+        if (fillColor !== undefined)
+            ctx.fillStyle = fillColor;
 
         // PDFs do not support stroke and fill on the same object
         if ((ctx as any).pdf) {
@@ -2091,7 +2114,42 @@ export class Connector extends SDFGElement {
 
         if (this.strokeStyle(renderer) !==
             this.getCssProperty(renderer, '--color-default')) {
-            if (customTooltipHtml) {
+            if (this.linkedElem &&
+                this.linkedElem instanceof ControlFlowBlock) {
+                let customTooltipHtml = this.data.name;
+                if (this.data.access) {
+                    customTooltipHtml += sdfg_property_to_string(
+                        this.data.access.subset, renderer.view_settings()
+                    );
+
+                    if (this.data.access.volume !== undefined) {
+                        let numAccesses = this.data.access.volume;
+                        if (this.data.access.dynamic) {
+                            if (numAccesses === '0' || numAccesses === '-1') {
+                                numAccesses = '<b>Dynamic (unbounded)</b>';
+                            } else {
+                                numAccesses = '<b>Dynamic</b> (up to ' +
+                                    numAccesses + ')';
+                            }
+                        } else if (numAccesses === '-1') {
+                            numAccesses = '<b>Dynamic (unbounded)</b>';
+                        }
+                        customTooltipHtml += '<br />Volume: ' + numAccesses;
+                    }
+                }
+
+                if (this.data.certainAccess) {
+                    if (this.data.access.subset !==
+                        this.data.certainAccess.subset) {
+                        const certainHtml = sdfg_property_to_string(
+                            this.data.certainAccess.subset,
+                            renderer.view_settings()
+                        );
+                        customTooltipHtml += '<p>Certain:<p>'
+                        customTooltipHtml += certainHtml;
+                    }
+                }
+
                 renderer.set_tooltip((tooltipContainer) => {
                     super.tooltip(tooltipContainer);
                     tooltipContainer.innerHTML = customTooltipHtml;
@@ -3357,11 +3415,20 @@ function drawStateMachine(
             continue;
 
         const blockppp = Math.sqrt(block.width * block.height) / ppp;
-        if (renderer.adaptiveHiding &&
-            blockppp < SDFVSettings.get<number>('nestedLOD')) {
-            block.simple_draw(renderer, ctx, mousePos);
-            block.debug_draw(renderer, ctx);
-            continue;
+        if (block instanceof SDFGNode) {
+            if (renderer.adaptiveHiding &&
+                ppp > SDFVSettings.get<number>('nodeLOD')) {
+                block.simple_draw(renderer, ctx, mousePos);
+                block.debug_draw(renderer, ctx);
+                continue;
+            }
+        } else {
+            if (renderer.adaptiveHiding &&
+                blockppp < SDFVSettings.get<number>('nestedLOD')) {
+                block.simple_draw(renderer, ctx, mousePos);
+                block.debug_draw(renderer, ctx);
+                continue;
+            }
         }
 
         block.draw(renderer, ctx, mousePos);

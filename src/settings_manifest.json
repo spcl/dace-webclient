@@ -9,6 +9,11 @@
                         "type": "boolean",
                         "default": true
                     },
+                    "loopNests": {
+                        "label": "Show loop nests",
+                        "type": "boolean",
+                        "default": true
+                    },
                     "toolbar": {
                         "label": "Show toolbar",
                         "type": "boolean",

@@ -16,6 +16,7 @@ import { OverlayManager } from './overlay_manager';
 import { DagreGraph, SDFGRenderer } from './renderer/renderer';
 import {
     ConditionalBlock,
+    ControlFlowBlock,
     SDFG,
     SDFGElement,
     SDFGNode,
@@ -46,6 +47,8 @@ export interface ISDFV {
 export abstract class SDFV extends EventEmitter implements ISDFV {
 
     public static LINEHEIGHT: number = 10;
+    public static LABEL_MARGIN_H: number = 5;
+    public static LABEL_MARGIN_V: number = 1;
     // Points-per-pixel threshold for not drawing Arrowheads of
     // memlets/interstate edges.
     public static ARROW_LOD: number = 2.0; // 2.0
@@ -127,6 +130,22 @@ export abstract class SDFV extends EventEmitter implements ISDFV {
                 ol.refresh();
             }
         }
+    }
+
+    public onLoadedMemoryFootprintFile(
+        footprintMap: { [uuids: string]: number },
+        renderer: SDFGRenderer | null = null
+    ): void {
+        if (!renderer)
+            renderer = this.renderer;
+
+        renderer?.doForAllSDFGElements((_group, _info, elem) => {
+            const guid = elem.attributes.guid;
+            if (guid && guid in footprintMap)
+                elem.attributes.maxFootprintBytes = footprintMap[guid];
+        });
+
+        renderer?.draw_async();
     }
 
     public abstract outline(): void;
@@ -295,6 +314,27 @@ export class WebSDFV extends SDFV {
         fileReader.readAsText(e.target.files[0]);
     }
 
+    private loadMemoryFootprintFile(e: any): void {
+        if (e.target.files.length < 1 || !e.target.files[0])
+            return;
+
+        const fileReader = new FileReader();
+        fileReader.onload = (e: ProgressEvent<FileReader>) => {
+            let resultString = '';
+            const res = e.target?.result;
+            if (res) {
+                if (res instanceof ArrayBuffer) {
+                    const decoder = new TextDecoder('utf-8');
+                    resultString = decoder.decode(new Uint8Array(res));
+                } else {
+                    resultString = res;
+                }
+            }
+            this.onLoadedMemoryFootprintFile(JSON.parse(resultString));
+        };
+        fileReader.readAsText(e.target.files[0]);
+    }
+
     public registerEventListeners(): void {
         $(document).on(
             'change.sdfv', '#sdfg-file-input', this.loadSDFG.bind(this)
@@ -302,6 +342,10 @@ export class WebSDFV extends SDFV {
         $(document).on(
             'change.sdfv', '#instrumentation-report-file-input',
             this.loadRuntimeReportFile.bind(this)
+        );
+        $(document).on(
+            'change.sdfv', '#memory-footprint-file-input',
+            this.loadMemoryFootprintFile.bind(this)
         );
         $(document).on(
             'change.sdfv', '#second-sdfg-file-input',
@@ -501,6 +545,7 @@ export class WebSDFV extends SDFV {
         }
         this.UI.infoClear();
         $('#load-instrumentation-report-btn').prop('disabled', false);
+        $('#load-memory-footprint-file-btn').prop('disabled', false);
         $('#diff-view-btn').prop('disabled', false);
     }
 

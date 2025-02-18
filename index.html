@@ -55,6 +55,16 @@
                     Load Instrumentation Report
                 </button>
             </div>
+            <div class="col-auto">
+                <input type="file" accept=".json" id="memory-footprint-file-input"
+                       style="display: none;">
+                <button id="load-memory-footprint-file-btn"
+                    class="btn btn-sm btn-light"
+                    disabled="disabled"
+                    onclick="document.getElementById('memory-footprint-file-input').click();">
+                    Load Memory Footprint File
+                </button>
+            </div>
             <div class="col-auto" id="diff-view-btn-container">
                 <input type="file"
                        accept=".sdfg,.json,.sdfgz,.sdfg.gz"

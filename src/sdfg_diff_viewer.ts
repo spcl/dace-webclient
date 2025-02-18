@@ -255,6 +255,7 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         $('#sdfg-file-input').prop('disabled', true);
         $('#reload').prop('disabled', true);
         $('#load-instrumentation-report-btn').prop('disabled', true);
+        $('#load-memory-footprint-file-btn').prop('disabled', true);
         $('#diff-view-btn-container').hide();
 
         $('#exit-diff-view-btn-container').show();
@@ -264,6 +265,7 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         $('#sdfg-file-input').prop('disabled', false);
         $('#reload').prop('disabled', false);
         $('#load-instrumentation-report-btn').prop('disabled', false);
+        $('#load-memory-footprint-file-btn').prop('disabled', false);
         $('#diff-view-btn-container').show();
 
         $('#exit-diff-view-btn-container').hide();

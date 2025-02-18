@@ -2,7 +2,7 @@
 
 import { gunzipSync } from 'zlib';
 import { Buffer } from 'buffer';
-import { JsonSDFG } from '../../types';
+import { JsonSDFG, JsonSDFGControlFlowRegion } from '../../types';
 import { Edge } from '../../renderer/renderer_elements';
 
 const propertyReplacements_0_16_0: { [key: string]: {
@@ -18,6 +18,8 @@ const propertyReplacements_0_16_0: { [key: string]: {
         recursive: true,
     },
 };
+
+const AUTOCOLLAPSE_BYTES_CUTOFF = 1000;
 
 function propertyReplace(obj: any, fromName: string, toName: string): void {
     if (Object.hasOwn(obj, fromName)) {
@@ -86,9 +88,26 @@ export function read_or_decompress(
     }
 }
 
+function recursivelyCollapse(cfg: JsonSDFGControlFlowRegion): void {
+    for (const node of cfg.nodes) {
+        node.attributes.is_collapsed = true;
+        if (Object.hasOwn(node, 'cfg_list_id'))
+            recursivelyCollapse(node as JsonSDFGControlFlowRegion);
+    }
+}
+
 // Recursively parse SDFG, including nested SDFG nodes
-export function parse_sdfg(sdfg_json: string | ArrayBuffer): JsonSDFG {
-    return JSON.parse(read_or_decompress(sdfg_json)[0], reviver);
+export function parse_sdfg(
+    sdfg_json: string | ArrayBuffer, skipAutocollapse: boolean = false
+): JsonSDFG {
+    const sdfg_string = read_or_decompress(sdfg_json)[0];
+    if (sdfg_string.length > AUTOCOLLAPSE_BYTES_CUTOFF && !skipAutocollapse) {
+        const sdfgObj: JsonSDFG = JSON.parse(sdfg_string, reviver);
+        recursivelyCollapse(sdfgObj);
+        return sdfgObj
+    } else {
+        return JSON.parse(sdfg_string, reviver);
+    }
 }
 
 export function stringify_sdfg(sdfg: JsonSDFG): string {

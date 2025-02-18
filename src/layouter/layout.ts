@@ -41,6 +41,7 @@ import {
     calculateEdgeBoundingBox,
 } from '../utils/bounding_box';
 import { deepCopy, intersectRect } from '../utils/utils';
+import { CFDataDependencyLense } from '../overlays/lenses/cf_data_dependency_lense';
 
 type CFGBlockInfoT = {
     label?: string,
@@ -890,8 +891,23 @@ function layoutControlFlowRegion(
         else
             blockElem.data.block = block;
 
-        blockInfo.label = block.id.toString();
+        blockInfo.label = block.label;
         let blockGraph = null;
+        let minWidth = 0;
+        if (block.attributes?.possible_reads) {
+            const nc = Object.keys(block.attributes.possible_reads).length;
+            minWidth = Math.max(
+                minWidth,
+                nc * CFDataDependencyLense.CONNECTOR_SPACING
+            );
+        }
+        if (block.attributes?.possible_writes) {
+            const nc = Object.keys(block.attributes.possible_writes).length;
+            minWidth = Math.max(
+                minWidth,
+                nc * CFDataDependencyLense.CONNECTOR_SPACING
+            );
+        }
         if (block.attributes?.is_collapsed) {
             blockInfo.height = SDFV.LINEHEIGHT;
             if (blockElem instanceof LoopRegion && ctx) {
@@ -914,8 +930,9 @@ function layoutControlFlowRegion(
                 const maxLabelWidth = Math.max(...labelWidths);
                 ctx.font = oldFont;
                 blockInfo.width = Math.max(
-                    maxLabelWidth, ctx.measureText(block.label).width
-                ) + 3 * LoopRegion.META_LABEL_MARGIN;
+                    maxLabelWidth, ctx.measureText(block.label).width,
+                    minWidth
+                ) + 3 * SDFV.LABEL_MARGIN_H;
             } else if (blockElem instanceof ConditionalBlock && ctx) {
                 const maxLabelWidth = Math.max(...blockElem.branches.map(
                     br => ctx.measureText(
@@ -923,14 +940,16 @@ function layoutControlFlowRegion(
                     ).width
                 ));
                 blockInfo.width = Math.max(
-                    maxLabelWidth, ctx.measureText(block.label).width
-                ) + 3 * LoopRegion.META_LABEL_MARGIN;
+                    maxLabelWidth, ctx.measureText(block.label).width,
+                    minWidth
+                ) + 3 * SDFV.LABEL_MARGIN_H;
                 blockInfo.height += LoopRegion.CONDITION_SPACING;
             } else {
                 if (ctx)
                     blockInfo.width = ctx.measureText(blockInfo.label).width;
                 else
                     blockInfo.width = 1;
+                blockInfo.width = Math.max(blockInfo.width, minWidth);
             }
         } else {
             if (blockElem instanceof ControlFlowRegion) {
@@ -940,7 +959,7 @@ function layoutControlFlowRegion(
                 );
 
                 const bb = calculateBoundingBox(blockGraph);
-                blockInfo.width = bb.width;
+                blockInfo.width = Math.max(minWidth, bb.width);
                 blockInfo.height = bb.height;
             } else if (blockElem instanceof State) {
                 blockGraph = layoutSDFGState(
@@ -948,7 +967,7 @@ function layoutControlFlowRegion(
                 );
 
                 const bb = calculateBoundingBox(blockGraph);
-                blockInfo.width = bb.width;
+                blockInfo.width = Math.max(minWidth, bb.width);
                 blockInfo.height = bb.height;
             } else if (blockElem instanceof ConditionalBlock) {
                 blockGraph = layoutConditionalBlock(
@@ -964,6 +983,7 @@ function layoutControlFlowRegion(
                         blockInfo.height, region.height
                     );
                 }
+                blockInfo.width = Math.max(minWidth, blockInfo.width);
             }
         }
 
