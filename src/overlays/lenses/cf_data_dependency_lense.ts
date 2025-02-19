@@ -145,7 +145,7 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
                         for (const nId of stateGraph.nodes()) {
                             const node = stateGraph.node(nId);
                             if (node instanceof NestedSDFG &&
-                                !node.attributes().collapsed) {
+                                !node.attributes().is_collapsed) {
                                 const nsdfg = node.data.graph;
                                 this.recursiveSetConnectorsGraph(
                                     nsdfg, node.sdfg

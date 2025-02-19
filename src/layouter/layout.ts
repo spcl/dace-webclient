@@ -124,8 +124,12 @@ function offsetSDFGState(state: State, offs: Point2D): void {
             c.y += offs.y;
         });
 
-        if (node instanceof NestedSDFG && node.data.node.attributes.sdfg)
+        if (node instanceof NestedSDFG && node.data.node.attributes.sdfg &&
+            !('is_collapsed' in node.attributes() &&
+              node.attributes().is_collapsed)
+        ) {
             offsetControlFlowRegion(node.data.node.attributes.sdfg, node, offs);
+        }
     });
     state.data.state.edges.forEach((e: JsonSDFGEdge, eid: number) => {
         const ne = check_and_redirect_edge(e, drawnNodes, state.data.state);
@@ -274,16 +278,21 @@ function layoutDFNode(
         node.type === SDFGElementType.ExternalNestedSDFG) {
         if (node.attributes.sdfg &&
             node.attributes.sdfg.type !== 'SDFGShell') {
-            const nsdfg = new SDFG(node.attributes.sdfg);
-            nestedGraph = layoutControlFlowRegion(
-                node.attributes.sdfg, nsdfg, ctx, cfgList, stateParentList,
-                omitAccessNodes
-            );
-            const sdfgInfo = calculateBoundingBox(nestedGraph);
-            node.attributes.layout.width =
-                sdfgInfo.width + 2 * SDFV.LINEHEIGHT;
-            node.attributes.layout.height =
-                sdfgInfo.height + 2 * SDFV.LINEHEIGHT;
+            if ('is_collapsed' in node.attributes &&
+                node.attributes.is_collapsed) {
+                // Noop.
+            } else {
+                const nsdfg = new SDFG(node.attributes.sdfg);
+                nestedGraph = layoutControlFlowRegion(
+                    node.attributes.sdfg, nsdfg, ctx, cfgList, stateParentList,
+                    omitAccessNodes
+                );
+                const sdfgInfo = calculateBoundingBox(nestedGraph);
+                node.attributes.layout.width =
+                    sdfgInfo.width + 2 * SDFV.LINEHEIGHT;
+                node.attributes.layout.height =
+                    sdfgInfo.height + 2 * SDFV.LINEHEIGHT;
+            }
         } else {
             const emptyNSDFGLabel = 'No SDFG loaded';
             if (ctx) {
@@ -533,7 +542,9 @@ function layoutSDFGState(
         const topleft = gnode.topleft();
 
         // Offset nested SDFG.
-        if (node.type === SDFGElementType.NestedSDFG && node.attributes.sdfg) {
+        if (node.type === SDFGElementType.NestedSDFG && node.attributes.sdfg &&
+            !('is_collapsed' in node.attributes && node.attributes.is_collapsed)
+        ) {
             offsetControlFlowRegion(node.attributes.sdfg, gnode, {
                 x: topleft.x + SDFV.LINEHEIGHT,
                 y: topleft.y + SDFV.LINEHEIGHT,

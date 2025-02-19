@@ -58,9 +58,14 @@ import {
 } from '../types';
 import { MemoryLocationOverlay } from '../overlays/memory_location_overlay';
 import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
-import { checkCompatSave, parse_sdfg, stringify_sdfg } from '../utils/sdfg/json_serializer';
-import { CFDataDependencyLense } from '../overlays/lenses/cf_data_dependency_lense';
-import { DataflowProxyGraphLense } from '../overlays/lenses/dataflow_proxy_graph_lense';
+import {
+    checkCompatSave,
+    parse_sdfg,
+    stringify_sdfg
+} from '../utils/sdfg/json_serializer';
+import {
+    CFDataDependencyLense,
+} from '../overlays/lenses/cf_data_dependency_lense';
 import { LoopNestLense } from '../overlays/lenses/loop_nest_lense';
 
 // External, non-typescript libraries which are presented as previously loaded
@@ -661,16 +666,7 @@ export class SDFGRenderer extends EventEmitter {
                     'Control flow block data dependencies',
                     CFDataDependencyLense, false
                 );
-                addOverlayToMenu(
-                    'Loop nest information',
-                    LoopNestLense, true
-                );
-                /*
-                addOverlayToMenu(
-                    'Control flow graph dataflow proxy graphs',
-                    DataflowProxyGraphLense, false
-                );
-                */
+                addOverlayToMenu('Loop nest information', LoopNestLense, false);
             }
 
             const zoomButtonGroup = $('<div>', {
@@ -1219,8 +1215,7 @@ export class SDFGRenderer extends EventEmitter {
                 const cfgId = (obj as JsonSDFGControlFlowRegion).cfg_list_id;
                 if (obj.type === SDFGElementType.NestedSDFG &&
                     obj.attributes.sdfg) {
-                    this.cfgTree[obj.attributes.sdfg.cfg_list_id] =
-                        oInfo.sdfg.cfg_list_id;
+                    this.cfgTree[obj.attributes.sdfg.cfg_list_id] = oInfo.cfgId;
                     this.cfgList[obj.attributes.sdfg.cfg_list_id] = {
                         jsonObj: obj.attributes.sdfg as JsonSDFG,
                         graph: null,
@@ -1260,6 +1255,7 @@ export class SDFGRenderer extends EventEmitter {
                 this.add_loading_animation();
                 setTimeout(() => {
                     this.relayout();
+                    this.overlayManager.refresh();
                     this.draw_async();
                     resolve();
                 }, 1);
@@ -1269,8 +1265,11 @@ export class SDFGRenderer extends EventEmitter {
 
             this.update_fast_memlet_lookup();
 
-            if (!layout)
+            if (!layout) {
+                this.overlayManager.refresh();
+                this.draw_async();
                 resolve();
+            }
         });
     }
 
@@ -2391,7 +2390,10 @@ export class SDFGRenderer extends EventEmitter {
                                 // If nested SDFG, traverse recursively
                                 if (node.data.node.type ===
                                     SDFGElementType.NestedSDFG &&
-                                    node.attributes().sdfg) {
+                                    node.attributes().sdfg && node.data.graph &&
+                                    !('is_collapsed' in node.attributes() &&
+                                      node.attributes().is_collapsed)
+                                ) {
                                     const nsdfg = node.attributes().sdfg;
                                     doRecursive(node.data.graph, nsdfg, nsdfg);
                                 }
