@@ -2,8 +2,15 @@
 
 import { gunzipSync } from 'zlib';
 import { Buffer } from 'buffer';
-import { JsonSDFG, JsonSDFGControlFlowRegion } from '../../types';
+import {
+    JsonSDFG,
+    JsonSDFGBlock,
+    JsonSDFGConditionalBlock,
+    JsonSDFGControlFlowRegion,
+    JsonSDFGState,
+} from '../../types';
 import { Edge } from '../../renderer/renderer_elements';
+import { setCollapseStateRecursive } from './sdfg_utils';
 
 const propertyReplacements_0_16_0: { [key: string]: {
     replaceWith: string,
@@ -88,14 +95,6 @@ export function read_or_decompress(
     }
 }
 
-function recursivelyCollapse(cfg: JsonSDFGControlFlowRegion): void {
-    for (const node of cfg.nodes) {
-        node.attributes.is_collapsed = true;
-        if (Object.hasOwn(node, 'cfg_list_id'))
-            recursivelyCollapse(node as JsonSDFGControlFlowRegion);
-    }
-}
-
 // Recursively parse SDFG, including nested SDFG nodes
 export function parse_sdfg(
     sdfg_json: string | ArrayBuffer, skipAutocollapse: boolean = false
@@ -103,7 +102,7 @@ export function parse_sdfg(
     const sdfg_string = read_or_decompress(sdfg_json)[0];
     if (sdfg_string.length > AUTOCOLLAPSE_BYTES_CUTOFF && !skipAutocollapse) {
         const sdfgObj: JsonSDFG = JSON.parse(sdfg_string, reviver);
-        recursivelyCollapse(sdfgObj);
+        setCollapseStateRecursive(sdfgObj, true);
         return sdfgObj
     } else {
         return JSON.parse(sdfg_string, reviver);

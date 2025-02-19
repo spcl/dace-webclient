@@ -9,7 +9,7 @@ import {
     sdfg_property_to_string,
     sdfg_range_elem_to_string,
 } from '../utils/sdfg/display';
-import { SDFVSettings } from '../utils/sdfv_settings';
+import { SDFVColorThemeColor, SDFVSettings } from '../utils/sdfv_settings';
 import type { DagreGraph, SDFGRenderer } from './renderer';
 import {
     JsonSDFG,
@@ -457,17 +457,14 @@ export class ControlFlowBlock extends SDFGElement {
 
     public _internal_draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        _mousepos?: Point2D, color: string = 'state-background-color',
+        _mousepos?: Point2D,
+        color: SDFVColorThemeColor = 'stateBackgroundColor',
         simple: boolean = false
     ): void {
         const topleft = this.topleft();
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--' + color
-        );
+        ctx.fillStyle = SDFVSettings.get<string>(color);
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--state-foreground-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
 
         if (!simple) {
             if (SDFVSettings.get<boolean>('showStateNames')) {
@@ -595,9 +592,7 @@ export class ControlFlowRegion extends ControlFlowBlock {
         }
 
         // Draw the region's background below everything and stroke the border.
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--control-flow-region-background-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('controlFlowRegionColor');
         ctx.strokeStyle = this.getCssProperty(
             renderer, '--control-flow-region-border-color'
         );
@@ -609,9 +604,7 @@ export class ControlFlowRegion extends ControlFlowBlock {
             (ppp && ppp < SDFVSettings.get<number>('nodeLOD')))
             ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
 
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--control-flow-region-foreground-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
 
         if (visibleRect && visibleRect.x <= topleft.x &&
             visibleRect.y <= topleft.y + SDFV.LINEHEIGHT &&
@@ -661,13 +654,9 @@ export class ControlFlowRegion extends ControlFlowBlock {
         // Fast drawing function for small states
         const topleft = this.topleft();
 
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--control-flow-region-background-simple-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('controlFlowRegionColor');
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--control-flow-region-foreground-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
 
         if (mousepos && this.intersect(mousepos.x, mousepos.y))
             renderer.set_tooltip((c) => this.tooltip(c));
@@ -743,13 +732,9 @@ export class State extends ControlFlowBlock {
             };
         }
 
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--state-background-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('stateBackgroundColor');
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--state-foreground-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
 
         if (visible_rect && visible_rect.x <= topleft.x &&
             visible_rect.y <= topleft.y + SDFV.LINEHEIGHT &&
@@ -798,13 +783,9 @@ export class State extends ControlFlowBlock {
         // Fast drawing function for small states
         const topleft = this.topleft();
 
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--state-background-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('stateBackgroundColor');
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--state-foreground-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
 
         if (mousepos && this.intersect(mousepos.x, mousepos.y))
             renderer.set_tooltip((c) => this.tooltip(c));
@@ -858,7 +839,7 @@ export class BreakBlock extends ControlFlowBlock {
         mousepos?: Point2D
     ): void {
         this._internal_draw(
-            renderer, ctx, mousepos, 'break-block-background-color', true
+            renderer, ctx, mousepos, 'breakBlockColor', true
         );
     }
 
@@ -867,7 +848,7 @@ export class BreakBlock extends ControlFlowBlock {
         mousepos?: Point2D | undefined
     ): void {
         this._internal_draw(
-            renderer, ctx, mousepos, 'break-block-background-color', false
+            renderer, ctx, mousepos, 'breakBlockColor', false
         );
     }
 
@@ -884,7 +865,7 @@ export class ContinueBlock extends ControlFlowBlock {
         mousepos?: Point2D
     ): void {
         this._internal_draw(
-            renderer, ctx, mousepos, 'continue-block-background-color', true
+            renderer, ctx, mousepos, 'continueBlockColor', true
         );
     }
 
@@ -893,7 +874,7 @@ export class ContinueBlock extends ControlFlowBlock {
         mousepos?: Point2D | undefined
     ): void {
         this._internal_draw(
-            renderer, ctx, mousepos, 'continue-block-background-color', false
+            renderer, ctx, mousepos, 'continueBlockColor', false
         );
     }
 
@@ -910,7 +891,7 @@ export class ReturnBlock extends ControlFlowBlock {
         mousepos?: Point2D
     ): void {
         this._internal_draw(
-            renderer, ctx, mousepos, 'return-block-background-color', true
+            renderer, ctx, mousepos, 'returnBlockColor', true
         );
     }
 
@@ -919,7 +900,7 @@ export class ReturnBlock extends ControlFlowBlock {
         mousepos?: Point2D | undefined
     ): void {
         this._internal_draw(
-            renderer, ctx, mousepos, 'return-block-background-color', false
+            renderer, ctx, mousepos, 'returnBlockColor', false
         );
     }
 
@@ -943,7 +924,7 @@ export class ConditionalBlock extends ControlFlowBlock {
         mousepos?: Point2D
     ): void {
         this._internal_draw(
-            renderer, ctx, mousepos, 'conditional-background-simple-color', true
+            renderer, ctx, mousepos, 'conditionalColor', true
         );
     }
 
@@ -991,10 +972,9 @@ export class ConditionalBlock extends ControlFlowBlock {
             };
         }
 
-        // Draw the loop background below everything and stroke the border.
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--conditional-background-color'
-        );
+        // Draw the conditional background below everything and stroke the
+        // border.
+        ctx.fillStyle = SDFVSettings.get<string>('conditionalColor');
         ctx.strokeStyle = this.getCssProperty(
             renderer, '--conditional-border-color'
         );
@@ -1007,9 +987,7 @@ export class ConditionalBlock extends ControlFlowBlock {
             ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
         }
 
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--conditional-foreground-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
 
         if (!too_far_away_for_text(renderer)) {
             const labelHeight = 1.5 * SDFV.LINEHEIGHT;
@@ -1168,9 +1146,7 @@ export class LoopRegion extends ControlFlowRegion {
         }
 
         // Draw the loop background below everything and stroke the border.
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--loop-background-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('loopColor');
         ctx.strokeStyle = this.getCssProperty(
             renderer, '--loop-border-color'
         );
@@ -1182,9 +1158,7 @@ export class LoopRegion extends ControlFlowRegion {
             (ppp && ppp < SDFVSettings.get<number>('nodeLOD')))
             ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
 
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--loop-foreground-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
 
         const oldFont = ctx.font;
         let topSpacing = SDFV.LABEL_MARGIN_V;
@@ -1364,8 +1338,8 @@ export class SDFGNode extends SDFGElement {
     public draw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D,
-        fgstyle: string = '--node-foreground-color',
-        bgstyle: string = '--node-background-color'
+        fgstyle: SDFVColorThemeColor = 'defaultTextColor',
+        bgstyle: SDFVColorThemeColor = 'nodeBackgroundColor'
     ): void {
         const topleft = this.topleft();
         const visible_rect = renderer.get_visible_rect();
@@ -1406,7 +1380,7 @@ export class SDFGNode extends SDFGElement {
             };
         }
 
-        ctx.fillStyle = this.getCssProperty(renderer, bgstyle);
+        ctx.fillStyle = SDFVSettings.get<string>(bgstyle);
         ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
 
         // Only draw line if close enough to see it.
@@ -1423,7 +1397,7 @@ export class SDFGNode extends SDFGElement {
         }
         if (this.label()) {
             if (!too_far_away_for_text(renderer)) {
-                ctx.fillStyle = this.getCssProperty(renderer, fgstyle);
+                ctx.fillStyle = SDFVSettings.get<string>(fgstyle);
                 const textw = ctx.measureText(this.label()).width;
                 if (!visible_rect) {
                     ctx.fillText(
@@ -1447,13 +1421,9 @@ export class SDFGNode extends SDFGElement {
     ): void {
         // Fast drawing function for small nodes
         const topleft = this.topleft();
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--node-background-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('nodeBackgroundColor');
         ctx.fillRect(topleft.x, topleft.y, this.width, this.height);
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--node-foreground-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
     }
 
     public shade(
@@ -1864,8 +1834,8 @@ export class InterstateEdge extends Edge {
         let style = this.strokeStyle(renderer);
 
         // Interstate edge
-        if (style === this.getCssProperty(renderer, '--color-default'))
-            style = this.getCssProperty(renderer, '--interstate-edge-color');
+        if (style === SDFVSettings.get<string>('defaultTextColor'))
+            style = SDFVSettings.get<string>('interstateEdgeColor');
         ctx.fillStyle = ctx.strokeStyle = style;
         ctx.setLineDash([1, 0]);
         ctx.stroke();
@@ -2014,9 +1984,7 @@ export class InterstateEdge extends Edge {
                 offsetY = labelH + LABEL_PADDING;
         }
 
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--interstate-edge-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('interstateEdgeColor');
         for (let i = 0; i < labelLines.length; i++) {
             ctx.fillText(
                 labelLines[i],
@@ -2083,8 +2051,8 @@ export class Connector extends SDFGElement {
                 this.custom_label = null;
             } else if (!edge) {
                 ctx.stroke();
-                fillColor = this.getCssProperty(
-                    renderer, '--node-missing-background-color'
+                fillColor = SDFVSettings.get<string>(
+                    'errorNodeBackgroundColor'
                 );
                 this.custom_label = 'No edge connected';
             } else {
@@ -2112,8 +2080,9 @@ export class Connector extends SDFGElement {
         }
         ctx.fill();
 
-        if (this.strokeStyle(renderer) !==
-            this.getCssProperty(renderer, '--color-default')) {
+        if (this.strokeStyle(renderer) !== SDFVSettings.get<string>(
+            'defaultTextColor'
+        )) {
             if (this.linkedElem &&
                 this.linkedElem instanceof ControlFlowBlock) {
                 let customTooltipHtml = this.data.name;
@@ -2260,12 +2229,10 @@ export class AccessNode extends SDFGNode {
                 renderer, '--connector-scoped-color'
             );
         } else if (nodedesc) {
-            ctx.fillStyle = this.getCssProperty(
-                renderer, '--node-background-color'
-            );
+            ctx.fillStyle = SDFVSettings.get<string>('nodeBackgroundColor');
         } else {
-            ctx.fillStyle = this.getCssProperty(
-                renderer, '--node-missing-background-color'
+            ctx.fillStyle = SDFVSettings.get<string>(
+                'errorNodeBackgroundColor'
             );
         }
 
@@ -2277,15 +2244,14 @@ export class AccessNode extends SDFGNode {
         }
         ctx.fill();
         if (nodedesc) {
-            ctx.fillStyle = this.getCssProperty(
-                renderer, '--node-foreground-color'
-            );
+            ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
         } else {
-            ctx.fillStyle = this.getCssProperty(
-                renderer, '--node-missing-foreground-color'
+            ctx.fillStyle = SDFVSettings.get<string>(
+                'errorNodeForegroundColor'
             );
-            if (this.strokeStyle(renderer) !==
-                this.getCssProperty(renderer, '--color-default'))
+            if (this.strokeStyle(renderer) !== SDFVSettings.get<string>(
+                'defaultTextColor'
+            ))
                 renderer.set_tooltip((c) => this.tooltip(c));
         }
 
@@ -2400,16 +2366,12 @@ export class ScopeNode extends SDFGNode {
         draw_shape();
         ctx.stroke();
         ctx.setLineDash([1, 0]);
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--node-background-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('nodeBackgroundColor');
         // PDFs do not support stroke and fill on the same object
         if ((ctx as any).pdf)
             draw_shape();
         ctx.fill();
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--node-foreground-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
 
         // If we are far away, don't show the text
         if (too_far_away_for_text(renderer))
@@ -2768,9 +2730,7 @@ export class Tasklet extends SDFGNode {
         const textYOffset = fontSize / 4;
 
         ctx.font = fontSize + 'px courier new';
-        const defaultColor = this.getCssProperty(
-            renderer, '--node-foreground-color'
-        );
+        const defaultColor = SDFVSettings.get<string>('defaultTextColor');
         // Set the start offset such that the middle row of the text is in
         // this.y
         const startY = this.y + textYOffset - (
@@ -2840,17 +2800,13 @@ export class Tasklet extends SDFGNode {
         drawOctagon(ctx, topleft, this.width, this.height);
         ctx.strokeStyle = this.strokeStyle(renderer);
         ctx.stroke();
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--node-background-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('nodeBackgroundColor');
 
         // PDFs do not support stroke and fill on the same object
         if ((ctx as any).pdf)
             drawOctagon(ctx, topleft, this.width, this.height);
         ctx.fill();
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--node-foreground-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
 
         // If we are far away, don't show the text
         if (too_far_away_for_text(renderer))
@@ -2909,18 +2865,14 @@ export class Reduce extends SDFGNode {
         ctx.strokeStyle = this.strokeStyle(renderer);
         draw_shape();
         ctx.stroke();
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--node-background-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('nodeBackgroundColor');
         // PDFs do not support stroke and fill on the same object
         if ((ctx as any).pdf)
             draw_shape();
         ctx.fill();
 
         if (!too_far_away_for_text(renderer)) {
-            ctx.fillStyle = this.getCssProperty(
-                renderer, '--node-foreground-color'
-            );
+            ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
             const far_label = this.label().substring(
                 4, this.label().indexOf(',')
             );
@@ -2983,9 +2935,7 @@ export class NestedSDFG extends SDFGNode {
             );
             ctx.strokeStyle = this.strokeStyle(renderer);
             ctx.stroke();
-            ctx.fillStyle = this.getCssProperty(
-                renderer, '--node-background-color'
-            );
+            ctx.fillStyle = SDFVSettings.get<string>('nodeBackgroundColor');
             // PDFs do not support stroke and fill on the same object
             if ((ctx as any).pdf) {
                 drawOctagon(
@@ -2997,9 +2947,7 @@ export class NestedSDFG extends SDFGNode {
 
 
             if (!too_far_away_for_text(renderer)) {
-                ctx.fillStyle = this.getCssProperty(
-                    renderer, '--node-foreground-color'
-                );
+                ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
                 let label = this.data.node.attributes.label;
                 if (!this.data.node.attributes.sdfg)
                     label += ' (not loaded)';
@@ -3012,8 +2960,8 @@ export class NestedSDFG extends SDFGNode {
         } else {
             // Draw square around nested SDFG.
             super.draw(
-                renderer, ctx, mousepos, '--nested-sdfg-foreground-color',
-                '--nested-sdfg-background-color'
+                renderer, ctx, mousepos, 'defaultTextColor',
+                'nodeBackgroundColor'
             );
 
             if (this.attributes().sdfg &&
@@ -3023,8 +2971,8 @@ export class NestedSDFG extends SDFGNode {
             } else {
                 // Expanded, but no SDFG present or loaded yet.
                 if (!too_far_away_for_text(renderer)) {
-                    const errColor = this.getCssProperty(
-                        renderer, '--node-missing-background-color'
+                    const errColor = SDFVSettings.get<string>(
+                        'errorNodeBackgroundColor'
                     );
                     const label = 'No SDFG loaded';
                     const textmetrics = ctx.measureText(label);
@@ -3135,9 +3083,7 @@ export class LibraryNode extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D
     ): void {
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--node-background-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('nodeBackgroundColor');
         this._path(ctx);
         ctx.fill();
         ctx.strokeStyle = this.strokeStyle(renderer);
@@ -3145,9 +3091,7 @@ export class LibraryNode extends SDFGNode {
         ctx.stroke();
         this._path2(ctx);
         ctx.stroke();
-        ctx.fillStyle = this.getCssProperty(
-            renderer, '--node-foreground-color'
-        );
+        ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
 
         // If we are far away, don't show the text
         if (too_far_away_for_text(renderer))
@@ -3222,7 +3166,7 @@ function too_far_away_for_text(
 function batchedDrawEdges(
     renderer: SDFGRenderer, graph: DagreGraph, ctx: CanvasRenderingContext2D,
     visible_rect?: SimpleRect, mousepos?: Point2D,
-    color: string = '--color-default',
+    color: SDFVColorThemeColor = 'defaultTextColor',
     labelled: boolean = false
 ): void {
     const deferredEdges: any[] = [];
@@ -3272,7 +3216,7 @@ function batchedDrawEdges(
         edge.create_arrow_line(ctx);
     });
     ctx.setLineDash([1, 0]);
-    ctx.fillStyle = ctx.strokeStyle = renderer.getCssProperty(color);
+    ctx.fillStyle = ctx.strokeStyle = SDFVSettings.get<string>(color);
     ctx.stroke();
 
     // Only draw Arrowheads when close enough to see them
@@ -3387,7 +3331,7 @@ function drawStateContents(
         return;
 
     batchedDrawEdges(
-        renderer, stateGraph, ctx, visibleRect, mousePos, '--color-default',
+        renderer, stateGraph, ctx, visibleRect, mousePos, 'defaultTextColor',
         false
     );
 }
@@ -3400,7 +3344,7 @@ function drawStateMachine(
     if (!renderer.adaptiveHiding || ppp < SDFVSettings.get<number>('edgeLOD')) {
         batchedDrawEdges(
             renderer, stateMachineGraph, ctx, visibleRect, mousePos,
-            '--interstate-edge-color',
+            'interstateEdgeColor',
             SDFVSettings.get<boolean>('alwaysOnISEdgeLabels')
         );
     }   

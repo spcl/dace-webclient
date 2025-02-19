@@ -8,6 +8,7 @@ export enum OverlayType {
     NODE,
     EDGE,
     BOTH,
+    LENSE,
 };
 
 export type InvalidSDFGError = {

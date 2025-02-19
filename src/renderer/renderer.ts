@@ -16,6 +16,7 @@ import {
     deletePositioningInfo, deleteSDFGNodes, deleteCFGBlocks,
     findGraphElementByUUID, getPositioningInfo, getGraphElementUUID,
     findRootCFG,
+    setCollapseStateRecursive,
 } from '../utils/sdfg/sdfg_utils';
 import { traverseSDFGScopes } from '../utils/sdfg/traversal';
 import {
@@ -60,6 +61,7 @@ import { MemoryVolumeOverlay } from '../overlays/memory_volume_overlay';
 import { checkCompatSave, parse_sdfg, stringify_sdfg } from '../utils/sdfg/json_serializer';
 import { CFDataDependencyLense } from '../overlays/lenses/cf_data_dependency_lense';
 import { DataflowProxyGraphLense } from '../overlays/lenses/dataflow_proxy_graph_lense';
+import { LoopNestLense } from '../overlays/lenses/loop_nest_lense';
 
 // External, non-typescript libraries which are presented as previously loaded
 // scripts and global javascript variables:
@@ -660,9 +662,15 @@ export class SDFGRenderer extends EventEmitter {
                     CFDataDependencyLense, false
                 );
                 addOverlayToMenu(
+                    'Loop nest information',
+                    LoopNestLense, true
+                );
+                /*
+                addOverlayToMenu(
                     'Control flow graph dataflow proxy graphs',
                     DataflowProxyGraphLense, false
                 );
+                */
             }
 
             const zoomButtonGroup = $('<div>', {
@@ -1656,13 +1664,7 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     public collapseAll(): void {
-        this.doForAllSDFGElements(
-            (_t, _d, obj) => {
-                if ('is_collapsed' in obj.attributes &&
-                    !obj.type.endsWith('Exit'))
-                    obj.attributes.is_collapsed = true;
-            }
-        );
+        setCollapseStateRecursive(this.sdfg, true);
 
         this.emit('collapse_state_changed', true, true);
 
@@ -1701,13 +1703,7 @@ export class SDFGRenderer extends EventEmitter {
     }
 
     public expandAll(): void {
-        this.doForAllSDFGElements(
-            (_t, _d, obj) => {
-                if ('is_collapsed' in obj.attributes &&
-                    !obj.type.endsWith('Exit'))
-                    obj.attributes.is_collapsed = false;
-            }
-        );
+        setCollapseStateRecursive(this.sdfg, false);
 
         this.emit('collapse_state_changed', false, true);
 

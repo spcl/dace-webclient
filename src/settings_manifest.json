@@ -4,13 +4,24 @@
             "view": {
                 "label": "View",
                 "settings": {
+                    "colorTheme": {
+                        "label": "Color theme",
+                        "type": "select",
+                        "default": "DefaultBlue",
+                        "choices": [
+                            {
+                                "label": "Default blue",
+                                "value": "DefaultBlue"
+                            },
+                            {
+                                "label": "Default green",
+                                "value": "DefaultGreen"
+                            }
+                        ],
+                        "externalEvent": false
+                    },
                     "curvedEdges": {
                         "label": "Draw curved edges (turn this off if you are experiencing performance issues)",
-                        "type": "boolean",
-                        "default": true
-                    },
-                    "loopNests": {
-                        "label": "Show loop nests",
                         "type": "boolean",
                         "default": true
                     },
@@ -176,6 +187,71 @@
                         "type": "boolean",
                         "default": false,
                         "relayout": true
+                    }
+                }
+            },
+            "customizeColorTheme": {
+                "label": "Customize Color Theme",
+                "settings": {
+                    "defaultTextColor": {
+                        "label": "Default text",
+                        "type": "color",
+                        "default": "#000000"
+                    },
+                    "nodeBackgroundColor": {
+                        "label": "Default node background",
+                        "type": "color",
+                        "default": "#ffffff"
+                    },
+                    "stateBackgroundColor": {
+                        "label": "State background",
+                        "type": "color",
+                        "default": "#deebf7"
+                    },
+                    "breakBlockColor": {
+                        "label": "Break block",
+                        "type": "color",
+                        "default": "#ffc79a"
+                    },
+                    "continueBlockColor": {
+                        "label": "Continue block",
+                        "type": "color",
+                        "default": "#94ffa2"
+                    },
+                    "returnBlockColor": {
+                        "label": "Return block",
+                        "type": "color",
+                        "default": "#ff7d7d"
+                    },
+                    "conditionalColor": {
+                        "label": "Conditional block",
+                        "type": "color",
+                        "default": "#bec080"
+                    },
+                    "controlFlowRegionColor": {
+                        "label": "Control flow region",
+                        "type": "color",
+                        "default": "#ffffff"
+                    },
+                    "loopColor": {
+                        "label": "Loop region",
+                        "type": "color",
+                        "default": "#fafafa"
+                    },
+                    "interstateEdgeColor": {
+                        "label": "Interstate edge color",
+                        "type": "color",
+                        "default": "#86add9"
+                    },
+                    "errorNodeBackgroundColor": {
+                        "label": "Background for nodes with errors",
+                        "type": "color",
+                        "default": "#ff1010"
+                    },
+                    "errorNodeForegroundColor": {
+                        "label": "Text for nodes with errors",
+                        "type": "color",
+                        "default": "#ffffff"
                     }
                 }
             }

@@ -8,7 +8,7 @@
 $material-symbols-font-path: "~material-symbols/";
 @import "~material-symbols";
 
-@import "./color_schemes/default";
+@import "./color_schemes/default_blue";
 
 .sdfv {
   @import "~bootstrap/scss/bootstrap";
@@ -247,26 +247,26 @@ body.sdfv {
     color: rgba(20, 20, 20, 1.0);
 
     &.removed {
-      background-color: $sdfv-diff-removed;
+      background-color: $sdfv-diff-removed-color;
 
       &:hover {
-        background-color: darken($sdfv-diff-removed, 5%);
+        background-color: darken($sdfv-diff-removed-color, 5%);
       }
     }
 
     &.added {
-      background-color: $sdfv-diff-added;
+      background-color: $sdfv-diff-added-color;
 
       &:hover {
-        background-color: darken($sdfv-diff-added, 5%);
+        background-color: darken($sdfv-diff-added-color, 5%);
       }
     }
 
     &.changed {
-      background-color: $sdfv-diff-changed;
+      background-color: $sdfv-diff-changed-color;
 
       &:hover {
-        background-color: darken($sdfv-diff-changed, 5%);
+        background-color: darken($sdfv-diff-changed-color, 5%);
       }
     }
 
@@ -351,34 +351,13 @@ body.sdfv {
   }
 
   .sdfg_canvas {
-    --node-background-color: #ffffff;
-    --node-foreground-color: #000000;
-    --node-missing-foreground-color: #ffffff;
-    --node-missing-background-color: #ff1010;
-    --state-background-color: #deebf7;
-    --state-foreground-color: #000000;
-    --continue-block-background-color: #94ffa2;
-    --break-block-background-color: #ffc79a;
-    --return-block-background-color: #ff7d7d;
-    --loop-background-color: #ffffff;
-    --loop-background-simple-color: #eeeeee;
-    --loop-foreground-color: #000000;
     --loop-border-color: #3d3d3d;
-    --conditional-background-color: #ffffff;
-    --conditional-background-simple-color: #bec080;
-    --conditional-foreground-color: #000000;
     --conditional-border-color: #3d3d3d;
-    --control-flow-region-background-color: #ffffff;
-    --control-flow-region-background-simple-color: #eeeeee;
-    --control-flow-region-foreground-color: #000000;
     --control-flow-region-border-color: #3d3d3d;
-    --interstate-edge-color: #86add9;
     --connector-scoped-color: #c1dfe690;
     --connector-unscoped-color: #f0fdff;
     --cf-connector-certain-color: #00882b;
     --cf-connector-uncertain-color: #afddbe;
-    --nested-sdfg-background-color: #ffffff;
-    --nested-sdfg-foreground-color: #000000;
     --reference-background-color: #ffdede;
     --color-default: #000000;
     --color-hovered: #008000;
@@ -410,10 +389,6 @@ body.sdfv {
     --local-view-edge-overlay-width: 10;
     --local-view-edge-overlay-arrowhead-length: 30;
     --local-view-edge-overlay-fontsize: 20;
-
-    --color-diff-added: #{$sdfv-diff-added};
-    --color-diff-removed: #{$sdfv-diff-removed};
-    --color-diff-changed: #{$sdfv-diff-changed};
   }
 
   #access-pattern-button-box .button {

@@ -11,6 +11,7 @@ import {
 } from '../../renderer/renderer_elements';
 import {
     JsonSDFGBlock,
+    JsonSDFGConditionalBlock,
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGNode,
@@ -350,4 +351,33 @@ export function deleteCFGBlocks(
         cfg.start_block = 0;
     else
         cfg.start_block = parseInt(mapping[cfg.start_block]);
+}
+
+export function setCollapseStateRecursive(
+    cfg: JsonSDFGBlock, collapseState: boolean
+): void {
+    if (Object.hasOwn(cfg, 'branches')) {
+        for (const branch of (cfg as JsonSDFGConditionalBlock).branches) {
+            branch[1].attributes.is_collapsed = collapseState;
+            setCollapseStateRecursive(branch[1], collapseState);
+        }
+    } else if (cfg.type === 'SDFGState') {
+        for (const node of (cfg as JsonSDFGState).nodes) {
+            if (node.type === 'NestedSDFG') {
+                node.attributes.is_collapsed = collapseState;
+                if (node.attributes.sdfg) {
+                    setCollapseStateRecursive(
+                        node.attributes.sdfg, collapseState
+                    );
+                }
+            } else if (node.type.endsWith('Entry')) {
+                node.attributes.is_collapsed = collapseState;
+            }
+        }
+    } else if (Object.hasOwn(cfg, 'nodes')) {
+        for (const node of (cfg as JsonSDFGControlFlowRegion).nodes) {
+            node.attributes.is_collapsed = collapseState;
+            setCollapseStateRecursive(node, collapseState);
+        }
+    }
 }

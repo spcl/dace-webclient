@@ -1,0 +1,14 @@
+{
+    "defaultTextColor": "#000000",
+    "nodeBackgroundColor": "#ffffff",
+    "stateBackgroundColor": "#deebf7",
+    "breakBlockColor": "#ffc79a",
+    "continueBlockColor": "#94ffa2",
+    "returnBlockColor": "#ff7d7d",
+    "conditionalColor": "#bec080",
+    "controlFlowRegionColor": "#ffffff",
+    "loopColor": "#fafafa",
+    "interstateEdgeColor": "#86add9",
+    "errorNodeBackgroundColor": "#ff1010",
+    "errorNodeForegroundColor": "#ffffff"
+}
