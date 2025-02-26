@@ -4,11 +4,17 @@ import $ from 'jquery';
 
 import 'bootstrap';
 
-import * as d3 from 'd3';
-
-import { BarController, BarElement, CategoryScale, Chart, Colors, Legend, LinearScale, Tooltip } from 'chart.js';
+import {
+    BarController,
+    BarElement,
+    CategoryScale,
+    Chart,
+    Colors,
+    Legend,
+    LinearScale,
+    Tooltip,
+} from 'chart.js';
 import '../../scss/access_statistics.scss';
-import { sdfg_range_elem_to_string } from '../utils/sdfg/display';
 import { read_or_decompress } from '../utils/sdfg/json_serializer';
 
 interface Subset {
@@ -19,194 +25,6 @@ interface Subset {
         step: string;
         tile: string;
     }[];
-}
-
-interface Access {
-    anode?: string;
-    block?: string;
-    edge?: string;
-    mode: 'write' | 'read';
-    subset: Subset;
-}
-
-interface DataAccessCategory {
-    n_accesses: number;
-    name: string;
-    accesses: Access[];
-}
-
-interface DataRecord {
-    total_accesses: number;
-    categories: DataAccessCategory[];
-}
-
-type SDFGAccessStats = Record<string, DataRecord>;
-type AccessStats = Record<number, Record<string, DataRecord>>;
-
-function subsetToString(subset: Subset) {
-    const ranges = subset.ranges;
-    let preview = '[';
-    for (const range of ranges)
-        preview += sdfg_range_elem_to_string(range, {}) + ', ';
-    return preview.slice(0, -2) + ']';
-}
-
-function createD3CompatData(stats: SDFGAccessStats): any {
-    const allContainers = [];
-    for (const dname of Object.keys(stats)) {
-        const children = [];
-        for (const category of stats[dname].categories) {
-            const accesses = [];
-            for (const access of category.accesses) {
-                accesses.push({
-                    name: subsetToString(access.subset),
-                    value: 1,
-                });
-            }
-            children.push({
-                name: category.name,
-                children: accesses,
-            });
-        }
-        const entry = {
-            name: dname,
-            children: children,
-        };
-        allContainers.push(entry);
-    }
-    const data = {
-        name: 'sdfg',
-        children: allContainers,
-    }
-    return data;
-}
-
-function createD3Hierarchy(data: any): d3.HierarchyNode<any> {
-    return d3.hierarchy(data);
-}
-
-function drawSDFGChart(stats: SDFGAccessStats): void {
-    const data = createD3CompatData(stats);
-
-    const width = 1000;
-    const height = 100000;
-    const format = d3.format(',d');
-
-    const color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length))
-    const partition = d3.partition().size([height, width]).padding(1);
-
-    // ROOT
-    const hierarchy = d3.hierarchy(data as any);
-    const root = partition(hierarchy.sum(d => d.value).sort((a, b) => {
-        return b.height - a.height || b.value! - a.value!;
-    }));
-
-    const svg = d3.create('svg')
-        .attr('width', width)
-        .attr('height', height)
-        .attr('viewBox', [0, 0, width, height])
-        .attr('style', 'max-width: 100%; height: auto; font: 10px sans-serif;');
-
-    const cell = svg.selectAll().data(root.descendants()).join('g').attr('transform', d => `translate(${d.y0},${d.x0})`)
-
-    cell.append('title').text(d => `${d.ancestors().map(d => (d.data as any).name).reverse().join('/')}\n${d.value === undefined ? '' : format(d.value)}`);
-
-    cell.append('rect')
-        .attr('width', d => d.y1 - d.y0)
-        .attr('height', d => d.x1 - d.x0)
-        .attr('fill-opacity', 0.6)
-        .attr('fill', d => {
-            if (!d.depth) return '#ccc';
-            while (d.depth > 1) d = d.parent as any;
-            return color((d.data as any).name)
-        });
-
-        const text = cell.filter(d => (d.x1 - d.x0) > 16).append('text')
-            .attr('x', 4)
-            .attr('y', 13);
-
-        text.append('tspan').text(d => (d.data as any).name);
-        text.append('tspan').attr('fill-opacity', 0.7).text(d => d.value === undefined ? '' : ` ${format(d.value)}`);
-
-    const graphElement = svg.node();
-    if (graphElement)
-        $('#statistics-contents').append(graphElement);
-}
-
-function drawSDFGSunburst(stats: SDFGAccessStats): void {
-    const data = createD3CompatData(stats);
-
-    // Specify the chart’s colors and approximate radius (it will be adjusted at the end).
-    const color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1));
-    const radius = 928 / 2;
-
-    // Prepare the layout.
-    const hierarchy = d3.hierarchy(data).sum(d => d.value).sort((a, b) => b.value! - a.value!);
-    const partition = d3.partition().size([2 * Math.PI, radius]);
-
-    const arc = d3.arc()
-        .startAngle((d: any) => d.x0)
-        .endAngle((d: any) => d.x1)
-        .padAngle((d: any) => Math.min((d.x1 - d.x0) / 2, 0.005))
-        .padRadius(radius / 2)
-        .innerRadius((d: any) => d.y0)
-        .outerRadius((d: any) => d.y1 - 1);
-
-    const root = partition(hierarchy);
-
-    // Create the SVG container.
-    const svg = d3.create('svg');
-
-    // Add an arc for each element, with a title for tooltips.
-    const format = d3.format(',d');
-    svg.append('g')
-        .attr('fill-opacity', 0.6)
-        .selectAll('path')
-        .data(root.descendants().filter(d => d.depth))
-        .join('path')
-        .attr('fill', (d: any) => {
-            while (d.depth > 1)
-                d = d.parent;
-            return color(d.data.name);
-        })
-        .attr('d', arc as any)
-        .append('title')
-        .text(d => `${d.ancestors().map((d: any) => d.data.name).reverse().join("/")}\n${format(d.value!)}`);
-
-    // Add a label for each element.
-    svg.append('g')
-        .attr('pointer-events', 'none')
-        .attr('text-anchor', 'middle')
-        .attr('font-size', 10)
-        .attr('font-family', 'sans-serif')
-        .selectAll('text')
-        .data(root.descendants().filter(d => d.depth && (d.y0 + d.y1) / 2 * (d.x1 - d.x0) > 10))
-        .join('text')
-        .attr('transform', function(d) {
-            const x = (d.x0 + d.x1) / 2 * 180 / Math.PI;
-            const y = (d.y0 + d.y1) / 2;
-            return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
-        })
-        .attr('dy', '0.35em')
-        .text((d: any) => d.data.name);
-
-    // The autoBox function adjusts the SVG’s viewBox to the dimensions of its contents.
-    //graphElement = svg.attr("viewBox", autoBox).node();
-    const graphElement = svg.node();
-    const autoBox = () => {
-        document.body.appendChild(graphElement!);
-        const {x, y, width, height} = graphElement!.getBBox();
-        document.body.removeChild(graphElement!);
-        return [x, y, width, height];
-    }
-    svg.attr('viewBox', autoBox);
-    if (graphElement)
-        $('#statistics-contents').append(graphElement);
-}
-
-function drawChart(allStats: AccessStats): void {
-    const stats = allStats[0];
-    drawSDFGChart(stats);
 }
 
 interface _AccessRecord {
@@ -494,8 +312,6 @@ function loadAccessStats(changeEvent: any): void {
         if (result) {
             const packedResult = read_or_decompress(result);
             const parsedObj = JSON.parse(packedResult[0]);
-            //manuallyDrawChart(parsedObj);
-            //drawChart(parsedObj);
             buildTreeView(parsedObj);
         }
     };
