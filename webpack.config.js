@@ -6,6 +6,7 @@ const mainConfig = {
     name: 'main',
     entry: {
         sdfv: './src/sdfv.ts',
+        access_stats: './src/access_statistics/access_statistics.ts',
     },
     module: {
         rules: [
