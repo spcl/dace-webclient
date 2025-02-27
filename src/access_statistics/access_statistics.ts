@@ -58,14 +58,65 @@ interface _SDFGAccessStats {
 }
 
 interface _AccessStatistics {
-    all_sdfg_stats: _SDFGAccessStats[];
+    all_cfg_stats: _SDFGAccessStats[];
 }
 
 type _AccessType = 'linear_accesses' | 'strided_accesses' |
     'indirect_accesses' | 'constant_accesses';
 
-const SDFG_SORTING_CRITERIUM: 'all_accesses' | _AccessType = 'all_accesses';
-const SDFG_SORTING_STYLE: 'ascending' | 'descending' = 'ascending';
+type SDFG_SORTING_CRITERIUM = 'all_accesses' | _AccessType;
+type SDFG_SORTING_STYLE = 'ascending' | 'descending';
+
+class AccessStatsView {
+
+    private statistics: _AccessStatistics | null = null;
+
+    public constructor() {
+        $(document).on(
+            'change.sdfv', '#sdfg-access-stats-file-input',
+            this.loadAccessStats.bind(this)
+        );
+        $(document).on(
+            'change.sdfv', '#sdfg-access-stats-sorting-crit',
+            this.reDrawStats.bind(this)
+        );
+        $(document).on(
+            'change.sdfv', '#sdfg-access-stats-sorting-style',
+            this.reDrawStats.bind(this)
+        );
+    }
+
+    public reDrawStats(): void {
+        if (this.statistics)
+            buildTreeView(this.statistics);
+        else
+            console.error('No statistics loaded');
+    }
+
+    public loadAccessStats(changeEvent: any): void {
+        if (changeEvent.target.files.length < 1)
+            return;
+        const accessStatsFile = changeEvent.target.files[0];
+        if (!accessStatsFile)
+            return;
+
+        const fileReader = new FileReader();
+        fileReader.onload = (e) => {
+            const result = e.target?.result;
+
+            if (result) {
+                const packedResult = read_or_decompress(result);
+                this.statistics = JSON.parse(packedResult[0]);
+                if (this.statistics)
+                    buildTreeView(this.statistics);
+                else
+                    console.error('Failed to load statistics');
+            }
+        };
+        fileReader.readAsArrayBuffer(accessStatsFile);
+    }
+
+}
 
 function buildDataContainerHist(
     data: _DataContainerAccessStats, root: JQuery<HTMLElement>,
@@ -190,7 +241,7 @@ function constructAccordion<T>(
 
 function buildSDFGTreeView(
     data: _SDFGAccessStats, root: JQuery<HTMLElement>,
-    _collapse: JQuery<HTMLElement>, _expanded: boolean
+    collapse: JQuery<HTMLElement>, expanded: boolean
 ): void {
     const countAllContainerAccessesOfType = (
         record: _DataContainerAccessStats, type: _AccessType
@@ -201,19 +252,86 @@ function buildSDFGTreeView(
         return nAccesses;
     };
 
-    switch (SDFG_SORTING_CRITERIUM) {
+    const aggregatedConstantAccesses: _AccessTypeSubCategory[] = [];
+    const aggregatedIndirectAccesses: _AccessTypeSubCategory[] = [];
+    const aggregatedLinearAccesses: _AccessTypeSubCategory[] = [];
+    const aggregatedStridedAccesses: _AccessTypeSubCategory[] = [];
+    const constAccDict = new Map<string, _AccessTypeSubCategory>();
+    const indirAccDict = new Map<string, _AccessTypeSubCategory>();
+    const linAccDict = new Map<string, _AccessTypeSubCategory>();
+    const stridedAccDict = new Map<string, _AccessTypeSubCategory>();
+    for (const contEntry of data.accesses) {
+        for (const acc of contEntry.constant_accesses) {
+            const existing = constAccDict.get(acc.name);
+            if (existing !== undefined) {
+                existing.n_accesses += acc.n_accesses;
+                existing.accesses = existing.accesses.concat(acc.accesses);
+            } else {
+                constAccDict.set(acc.name, acc);
+            }
+        }
+        for (const acc of contEntry.indirect_accesses) {
+            const existing = indirAccDict.get(acc.name);
+            if (existing !== undefined) {
+                existing.n_accesses += acc.n_accesses;
+                existing.accesses = existing.accesses.concat(acc.accesses);
+            } else {
+                indirAccDict.set(acc.name, acc);
+            }
+        }
+        for (const acc of contEntry.linear_accesses) {
+            const existing = linAccDict.get(acc.name);
+            if (existing !== undefined) {
+                existing.n_accesses += acc.n_accesses;
+                existing.accesses = existing.accesses.concat(acc.accesses);
+            } else {
+                linAccDict.set(acc.name, acc);
+            }
+        }
+        for (const acc of contEntry.strided_accesses) {
+            const existing = stridedAccDict.get(acc.name);
+            if (existing !== undefined) {
+                existing.n_accesses += acc.n_accesses;
+                existing.accesses = existing.accesses.concat(acc.accesses);
+            } else {
+                stridedAccDict.set(acc.name, acc);
+            }
+        }
+    }
+    for (const k of constAccDict.keys())
+        aggregatedConstantAccesses.push(constAccDict.get(k)!);
+    for (const k of indirAccDict.keys())
+        aggregatedIndirectAccesses.push(indirAccDict.get(k)!);
+    for (const k of linAccDict.keys())
+        aggregatedLinearAccesses.push(linAccDict.get(k)!);
+    for (const k of stridedAccDict.keys())
+        aggregatedStridedAccesses.push(stridedAccDict.get(k)!);
+
+    const summaryAccessStat: _DataContainerAccessStats = {
+        container: '',
+        n_total_accesses: data.n_total_accesses,
+        constant_accesses: aggregatedConstantAccesses,
+        indirect_accesses: aggregatedIndirectAccesses,
+        linear_accesses: aggregatedLinearAccesses,
+        strided_accesses: aggregatedStridedAccesses,
+    };
+    buildDataContainerHist(summaryAccessStat, root, collapse, expanded);
+
+    const sortingCrit = $(
+        '#sdfg-access-stats-sorting-crit'
+    ).val() as SDFG_SORTING_CRITERIUM;
+    const sortingStyle = $(
+        '#sdfg-access-stats-sorting-style'
+    ).val() as SDFG_SORTING_STYLE;
+    switch (sortingCrit) {
         case 'linear_accesses':
         case 'strided_accesses':
         case 'indirect_accesses':
         case 'constant_accesses':
             data.accesses.sort((a, b) => {
-                let nA = countAllContainerAccessesOfType(
-                    a, SDFG_SORTING_CRITERIUM
-                );
-                let nB = countAllContainerAccessesOfType(
-                    b, SDFG_SORTING_CRITERIUM
-                );
-                if (SDFG_SORTING_STYLE == 'ascending')
+                let nA = countAllContainerAccessesOfType(a, sortingCrit);
+                let nB = countAllContainerAccessesOfType(b, sortingCrit);
+                if (sortingStyle == 'descending')
                     return nB - nA;
                 else
                     return nA - nB;
@@ -222,7 +340,7 @@ function buildSDFGTreeView(
         case 'all_accesses':
         default:
             data.accesses.sort((a, b) => {
-                if (SDFG_SORTING_STYLE == 'ascending')
+                if (sortingStyle == 'descending')
                     return b.n_total_accesses - a.n_total_accesses;
                 else
                     return a.n_total_accesses - b.n_total_accesses;
@@ -248,7 +366,7 @@ function buildSDFGTreeView(
 
 function buildTreeView(data: _AccessStatistics): void {
     const container = $('#statistics-contents');
-    container.html();
+    container.html('');
 
     const countAllSDFGAccessesOfType = (
         record: _SDFGAccessStats, type: _AccessType
@@ -263,15 +381,21 @@ function buildTreeView(data: _AccessStatistics): void {
         return nAccesses;
     };
 
-    switch (SDFG_SORTING_CRITERIUM) {
+    const sortingCrit = $(
+        '#sdfg-access-stats-sorting-crit'
+    ).val() as SDFG_SORTING_CRITERIUM;
+    const sortingStyle = $(
+        '#sdfg-access-stats-sorting-style'
+    ).val() as SDFG_SORTING_STYLE;
+    switch (sortingCrit) {
         case 'linear_accesses':
         case 'strided_accesses':
         case 'indirect_accesses':
         case 'constant_accesses':
-            data.all_sdfg_stats.sort((a, b) => {
-                let nA = countAllSDFGAccessesOfType(a, SDFG_SORTING_CRITERIUM);
-                let nB = countAllSDFGAccessesOfType(b, SDFG_SORTING_CRITERIUM);
-                if (SDFG_SORTING_STYLE == 'ascending')
+            data.all_cfg_stats.sort((a, b) => {
+                let nA = countAllSDFGAccessesOfType(a, sortingCrit);
+                let nB = countAllSDFGAccessesOfType(b, sortingCrit);
+                if (sortingStyle == 'descending')
                     return nB - nA;
                 else
                     return nA - nB;
@@ -279,8 +403,8 @@ function buildTreeView(data: _AccessStatistics): void {
             break;
         case 'all_accesses':
         default:
-            data.all_sdfg_stats.sort((a, b) => {
-                if (SDFG_SORTING_STYLE == 'ascending')
+            data.all_cfg_stats.sort((a, b) => {
+                if (sortingStyle == 'descending')
                     return b.n_total_accesses - a.n_total_accesses;
                 else
                     return a.n_total_accesses - b.n_total_accesses;
@@ -289,7 +413,7 @@ function buildTreeView(data: _AccessStatistics): void {
     }
 
     constructAccordion(
-        container, data.all_sdfg_stats,
+        container, data.all_cfg_stats,
         (record) => 'sdfg-stats-entry-id-' + record.id.toString(),
         (record) => (
             'SDFG ' + record.id.toString() + ': ' + record.name +
@@ -298,33 +422,11 @@ function buildTreeView(data: _AccessStatistics): void {
     );
 }
 
-function loadAccessStats(changeEvent: any): void {
-    if (changeEvent.target.files.length < 1)
-        return;
-    const accessStatsFile = changeEvent.target.files[0];
-    if (!accessStatsFile)
-        return;
-
-    const fileReader = new FileReader();
-    fileReader.onload = (e) => {
-        const result = e.target?.result;
-
-        if (result) {
-            const packedResult = read_or_decompress(result);
-            const parsedObj = JSON.parse(packedResult[0]);
-            buildTreeView(parsedObj);
-        }
-    };
-    fileReader.readAsArrayBuffer(accessStatsFile);
-}
-
 $(() => {
     Chart.register(
         BarController, BarElement, CategoryScale, Tooltip, Legend,
         LinearScale, Colors
     );
 
-    $(document).on(
-        'change.sdfv', '#sdfg-access-stats-file-input', loadAccessStats
-    );
+    const statsView = new AccessStatsView();
 });

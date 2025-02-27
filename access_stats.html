@@ -18,6 +18,49 @@
                 <input type="file" id="sdfg-access-stats-file-input"
                     accept=".json" class="form-control form-control-sm">
             </div>
+            <div class="col-auto">
+                <div class="input-group input-group-sm">
+                    <label for="sdfg-access-stats-sorting-crit"
+                           class="input-group-text">
+                        Sort by
+                    </label>
+                    <select id="sdfg-access-stats-sorting-crit"
+                            class="form-select">
+                        <option value="all_accesses" selected="selected">
+                            Total Accesses
+                        </option>
+                        <option value="constant_accesses">
+                            Constant Accesses
+                        </option>
+                        <option value="indirect_accesses">
+                            Indirect Accesses
+                        </option>
+                        <option value="linear_accesses">
+                            Linear Accesses
+                        </option>
+                        <option value="strided_accesses">
+                            Strided Accesses
+                        </option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-auto">
+                <div class="input-group input-group-sm">
+                    <label for="sdfg-access-stats-sorting-style"
+                           class="input-group-text">
+                        Sorting order
+                    </label>
+                    <select id="sdfg-access-stats-sorting-style"
+                            class="form-select">
+                        <option value="descending" selected="selected">
+                            Descending
+                        </option>
+                        <option value="ascending">
+                            Ascending
+                        </option>
+                    </select>
+                </div>
+            </div>
         </div>
     </div>
     <div class="container-fluid access-statistics" id="statistics-contents">
