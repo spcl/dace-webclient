@@ -1,10 +1,18 @@
-import { Point2D } from '../types';
+import { DataSubset, Point2D } from '../types';
+import { bytesToString, sdfg_range_elem_to_string } from '../utils/sdfg/display';
+import { SDFVSettings } from '../utils/sdfv_settings';
+import { KELLY_COLORS } from '../utils/utils';
 import {
     AllocationEvent,
+    DataAccessEvent,
     DeallocationEvent,
     MemoryEvent,
+    MemoryTimelineScope,
     TimelineView,
 } from './access_timeline';
+
+
+export type TimelineViewElementClasses = 'container' | 'access' | 'axes';
 
 export class TimelineViewElement {
 
@@ -23,14 +31,14 @@ export class TimelineViewElement {
 
     public draw(
         _renderer: TimelineView, _ctx: CanvasRenderingContext2D,
-        _mousepos?: Point2D
+        _mousepos?: Point2D, _realMousepos?: Point2D
     ): void {
         return;
     }
 
     public simpleDraw(
         _renderer: TimelineView, _ctx: CanvasRenderingContext2D,
-        _mousepos?: Point2D
+        _mousepos?: Point2D, _realMousepos?: Point2D
     ): void {
         return;
     }
@@ -75,15 +83,11 @@ export class TimelineViewElement {
         x: number, y: number, w: number = 0, h: number = 0
     ): boolean {
         if (w === 0 || h === 0) {  // Point-element intersection
-            return (x >= this.x - this.width / 2.0) &&
-                (x <= this.x + this.width / 2.0) &&
-                (y >= this.y - this.height / 2.0) &&
-                (y <= this.y + this.height / 2.0);
+            return (x >= this.x) && (x <= this.x + this.width) &&
+                (y >= this.y) && (y <= this.y + this.height);
         } else {                 // Box-element intersection
-            return (x <= this.x + this.width / 2.0) &&
-                (x + w >= this.x - this.width / 2.0) &&
-                (y <= this.y + this.height / 2.0) &&
-                (y + h >= this.y - this.height / 2.0);
+            return (x <= this.x) && (x + w >= this.x - this.width) &&
+                (y <= this.y) && (y + h >= this.y - this.height);
         }
     }
 
@@ -111,17 +115,30 @@ export class TimelineViewElement {
 
 }
 
-export class TimelineGraph extends TimelineViewElement {
+export class TimelineChart extends TimelineViewElement {
 
     public readonly xAxis: ChartAxis;
     public readonly yAxis: ChartAxis;
 
-    private readonly nEvents: number;
-    private readonly maxFootprint: number;
+    public readonly nEvents: number;
+    public readonly maxFootprint: number;
 
-    private readonly elements: TimelineViewElement[];
+    public readonly containers: AllocatedContainer[];
+    public readonly readAccesses: ContainerAccess[];
+    public readonly writeAccesses: ContainerAccess[];
+    public readonly scopes: ScopeElement[];
 
-    public constructor(timeline: MemoryEvent[]) {
+    public readonly scaleX: number;
+    public readonly scaleY: number;
+
+    public readonly deferredDrawCalls: Set<(
+        renderer: TimelineView, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D
+    ) => void> = new Set();
+
+    public constructor(
+        timeline: MemoryEvent[], rootScope: MemoryTimelineScope
+    ) {
         super();
 
         this.nEvents = 0;
@@ -151,62 +168,167 @@ export class TimelineGraph extends TimelineViewElement {
         const targetWidth = 10000;
         if (targetHeight > maxHeight)
             targetHeight = maxHeight;
-        const scaleY = targetHeight / this.maxFootprint;
-        const scaleX = targetWidth / this.nEvents;
-        const blockLabelScale = Math.min(scaleY, scaleX);
+        this.scaleY = targetHeight / this.maxFootprint;
+        this.scaleX = targetWidth / this.nEvents;
+        const blockLabelScale = Math.min(this.scaleY, this.scaleX);
 
-        this.xAxis = new ChartAxis('horizontal', 0, this.nEvents, scaleX);
-        this.yAxis = new ChartAxis('vertical', 0, this.maxFootprint, scaleY);
+        this.xAxis = new ChartAxis('horizontal', 0, this.nEvents, this.scaleX);
+        this.yAxis = new ChartAxis(
+            'vertical', 0, this.maxFootprint, this.scaleY
+        );
 
-        this.height = this.yAxis.height;
-        this.width = this.xAxis.width;
-        this.x = 0;
-        this.y = 0 - this.height;
-
-        this.elements = [];
+        this.containers = [];
+        this.readAccesses = [];
+        this.writeAccesses = [];
 
         let time = 0;
         let stackTop = 0;
         const elemMap = new Map<string, AllocatedContainer>();
+        let colorIdx = 0;
+        const maxColorIdx = KELLY_COLORS.length;
         for (const event of timeline) {
             if (event.type === 'AllocationEvent') {
                 for (const data of (event as AllocationEvent).data) {
-                    const allocatedElem = new AllocatedContainer(
-                        data[0], blockLabelScale
+                    let cleanName = data[0];
+                    cleanName = cleanName.replace(/^\d+_/g, '');
+                    const label = (
+                        cleanName + ' (' + bytesToString(data[1]) + ')'
                     );
-                    this.elements.push(allocatedElem);
-                    allocatedElem.height = data[1] * scaleY;
+                    const allocatedElem = new AllocatedContainer(
+                        label, blockLabelScale,
+                        '#' + KELLY_COLORS[colorIdx].toString(16),
+                        this, (event as AllocationEvent).conditional
+                    );
+                    this.containers.push(allocatedElem);
+                    allocatedElem.height = data[1] * this.scaleY;
                     stackTop -= allocatedElem.height;
-                    allocatedElem.x = time * scaleX;
+                    allocatedElem.x = time * this.scaleX;
                     allocatedElem.y = stackTop;
                     elemMap.set(data[0], allocatedElem);
+
+                    colorIdx++;
+                    if (colorIdx >= maxColorIdx)
+                        colorIdx = 0;
                 }
             } else if (event.type === 'DeallocationEvent') {
                 for (const data of (event as DeallocationEvent).data) {
                     const allocatedElem = elemMap.get(data)!;
-                    allocatedElem.width = (time * scaleX) - allocatedElem.x;
+                    allocatedElem.width = (
+                        time * this.scaleX
+                    ) - allocatedElem.x;
                     stackTop += allocatedElem.height;
                     elemMap.delete(data);
                 }
             } else {
+                const accessEvent = event as DataAccessEvent;
+                const allocatedElem = elemMap.get(accessEvent.alloc_name)!;
+                const accessElem = new ContainerAccess(
+                    accessEvent.mode, accessEvent.subset, time, this.scaleX,
+                    allocatedElem, accessEvent.conditional
+                );
+                if (accessEvent.mode === 'read')
+                    this.readAccesses.push(accessElem);
+                else
+                    this.writeAccesses.push(accessElem);
                 time++;
             }
         }
         for (const leftOverContainers of elemMap.keys()) {
             const allocElem = elemMap.get(leftOverContainers)!;
-            allocElem.width = (time * scaleX) - allocElem.x;
+            allocElem.width = (time * this.scaleX) - allocElem.x;
         }
+
+        this.scopes = this.collectScopes(rootScope, 0);
+
+        this.height = this.yAxis.height;
+        this.width = this.xAxis.width;
+        this.x = 0;
+        this.y = 0 - this.height;
+        let maxY = 0;
+        for (const scope of this.scopes) {
+            let scopeMaxY = scope.y + scope.height;
+            if (scopeMaxY > maxY)
+                maxY = scopeMaxY;
+        }
+        this.height = maxY - this.y;
+    }
+
+    private collectScopes(
+        scope: MemoryTimelineScope, depth: number
+    ): ScopeElement[] {
+        const elements = [new ScopeElement(
+            scope.label, depth, scope.start_time, scope.end_time, this
+        )];
+        for (const child of scope.children) {
+            for (const nElem of this.collectScopes(child, depth + 1))
+                elements.push(nElem);
+        }
+        return elements;
     }
 
     public draw(
         renderer: TimelineView, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
+        mousepos?: Point2D, realMousepos?: Point2D
     ): void {
+        for (const elem of this.containers)
+            elem.draw(renderer, ctx, mousepos, realMousepos);
+
+        // Batch access drawing.
+        const deferredEdges = [];
+        ctx.beginPath();
+        ctx.setLineDash([1, 1]);
+        for (const access of this.readAccesses) {
+            if (access.hovered) {
+                deferredEdges.push(access);
+                continue;
+            }
+            ctx.moveTo(access.x, access.y);
+            ctx.lineTo(access.x, access.y + access.height)
+        }
+        ctx.strokeStyle = 'blue';
+        ctx.fillStyle = 'blue';
+        ctx.stroke();
+
+        ctx.beginPath();
+        if ((ctx as any).pdf)
+            ctx.setLineDash([1, 0]);
+        else
+            ctx.setLineDash([]);
+        for (const access of this.writeAccesses) {
+            if (access.hovered) {
+                deferredEdges.push(access);
+                continue;
+            }
+            ctx.moveTo(access.x, access.y);
+            ctx.lineTo(access.x, access.y + access.height);
+        }
+        ctx.strokeStyle = 'black';
+        ctx.fillStyle = 'black';
+        ctx.stroke();
+
+        for (const deferred of deferredEdges)
+            deferred.draw(renderer, ctx, mousepos, realMousepos);
+
+        this.drawDeferred(renderer, ctx, mousepos);
+
         this.xAxis.draw(renderer, ctx, mousepos);
         this.yAxis.draw(renderer, ctx, mousepos);
 
-        for (const elem of this.elements)
-            elem.draw(renderer, ctx, mousepos);
+        for (const scope of this.scopes)
+            scope.draw(renderer, ctx, mousepos, realMousepos);
+    }
+
+    public drawDeferred(
+        renderer: TimelineView, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D
+    ): void {
+        for (const deferredCall of this.deferredDrawCalls)
+            deferredCall(renderer, ctx, mousepos);
+        this.deferredDrawCalls.clear();
+    }
+
+    public get axes(): ChartAxis[] {
+        return [this.xAxis, this.yAxis];
     }
 
 }
@@ -260,12 +382,18 @@ export class ChartAxis extends TimelineViewElement {
 
     public draw(
         renderer: TimelineView, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
+        mousepos?: Point2D, realMousepos?: Point2D
     ): void {
+        ctx.beginPath();
+        if ((ctx as any).pdf)
+            ctx.setLineDash([1, 0]);
+        else
+            ctx.setLineDash([]);
         ctx.moveTo(this.x, this.y);
-        ctx.fillStyle = 'black';
         if (this.direction === 'vertical') {
             ctx.lineTo(this.x, -this.height);
+            ctx.strokeStyle = 'black';
+            ctx.fillStyle = 'black';
             ctx.stroke();
             this.drawArrow(
                 ctx, { x: this.x, y: this.y }, { x: this.x, y: -this.height },
@@ -273,6 +401,8 @@ export class ChartAxis extends TimelineViewElement {
             );
         } else {
             ctx.lineTo(this.width, this.y);
+            ctx.strokeStyle = 'black';
+            ctx.fillStyle = 'black';
             ctx.stroke();
             this.drawArrow(
                 ctx, { x: this.x, y: this.y }, { x: this.width, y: this.y }, 3
@@ -282,34 +412,216 @@ export class ChartAxis extends TimelineViewElement {
 
     public simpleDraw(
         renderer: TimelineView, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
+        mousepos?: Point2D, realMousepos?: Point2D
     ): void {
         this.draw(renderer, ctx, mousepos);
     }
 
 }
 
-export class AllocatedContainer extends TimelineViewElement {
+export class ContainerAccess extends TimelineViewElement {
 
     public constructor(
-        public readonly label: string,
-        private readonly labelScale: number
+        private readonly mode: 'read' | 'write',
+        private readonly subset: DataSubset,
+        private readonly timestep: number,
+        private readonly scaleX: number,
+        private readonly container: AllocatedContainer,
+        private readonly conditional: boolean,
     ) {
         super();
+
+        this.x = timestep * scaleX;
+        this.width = 1 * scaleX;
+        this.y = container.y;
+        this.height = container.height;
+
+        this.container.registerAccess(this);
+    }
+
+    public intersect(
+        x: number, y: number, w: number = 0, h: number = 0
+    ): boolean {
+        // First, check bounding box
+        if (!super.intersect(x, y, w, h))
+            return false;
+
+        // Then (if point), check distance from line
+        if (w === 0 || h === 0) {
+            const dist = ptLineDistance(
+                { x: x, y: y }, { x: this.x, y: this.y },
+                { x: this.x, y: this.y + this.height }
+            );
+            if (dist <= 2 * this.scaleX)
+                return true;
+            return false;
+        } else {
+            // It is a rectangle. Check if any of the rectangles, spanned by
+            // pairs of points of the line, intersect the input rectangle.
+            // This is needed for long Interstate edges that have a huge
+            // bounding box and intersect almost always with the viewport even
+            // if they are not visible. This is only an approximation to detect
+            // if a line is in the viewport and could be made more accurate at
+            // the cost of more computation.
+            const origin = { x: this.x, y: this.y };
+            const destination = { x: this.x, y: this.y + this.height };
+            // Rectangle spanned by the two line points
+            const r = {
+                x: Math.min(origin.x, destination.x),
+                y: Math.min(origin.y, destination.y),
+                w: Math.abs(destination.x - origin.x),
+                h: Math.abs(destination.y - origin.y),
+            };
+
+            // Check if the two rectangles intersect
+            if (r.x + r.w >= x && r.x <= x + w &&
+                r.y + r.h >= y && r.y <= y + h)
+                return true;
+            return false;
+        }
     }
 
     public draw(
         renderer: TimelineView, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
+        mousepos?: Point2D, realMousepos?: Point2D
     ): void {
-        const oldFont = ctx.font;
-        const fontSize = 10 * this.labelScale;
-        ctx.font = fontSize + 'px sans-serif';
-        ctx.fillStyle = 'red';  
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.fillStyle = 'black';  
-        ctx.fillText(this.label, this.x + 5, this.y + 5);
-        ctx.font = oldFont;
+        if (this.mode == 'read') {
+            ctx.beginPath();
+            ctx.setLineDash([1, 1]);
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.x, this.y + this.height)
+            ctx.strokeStyle = this.hovered ? 'red' : 'blue';
+            ctx.fillStyle = 'blue';
+            ctx.stroke();
+        } else {
+            ctx.beginPath();
+            if ((ctx as any).pdf)
+                ctx.setLineDash([1, 0]);
+            else
+                ctx.setLineDash([]);
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.x, this.y + this.height);
+            ctx.strokeStyle = this.hovered ? 'red' : 'black';
+            ctx.fillStyle = 'black';
+            ctx.stroke();
+        }
+
+        if (this.hovered === true) {
+            if (realMousepos) {
+                const settings = {
+                    inclusive_ranges: SDFVSettings.get<boolean>(
+                        'inclusiveRanges'
+                    ),
+                }
+                let label = '[';
+                for (const range of this.subset.ranges)
+                    label += sdfg_range_elem_to_string(range, settings) + ', ';
+                renderer.showTooltip(
+                    realMousepos.x, realMousepos.y, label.slice(0, -2) + ']'
+                );
+            }
+            /*
+            this.chart.deferredDrawCalls.add((dRenderer, dCtx, dMousepos) => {
+                dCtx.strokeStyle = 'black';
+                dCtx.strokeRect(this.x, this.y, this.width, this.height);
+            });
+            */
+        }
     }
 
+}
+
+export class AllocatedContainer extends TimelineViewElement {
+
+    public readonly accesses: ContainerAccess[] = [];
+
+    public constructor(
+        public readonly label: string,
+        private readonly labelScale: number,
+        private readonly color: string,
+        private readonly chart: TimelineChart,
+        private readonly conditional: boolean,
+    ) {
+        super();
+    }
+
+    public registerAccess(access: ContainerAccess): void {
+        this.accesses.push(access);
+    }
+
+    public draw(
+        renderer: TimelineView, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D, realMousepos?: Point2D
+    ): void {
+        ctx.fillStyle = this.color;  
+        if (this.conditional)
+            ctx.globalAlpha = 0.2;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.globalAlpha = 1.0;
+
+        if (this.hovered) {
+            if (realMousepos) {
+                renderer.showTooltip(
+                    realMousepos.x, realMousepos.y, this.label
+                );
+            }
+            this.chart.deferredDrawCalls.add((dRenderer, dCtx, dMousepos) => {
+                dCtx.strokeStyle = 'black';
+                dCtx.strokeRect(this.x, this.y, this.width, this.height);
+            });
+        }
+    }
+
+}
+
+export class ScopeElement extends TimelineViewElement {
+
+    public constructor(
+        public readonly label: string,
+        depth: number, start: number, end: number, chart: TimelineChart
+    ) {
+        super();
+
+        this.height = 50;
+        this.y = (depth + 1) * this.height;
+        this.x = start * chart.scaleX;
+        this.width = (end * chart.scaleX) - this.x;
+    }
+
+    public draw(
+        renderer: TimelineView, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D, realMousepos?: Point2D
+    ): void {
+        if (this.label.startsWith('Loop'))
+            ctx.fillStyle = 'red';
+        else if (this.label.startsWith('Conditional'))
+            ctx.fillStyle = 'blue';
+        else
+            ctx.fillStyle = 'gray';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+
+        ctx.strokeStyle = 'black';
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+        if (this.hovered) {
+            if (realMousepos) {
+                renderer.showTooltip(
+                    realMousepos.x, realMousepos.y, this.label
+                );
+            }
+        }
+    }
+
+}
+
+// Returns the distance from point p to line defined by two points
+// (line1, line2)
+function ptLineDistance(
+    p: Point2D, line1: Point2D, line2: Point2D
+): number {
+    const dx = (line2.x - line1.x);
+    const dy = (line2.y - line1.y);
+    const res = dy * p.x - dx * p.y + line2.x * line1.y - line2.y * line1.x;
+
+    return Math.abs(res) / Math.sqrt(dy * dy + dx * dx);
 }

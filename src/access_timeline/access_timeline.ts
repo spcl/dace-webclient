@@ -5,19 +5,26 @@ import $ from 'jquery';
 import 'bootstrap';
 
 import '../../scss/access_timeline.scss';
+import { DataSubset, Point2D, SimpleRect } from '../types';
 import { read_or_decompress } from '../utils/sdfg/json_serializer';
 import { CanvasManager } from './canvas_manager';
-import { TimelineGraph } from './renderer_elements';
-import { Point2D, SimpleRect } from '../types';
+import {
+    AllocatedContainer,
+    ContainerAccess,
+    TimelineChart,
+    TimelineViewElement,
+    TimelineViewElementClasses,
+} from './renderer_elements';
 
-interface Subset {
-    type: string;
-    ranges: {
-        start: string;
-        end: string;
-        step: string;
-        tile: string;
-    }[];
+declare const blobStream: any;
+declare const canvas2pdf: any;
+
+export interface MemoryTimelineScope {
+    label: string;
+    scope: string;
+    children: MemoryTimelineScope[];
+    start_time: number;
+    end_time: number;
 }
 
 export interface MemoryEvent {
@@ -33,7 +40,7 @@ export interface DataAccessEvent extends MemoryEvent {
     block?: string;
     anode?: string;
     edge?: string;
-    subset: Subset;
+    subset: DataSubset;
     mode: 'write' | 'read';
     conditional: boolean;
 }
@@ -57,10 +64,11 @@ export interface DeallocationEvent extends MemoryEvent {
 export class TimelineView {
 
     private timeline: MemoryEvent[] | null = null;
-    private graph?: TimelineGraph;
+    private scopes: MemoryTimelineScope[] | null = null;
+    private chart?: TimelineChart;
 
     private readonly canvas: HTMLCanvasElement;
-    private readonly ctx: CanvasRenderingContext2D;
+    private ctx: CanvasRenderingContext2D;
     private readonly canvasManager: CanvasManager;
     public readonly backgroundColor: string;
     public readonly debugDraw: boolean = false;
@@ -70,18 +78,37 @@ export class TimelineView {
     private mousepos?: Point2D;
     private realMousepos?: Point2D;
     private visibleRect?: SimpleRect;
+    private hoveredElement?: TimelineViewElement;
+
+    protected tooltipContainer?: JQuery<HTMLDivElement>;
+    protected tooltipText?: JQuery<HTMLSpanElement>;
+
+    private readonly container: JQuery<HTMLElement>;
+
+    // Determine whether rendering only happens in the viewport or also outside.
+    protected _viewportOnly: boolean = true;
+    // Determine whether content should adaptively be hidden when zooming out.
+    // Controlled by the SDFVSettings.
+    protected _adaptiveHiding: boolean = true;
 
     public constructor() {
         $(document).on(
             'change.sdfv', '#sdfg-access-timeline-file-input',
             this.loadAccessTimeline.bind(this)
         );
+        $('#save-access-timeline-as-pdf-btn').on(
+            'click', () => { this.saveAsPDF(true) }
+        );
+        $('#save-access-timeline-view-as-pdf-btn').on(
+            'click', () => { this.saveAsPDF(false) }
+        );
 
         this.canvas = document.createElement('canvas');
         this.canvas.id = 'timeline-canvas';
         this.canvas.classList.add('sdfg_canvas');
         this.canvas.style.backgroundColor = 'inherit';
-        $('#timeline-contents')[0].append(this.canvas);
+        this.container = $('#timeline-contents');
+        this.container[0].append(this.canvas);
 
         this.ctx = this.canvas.getContext('2d')!;
         this.canvasManager = new CanvasManager(this.ctx, this, this.canvas);
@@ -147,9 +174,11 @@ export class TimelineView {
 
             if (result) {
                 const packedResult = read_or_decompress(result);
-                this.timeline = JSON.parse(packedResult[0]);
-                if (this.timeline)
-                    this.constructGraph();
+                const data = JSON.parse(packedResult[0]);
+                this.timeline = data['events'];
+                this.scopes = data['scopes'];
+                if (this.timeline && this.scopes)
+                    this.constructChart();
                 else
                     console.error('Failed to load statistics');
             }
@@ -157,9 +186,9 @@ export class TimelineView {
         fileReader.readAsArrayBuffer(file);
     }
 
-    private constructGraph(): void {
-        if (this.timeline)
-            this.graph = new TimelineGraph(this.timeline);
+    private constructChart(): void {
+        if (this.timeline && this.scopes)
+            this.chart = new TimelineChart(this.timeline, this.scopes[0]);
         this.zoomToView();
         this.draw_async();
     }
@@ -189,7 +218,74 @@ export class TimelineView {
             h: curh,
         };
 
-        this.graph?.draw(this, this.ctx);
+        this.chart?.draw(this, this.ctx, this.mousepos, this.realMousepos);
+
+        if ((this.ctx as any).pdf)
+            (this.ctx as any).end();
+    }
+
+    public doForIntersectedElements(
+        x: number, y: number, w: number, h: number,
+        func: (el: TimelineViewElement, cat: TimelineViewElementClasses) => any
+    ): void {
+        if (!this.chart || !this.chart.intersect(x, y, w, h))
+            return;
+
+        for (const ax of this.chart.axes) {
+            if (ax.intersect(x, y, w, h))
+                func(ax, 'axes');
+        }
+
+        for (const cont of this.chart.containers) {
+            if (cont.intersect(x, y, w, h)) {
+                func(cont, 'container');
+                for (const access of cont.accesses) {
+                    if (access.intersect(x, y, w, h))
+                        func(access, 'access');
+                }
+            }
+        }
+
+        for (const scope of this.chart.scopes) {
+            if (scope.intersect(x, y, w, h))
+                func(scope, 'axes');
+        }
+    }
+
+    public elementsInRect(
+        x: number, y: number, w: number, h: number
+    ): Set<TimelineViewElement> {
+        const elements = new Set<TimelineViewElement>();
+        this.doForIntersectedElements(x, y, w, h, (elem, cat) => {
+            elements.add(elem);
+        });
+        return elements;
+    }
+
+    private findElementsUnderCursor(mouseX: number, mouseY: number): {
+        elements: Set<TimelineViewElement>,
+        foregroundElement?: TimelineViewElement,
+    } {
+        // Find all elements under the cursor.
+        const elements = this.elementsInRect(mouseX, mouseY, 0, 0);
+        let foregroundElement = undefined;
+        // The foreground element is always an access, if one exists. If not,
+        // it will be an allocation, and if no such item exists, it will be a
+        // meta element, such as chart axes.
+        for (const elem of elements) {
+            if (elem instanceof ContainerAccess)
+                foregroundElement = elem;
+        }
+        if (!foregroundElement) {
+            for (const elem of elements) {
+                if (elem instanceof AllocatedContainer)
+                    foregroundElement = elem;
+            }
+        }
+        if (!foregroundElement)
+            foregroundElement = elements.values().next().value;
+
+        return { elements, foregroundElement };
     }
 
     public onMouseEvent(
@@ -198,7 +294,7 @@ export class TimelineView {
         compYFunc: (event: any) => number,
         evtype: string = 'other'
     ): boolean {
-        if (!this.graph)
+        if (!this.chart)
             return false;
 
         let dirty = false;
@@ -325,6 +421,32 @@ export class TimelineView {
         if (!this.mousepos)
             return true;
 
+        const elementsUnderCursor = this.findElementsUnderCursor(
+            this.mousepos.x, this.mousepos.y
+        );
+
+        if (elementsUnderCursor.foregroundElement) {
+            if (elementsUnderCursor.foregroundElement != this.hoveredElement) {
+                if (this.hoveredElement)
+                    this.hoveredElement.hovered = false;
+                elementFocusChanged = true;
+                this.hoveredElement = elementsUnderCursor.foregroundElement;
+                this.hoveredElement.hovered = true;
+            }
+        } else {
+            if (this.hoveredElement) {
+                this.hoveredElement.hovered = false;
+                this.hoveredElement = undefined;
+                elementFocusChanged = true;
+            }
+        }
+
+        if (elementFocusChanged) {
+            if (!this.hoveredElement)
+                this.hideTooltip();
+            dirty = true;
+        }
+
         if (dirty)
             this.draw_async();
 
@@ -344,23 +466,123 @@ export class TimelineView {
     public zoomToView(
         animate: boolean = true, padding?: number, redraw: boolean = true
     ): void {
-        if (!this.graph)
+        if (!this.chart)
             return;
 
         let absPadding = 10;
         if (padding !== undefined)
             absPadding = padding;
         const startX = -absPadding;
-        const startY = -(this.graph.height + absPadding);
+        const startY = -(this.chart.height + absPadding);
         const bb = new DOMRect(
             startX, startY,
-            this.graph.width + 2 * absPadding,
-            this.graph.height + 2 * absPadding
+            this.chart.width + 2 * absPadding,
+            this.chart.height + 2 * absPadding
         );
         this.canvasManager.set_view(bb, animate);
 
         if (redraw)
             this.draw_async();
+    }
+
+    public showTooltip(x: number, y: number, text: string): void {
+        this.hideTooltip();
+        this.tooltipText = $('<span>', {
+            class: 'timeline-tooltip-text',
+            text: text,
+            css: {
+                'white-space': 'pre-line',
+            },
+        });
+        this.tooltipContainer = $('<div>', {
+            class: 'timeline-tooltip-container',
+            css: {
+                left: '0px',
+                top: '0px',
+            },
+        });
+        this.tooltipText.appendTo(this.tooltipContainer);
+        this.tooltipContainer.appendTo($(document.body));
+        const bcr = this.tooltipContainer[0].getBoundingClientRect();
+        const containerBcr = this.container[0].getBoundingClientRect();
+        this.tooltipContainer.css(
+            'left', (x - bcr.width / 2).toString() + 'px'
+        );
+        this.tooltipContainer.css(
+            'top', (((y + containerBcr.y) - bcr.height) - 8).toString() + 'px'
+        );
+    }
+
+    public hideTooltip(): void {
+        if (this.tooltipContainer)
+            this.tooltipContainer.remove();
+    }
+
+    public save(filename: string, contents: string | undefined): void {
+        if (!contents)
+            return;
+        const link = document.createElement('a');
+        link.setAttribute('download', filename);
+        link.href = contents;
+        document.body.appendChild(link);
+
+        // wait for the link to be added to the document
+        window.requestAnimationFrame(() => {
+            const event = new MouseEvent('click');
+            link.dispatchEvent(event);
+            document.body.removeChild(link);
+        });
+    }
+
+    public saveAsPDF(saveAll = false): void {
+        if (!this.chart)
+            return;
+
+        const stream = blobStream();
+
+        // Compute document size
+        const curx = this.canvasManager.mapPixelToCoordsX(0);
+        const cury = this.canvasManager.mapPixelToCoordsY(0);
+        let size;
+        if (saveAll) {
+            // Get size of entire graph
+            size = [this.chart.width, this.chart.height];
+        } else {
+            // Get size of current view
+            const canvasw = this.canvas?.width;
+            const canvash = this.canvas?.height;
+            let endx = null;
+            if (canvasw)
+                endx = this.canvasManager.mapPixelToCoordsX(canvasw);
+            let endy = null;
+            if (canvash)
+                endy = this.canvasManager.mapPixelToCoordsY(canvash);
+            const curw = (endx ? endx : 0) - (curx ? curx : 0);
+            const curh = (endy ? endy : 0) - (cury ? cury : 0);
+            size = [curw, curh];
+        }
+
+        const ctx = new canvas2pdf.PdfContext(stream, { size: size });
+        const oldctx = this.ctx;
+        this.ctx = ctx;
+
+        (this.ctx as any).pdf = true;
+        // Center on saved region
+        if (!saveAll)
+            this.ctx.translate(-(curx ? curx : 0), -(cury ? cury : 0));
+        else
+            this.ctx.translate(0, this.chart.yAxis.height);
+
+        this.draw_async();
+
+        ctx.stream.on('finish', () => {
+            this.save(
+                'timeline.pdf',
+                ctx.stream.toBlobURL('application/pdf')
+            );
+            this.ctx = oldctx;
+            this.draw_async();
+        });
     }
 
 }

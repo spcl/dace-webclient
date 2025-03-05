@@ -97,3 +97,13 @@ export type Size2D = {
 };
 
 export type SimpleRect = Point2D & Size2D;
+
+export interface DataSubset {
+    type: string;
+    ranges: {
+        start: string;
+        end: string;
+        step: string;
+        tile: string;
+    }[];
+}
