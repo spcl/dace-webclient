@@ -32,6 +32,21 @@
             }
         },
         {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch Access timeline",
+            "url": "http://localhost:3000/access_timeline.html",
+            "sourceMaps": true,
+            "webRoot": "${workspaceFolder}",
+            "preLaunchTask": "npm: serve",
+            "sourceMapPathOverrides": {
+                "meteor://💻app/*": "${workspaceFolder}/*",
+                "webpack://@spcl/sdfv/./~/*": "${workspaceFolder}/node_modules/*",
+                "webpack://@spcl/sdfv/*": "${workspaceFolder}/*",
+                "webpack://?:*/*": "${workspaceFolder}/*"
+            }
+        },
+        {
             "type": "node",
             "request": "launch",
             "name": "Jest: current file",

@@ -7,6 +7,7 @@ const mainConfig = {
     entry: {
         sdfv: './src/sdfv.ts',
         access_stats: './src/access_statistics/access_statistics.ts',
+        access_timeline: './src/access_timeline/access_timeline.ts',
     },
     module: {
         rules: [
