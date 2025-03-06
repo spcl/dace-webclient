@@ -199,6 +199,7 @@ export class TimelineChart extends TimelineViewElement {
                         '#' + KELLY_COLORS[colorIdx].toString(16),
                         this, (event as AllocationEvent).conditional
                     );
+                    allocatedElem.allocatedAt = time;
                     this.containers.push(allocatedElem);
                     allocatedElem.height = data[1] * this.scaleY;
                     stackTop -= allocatedElem.height;
@@ -216,6 +217,7 @@ export class TimelineChart extends TimelineViewElement {
                     allocatedElem.width = (
                         time * this.scaleX
                     ) - allocatedElem.x;
+                    allocatedElem.deallocatedAt = time;
                     stackTop += allocatedElem.height;
                     elemMap.delete(data);
                 }
@@ -236,6 +238,7 @@ export class TimelineChart extends TimelineViewElement {
         for (const leftOverContainers of elemMap.keys()) {
             const allocElem = elemMap.get(leftOverContainers)!;
             allocElem.width = (time * this.scaleX) - allocElem.x;
+            allocElem.deallocatedAt = time;
         }
 
         this.scopes = this.collectScopes(rootScope, 0);
@@ -251,6 +254,13 @@ export class TimelineChart extends TimelineViewElement {
                 maxY = scopeMaxY;
         }
         this.height = maxY - this.y;
+
+        this.calculateMetrics();
+    }
+
+    private calculateMetrics(): void {
+        for (const container of this.containers)
+            container.calculateReuse();
     }
 
     private collectScopes(
@@ -422,12 +432,12 @@ export class ChartAxis extends TimelineViewElement {
 export class ContainerAccess extends TimelineViewElement {
 
     public constructor(
-        private readonly mode: 'read' | 'write',
-        private readonly subset: DataSubset,
-        private readonly timestep: number,
-        private readonly scaleX: number,
-        private readonly container: AllocatedContainer,
-        private readonly conditional: boolean,
+        public readonly mode: 'read' | 'write',
+        public readonly subset: DataSubset,
+        public readonly timestep: number,
+        public readonly scaleX: number,
+        public readonly container: AllocatedContainer,
+        public readonly conditional: boolean,
     ) {
         super();
 
@@ -533,6 +543,14 @@ export class ContainerAccess extends TimelineViewElement {
 
 export class AllocatedContainer extends TimelineViewElement {
 
+    public allocatedAt: number = 0;
+    public deallocatedAt: number = 0;
+
+    private allocationTimespan: number = 0;
+    private totalUseTimespan: number = 0;
+    private reuseDistances: number[] = [];
+    private tooltipText: string;
+
     public readonly accesses: ContainerAccess[] = [];
 
     public constructor(
@@ -543,6 +561,7 @@ export class AllocatedContainer extends TimelineViewElement {
         private readonly conditional: boolean,
     ) {
         super();
+        this.tooltipText = this.label;
     }
 
     public registerAccess(access: ContainerAccess): void {
@@ -562,13 +581,46 @@ export class AllocatedContainer extends TimelineViewElement {
         if (this.hovered) {
             if (realMousepos) {
                 renderer.showTooltip(
-                    realMousepos.x, realMousepos.y, this.label
+                    realMousepos.x, realMousepos.y, this.tooltipText
                 );
             }
             this.chart.deferredDrawCalls.add((dRenderer, dCtx, dMousepos) => {
                 dCtx.strokeStyle = 'black';
                 dCtx.strokeRect(this.x, this.y, this.width, this.height);
             });
+        }
+    }
+
+    public calculateReuse(): void {
+        let lastAccessAt = null;
+        let firstAccessAt = null;
+        for (const access of this.accesses) {
+            if (firstAccessAt === null)
+                firstAccessAt = access.timestep;
+            if (lastAccessAt !== null)
+                this.reuseDistances.push(access.timestep - lastAccessAt);
+            lastAccessAt = access.timestep;
+        }
+
+        this.allocationTimespan = this.deallocatedAt - this.allocatedAt;
+        if (firstAccessAt === null || lastAccessAt === null)
+            this.totalUseTimespan = 0;
+        else
+            this.totalUseTimespan = lastAccessAt - firstAccessAt;
+
+        const ratio = (this.totalUseTimespan / this.allocationTimespan) * 100;
+        this.tooltipText += (
+            '\nUse / Allocation time ratio: ' + ratio.toString() + '%'
+        );
+        if (this.reuseDistances.length) {
+            const meanReuse = this.reuseDistances.reduce(
+                (a, b) => a + b
+            ) / this.reuseDistances.length;
+            this.tooltipText += (
+                '\nMean reuse distance: ' + meanReuse.toString()
+            );
+        } else {
+            this.tooltipText += '\nNo reuse!';
         }
     }
 

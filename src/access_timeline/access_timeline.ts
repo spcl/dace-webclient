@@ -509,7 +509,8 @@ export class TimelineView {
             'left', (x - bcr.width / 2).toString() + 'px'
         );
         this.tooltipContainer.css(
-            'top', (((y + containerBcr.y) - bcr.height) - 8).toString() + 'px'
+            'top',
+            (((y + containerBcr.y) - (bcr.height / 2)) - 8).toString() + 'px'
         );
     }
 
