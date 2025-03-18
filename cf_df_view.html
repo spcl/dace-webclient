@@ -1,0 +1,40 @@
+<!-- Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved. -->
+
+<!DOCTYPE html>
+<html lang="en" class="sdfv">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SDFV: Control Flow View</title>
+
+    <script src="./external_lib/pdfkit.standalone.js"></script>
+    <script src="./external_lib/blob-stream.js"></script>
+    <script src="./external_lib/canvas2pdf.js"></script>
+
+    <script defer src="./dist/control_flow_view.js"></script>
+</head>
+
+<body class="sdfv">
+    <div class="container-fluid" id="header-container">
+        <div class="row g-2 mb-2">
+            <div class="col-auto">
+                <label for="sdfg-file-input"
+                    class="form-label">SDFG:</label>
+                <input type="file" id="sdfg-file-input"
+                    accept=".sdfg,.json,.sdfgz,.sdfg.gz"
+                    class="form-control form-control-sm">
+            </div>
+            <div class="col-auto">
+                <label for="sdfg-file-input"
+                    class="form-label">Control Flow Report:</label>
+                <input type="file" id="control-flow-report-file-input"
+                    accept=".json"
+                    class="form-control form-control-sm">
+            </div>
+        </div>
+    </div>
+    <div class="container-fluid" id="cf-view-contents"></div>
+</body>
+
+</html>

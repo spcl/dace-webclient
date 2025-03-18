@@ -47,6 +47,21 @@
             }
         },
         {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch CF + DF view",
+            "url": "http://localhost:3000/cf_df_view.html",
+            "sourceMaps": true,
+            "webRoot": "${workspaceFolder}",
+            "preLaunchTask": "npm: serve",
+            "sourceMapPathOverrides": {
+                "meteor://💻app/*": "${workspaceFolder}/*",
+                "webpack://@spcl/sdfv/./~/*": "${workspaceFolder}/node_modules/*",
+                "webpack://@spcl/sdfv/*": "${workspaceFolder}/*",
+                "webpack://?:*/*": "${workspaceFolder}/*"
+            }
+        },
+        {
             "type": "node",
             "request": "launch",
             "name": "Jest: current file",

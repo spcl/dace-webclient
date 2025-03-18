@@ -8,6 +8,7 @@ const mainConfig = {
         sdfv: './src/sdfv.ts',
         access_stats: './src/access_statistics/access_statistics.ts',
         access_timeline: './src/access_timeline/access_timeline.ts',
+        control_flow_view: './src/control_flow_view/control_flow_view.ts',
     },
     module: {
         rules: [
