@@ -15,16 +15,16 @@ import {
     CFV_BasicBlock,
     CFV_Conditional,
     CFV_ControlFlowBlock,
+    CFV_DepConnector,
+    CFV_DepEdge,
     CFV_Element,
     CFV_ElementClasses,
     CFV_Loop,
     CFV_Sequence,
 } from './renderer_elements';
 import { CanvasManager } from './canvas_manager';
+import { layoutEdgesForSequence, layoutSequence } from './layout';
 
-
-const CFV_SEQUENCE_MARGIN = 20;
-const CFV_SEQUENCE_SPACING = 20;
 
 export interface MemoryTimelineScope {
     label: string;
@@ -49,8 +49,8 @@ export interface _JsonCFBlock {
     type: string;
     parent?: string;
     guid: string;
-    inputs: Record<string, [_JsonMemlet, _JsonCFBlock[]]>;
-    outputs: Record<string, [_JsonMemlet, _JsonCFBlock[]]>;
+    inputs: Record<string, [_JsonMemlet, string[]]>;
+    outputs: Record<string, [_JsonMemlet, string[]]>;
 }
 
 export interface _JsonCFBasicBlock extends _JsonCFBlock {
@@ -75,10 +75,11 @@ export interface _JsonCFConditional extends _JsonCFBlock {
 
 export class ControlFlowView {
 
-    public readonly debugDraw: boolean = true;
+    public readonly debugDraw: boolean = false;
 
     private sdfg?: JsonSDFG;
     private rootSequence?: CFV_Sequence;
+    public readonly elementMap: Map<string, CFV_Element> = new Map();
 
     private readonly canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
@@ -91,6 +92,7 @@ export class ControlFlowView {
     private realMousepos?: Point2D;
     private visibleRect?: SimpleRect;
     private hoveredElement?: CFV_Element;
+    private selectedElement?: CFV_Element;
 
     protected tooltipContainer?: JQuery<HTMLDivElement>;
     protected tooltipText?: JQuery<HTMLSpanElement>;
@@ -165,6 +167,10 @@ export class ControlFlowView {
         }
     }
 
+    public get cfSequence(): CFV_Sequence | undefined {
+        return this.rootSequence;
+    }
+
     public loadSDFG(changeEvent: any): void {
         if (changeEvent.target.files.length < 1)
             return;
@@ -182,6 +188,67 @@ export class ControlFlowView {
         fileReader.readAsArrayBuffer(file);
     }
 
+    private blockConstructDeps(block: CFV_ControlFlowBlock): void {
+        const selfDependencies = new Set();
+        for (const data in block.data.inputs) {
+            const dependency = block.data.inputs[data];
+            if (dependency[1].length > 0) {
+                const connector = new CFV_DepConnector(data);
+
+                for (const depId of dependency[1]) {
+                    const oBlock = this.elementMap.get(depId);
+                    if (!oBlock || !(oBlock instanceof CFV_ControlFlowBlock)) {
+                        throw Error('Uhoh');
+                    } else if (oBlock === block) {
+                        selfDependencies.add(data)
+                    }
+                    const depEdge = new CFV_DepEdge(
+                        data, dependency[0], oBlock, block
+                    );
+                    connector.edges.push(depEdge);
+                }
+
+                block.inConnectors.push(connector);
+            }
+        }
+        for (const data in block.data.outputs) {
+            const dependency = block.data.outputs[data];
+            if (dependency[1].length > 0) {
+                const connector = new CFV_DepConnector(data);
+
+                for (const depId of dependency[1]) {
+                    const dst = this.elementMap.get(depId);
+                    if (!dst || !(dst instanceof CFV_ControlFlowBlock)) {
+                        throw Error('Uhoh');
+                    } else if (dst === block) {
+                        if (!selfDependencies.has(data))
+                            throw Error('Uhoh');
+                        else
+                            continue
+                    }
+                    const depEdge = new CFV_DepEdge(
+                        data, dependency[0], block, dst
+                    );
+                    connector.edges.push(depEdge);
+                }
+
+                block.outConnectors.push(connector);
+            }
+        }
+    }
+
+    private constructEdgesForSequence(sequence: CFV_Sequence): void {
+        for (const block of sequence.children) {
+            this.blockConstructDeps(block);
+            if (block instanceof CFV_Sequence) {
+                this.constructEdgesForSequence(block);
+            } else if (block instanceof CFV_Conditional) {
+                for (const branch of block.branches)
+                    this.constructEdgesForSequence(branch[1]);
+            }
+        }
+    }
+
     private parseControlSequence(
         sequence: _JsonCFSequence, parent?: CFV_ControlFlowBlock
     ): CFV_Sequence {
@@ -190,9 +257,12 @@ export class ControlFlowView {
             new CFV_Sequence(sequence, parent));
         for (const block of sequence.children) {
             if (block.type === 'BasicBlock') {
-                result.children.push(new CFV_BasicBlock(block, result));
+                const basicBlock = new CFV_BasicBlock(block, result)
+                result.children.push(basicBlock);
+                this.elementMap.set(basicBlock.data.guid, basicBlock);
             } else if (block.type === 'Conditional') {
                 const conditional = new CFV_Conditional(block, result); 
+                this.elementMap.set(conditional.data.guid, conditional);
                 for (const b of (block as _JsonCFConditional).branches) {
                     const condition = b[0];
                     const branch = b[1];
@@ -209,6 +279,7 @@ export class ControlFlowView {
                 result.children.push(loop);
             }
         }
+        this.elementMap.set(result.data.guid, result);
         return result;
     }
 
@@ -227,45 +298,19 @@ export class ControlFlowView {
                 this.rootSequence = this.parseControlSequence(
                     JSON.parse(read_or_decompress(result)[0])
                 );
-                this.layoutSequence(this.rootSequence);
+                this.constructEdgesForSequence(this.rootSequence);
+                this.layout();
                 this.draw_async();
             }
         };
         fileReader.readAsArrayBuffer(file);
     }
 
-    private layoutSequence(sequence: CFV_Sequence): void {
-        let lastY = sequence.y + CFV_SEQUENCE_MARGIN;
-        let lastX = sequence.x + CFV_SEQUENCE_MARGIN;
-        let maxWidth = 0;
-        for (const block of sequence.children) {
-            block.y = lastY;
-            block.x = lastX;
-            if (block instanceof CFV_BasicBlock) {
-                block.height = 50;
-                block.width = 50;
-            } else if (block instanceof CFV_Loop) {
-                this.layoutSequence(block);
-            } else if (block instanceof CFV_Conditional) {
-                let maxHeight = 0;
-                let totalWidth = 0;
-                for (const branch of block.branches) {
-                    branch[1].x = lastX + totalWidth;
-                    branch[1].y = lastY;
-                    this.layoutSequence(branch[1]);
-                    totalWidth += branch[1].width;
-                    if (branch[1].height > maxHeight)
-                        maxHeight = branch[1].height;
-                }
-                block.height = maxHeight;
-                block.width = totalWidth;
-            }
-            lastY += CFV_SEQUENCE_SPACING + block.height;
-            if (block.width > maxWidth)
-                maxWidth = block.width;
+    public layout(): void {
+        if (this.rootSequence) {
+            layoutSequence(this.rootSequence);
+            layoutEdgesForSequence(this.rootSequence, this);
         }
-        sequence.height = lastY - sequence.y;
-        sequence.width = maxWidth + 2 * CFV_SEQUENCE_MARGIN;
     }
 
     public draw_async(): void {
@@ -303,15 +348,71 @@ export class ControlFlowView {
 
     public doForIntersectedElements(
         x: number, y: number, w: number, h: number,
-        func: (el: CFV_ControlFlowBlock, cat: CFV_ElementClasses) => any
+        func: (el: CFV_Element, cat: CFV_ElementClasses) => any
     ): void {
         if (!this.rootSequence || !this.rootSequence.intersect(x, y, w, h))
             return;
 
-        for (const child of this.rootSequence.children) {
-            if (child.intersect(x, y, w, h))
-                func(child, 'block');
-        }
+        const doRecursive = (seq: CFV_Sequence) => {
+            for (const child of seq.children) {
+                if (child.intersect(x, y, w, h)) {
+                    func(child, 'block');
+                    if (child instanceof CFV_Sequence) {
+                        doRecursive(child);
+                    } else if (child instanceof CFV_Conditional) {
+                        for (const branch of child.branches) {
+                            const bSeq = branch[1];
+                            if (bSeq.intersect(x, y, w, h)) {
+                                func(bSeq, 'block');
+                                if (bSeq.isSelected) {
+                                    for (const conn of bSeq.inConnectors) {
+                                        if (conn.intersect(x, y, w, h))
+                                            func(conn, 'connector');
+                                        for (const edge of conn.edges) {
+                                            if (edge.intersect(x, y, w, h))
+                                                func(edge, 'edge');
+                                        }
+                                    }
+                                    for (const conn of bSeq.outConnectors) {
+                                        if (conn.intersect(x, y, w, h))
+                                            func(conn, 'connector');
+                                        for (const edge of conn.edges) {
+                                            if (edge.intersect(x, y, w, h))
+                                                func(edge, 'edge');
+                                        }
+                                    }
+                                }
+                                doRecursive(bSeq);
+                            }
+                        }
+                    }
+                }
+
+                if (child.isSelected) {
+                    for (const conn of child.inConnectors) {
+                        if (conn.intersect(x, y, w, h))
+                            func(conn, 'connector');
+                        for (const edge of conn.edges) {
+                            if (edge.intersect(x, y, w, h))
+                                func(edge, 'edge');
+                        }
+                    }
+                    for (const conn of child.outConnectors) {
+                        if (conn.intersect(x, y, w, h))
+                            func(conn, 'connector');
+                        for (const edge of conn.edges) {
+                            if (edge.intersect(x, y, w, h))
+                                func(edge, 'edge');
+                        }
+                    }
+                }
+            }
+        };
+
+        if (this.rootSequence.intersect(x, y, w, h))
+            func(this.rootSequence, 'block');
+        doRecursive(this.rootSequence);
+
     }
 
     public elementsInRect(
@@ -319,6 +420,8 @@ export class ControlFlowView {
     ): Set<CFV_Element> {
         const elements = new Set<CFV_Element>();
         this.doForIntersectedElements(x, y, w, h, (elem, cat) => {
+            if (cat === 'edge')
+                console.log('Hovering edge', elem);
             elements.add(elem);
         });
         return elements;
@@ -330,9 +433,25 @@ export class ControlFlowView {
     } {
         // Find all elements under the cursor.
         const elements = this.elementsInRect(mouseX, mouseY, 0, 0);
-        let foregroundElement = undefined;
 
-        // TODO: find foreground element.
+        // The foreground element is the one with the smallest dimension, or
+        // the one where the previously selected smallest one is their parent.
+        let foregroundElement = undefined;
+        let foregroundSurface = -1;
+        for (const elem of elements) {
+            const surface = elem.width * elem.height;
+            if (foregroundSurface < 0 || surface < foregroundSurface) {
+                foregroundElement = elem;
+                foregroundSurface = surface;
+            }/* else if (elem instanceof CFV_ControlFlowBlock) {
+                if (elem.parent && elem.parent === foregroundElement &&
+                    surface <= foregroundSurface + 1e-10
+                ) {
+                    foregroundSurface = surface;
+                    foregroundElement = elem;
+                }
+            }*/
+        }
 
         return { elements, foregroundElement };
     }
@@ -473,13 +592,14 @@ export class ControlFlowView {
         const elementsUnderCursor = this.findElementsUnderCursor(
             this.mousepos.x, this.mousepos.y
         );
+        const foregroundElem = elementsUnderCursor.foregroundElement;
 
-        if (elementsUnderCursor.foregroundElement) {
-            if (elementsUnderCursor.foregroundElement != this.hoveredElement) {
+        if (foregroundElem) {
+            if (foregroundElem != this.hoveredElement) {
                 if (this.hoveredElement)
                     this.hoveredElement.hovered = false;
                 elementFocusChanged = true;
-                this.hoveredElement = elementsUnderCursor.foregroundElement;
+                this.hoveredElement = foregroundElem;
                 this.hoveredElement.hovered = true;
             }
         } else {
@@ -494,6 +614,29 @@ export class ControlFlowView {
             if (!this.hoveredElement)
                 this.hideTooltip();
             dirty = true;
+        }
+
+        if (evtype === 'dblclick') {
+            if (foregroundElem) {
+                if (foregroundElem instanceof CFV_Sequence ||
+                    foregroundElem instanceof CFV_Conditional) {
+                    foregroundElem.toggleCollapse();
+                    this.layout();
+                    dirty = true;
+                }
+            }
+        } else if (evtype === 'click') {
+            if (this.dragging) {
+                this.dragging = false;
+            } else {
+                this.selectedElement?.deselect();
+                if (elementsUnderCursor.foregroundElement) {
+                    this.selectedElement =
+                        elementsUnderCursor.foregroundElement;
+                    this.selectedElement.select(this);
+                }
+                dirty = true;
+            }
         }
 
         if (dirty)
