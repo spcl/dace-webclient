@@ -350,7 +350,7 @@ export class ControlFlowView {
         x: number, y: number, w: number, h: number,
         func: (el: CFV_Element, cat: CFV_ElementClasses) => any
     ): void {
-        if (!this.rootSequence || !this.rootSequence.intersect(x, y, w, h))
+        if (!this.rootSequence)
             return;
 
         const doRecursive = (seq: CFV_Sequence) => {
@@ -364,23 +364,13 @@ export class ControlFlowView {
                             const bSeq = branch[1];
                             if (bSeq.intersect(x, y, w, h)) {
                                 func(bSeq, 'block');
-                                if (bSeq.isSelected) {
-                                    for (const conn of bSeq.inConnectors) {
-                                        if (conn.intersect(x, y, w, h))
-                                            func(conn, 'connector');
-                                        for (const edge of conn.edges) {
-                                            if (edge.intersect(x, y, w, h))
-                                                func(edge, 'edge');
-                                        }
-                                    }
-                                    for (const conn of bSeq.outConnectors) {
-                                        if (conn.intersect(x, y, w, h))
-                                            func(conn, 'connector');
-                                        for (const edge of conn.edges) {
-                                            if (edge.intersect(x, y, w, h))
-                                                func(edge, 'edge');
-                                        }
-                                    }
+                                for (const conn of bSeq.inConnectors) {
+                                    if (conn.intersect(x, y, w, h))
+                                        func(conn, 'connector');
+                                }
+                                for (const conn of bSeq.outConnectors) {
+                                    if (conn.intersect(x, y, w, h))
+                                        func(conn, 'connector');
                                 }
                                 doRecursive(bSeq);
                             }
@@ -388,23 +378,13 @@ export class ControlFlowView {
                     }
                 }
 
-                if (child.isSelected) {
-                    for (const conn of child.inConnectors) {
-                        if (conn.intersect(x, y, w, h))
-                            func(conn, 'connector');
-                        for (const edge of conn.edges) {
-                            if (edge.intersect(x, y, w, h))
-                                func(edge, 'edge');
-                        }
-                    }
-                    for (const conn of child.outConnectors) {
-                        if (conn.intersect(x, y, w, h))
-                            func(conn, 'connector');
-                        for (const edge of conn.edges) {
-                            if (edge.intersect(x, y, w, h))
-                                func(edge, 'edge');
-                        }
-                    }
+                for (const conn of child.inConnectors) {
+                    if (conn.intersect(x, y, w, h))
+                        func(conn, 'connector');
+                }
+                for (const conn of child.outConnectors) {
+                    if (conn.intersect(x, y, w, h))
+                        func(conn, 'connector');
                 }
             }
         };
@@ -413,6 +393,21 @@ export class ControlFlowView {
             func(this.rootSequence, 'block');
         doRecursive(this.rootSequence);
 
+        if (this.selectedElement &&
+            this.selectedElement instanceof CFV_ControlFlowBlock) {
+            for (const conn of this.selectedElement.inConnectors) {
+                for (const edge of conn.edges) {
+                    if (edge.intersect(x, y, w, h))
+                        func(edge, 'edge');
+                }
+            }
+            for (const conn of this.selectedElement.outConnectors) {
+                for (const edge of conn.edges) {
+                    if (edge.intersect(x, y, w, h))
+                        func(edge, 'edge');
+                }
+            }
+        }
     }
 
     public elementsInRect(
@@ -420,8 +415,6 @@ export class ControlFlowView {
     ): Set<CFV_Element> {
         const elements = new Set<CFV_Element>();
         this.doForIntersectedElements(x, y, w, h, (elem, cat) => {
-            if (cat === 'edge')
-                console.log('Hovering edge', elem);
             elements.add(elem);
         });
         return elements;

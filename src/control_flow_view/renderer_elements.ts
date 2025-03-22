@@ -179,8 +179,6 @@ export class CFV_DepEdge extends CFV_Element {
             this.points[this.points.length - 1], 3
         );
 
-        //this.drawLabel(renderer, ctx);
-
         if (this.hovered && realMousepos) {
             const settings = {
                 inclusive_ranges: SDFVSettings.get<boolean>(
@@ -200,12 +198,16 @@ export class CFV_DepEdge extends CFV_Element {
     public intersect(
         x: number, y: number, w: number = 0, h: number = 0
     ): boolean {
+        // First, check bounding box
+        if (!super.intersect(x, y, w, h))
+            return false;
+
         if (w === 0 || h === 0) {
             for (let i = 0; i < this.points.length - 1; i++) {
                 const dist = ptLineDistance(
                     { x: x, y: y }, this.points[i], this.points[i + 1]
                 );
-                if (dist <= 5.0)
+                if (dist <= 2.0)
                     return true;
             }
             return false;
@@ -249,8 +251,6 @@ export class CFV_DepConnector extends CFV_Element {
         public readonly dataName: string,
     ) {
         super();
-        this.width = 3;
-        this.height = 3;
     }
 
     public draw(
@@ -360,7 +360,7 @@ export class CFV_Sequence extends CFV_ControlFlowBlock {
             ctx.stroke();
         } else {
             for (const child of this.children)
-                child.draw(renderer, ctx, mousepos);
+                child.draw(renderer, ctx, mousepos, realMousepos);
         }
     }
 

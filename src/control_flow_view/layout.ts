@@ -8,23 +8,29 @@ import {
 import type { ControlFlowView } from './control_flow_view';
 
 
-const CFV_SEQUENCE_MARGIN = 10;
-const CFV_SEQUENCE_SPACING = 50;
-const CFV_BASIC_BLOCK_HEIGHT = 50;
-const CFV_BASIC_BLOCK_WIDTH = 50;
+const CFV_SEQUENCE_MARGIN = 20;
+const CFV_SEQUENCE_SPACING = 100;
+const CFV_LINE_SPACING = 5;
+const CFV_CONNECTOR_SIZE = 10;
+const CFV_BASIC_BLOCK_HEIGHT = 100;
+const CFV_BASIC_BLOCK_WIDTH = 100;
 
 export function layoutConnectors(block: CFV_ControlFlowBlock): void {
-    let inX = block.x + 5;
-    let outX = block.x + 5;
+    let inX = block.x + CFV_CONNECTOR_SIZE / 2;
+    let outX = block.x + CFV_CONNECTOR_SIZE / 2;
     for (const conn of block.inConnectors) {
+        conn.height = CFV_CONNECTOR_SIZE;
+        conn.width = CFV_CONNECTOR_SIZE;
         conn.x = inX;
         conn.y = block.y - (conn.height / 2);
-        inX += 5;
+        inX += CFV_CONNECTOR_SIZE * 1.5;
     }
     for (const conn of block.outConnectors) {
+        conn.height = CFV_CONNECTOR_SIZE;
+        conn.width = CFV_CONNECTOR_SIZE;
         conn.x = outX;
         conn.y = (block.y + block.height) - (conn.height / 2);
-        outX += 5;
+        outX += CFV_CONNECTOR_SIZE * 1.5;
     }
 }
 
@@ -32,13 +38,17 @@ export function layoutEdges(
     block: CFV_ControlFlowBlock,
     renderer: ControlFlowView,
 ): void {
-    let inLaneX = 0;
+    let nInEdges = 0;
+    for (const conn of block.inConnectors)
+        nInEdges += conn.edges.length;
+    let nOutEdges = 0;
+    for (const conn of block.outConnectors)
+        nOutEdges += conn.edges.length;
+
+    let inLaneX = nInEdges * CFV_LINE_SPACING;
     let outLaneX = renderer.cfSequence!.width;
-    const lineSpacer = 2;
-    let inSrcY = 5;
-    let inDstY = 5;
-    let outSrcY = 5;
-    let outDstY = 5;
+    let inYOffset = 5;
+    let outYOffset = 5 + nOutEdges * CFV_LINE_SPACING;
     for (const conn of block.inConnectors) {
         for (const edge of conn.edges) {
             let srcConn;
@@ -59,27 +69,42 @@ export function layoutEdges(
             },
             {
                 x: srcX,
-                y: srcConn.y + srcConn.height + inSrcY,
+                y: srcConn.y + srcConn.height + inYOffset,
             },
             {
                 x: inLaneX,
-                y: srcConn.y + srcConn.height + inSrcY,
+                y: srcConn.y + srcConn.height + inYOffset,
             },
             {
                 x: inLaneX,
-                y: conn.y - inDstY,
+                y: conn.y - inYOffset,
             },
             {
                 x: dstX,
-                y: conn.y - inDstY,
+                y: conn.y - inYOffset,
             },
             {
                 x: dstX,
                 y: conn.y,
             }];
-            inLaneX -= lineSpacer;
-            inSrcY += lineSpacer;
-            inDstY += lineSpacer;
+            edge.x = edge.points[0].x;
+            edge.y = edge.points[0].y;
+            let maxX = edge.points[0].x;
+            let maxY = edge.points[0].x;
+            for (let i = 1; i < edge.points.length; i++) {
+                if (edge.points[i].x > maxX)
+                    maxX = edge.points[i].x;
+                if (edge.points[i].y > maxY)
+                    maxY = edge.points[i].y;
+                if (edge.points[i].x < edge.x)
+                    edge.x = edge.points[i].x;
+                if (edge.points[i].y < edge.y)
+                    edge.y = edge.points[i].y;
+            }
+            edge.width = maxX - edge.x;
+            edge.height = maxY - edge.y;
+            inLaneX += CFV_LINE_SPACING;
+            inYOffset += CFV_LINE_SPACING;
         }
     }
     for (const conn of block.outConnectors) {
@@ -101,27 +126,42 @@ export function layoutEdges(
             },
             {
                 x: srcX,
-                y: conn.y + conn.height + outSrcY,
+                y: conn.y + conn.height + outYOffset,
             },
             {
                 x: outLaneX,
-                y: conn.y + conn.height + outSrcY,
+                y: conn.y + conn.height + outYOffset,
             },
             {
                 x: outLaneX,
-                y: dstConn.y - outDstY,
+                y: dstConn.y - outYOffset,
             },
             {
                 x: dstX,
-                y: dstConn.y - outDstY,
+                y: dstConn.y - outYOffset,
             },
             {
                 x: dstX,
                 y: dstConn.y,
             }];
-            outLaneX += lineSpacer;
-            outSrcY += lineSpacer;
-            outDstY += lineSpacer;
+            edge.x = edge.points[0].x;
+            edge.y = edge.points[0].y;
+            let maxX = edge.points[0].x;
+            let maxY = edge.points[0].x;
+            for (let i = 1; i < edge.points.length; i++) {
+                if (edge.points[i].x > maxX)
+                    maxX = edge.points[i].x;
+                if (edge.points[i].y > maxY)
+                    maxY = edge.points[i].y;
+                if (edge.points[i].x < edge.x)
+                    edge.x = edge.points[i].x;
+                if (edge.points[i].y < edge.y)
+                    edge.y = edge.points[i].y;
+            }
+            edge.width = maxX - edge.x;
+            edge.height = maxY - edge.y;
+            outLaneX += CFV_LINE_SPACING;
+            outYOffset -= CFV_LINE_SPACING;
         }
     }
 }
