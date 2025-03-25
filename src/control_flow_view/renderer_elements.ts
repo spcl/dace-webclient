@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Point2D } from '../types';
-import { sdfg_range_elem_to_string } from '../utils/sdfg/display';
+import { sdfg_property_to_string } from '../utils/sdfg/display';
 import { SDFVSettings } from '../utils/sdfv_settings';
 import {
     _JsonCFBasicBlock,
@@ -180,17 +180,10 @@ export class CFV_DepEdge extends CFV_Element {
         );
 
         if (this.hovered && realMousepos) {
-            const settings = {
-                inclusive_ranges: SDFVSettings.get<boolean>(
-                    'inclusiveRanges'
-                ),
-            }
-            let subsetString = '';
-            for (const range of this.memlet.attributes.subset.ranges)
-                subsetString += sdfg_range_elem_to_string(range, settings);
-            const tooltipText = (
-                this.label + ' [' + subsetString.slice(0, -2) + ']'
+            const subsetString = sdfg_property_to_string(
+                this.memlet.attributes.subset, SDFVSettings.settingsDict
             );
+            const tooltipText = (this.label + ' ' + subsetString);
             renderer.showTooltip(realMousepos.x, realMousepos.y, tooltipText);
         }
     }
@@ -379,6 +372,59 @@ export class CFV_Sequence extends CFV_ControlFlowBlock {
 export class CFV_Loop extends CFV_Sequence {
 
     protected readonly color: string = 'red';
+
+    public draw(
+        renderer: ControlFlowView, ctx: CanvasRenderingContext2D,
+        mousepos?: Point2D, realMousepos?: Point2D
+    ): void {
+        const color = (this.data as _JsonCFLoop).parallel ? 'green' : 'red';
+        ctx.strokeStyle = color;
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+        for (const icon of this.inConnectors)
+            icon.draw(renderer, ctx, mousepos, realMousepos);
+        for (const ocon of this.outConnectors)
+            ocon.draw(renderer, ctx, mousepos, realMousepos);
+
+        if (this.selected) {
+            ctx.fillStyle = color;
+            const oldAlpha = ctx.globalAlpha;
+            ctx.globalAlpha = 0.2;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.globalAlpha = oldAlpha;
+
+            for (const icon of this.inConnectors) {
+                for (const edge of icon.edges)
+                    edge.draw(renderer, ctx, mousepos, realMousepos);
+            }
+            for (const ocon of this.outConnectors) {
+                for (const edge of ocon.edges)
+                    edge.draw(renderer, ctx, mousepos, realMousepos);
+            }
+        }
+
+        if (this.hovered) {
+            ctx.fillStyle = color;
+            const oldAlpha = ctx.globalAlpha;
+            ctx.globalAlpha = 0.1;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.globalAlpha = oldAlpha;
+        }
+
+        if (this.collapsed) {
+            const plusCenterY = this.y + this.height / 2;
+            const plusCenterX = this.x + this.width / 2;
+            ctx.beginPath();
+            ctx.moveTo(plusCenterX, plusCenterY - 20);
+            ctx.lineTo(plusCenterX, plusCenterY + 20);
+            ctx.moveTo(plusCenterX - 20, plusCenterY);
+            ctx.lineTo(plusCenterX + 20, plusCenterY);
+            ctx.stroke();
+        } else {
+            for (const child of this.children)
+                child.draw(renderer, ctx, mousepos, realMousepos);
+        }
+    }
 
 }
 

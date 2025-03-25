@@ -131,15 +131,20 @@ export class TimelineChart extends TimelineViewElement {
     public readonly scaleX: number;
     public readonly scaleY: number;
 
+    public readonly renderer: TimelineView;
+
     public readonly deferredDrawCalls: Set<(
         renderer: TimelineView, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D
     ) => void> = new Set();
 
     public constructor(
-        timeline: MemoryEvent[], rootScope: MemoryTimelineScope
+        timeline: MemoryEvent[], rootScope: MemoryTimelineScope,
+        renderer: TimelineView
     ) {
         super();
+
+        this.renderer = renderer;
 
         this.nEvents = 0;
         this.maxFootprint = 0;
@@ -190,14 +195,19 @@ export class TimelineChart extends TimelineViewElement {
             if (event.type === 'AllocationEvent') {
                 for (const data of (event as AllocationEvent).data) {
                     let cleanName = data[0];
-                    cleanName = cleanName.replace(/^\d+_/g, '');
+                    const sdfgIdString = cleanName.match(/^\d+/)?.[0];
+                    const sdfgId = sdfgIdString ? parseInt(sdfgIdString) : 0;
+                    cleanName = cleanName.replace(
+                        /^(\d*___state->__)?\d+_/g, ''
+                    );
                     const label = (
                         cleanName + ' (' + bytesToString(data[1]) + ')'
                     );
                     const allocatedElem = new AllocatedContainer(
                         label, blockLabelScale,
                         '#' + KELLY_COLORS[colorIdx].toString(16),
-                        this, (event as AllocationEvent).conditional
+                        this, (event as AllocationEvent).conditional,
+                        cleanName, sdfgId
                     );
                     allocatedElem.allocatedAt = time;
                     this.containers.push(allocatedElem);
@@ -527,7 +537,8 @@ export class ContainerAccess extends TimelineViewElement {
                 for (const range of this.subset.ranges)
                     label += sdfg_range_elem_to_string(range, settings) + ', ';
                 renderer.showTooltip(
-                    realMousepos.x, realMousepos.y, label.slice(0, -2) + ']'
+                    realMousepos.x, realMousepos.y + 50,
+                    label.slice(0, -2) + ']'
                 );
             }
             /*
@@ -553,19 +564,61 @@ export class AllocatedContainer extends TimelineViewElement {
 
     public readonly accesses: ContainerAccess[] = [];
 
+    private data?: any;
+
+    private firstUseX?: number;
+    private lastUseX?: number;
+
     public constructor(
         public readonly label: string,
         private readonly labelScale: number,
         private readonly color: string,
         private readonly chart: TimelineChart,
         private readonly conditional: boolean,
+        private readonly dataName: string,
+        private readonly sdfgId: number,
     ) {
         super();
+
+        const sdfg = chart.renderer.sdfg_list.get(sdfgId);
+        if (sdfg) {
+            const parts = this.dataName.split('->');
+            let data = undefined;
+            let repository = sdfg.attributes._arrays;
+            while (parts.length > 0 && repository) {
+                const pivot = parts.shift()!;
+                if (repository instanceof Array) {
+                    for (const elem of repository) {
+                        if (elem[0] === pivot) {
+                            data = elem[1];
+                            break;
+                        }
+                    }
+                } else {
+                    data = repository[pivot];
+                }
+                let attrs = data?.attributes;
+                if (attrs && Object.hasOwn(attrs, 'members'))
+                    repository = attrs['members'];
+            }
+            this.data = data;
+        }
+
         this.tooltipText = this.label;
+        if (this.data && this.data.type === 'Array' && this.data.attributes) {
+            let shapeTxt = '[';
+            for (const elem of this.data.attributes.shape)
+                shapeTxt += elem.toString() + ', ';
+            this.tooltipText += '\n' + shapeTxt.slice(0, -2) + ']';
+        }
     }
 
     public registerAccess(access: ContainerAccess): void {
         this.accesses.push(access);
+        if (this.firstUseX === undefined || access.x < this.firstUseX)
+            this.firstUseX = access.x;
+        if (this.lastUseX === undefined || access.x > this.lastUseX)
+            this.lastUseX = access.x;
     }
 
     public draw(
@@ -573,15 +626,30 @@ export class AllocatedContainer extends TimelineViewElement {
         mousepos?: Point2D, realMousepos?: Point2D
     ): void {
         ctx.fillStyle = this.color;  
-        if (this.conditional)
+        //if (this.conditional)
+        //    ctx.globalAlpha = 0.2;
+        let solidStartX = this.x
+        let solidEndX = this.x + this.width;
+        if (this.firstUseX !== undefined) {
             ctx.globalAlpha = 0.2;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.fillRect(this.x, this.y, this.firstUseX - this.x, this.height);
+            solidStartX = this.firstUseX;
+        }
+        if (this.lastUseX !== undefined) {
+            ctx.globalAlpha = 0.2;
+            ctx.fillRect(
+                this.lastUseX, this.y, (this.x + this.width) - this.lastUseX,
+                this.height
+            );
+            solidEndX = this.lastUseX;
+        }
         ctx.globalAlpha = 1.0;
+        ctx.fillRect(solidStartX, this.y, solidEndX - solidStartX, this.height);
 
         if (this.hovered) {
             if (realMousepos) {
                 renderer.showTooltip(
-                    realMousepos.x, realMousepos.y, this.tooltipText
+                    realMousepos.x, realMousepos.y + 50, this.tooltipText
                 );
             }
             this.chart.deferredDrawCalls.add((dRenderer, dCtx, dMousepos) => {
@@ -658,7 +726,7 @@ export class ScopeElement extends TimelineViewElement {
         if (this.hovered) {
             if (realMousepos) {
                 renderer.showTooltip(
-                    realMousepos.x, realMousepos.y, this.label
+                    realMousepos.x, realMousepos.y + 50, this.label
                 );
             }
         }
