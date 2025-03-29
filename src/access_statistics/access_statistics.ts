@@ -14,6 +14,7 @@ import {
     LinearScale,
     Tooltip,
 } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 import '../../scss/access_statistics.scss';
 import { read_or_decompress } from '../utils/sdfg/json_serializer';
 
@@ -33,6 +34,7 @@ interface _AccessRecord {
     edge?: string;
     mode: 'write' | 'read';
     at: Subset;
+    multiplier?: number;
 }
 
 interface _AccessTypeSubCategory {
@@ -66,6 +68,7 @@ type _AccessType = 'linear_accesses' | 'strided_accesses' |
 
 type SDFG_SORTING_CRITERIUM = 'all_accesses' | _AccessType;
 type SDFG_SORTING_STYLE = 'ascending' | 'descending';
+type GROUPING_STYLE = 'sdfg' | 'container';
 
 class AccessStatsView {
 
@@ -82,6 +85,10 @@ class AccessStatsView {
         );
         $(document).on(
             'change.sdfv', '#sdfg-access-stats-sorting-style',
+            this.reDrawStats.bind(this)
+        );
+        $(document).on(
+            'change.sdfv', '#sdfg-access-stats-group-by',
             this.reDrawStats.bind(this)
         );
     }
@@ -122,29 +129,137 @@ function buildDataContainerHist(
     data: _DataContainerAccessStats, root: JQuery<HTMLElement>,
     collapse: JQuery<HTMLElement>, expanded: boolean
 ): void {
+    const getCatReads = (cat: _AccessType) => {
+        const reads: Record<string, number> = {};
+        const writes: Record<string, number> = {};
+        for (const access of data[cat]) {
+            for (const acc of access.accesses) {
+                if (acc.mode === 'read') {
+                    if (access.name in reads) {
+                        if (acc.multiplier)
+                            reads[access.name] += acc.multiplier;
+                        else
+                            reads[access.name] += 1;
+                    } else {
+                        if (acc.multiplier)
+                            reads[access.name] = acc.multiplier;
+                        else
+                            reads[access.name] = 1;
+                    }
+                } else {
+                    if (access.name in writes) {
+                        if (acc.multiplier)
+                            writes[access.name] += acc.multiplier;
+                        else
+                            writes[access.name] += 1;
+                    } else {
+                        if (acc.multiplier)
+                            writes[access.name] = acc.multiplier;
+                        else
+                            writes[access.name] = 1;
+                    }
+                }
+            }
+        }
+        return [reads, writes];
+    };
+
     const datasets: any[] = [];
-    for (const access of data.constant_accesses) {
+
+    let datasetIndex = -1;
+    let constReadIdx = -1;
+    let constWriteIdx = -1;
+    let linReadIdx = -1;
+    let linWriteIdx = -1;
+    let strideReadIdx = -1;
+    let strideWriteIdx = -1;
+    let indirReadIdx = -1;
+    let indirWriteIdx = -1;
+    const [constReads, constWrites] = getCatReads('constant_accesses');
+    for (const accName in constReads) {
+        datasetIndex++;
+        constReadIdx = datasetIndex;
         datasets.push({
-            label: access.name,
-            data: [access.n_accesses, 0, 0, 0],
+            label: accName,
+            data: [constReads[accName], 0, 0, 0],
+            stack: 'Reads',
+            backgroundColor: constReadIdx % 2 === 0 ? '#90EE90' : '#3CB371',
         });
     }
-    for (const access of data.indirect_accesses) {
+    for (const accName in constWrites) {
+        datasetIndex++;
+        constWriteIdx = datasetIndex;
         datasets.push({
-            label: access.name,
-            data: [0, access.n_accesses, 0, 0],
+            label: accName,
+            data: [constWrites[accName], 0, 0, 0],
+            stack: 'Writes',
+            backgroundColor: constReadIdx % 2 === 0 ? '#228B22' : '#006400',
         });
     }
-    for (const access of data.linear_accesses) {
+
+    const [linReads, linWrites] = getCatReads('linear_accesses');
+    for (const accName in linReads) {
+        datasetIndex++;
+        linReadIdx = datasetIndex;
         datasets.push({
-            label: access.name,
-            data: [0, 0, access.n_accesses, 0],
+            label: accName,
+            data: [0, linReads[accName], 0, 0],
+            stack: 'Reads',
+            backgroundColor: '#4169E1',
         });
     }
-    for (const access of data.strided_accesses) {
+    for (const accName in linWrites) {
+        datasetIndex++;
+        linWriteIdx = datasetIndex;
         datasets.push({
-            label: access.name,
-            data: [0, 0, 0, access.n_accesses],
+            label: accName,
+            data: [0, linWrites[accName], 0, 0],
+            stack: 'Writes',
+            backgroundColor: '#191970',
+        });
+    }
+
+    const [strideReads, strideWrites] = getCatReads('strided_accesses');
+    for (const accName in strideReads) {
+        datasetIndex++;
+        strideReadIdx = datasetIndex;
+        datasets.push({
+            label: accName,
+            data: [0, 0, strideReads[accName], 0],
+            stack: 'Reads',
+            backgroundColor: '#FFD700',
+        });
+    }
+    for (const accName in strideWrites) {
+        datasetIndex++;
+        strideWriteIdx = datasetIndex;
+        datasets.push({
+            label: accName,
+            data: [0, 0, strideWrites[accName], 0],
+            stack: 'Writes',
+            backgroundColor: '#FF8C00',
+        });
+    }
+
+    const [indirReads, indirWrites] = getCatReads('indirect_accesses');
+    for (const accName in indirReads) {
+        datasetIndex++;
+        indirReadIdx = datasetIndex;
+        datasets.push({
+            label: accName,
+            data: [0, 0, 0, indirReads[accName]],
+            stack: 'Reads',
+            backgroundColor: constReadIdx % 2 === 0 ? '#FF7F50' : '#A52A2A',
+        });
+    }
+    for (const accName in indirWrites) {
+        datasetIndex++;
+        indirWriteIdx = datasetIndex;
+        datasets.push({
+            label: accName,
+            data: [0, 0, 0, indirWrites[accName]],
+            stack: 'Writes',
+            backgroundColor: constReadIdx % 2 === 0 ? '#DC143C' : '#8B0000',
         });
     }
 
@@ -157,11 +272,15 @@ function buildDataContainerHist(
             {
                 type: 'bar',
                 data: {
-                    labels: ['Constant', 'Indirect', 'Linear', 'Strided'],
+                    labels: ['Constant', 'Linear', 'Strided', 'Indirect'],
                     datasets: datasets,
                 },
+                plugins: [ChartDataLabels],
                 options: {
                     animation: false,
+                    interaction: {
+                        intersect: false,
+                    },
                     scales: {
                         y: {
                             stacked: true,
@@ -169,6 +288,32 @@ function buildDataContainerHist(
                         x: {
                             stacked: true,
                         },
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        datalabels: {
+                            align: 'end',
+                            anchor: 'start',
+                            color: 'black',
+                            formatter: function(_, context) {
+                                const ds = context.chart.data.datasets;
+                                const dsIdx = context.datasetIndex;
+                                const dIdx = context.dataIndex;
+                                if ((dIdx === 0 && (dsIdx === constReadIdx ||
+                                                    dsIdx === constWriteIdx)) ||
+                                    (dIdx === 1 && (dsIdx === linReadIdx ||
+                                                    dsIdx === linWriteIdx)) ||
+                                    (dIdx === 2 && (dsIdx === strideReadIdx ||
+                                                    dsIdx === strideWriteIdx)) ||
+                                    (dIdx === 3 && (dsIdx === indirReadIdx ||
+                                                    dsIdx === indirWriteIdx))) {
+                                    return ds[dsIdx].stack;
+                                }
+                                return '';
+                            }
+                        }
                     },
                 },
             }
@@ -364,22 +509,228 @@ function buildSDFGTreeView(
     );
 }
 
+function buildSDFGHist(
+    data: _AccessStatistics, root: JQuery<HTMLElement>
+): void {
+    const getCatReads = (cat: _AccessType) => {
+        const reads: Record<string, number> = {};
+        const writes: Record<string, number> = {};
+        for (const cfgStats of data.all_cfg_stats) {
+            for (const dcStats of cfgStats.accesses) {
+                for (const access of dcStats[cat]) {
+                    for (const acc of access.accesses) {
+                        if (acc.mode === 'read') {
+                            if (access.name in reads) {
+                                if (acc.multiplier)
+                                    reads[access.name] += acc.multiplier;
+                                else
+                                    reads[access.name] += 1;
+                            } else {
+                                if (acc.multiplier)
+                                    reads[access.name] = acc.multiplier;
+                                else
+                                    reads[access.name] = 1;
+                            }
+                        } else {
+                            if (access.name in writes) {
+                                if (acc.multiplier)
+                                    writes[access.name] += acc.multiplier;
+                                else
+                                    writes[access.name] += 1;
+                            } else {
+                                if (acc.multiplier)
+                                    writes[access.name] = acc.multiplier;
+                                else
+                                    writes[access.name] = 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return [reads, writes];
+    };
+
+    const datasets: any[] = [];
+
+    let datasetIndex = -1;
+    let constReadIdx = -1;
+    let constWriteIdx = -1;
+    let linReadIdx = -1;
+    let linWriteIdx = -1;
+    let strideReadIdx = -1;
+    let strideWriteIdx = -1;
+    let indirReadIdx = -1;
+    let indirWriteIdx = -1;
+    const [constReads, constWrites] = getCatReads('constant_accesses');
+    for (const accName in constReads) {
+        datasetIndex++;
+        constReadIdx = datasetIndex;
+        datasets.push({
+            label: accName,
+            data: [constReads[accName], 0, 0, 0],
+            stack: 'Reads',
+            backgroundColor: constReadIdx % 2 === 0 ? '#90EE90' : '#3CB371',
+        });
+    }
+    for (const accName in constWrites) {
+        datasetIndex++;
+        constWriteIdx = datasetIndex;
+        datasets.push({
+            label: accName,
+            data: [constWrites[accName], 0, 0, 0],
+            stack: 'Writes',
+            backgroundColor: constReadIdx % 2 === 0 ? '#228B22' : '#006400',
+        });
+    }
+
+    const [linReads, linWrites] = getCatReads('linear_accesses');
+    for (const accName in linReads) {
+        datasetIndex++;
+        linReadIdx = datasetIndex;
+        datasets.push({
+            label: accName,
+            data: [0, linReads[accName], 0, 0],
+            stack: 'Reads',
+            backgroundColor: '#4169E1',
+        });
+    }
+    for (const accName in linWrites) {
+        datasetIndex++;
+        linWriteIdx = datasetIndex;
+        datasets.push({
+            label: accName,
+            data: [0, linWrites[accName], 0, 0],
+            stack: 'Writes',
+            backgroundColor: '#191970',
+        });
+    }
+
+    const [strideReads, strideWrites] = getCatReads('strided_accesses');
+    for (const accName in strideReads) {
+        datasetIndex++;
+        strideReadIdx = datasetIndex;
+        datasets.push({
+            label: accName,
+            data: [0, 0, strideReads[accName], 0],
+            stack: 'Reads',
+            backgroundColor: '#FFD700',
+        });
+    }
+    for (const accName in strideWrites) {
+        datasetIndex++;
+        strideWriteIdx = datasetIndex;
+        datasets.push({
+            label: accName,
+            data: [0, 0, strideWrites[accName], 0],
+            stack: 'Writes',
+            backgroundColor: '#FF8C00',
+        });
+    }
+
+    const [indirReads, indirWrites] = getCatReads('indirect_accesses');
+    for (const accName in indirReads) {
+        datasetIndex++;
+        indirReadIdx = datasetIndex;
+        datasets.push({
+            label: accName,
+            data: [0, 0, 0, indirReads[accName]],
+            stack: 'Reads',
+            backgroundColor: constReadIdx % 2 === 0 ? '#FF7F50' : '#A52A2A',
+        });
+    }
+    for (const accName in indirWrites) {
+        datasetIndex++;
+        indirWriteIdx = datasetIndex;
+        datasets.push({
+            label: accName,
+            data: [0, 0, 0, indirWrites[accName]],
+            stack: 'Writes',
+            backgroundColor: constReadIdx % 2 === 0 ? '#DC143C' : '#8B0000',
+        });
+    }
+
+    const canvas = $('<canvas>').appendTo(root) as JQuery<HTMLCanvasElement>;
+
+    new Chart(
+        canvas,
+        {
+            type: 'bar',
+            data: {
+                labels: ['Constant', 'Linear', 'Strided', 'Indirect'],
+                datasets: datasets,
+            },
+            plugins: [ChartDataLabels],
+            options: {
+                animation: false,
+                interaction: {
+                    intersect: false,
+                },
+                scales: {
+                    y: {
+                        stacked: true,
+                    },
+                    x: {
+                        stacked: true,
+                    },
+                },
+                plugins: {
+                    legend: {
+                        display: false,
+                    },
+                    tooltip: {
+                        intersect: true,
+                    },
+                    datalabels: {
+                        align: 'end',
+                        anchor: 'start',
+                        color: 'black',
+                        formatter: function(_, context) {
+                            const ds = context.chart.data.datasets;
+                            const dsIdx = context.datasetIndex;
+                            const dIdx = context.dataIndex;
+                            if ((dIdx === 0 && (dsIdx === constReadIdx ||
+                                                dsIdx === constWriteIdx)) ||
+                                (dIdx === 1 && (dsIdx === linReadIdx ||
+                                                dsIdx === linWriteIdx)) ||
+                                (dIdx === 2 && (dsIdx === strideReadIdx ||
+                                                dsIdx === strideWriteIdx)) ||
+                                (dIdx === 3 && (dsIdx === indirReadIdx ||
+                                                dsIdx === indirWriteIdx))) {
+                                return ds[dsIdx].stack;
+                            }
+                            return '';
+                        }
+                    }
+                },
+            },
+        }
+    );
+}
+
 function buildTreeView(data: _AccessStatistics): void {
     const container = $('#statistics-contents');
     container.html('');
+
+    const countAllContainerAccessesOfType = (
+        record: _DataContainerAccessStats, type: _AccessType
+    ): number => {
+        let nAccesses = 0;
+        for (const subCat of record[type])
+            nAccesses += subCat.n_accesses;
+        return nAccesses;
+    };
 
     const countAllSDFGAccessesOfType = (
         record: _SDFGAccessStats, type: _AccessType
     ): number => {
         let nAccesses = 0;
-        for (const dataRecord of record.accesses) {
-            let recordAccesses = 0;
-            for (const subCat of dataRecord[type])
-                recordAccesses += subCat.n_accesses;
-            nAccesses += recordAccesses;
-        }
+        for (const dataRecord of record.accesses)
+            nAccesses += countAllContainerAccessesOfType(dataRecord, type);
         return nAccesses;
     };
+
+    buildSDFGHist(data, container);
 
     const sortingCrit = $(
         '#sdfg-access-stats-sorting-crit'
@@ -387,39 +738,102 @@ function buildTreeView(data: _AccessStatistics): void {
     const sortingStyle = $(
         '#sdfg-access-stats-sorting-style'
     ).val() as SDFG_SORTING_STYLE;
-    switch (sortingCrit) {
-        case 'linear_accesses':
-        case 'strided_accesses':
-        case 'indirect_accesses':
-        case 'constant_accesses':
-            data.all_cfg_stats.sort((a, b) => {
-                let nA = countAllSDFGAccessesOfType(a, sortingCrit);
-                let nB = countAllSDFGAccessesOfType(b, sortingCrit);
-                if (sortingStyle == 'descending')
-                    return nB - nA;
-                else
-                    return nA - nB;
-            });
-            break;
-        case 'all_accesses':
-        default:
-            data.all_cfg_stats.sort((a, b) => {
-                if (sortingStyle == 'descending')
-                    return b.n_total_accesses - a.n_total_accesses;
-                else
-                    return a.n_total_accesses - b.n_total_accesses;
-            });
-            break;
-    }
+    const groupBy = $(
+        '#sdfg-access-stats-group-by'
+    ).val() as GROUPING_STYLE;
+    if (groupBy === 'sdfg') {
+        switch (sortingCrit) {
+            case 'linear_accesses':
+            case 'strided_accesses':
+            case 'indirect_accesses':
+            case 'constant_accesses':
+                data.all_cfg_stats.sort((a, b) => {
+                    let nA = countAllSDFGAccessesOfType(a, sortingCrit);
+                    let nB = countAllSDFGAccessesOfType(b, sortingCrit);
+                    if (sortingStyle == 'descending')
+                        return nB - nA;
+                    else
+                        return nA - nB;
+                });
+                break;
+            case 'all_accesses':
+            default:
+                data.all_cfg_stats.sort((a, b) => {
+                    if (sortingStyle == 'descending')
+                        return b.n_total_accesses - a.n_total_accesses;
+                    else
+                        return a.n_total_accesses - b.n_total_accesses;
+                });
+                break;
+        }
 
-    constructAccordion(
-        container, data.all_cfg_stats,
-        (record) => 'sdfg-stats-entry-id-' + record.id.toString(),
-        (record) => (
-            'SDFG ' + record.id.toString() + ': ' + record.name +
-            ' (' + record.n_total_accesses.toString() + ')'
-        ), 'sdfg-stats-accordion', true, buildSDFGTreeView
-    );
+        constructAccordion(
+            container, data.all_cfg_stats,
+            (record) => 'sdfg-stats-entry-id-' + record.id.toString(),
+            (record) => (
+                'SDFG ' + record.id.toString() + ': ' + record.name +
+                ' (' + record.n_total_accesses.toString() + ')'
+            ), 'data-stats-accordion', true, buildSDFGTreeView
+        );
+    } else {
+        // Group by data containers.
+        const byContainerStats: Record<string, _DataContainerAccessStats> = {};
+        for (const cfgStats of data.all_cfg_stats) {
+            for (const containerStats of cfgStats.accesses) {
+                if (containerStats.container in Object.keys(byContainerStats)) {
+                    const entry = byContainerStats[containerStats.container];
+                    entry.n_total_accesses += containerStats.n_total_accesses;
+                    for (const access of containerStats.constant_accesses)
+                        entry.constant_accesses.push(access);
+                    for (const access of containerStats.linear_accesses)
+                        entry.linear_accesses.push(access);
+                    for (const access of containerStats.strided_accesses)
+                        entry.strided_accesses.push(access);
+                    for (const access of containerStats.indirect_accesses)
+                        entry.indirect_accesses.push(access);
+                } else {
+                    byContainerStats[containerStats.container] = containerStats;
+                }
+            }
+        }
+        const contStats: _DataContainerAccessStats[] = [];
+        for (const key in byContainerStats)
+            contStats.push(byContainerStats[key]);
+
+        switch (sortingCrit) {
+            case 'linear_accesses':
+            case 'strided_accesses':
+            case 'indirect_accesses':
+            case 'constant_accesses':
+                contStats.sort((a, b) => {
+                    let nA = countAllContainerAccessesOfType(a, sortingCrit);
+                    let nB = countAllContainerAccessesOfType(b, sortingCrit);
+                    if (sortingStyle == 'descending')
+                        return nB - nA;
+                    else
+                        return nA - nB;
+                });
+                break;
+            case 'all_accesses':
+            default:
+                contStats.sort((a, b) => {
+                    if (sortingStyle == 'descending')
+                        return b.n_total_accesses - a.n_total_accesses;
+                    else
+                        return a.n_total_accesses - b.n_total_accesses;
+                });
+                break;
+        }
+
+        constructAccordion<_DataContainerAccessStats>(
+            container, contStats,
+            (record) => 'data-stats-entry-id-' + record.container,
+            (record) => (
+                record.container +
+                ' (' + record.n_total_accesses.toString() + ')'
+            ), 'sdfg-stats-accordion', true, buildDataContainerHist
+        );
+    }
 }
 
 $(() => {

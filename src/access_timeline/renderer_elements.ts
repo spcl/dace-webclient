@@ -621,30 +621,65 @@ export class AllocatedContainer extends TimelineViewElement {
             this.lastUseX = access.x;
     }
 
+    private createStripedPattern(
+        lineWidth: number, spacing: number, slope: number, color: string
+    ) {
+        const can = document.createElement('canvas');
+        const len = Math.hypot(1, slope);
+
+        const w = can.width = 1 / len + spacing + 0.5 | 0;
+        const h = can.height = slope / len + spacing * slope + 0.5 | 0;
+    
+        const ctx = can.getContext('2d')!;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.beginPath();
+
+        // Line through top left and bottom right corners
+        ctx.moveTo(0, 0);
+        ctx.lineTo(w, h);
+        // Line through top right corner to add missing pixels
+        ctx.moveTo(0, -h);
+        ctx.lineTo(w * 2, h);
+        // Line through bottom left corner to add missing pixels
+        ctx.moveTo(-w, 0);
+        ctx.lineTo(w, h * 2);
+
+        ctx.stroke();
+        return ctx.createPattern(can, 'repeat');
+    };
+
     public draw(
         renderer: TimelineView, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, realMousepos?: Point2D
     ): void {
-        ctx.fillStyle = this.color;  
-        //if (this.conditional)
-        //    ctx.globalAlpha = 0.2;
+        if (this.conditional) {
+            ctx.fillStyle = this.createStripedPattern(8, 16, 1, this.color)!;
+        } else {
+            ctx.fillStyle = this.color;
+        }
+
         let solidStartX = this.x
         let solidEndX = this.x + this.width;
         if (this.firstUseX !== undefined) {
-            ctx.globalAlpha = 0.2;
-            ctx.fillRect(this.x, this.y, this.firstUseX - this.x, this.height);
+            ctx.globalAlpha = 0.3;
+            ctx.fillRect(
+                this.x, this.y, this.firstUseX - this.x, this.height
+            );
             solidStartX = this.firstUseX;
         }
         if (this.lastUseX !== undefined) {
-            ctx.globalAlpha = 0.2;
+            ctx.globalAlpha = 0.3;
             ctx.fillRect(
-                this.lastUseX, this.y, (this.x + this.width) - this.lastUseX,
-                this.height
+                this.lastUseX, this.y,
+                (this.x + this.width) - this.lastUseX, this.height
             );
             solidEndX = this.lastUseX;
         }
         ctx.globalAlpha = 1.0;
-        ctx.fillRect(solidStartX, this.y, solidEndX - solidStartX, this.height);
+        ctx.fillRect(
+            solidStartX, this.y, solidEndX - solidStartX, this.height
+        );
 
         if (this.hovered) {
             if (realMousepos) {
@@ -702,7 +737,7 @@ export class ScopeElement extends TimelineViewElement {
     ) {
         super();
 
-        this.height = 50;
+        this.height = 100;
         this.y = (depth + 1) * this.height;
         this.x = start * chart.scaleX;
         this.width = (end * chart.scaleX) - this.x;
@@ -716,6 +751,8 @@ export class ScopeElement extends TimelineViewElement {
             ctx.fillStyle = 'red';
         else if (this.label.startsWith('Conditional'))
             ctx.fillStyle = 'blue';
+        else if (this.label.startsWith('Parallel'))
+            ctx.fillStyle = 'green';
         else
             ctx.fillStyle = 'gray';
         ctx.fillRect(this.x, this.y, this.width, this.height);
