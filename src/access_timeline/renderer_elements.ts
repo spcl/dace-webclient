@@ -6,6 +6,7 @@ import {
     AllocationEvent,
     DataAccessEvent,
     DeallocationEvent,
+    InputOutputMap,
     MemoryEvent,
     MemoryTimelineScope,
     TimelineView,
@@ -13,6 +14,18 @@ import {
 
 
 export type TimelineViewElementClasses = 'container' | 'access' | 'axes';
+
+function median(values: number[]): number {
+    if (values.length === 0)
+        throw new Error('Input array is empty');
+
+    // Sorting values, preventing original array from being mutated.
+    values = [...values].sort((a, b) => a - b);
+    const half = Math.floor(values.length / 2);
+    return (
+        values.length % 2 ? values[half] : (values[half - 1] + values[half]) / 2
+    );
+  }
 
 export class TimelineViewElement {
 
@@ -115,6 +128,66 @@ export class TimelineViewElement {
 
 }
 
+
+function isInputOutput(
+    dataName: string, caseSensitive: boolean = false,
+    inputOutputDefinitions?: InputOutputMap
+): [boolean, boolean] {
+    let isInput = false;
+    let isOutput = false;
+    if (inputOutputDefinitions) {
+        const parts = dataName.split('->');
+        const rootData = caseSensitive ? parts[0] : parts[0].toLowerCase();
+        const inout = inputOutputDefinitions['inout'];
+        for (const elem of inout) {
+            if (typeof elem === 'string') {
+                const testString = caseSensitive ? elem : elem.toLowerCase();
+                if (rootData === testString)
+                    return [true, true];
+            } else {
+                const regex = new RegExp(elem['expr']);
+                if (regex.test(rootData))
+                    return [true, true];
+            }
+        }
+
+        const inputs = inputOutputDefinitions['in'];
+        for (const elem of inputs) {
+            if (typeof elem === 'string') {
+                const testString = caseSensitive ? elem : elem.toLowerCase();
+                if (rootData === testString) {
+                    isInput = true;
+                    break;
+                }
+            } else {
+                const regex = new RegExp(elem['expr']);
+                if (regex.test(rootData)) {
+                    isInput = true;
+                    break;
+                }
+            }
+        }
+
+        const outputs = inputOutputDefinitions['out'];
+        for (const elem of outputs) {
+            if (typeof elem === 'string') {
+                const testString = caseSensitive ? elem : elem.toLowerCase();
+                if (rootData === testString) {
+                    isOutput = true;
+                    break;
+                }
+            } else {
+                const regex = new RegExp(elem['expr']);
+                if (regex.test(rootData)) {
+                    isOutput = true;
+                    break;
+                }
+            }
+        }
+    }
+    return [isInput, isOutput];
+}
+
 export class TimelineChart extends TimelineViewElement {
 
     public readonly xAxis: ChartAxis;
@@ -133,6 +206,9 @@ export class TimelineChart extends TimelineViewElement {
 
     public readonly renderer: TimelineView;
 
+    private medianReuse: number = Infinity;
+    private medianRatio: number = 0.0;
+
     public readonly deferredDrawCalls: Set<(
         renderer: TimelineView, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D
@@ -149,7 +225,11 @@ export class TimelineChart extends TimelineViewElement {
         this.nEvents = 0;
         this.maxFootprint = 0;
         let currentFootprint = 0;
+        let inOutSize = 0;
+        let inSize = 0;
+        let outSize = 0;
         const containerMap = new Map();
+        const inOutMap = new Map<string, [boolean, boolean]>();
         for (const event of timeline) {
             if (event.type === 'DataAccessEvent') {
                 this.nEvents++;
@@ -157,6 +237,19 @@ export class TimelineChart extends TimelineViewElement {
                 for (const data of (event as AllocationEvent).data) {
                     containerMap.set(data[0], data[1]);
                     currentFootprint += data[1];
+                    const cleanName = data[0].replace(
+                        /^(\d*___state->__)?\d+_/g, ''
+                    );
+                    const [isInput, isOutput] = isInputOutput(
+                        cleanName, false, this.renderer.inputOutputDefinitions
+                    );
+                    inOutMap.set(cleanName, [isInput, isOutput]);
+                    if (isInput && isOutput)
+                        inOutSize += data[1];
+                    else if (isInput)
+                        inSize += data[1];
+                    else if (isOutput)
+                        outSize += data[1];
                 }
                 if (currentFootprint > this.maxFootprint)
                     this.maxFootprint = currentFootprint;
@@ -187,7 +280,11 @@ export class TimelineChart extends TimelineViewElement {
         this.writeAccesses = [];
 
         let time = 0;
-        let stackTop = 0;
+        let inStackTop = 0;
+        let inOutStackTop = inStackTop - (inSize * this.scaleY);
+        //let inStackTop = inOutStackTop - (inOutSize * this.scaleY);
+        let outStackTop = inOutStackTop - (inOutSize * this.scaleY);
+        let stackTop = outStackTop - (outSize * this.scaleY);
         const elemMap = new Map<string, AllocatedContainer>();
         let colorIdx = 0;
         const maxColorIdx = KELLY_COLORS.length;
@@ -203,18 +300,32 @@ export class TimelineChart extends TimelineViewElement {
                     const label = (
                         cleanName + ' (' + bytesToString(data[1]) + ')'
                     );
+                    const [isInput, isOutput] = inOutMap.get(cleanName) ?? [
+                        false, false
+                    ];
                     const allocatedElem = new AllocatedContainer(
                         label, blockLabelScale,
                         '#' + KELLY_COLORS[colorIdx].toString(16),
                         this, (event as AllocationEvent).conditional,
-                        cleanName, sdfgId
+                        cleanName, sdfgId, isInput, isOutput
                     );
                     allocatedElem.allocatedAt = time;
                     this.containers.push(allocatedElem);
                     allocatedElem.height = data[1] * this.scaleY;
-                    stackTop -= allocatedElem.height;
                     allocatedElem.x = time * this.scaleX;
-                    allocatedElem.y = stackTop;
+                    if (isInput && isOutput) {
+                        inOutStackTop -= allocatedElem.height;
+                        allocatedElem.y = inOutStackTop;
+                    } else if (isInput) {
+                        inStackTop -= allocatedElem.height;
+                        allocatedElem.y = inStackTop;
+                    } else if (isOutput) {
+                        outStackTop -= allocatedElem.height;
+                        allocatedElem.y = outStackTop;
+                    } else {
+                        stackTop -= allocatedElem.height;
+                        allocatedElem.y = stackTop;
+                    }
                     elemMap.set(data[0], allocatedElem);
 
                     colorIdx++;
@@ -223,12 +334,23 @@ export class TimelineChart extends TimelineViewElement {
                 }
             } else if (event.type === 'DeallocationEvent') {
                 for (const data of (event as DeallocationEvent).data) {
+                    if (!elemMap.has(data)) {
+                        console.warn('Deallocating not allocated data', data);
+                        continue;
+                    }
                     const allocatedElem = elemMap.get(data)!;
                     allocatedElem.width = (
                         time * this.scaleX
                     ) - allocatedElem.x;
                     allocatedElem.deallocatedAt = time;
-                    stackTop += allocatedElem.height;
+                    if (allocatedElem.isInput && allocatedElem.isOutput)
+                        inOutStackTop += allocatedElem.height;
+                    else if (allocatedElem.isInput)
+                        inStackTop += allocatedElem.height;
+                    else if (allocatedElem.isOutput)
+                        outStackTop += allocatedElem.height;
+                    else
+                        stackTop += allocatedElem.height;
                     elemMap.delete(data);
                 }
             } else {
@@ -269,8 +391,15 @@ export class TimelineChart extends TimelineViewElement {
     }
 
     private calculateMetrics(): void {
-        for (const container of this.containers)
-            container.calculateReuse();
+        let allReuse = [];
+        let allRatios = [];
+        for (const container of this.containers) {
+            const res = container.calculateReuse();
+            allRatios.push(res[0]);
+            allReuse.push(res[1]);
+        }
+        this.medianRatio = median(allRatios);
+        this.medianReuse = median(allReuse);
     }
 
     private collectScopes(
@@ -336,6 +465,17 @@ export class TimelineChart extends TimelineViewElement {
 
         for (const scope of this.scopes)
             scope.draw(renderer, ctx, mousepos, realMousepos);
+
+        ctx.fillStyle = 'black';
+        ctx.globalAlpha = 1.0;
+        ctx.fillText(
+            'Median reuse: ' + this.medianReuse.toString(),
+            this.x + this.xAxis.width + 50, this.y
+        );
+        ctx.fillText(
+            'Median use / allocation ratio: ' + this.medianRatio.toString(),
+            this.x + this.xAxis.width + 50, this.y + 20
+        );
     }
 
     public drawDeferred(
@@ -577,6 +717,8 @@ export class AllocatedContainer extends TimelineViewElement {
         private readonly conditional: boolean,
         private readonly dataName: string,
         private readonly sdfgId: number,
+        public readonly isInput: boolean,
+        public readonly isOutput: boolean,
     ) {
         super();
 
@@ -611,6 +753,12 @@ export class AllocatedContainer extends TimelineViewElement {
                 shapeTxt += elem.toString() + ', ';
             this.tooltipText += '\n' + shapeTxt.slice(0, -2) + ']';
         }
+        if (this.isInput && this.isOutput)
+            this.tooltipText += '\nProgram Input & Output';
+        else if (this.isInput)
+            this.tooltipText += '\nProgram Input';
+        else if (this.isOutput)
+            this.tooltipText += '\nProgram Output';
     }
 
     public registerAccess(access: ContainerAccess): void {
@@ -661,14 +809,14 @@ export class AllocatedContainer extends TimelineViewElement {
 
         let solidStartX = this.x
         let solidEndX = this.x + this.width;
-        if (this.firstUseX !== undefined) {
+        if (!this.isInput && this.firstUseX !== undefined) {
             ctx.globalAlpha = 0.3;
             ctx.fillRect(
                 this.x, this.y, this.firstUseX - this.x, this.height
             );
             solidStartX = this.firstUseX;
         }
-        if (this.lastUseX !== undefined) {
+        if (!this.isOutput && this.lastUseX !== undefined) {
             ctx.globalAlpha = 0.3;
             ctx.fillRect(
                 this.lastUseX, this.y,
@@ -676,7 +824,13 @@ export class AllocatedContainer extends TimelineViewElement {
             );
             solidEndX = this.lastUseX;
         }
-        ctx.globalAlpha = 1.0;
+        if (!this.isOutput && !this.isInput && this.lastUseX === undefined &&
+            this.firstUseX === undefined
+        ) {
+            ctx.globalAlpha = 0.3;
+        } else {
+            ctx.globalAlpha = 1.0;
+        }
         ctx.fillRect(
             solidStartX, this.y, solidEndX - solidStartX, this.height
         );
@@ -694,7 +848,7 @@ export class AllocatedContainer extends TimelineViewElement {
         }
     }
 
-    public calculateReuse(): void {
+    public calculateReuse(): [number, number] {
         let lastAccessAt = null;
         let firstAccessAt = null;
         for (const access of this.accesses) {
@@ -722,8 +876,10 @@ export class AllocatedContainer extends TimelineViewElement {
             this.tooltipText += (
                 '\nMean reuse distance: ' + meanReuse.toString()
             );
+            return [ratio, meanReuse];
         } else {
             this.tooltipText += '\nNo reuse!';
+            return [ratio, Infinity];
         }
     }
 
@@ -757,8 +913,8 @@ export class ScopeElement extends TimelineViewElement {
             ctx.fillStyle = 'gray';
         ctx.fillRect(this.x, this.y, this.width, this.height);
 
-        ctx.strokeStyle = 'black';
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
+        //ctx.strokeStyle = 'black';
+        //ctx.strokeRect(this.x, this.y, this.width, this.height);
 
         if (this.hovered) {
             if (realMousepos) {

@@ -67,6 +67,7 @@ export interface _JsonCFLoop extends _JsonCFSequence {
     init?: string;
     update?: string;
     nexec?: string;
+    ranges?: string;
 }
 
 export interface _JsonCFConditional extends _JsonCFBlock {
@@ -78,6 +79,7 @@ export class ControlFlowView {
     public readonly debugDraw: boolean = false;
 
     private sdfg?: JsonSDFG;
+    private jsonRootSequence?: _JsonCFSequence;
     private rootSequence?: CFV_Sequence;
     public readonly elementMap: Map<string, CFV_Element> = new Map();
 
@@ -97,7 +99,11 @@ export class ControlFlowView {
     protected tooltipContainer?: JQuery<HTMLDivElement>;
     protected tooltipText?: JQuery<HTMLSpanElement>;
 
+    protected dependencyMode?: string;
+
     private readonly container: JQuery<HTMLElement>;
+
+    private readonly depEdgeMap: Map<string, CFV_DepEdge> = new Map();
 
     public constructor() {
         $(document).on(
@@ -108,6 +114,12 @@ export class ControlFlowView {
             'change.sdfv', '#control-flow-report-file-input',
             this.loadControlFlowReport.bind(this)
         );
+        $(document).on(
+            'change.sdfv', '#cf-overview-mode-input',
+            this.reconstruct.bind(this)
+        );
+
+        this.dependencyMode = $('#cf-overview-mode-input').val()?.toString();
 
         this.canvas = document.createElement('canvas');
         this.canvas.id = 'cf-view-canvas';
@@ -188,7 +200,71 @@ export class ControlFlowView {
         fileReader.readAsArrayBuffer(file);
     }
 
+    private blockConstructDepsImprecise(block: CFV_ControlFlowBlock): void {
+        const selfDependencies = new Set();
+        for (const data in block.data.inputs) {
+            const dependency = block.data.inputs[data];
+            if (dependency[1].length > 0) {
+                const connector = new CFV_DepConnector(data);
+                for (const depId of dependency[1]) {
+                    const identifier = block.data.guid + '_' + depId;
+                    const existingEdge = this.depEdgeMap.get(identifier);
+                    if (existingEdge !== undefined) {
+                        existingEdge.label = existingEdge.label + '\n' + data;
+                    } else {
+                        const src = this.elementMap.get(depId);
+                        if (!src || !(src instanceof CFV_ControlFlowBlock)) {
+                            throw Error('Uhoh');
+                        } else if (src === block) {
+                            selfDependencies.add(data)
+                        }
+                        const depEdge = new CFV_DepEdge(
+                            data, dependency[0], src, block
+                        );
+                        this.depEdgeMap.set(identifier, depEdge);
+                        connector.edges.push(depEdge);
+                    }
+                }
+
+                block.inConnectors.push(connector);
+            }
+        }
+        for (const data in block.data.outputs) {
+            const dependency = block.data.outputs[data];
+            if (dependency[1].length > 0) {
+                const connector = new CFV_DepConnector(data);
+                for (const depId of dependency[1]) {
+                    const identifier = depId + '_' + block.data.guid;
+                    const existingEdge = this.depEdgeMap.get(identifier);
+                    if (existingEdge !== undefined) {
+                        existingEdge.label = existingEdge.label + '\n' + data;
+                    } else {
+                        const dst = this.elementMap.get(depId);
+                        if (!dst || !(dst instanceof CFV_ControlFlowBlock)) {
+                            throw Error('Uhoh');
+                        } else if (dst === block) {
+                            if (!selfDependencies.has(data))
+                                throw Error('Uhoh');
+                            else
+                                continue
+                        }
+                        const depEdge = new CFV_DepEdge(
+                            data, dependency[0], block, dst
+                        );
+                        this.depEdgeMap.set(identifier, depEdge);
+                        connector.edges.push(depEdge);
+                    }
+                }
+
+                block.outConnectors.push(connector);
+            }
+        }
+    }
+
     private blockConstructDeps(block: CFV_ControlFlowBlock): void {
+        if (this.dependencyMode === 'imprecise')
+            return this.blockConstructDepsImprecise(block);
+
         const selfDependencies = new Set();
         for (const data in block.data.inputs) {
             const dependency = block.data.inputs[data];
@@ -295,15 +371,27 @@ export class ControlFlowView {
             const result = e.target?.result;
 
             if (result) {
-                this.rootSequence = this.parseControlSequence(
-                    JSON.parse(read_or_decompress(result)[0])
+                this.jsonRootSequence = JSON.parse(
+                    read_or_decompress(result)[0]
                 );
-                this.constructEdgesForSequence(this.rootSequence);
-                this.layout();
-                this.draw_async();
+                this.reconstruct();
             }
         };
         fileReader.readAsArrayBuffer(file);
+    }
+
+    private reconstruct(): void {
+        if (!this.jsonRootSequence)
+            return;
+
+        this.dependencyMode = $('#cf-overview-mode-input').val()?.toString();
+        this.depEdgeMap.clear();
+
+        this.rootSequence = undefined;
+        this.rootSequence = this.parseControlSequence(this.jsonRootSequence);
+        this.constructEdgesForSequence(this.rootSequence);
+        this.layout();
+        this.draw_async();
     }
 
     public layout(): void {

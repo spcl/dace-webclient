@@ -61,9 +61,13 @@ export interface DeallocationEvent extends MemoryEvent {
     conditional: boolean;
 }
 
+export type InputOutputMap = Record<('inout' | 'in' | 'out'),
+    (string | { type: 'regex', expr: string })[]>;
+
 export class TimelineView {
 
     public sdfg?: JsonSDFG;
+    public inputOutputDefinitions?: InputOutputMap;
     public sdfg_list: Map<number, JsonSDFG> = new Map();
 
     private timeline: MemoryEvent[] | null = null;
@@ -98,6 +102,10 @@ export class TimelineView {
         $(document).on(
             'change.sdfv', '#sdfg-file-input',
             this.loadSDFG.bind(this)
+        );
+        $(document).on(
+            'change.sdfv', '#inputs-file-input',
+            this.loadInputsOutputsFile.bind(this)
         );
         $(document).on(
             'change.sdfv', '#sdfg-access-timeline-file-input',
@@ -207,6 +215,25 @@ export class TimelineView {
                 this.sdfg = checkCompatLoad(parse_sdfg(result));
                 if (this.sdfg)
                     this.recursivelyRegisterSDFGs(this.sdfg);
+            }
+        };
+        fileReader.readAsArrayBuffer(file);
+    }
+
+    public loadInputsOutputsFile(changeEvent: any): void {
+        if (changeEvent.target.files.length < 1)
+            return;
+        const file = changeEvent.target.files[0];
+        if (!file)
+            return;
+
+        const fileReader = new FileReader();
+        fileReader.onload = (e) => {
+            const result = e.target?.result;
+
+            if (result) {
+                const packedResult = read_or_decompress(result);
+                this.inputOutputDefinitions = JSON.parse(packedResult[0]);
             }
         };
         fileReader.readAsArrayBuffer(file);

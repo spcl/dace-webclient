@@ -2,14 +2,7 @@
 const path = require('path');
 const webpack = require('webpack');
 
-const mainConfig = {
-    name: 'main',
-    entry: {
-        sdfv: './src/sdfv.ts',
-        access_stats: './src/access_statistics/access_statistics.ts',
-        access_timeline: './src/access_timeline/access_timeline.ts',
-        control_flow_view: './src/control_flow_view/control_flow_view.ts',
-    },
+const coreConfig = {
     module: {
         rules: [
             {
@@ -69,6 +62,17 @@ const mainConfig = {
             process: 'process/browser',
         }),
     ]
+}
+
+const mainConfig = {
+    name: 'main',
+    entry: {
+        sdfv: './src/sdfv.ts',
+        access_stats: './src/access_statistics/access_statistics.ts',
+        access_timeline: './src/access_timeline/access_timeline.ts',
+        control_flow_view: './src/control_flow_view/control_flow_view.ts',
+    },
+    ...coreConfig,
 };
 
 const jupyterConfig = {

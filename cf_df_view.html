@@ -32,6 +32,21 @@
                     accept=".json"
                     class="form-control form-control-sm">
             </div>
+            <div class="col-auto">
+                <label for="cf-overview-mode-input"
+                        class="form-label">
+                    Data Container Dependency Criterium:
+                </label>
+                <select id="cf-overview-mode-input"
+                        class="form-select form-select-sm">
+                    <option value="precise">
+                        Access subsets overlap
+                    </option>
+                    <option value="imprecise" selected="selected">
+                        Same container accessed
+                    </option>
+                </select>
+            </div>
         </div>
     </div>
     <div class="container-fluid" id="cf-view-contents"></div>

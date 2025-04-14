@@ -58,8 +58,10 @@ export function layoutEdges(
                     break;
                 }
             }
-            if (!srcConn)
-                throw Error('Uh oh!');
+            if (!srcConn) {
+                console.warn('Uh oh!');
+                srcConn = edge.src;
+            }
             const srcX = srcConn.x + (srcConn.width / 2);
             const dstX = conn.x + (conn.width / 2);
             edge.points = [
@@ -116,8 +118,10 @@ export function layoutEdges(
                     break;
                 }
             }
-            if (!dstConn)
-                throw Error('Uh oh!');
+            if (!dstConn) {
+                console.warn('Uh oh!');
+                dstConn = edge.dst;
+            }
             const srcX = conn.x + (conn.width / 2);
             const dstX = dstConn.x + (dstConn.width / 2);
             edge.points = [{

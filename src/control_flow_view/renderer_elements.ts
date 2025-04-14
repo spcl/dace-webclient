@@ -130,10 +130,11 @@ export class CFV_DepEdge extends CFV_Element {
     public points: Point2D[] = [];
 
     public constructor(
-        public readonly label: string,
+        public label: string,
         public readonly memlet: _JsonMemlet,
         public readonly src: CFV_ControlFlowBlock,
         public readonly dst: CFV_ControlFlowBlock,
+        public readonly includeSubset: boolean = false,
     ) {
         super();
     }
@@ -180,11 +181,19 @@ export class CFV_DepEdge extends CFV_Element {
         );
 
         if (this.hovered && realMousepos) {
-            const subsetString = sdfg_property_to_string(
-                this.memlet.attributes.subset, SDFVSettings.settingsDict
-            );
-            const tooltipText = (this.label + ' ' + subsetString);
-            renderer.showTooltip(realMousepos.x, realMousepos.y, tooltipText);
+            if (this.includeSubset) {
+                const subsetString = sdfg_property_to_string(
+                    this.memlet.attributes.subset, SDFVSettings.settingsDict
+                );
+                const tooltipText = this.label + ' ' + subsetString;
+                renderer.showTooltip(
+                    realMousepos.x, realMousepos.y, tooltipText
+                );
+            } else {
+                renderer.showTooltip(
+                    realMousepos.x, realMousepos.y, this.label
+                );
+            }
         }
     }
 
@@ -323,7 +332,7 @@ export class CFV_Sequence extends CFV_ControlFlowBlock {
     public readonly children: CFV_ControlFlowBlock[] = [];
 
     protected readonly color: string = 'gray';
-    protected collapsed: boolean = true;
+    protected collapsed: boolean = false;
 
     private _isRoot: boolean = false;
 
@@ -424,6 +433,12 @@ export class CFV_Loop extends CFV_Sequence {
             for (const child of this.children)
                 child.draw(renderer, ctx, mousepos, realMousepos);
         }
+
+        const rangesString = (this.data as _JsonCFLoop).ranges;
+        if (rangesString !== undefined) {
+            ctx.fillStyle = 'black';
+            ctx.fillText(rangesString, this.x + this.width / 2, this.y + 10);
+        }
     }
 
 }
@@ -433,7 +448,7 @@ export class CFV_Conditional extends CFV_ControlFlowBlock {
     public readonly branches: [string, CFV_Sequence][] = [];
     protected readonly color: string = 'blue';
 
-    protected collapsed: boolean = true;
+    protected collapsed: boolean = false;
 
     public draw(
         renderer: ControlFlowView, ctx: CanvasRenderingContext2D,
