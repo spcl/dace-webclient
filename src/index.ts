@@ -18,7 +18,7 @@ export * from './utils/sdfg/sdfg_utils';
 export * from './utils/sdfg/traversal';
 export * from './utils/sdfv_settings';
 export * from './utils/bounding_box';
-export * from './utils/lerp_matrix';
+export * from './rendering_core/html_canvas/lerp_matrix';
 export * from './utils/sanitization';
 export * from './utils/utils';
 export * from './overlay_manager';

@@ -5,9 +5,17 @@ import $ from 'jquery';
 import 'bootstrap';
 
 import '../../scss/access_timeline.scss';
-import { DataSubset, JsonSDFG, JsonSDFGConditionalBlock, JsonSDFGControlFlowRegion, JsonSDFGState, Point2D, SimpleRect } from '../types';
-import { checkCompatLoad, parse_sdfg, read_or_decompress } from '../utils/sdfg/json_serializer';
-import { CanvasManager } from './canvas_manager';
+import {
+    JsonSDFG,
+    JsonSDFGConditionalBlock,
+    JsonSDFGControlFlowRegion,
+    JsonSDFGState,
+} from '../types';
+import {
+    checkCompatLoad,
+    parse_sdfg,
+    read_or_decompress,
+} from '../utils/sdfg/json_serializer';
 import {
     AllocatedContainer,
     ContainerAccess,
@@ -15,56 +23,19 @@ import {
     TimelineViewElement,
     TimelineViewElementClasses,
 } from './renderer_elements';
+import {
+    HTMLCanvasRenderer,
+} from '../rendering_core/html_canvas/html_canvas_renderer';
+import {
+    InputOutputMap,
+    MemoryEvent,
+    MemoryTimelineScope,
+} from './access_timeline_view';
 
 declare const blobStream: any;
 declare const canvas2pdf: any;
 
-export interface MemoryTimelineScope {
-    label: string;
-    scope: string;
-    children: MemoryTimelineScope[];
-    start_time: number;
-    end_time: number;
-}
-
-export interface MemoryEvent {
-    type: 'DataAccessEvent' | 'AllocationEvent' | 'DeallocationEvent';
-}
-
-export interface DataAccessEvent extends MemoryEvent {
-    type: 'DataAccessEvent';
-    alloc_name: string;
-    data: string;
-    container_sdfg: number;
-    sdfg: number;
-    block?: string;
-    anode?: string;
-    edge?: string;
-    subset: DataSubset;
-    mode: 'write' | 'read';
-    conditional: boolean;
-}
-
-export interface AllocationEvent extends MemoryEvent {
-    type: 'AllocationEvent';
-    data: [string, number][];
-    sdfg: number;
-    scope: string;
-    conditional: boolean;
-}
-
-export interface DeallocationEvent extends MemoryEvent {
-    type: 'DeallocationEvent';
-    data: string[];
-    sdfg: number;
-    scope: string;
-    conditional: boolean;
-}
-
-export type InputOutputMap = Record<('inout' | 'in' | 'out'),
-    (string | { type: 'regex', expr: string })[]>;
-
-export class TimelineView {
+export class AccessTimelineRenderer extends HTMLCanvasRenderer {
 
     public sdfg?: JsonSDFG;
     public inputOutputDefinitions?: InputOutputMap;
@@ -74,31 +45,25 @@ export class TimelineView {
     private scopes: MemoryTimelineScope[] | null = null;
     private chart?: TimelineChart;
 
-    private readonly canvas: HTMLCanvasElement;
-    private ctx: CanvasRenderingContext2D;
-    private readonly canvasManager: CanvasManager;
-    public readonly backgroundColor: string;
-    public readonly debugDraw: boolean = false;
-
-    private dragStart?: any;
-    private dragging: boolean = false;
-    private mousepos?: Point2D;
-    private realMousepos?: Point2D;
-    private visibleRect?: SimpleRect;
     private hoveredElement?: TimelineViewElement;
 
-    protected tooltipContainer?: JQuery<HTMLDivElement>;
-    protected tooltipText?: JQuery<HTMLSpanElement>;
+    public constructor(
+        container: JQuery<HTMLElement>,
+        extMouseHandler: (
+            (...args: any[]) => boolean
+        ) | null = null,
+        initialUserTransform: DOMMatrix | null = null,
+        backgroundColor: string | null = null,
+        debugDraw = false,
+    ) {
+        super(
+            container,
+            extMouseHandler,
+            initialUserTransform,
+            backgroundColor,
+            debugDraw
+        );
 
-    private readonly container: JQuery<HTMLElement>;
-
-    // Determine whether rendering only happens in the viewport or also outside.
-    protected _viewportOnly: boolean = true;
-    // Determine whether content should adaptively be hidden when zooming out.
-    // Controlled by the SDFVSettings.
-    protected _adaptiveHiding: boolean = true;
-
-    public constructor() {
         $(document).on(
             'change.sdfv', '#sdfg-file-input',
             this.loadSDFG.bind(this)
@@ -118,18 +83,9 @@ export class TimelineView {
             'click', () => { this.saveAsPDF(false) }
         );
 
-        this.canvas = document.createElement('canvas');
         this.canvas.id = 'timeline-canvas';
-        this.canvas.classList.add('sdfg_canvas');
-        this.canvas.style.backgroundColor = 'inherit';
         this.container = $('#timeline-contents');
-        this.container[0].append(this.canvas);
 
-        this.ctx = this.canvas.getContext('2d')!;
-        this.canvasManager = new CanvasManager(this.ctx, this, this.canvas);
-        this.backgroundColor = window.getComputedStyle(
-            this.canvas
-        ).backgroundColor;
         this.onresize();
 
         const br = () => this.canvas.getBoundingClientRect();
@@ -176,127 +132,16 @@ export class TimelineView {
         }
     }
 
-    private recursivelyRegisterSDFGs(cfg: JsonSDFGControlFlowRegion): void {
-        if (cfg.type === 'SDFG')
-            this.sdfg_list.set(cfg.cfg_list_id, cfg as JsonSDFG);
-
-        for (const node of cfg.nodes) {
-            if (node.type === 'SDFGState') {
-                for (const nd of (node as JsonSDFGState).nodes) {
-                    if (nd.type === 'NestedSDFG') {
-                        this.recursivelyRegisterSDFGs(
-                            (nd as any).attributes.sdfg
-                        );
-                    }
-                }
-            } else if (node.type === 'ConditionalBlock') {
-                for (const brn of (node as JsonSDFGConditionalBlock).branches)
-                    this.recursivelyRegisterSDFGs(brn[1]);
-            } else if (Object.hasOwn(node, 'nodes')) {
-                this.recursivelyRegisterSDFGs(
-                    node as JsonSDFGControlFlowRegion
-                );
-            }
-        }
+    public setTimeline(
+        timeline: MemoryEvent[], scopes: MemoryTimelineScope[]
+    ): void {
+        this.chart = new TimelineChart(timeline, scopes[0], this);
+        this.zoomToFitContents();
+        this.drawAsync();
     }
 
-    public loadSDFG(changeEvent: any): void {
-        if (changeEvent.target.files.length < 1)
-            return;
-        const file = changeEvent.target.files[0];
-        if (!file)
-            return;
-
-        const fileReader = new FileReader();
-        fileReader.onload = (e) => {
-            const result = e.target?.result;
-
-            if (result) {
-                this.sdfg = checkCompatLoad(parse_sdfg(result));
-                if (this.sdfg)
-                    this.recursivelyRegisterSDFGs(this.sdfg);
-            }
-        };
-        fileReader.readAsArrayBuffer(file);
-    }
-
-    public loadInputsOutputsFile(changeEvent: any): void {
-        if (changeEvent.target.files.length < 1)
-            return;
-        const file = changeEvent.target.files[0];
-        if (!file)
-            return;
-
-        const fileReader = new FileReader();
-        fileReader.onload = (e) => {
-            const result = e.target?.result;
-
-            if (result) {
-                const packedResult = read_or_decompress(result);
-                this.inputOutputDefinitions = JSON.parse(packedResult[0]);
-            }
-        };
-        fileReader.readAsArrayBuffer(file);
-    }
-
-    public loadAccessTimeline(changeEvent: any): void {
-        if (changeEvent.target.files.length < 1)
-            return;
-        const file = changeEvent.target.files[0];
-        if (!file)
-            return;
-
-        const fileReader = new FileReader();
-        fileReader.onload = (e) => {
-            const result = e.target?.result;
-
-            if (result) {
-                const packedResult = read_or_decompress(result);
-                const data = JSON.parse(packedResult[0]);
-                this.timeline = data['events'];
-                this.scopes = data['scopes'];
-                if (this.timeline && this.scopes)
-                    this.constructChart();
-                else
-                    console.error('Failed to load statistics');
-            }
-        };
-        fileReader.readAsArrayBuffer(file);
-    }
-
-    private constructChart(): void {
-        if (this.timeline && this.scopes)
-            this.chart = new TimelineChart(this.timeline, this.scopes[0], this);
-        this.zoomToView();
-        this.draw_async();
-    }
-
-    public draw_async(): void {
-        this.canvasManager.draw_async();
-    }
-
-    public draw(dt: number | null): void {
-        const curx = this.canvasManager.mapPixelToCoordsX(0);
-        const cury = this.canvasManager.mapPixelToCoordsY(0);
-        const canvasw = this.canvas.width;
-        const canvash = this.canvas.height;
-        let endx = null;
-        if (canvasw)
-            endx = this.canvasManager.mapPixelToCoordsX(canvasw);
-        let endy = null;
-        if (canvash)
-            endy = this.canvasManager.mapPixelToCoordsY(canvash);
-        const curw = (endx ? endx : 0) - (curx ? curx : 0);
-        const curh = (endy ? endy : 0) - (cury ? cury : 0);
-
-        this.visibleRect = {
-            x: curx ? curx : 0,
-            y: cury ? cury : 0,
-            w: curw,
-            h: curh,
-        };
-
-        this.chart?.draw(this, this.ctx, this.mousepos, this.realMousepos);
+    public internalDraw(dt: number | null): void {
+        this.chart?.draw(this, this.ctx, this.mousePos, this.realMousePos);
 
         if ((this.ctx as any).pdf)
             (this.ctx as any).end();
@@ -377,7 +222,6 @@ export class TimelineView {
 
         let dirty = false;
         let elementFocusChanged = false;
-        let selectionChanged = false;
 
         if (evtype === 'mousedown' || evtype === 'touchstart') {
             this.dragStart = event;
@@ -390,34 +234,29 @@ export class TimelineView {
                 this.dragStart = event;
         } else if (evtype === 'mousemove') {
             // Calculate the change in mouse position in canvas coordinates
-            const oldMousepos = this.mousepos;
-            this.mousepos = {
+            this.mousePos = {
                 x: compXFunc(event),
                 y: compYFunc(event),
             };
-            this.realMousepos = { x: event.clientX, y: event.clientY };
+            this.realMousePos = { x: event.clientX, y: event.clientY };
 
             if (this.dragStart && event.buttons & 1) {
                 this.dragging = true;
 
                 // Mouse move in panning mode
-                if (this.visibleRect) {
-                    this.canvasManager.translate(
-                        event.movementX, event.movementY
-                    );
+                this.canvasManager.translate(
+                    event.movementX, event.movementY
+                );
 
-                    // Mark for redraw
-                    dirty = true;
-                }
+                // Mark for redraw
+                dirty = true;
             } else if (this.dragStart && event.buttons & 4) {
                 // Pan the view with the middle mouse button
                 this.dragging = true;
-                if (this.visibleRect) {
-                    this.canvasManager.translate(
-                        event.movementX, event.movementY
-                    );
-                    dirty = true;
-                }
+                this.canvasManager.translate(
+                    event.movementX, event.movementY
+                );
+                dirty = true;
                 elementFocusChanged = true;
             } else {
                 this.dragStart = null;
@@ -429,23 +268,21 @@ export class TimelineView {
                 // Different number of touches, ignore and reset drag_start
                 this.dragStart = event;
             } else if (event.touches.length === 1) { // Move/drag
-                if (this.visibleRect) {
-                    const movX = (
-                        event.touches[0].clientX -
-                        this.dragStart.touches[0].clientX
-                    );
-                    const movY = (
-                        event.touches[0].clientY -
-                        this.dragStart.touches[0].clientY
-                    );
+                const movX = (
+                    event.touches[0].clientX -
+                    this.dragStart.touches[0].clientX
+                );
+                const movY = (
+                    event.touches[0].clientY -
+                    this.dragStart.touches[0].clientY
+                );
 
-                    this.canvasManager.translate(movX, movY);
-                }
+                this.canvasManager.translate(movX, movY);
                 this.dragStart = event;
 
                 // Mark for redraw
                 dirty = true;
-                this.draw_async();
+                this.drawAsync();
                 return false;
             } else if (event.touches.length === 2) {
                 // Find relative distance between two touches before and after.
@@ -465,25 +302,23 @@ export class TimelineView {
                 );
                 const newCenter = [(x1 + x2) / 2.0, (y1 + y2) / 2.0];
 
-                if (this.visibleRect) {
-                    // First, translate according to movement of center point
-                    const movX = newCenter[0] - oldCenter[0];
-                    const movY = newCenter[1] - oldCenter[1];
+                // First, translate according to movement of center point
+                const movX = newCenter[0] - oldCenter[0];
+                const movY = newCenter[1] - oldCenter[1];
 
-                    this.canvasManager.translate(movX, movY);
+                this.canvasManager.translate(movX, movY);
 
-                    // Then scale
-                    this.canvasManager.scale(
-                        currentDistance / initialDistance, newCenter[0],
-                        newCenter[1]
-                    );
-                }
+                // Then scale
+                this.canvasManager.scale(
+                    currentDistance / initialDistance, newCenter[0],
+                    newCenter[1]
+                );
 
                 this.dragStart = event;
 
                 // Mark for redraw
                 dirty = true;
-                this.draw_async();
+                this.drawAsync();
                 return false;
             }
         } else if (evtype === 'wheel') {
@@ -496,11 +331,11 @@ export class TimelineView {
             elementFocusChanged = true;
         }
 
-        if (!this.mousepos)
+        if (!this.mousePos)
             return true;
 
         const elementsUnderCursor = this.findElementsUnderCursor(
-            this.mousepos.x, this.mousepos.y
+            this.mousePos.x, this.mousePos.y
         );
 
         if (elementsUnderCursor.foregroundElement) {
@@ -526,22 +361,12 @@ export class TimelineView {
         }
 
         if (dirty)
-            this.draw_async();
+            this.drawAsync();
 
         return false;
     }
 
-    public onresize(): void {
-        // Set canvas size
-        if (this.canvas) {
-            this.canvas.style.width = '99%';
-            this.canvas.style.height = '99%';
-            this.canvas.width = this.canvas.offsetWidth;
-            this.canvas.height = this.canvas.offsetHeight;
-        }
-    }
-
-    public zoomToView(
+    public zoomToFitContents(
         animate: boolean = true, padding?: number, redraw: boolean = true
     ): void {
         if (!this.chart)
@@ -560,41 +385,7 @@ export class TimelineView {
         this.canvasManager.set_view(bb, animate);
 
         if (redraw)
-            this.draw_async();
-    }
-
-    public showTooltip(x: number, y: number, text: string): void {
-        this.hideTooltip();
-        this.tooltipText = $('<span>', {
-            class: 'timeline-tooltip-text',
-            text: text,
-            css: {
-                'white-space': 'pre-line',
-            },
-        });
-        this.tooltipContainer = $('<div>', {
-            class: 'timeline-tooltip-container',
-            css: {
-                left: '0px',
-                top: '0px',
-            },
-        });
-        this.tooltipText.appendTo(this.tooltipContainer);
-        this.tooltipContainer.appendTo($(document.body));
-        const bcr = this.tooltipContainer[0].getBoundingClientRect();
-        const containerBcr = this.container[0].getBoundingClientRect();
-        this.tooltipContainer.css(
-            'left', (x - bcr.width / 2).toString() + 'px'
-        );
-        this.tooltipContainer.css(
-            'top',
-            (((y + containerBcr.y) - (bcr.height / 2)) - 8).toString() + 'px'
-        );
-    }
-
-    public hideTooltip(): void {
-        if (this.tooltipContainer)
-            this.tooltipContainer.remove();
+            this.drawAsync();
     }
 
     public save(filename: string, contents: string | undefined): void {
@@ -652,7 +443,7 @@ export class TimelineView {
         else
             this.ctx.translate(0, this.chart.yAxis.height);
 
-        this.draw_async();
+        this.drawAsync();
 
         ctx.stream.on('finish', () => {
             this.save(
@@ -660,13 +451,11 @@ export class TimelineView {
                 ctx.stream.toBlobURL('application/pdf')
             );
             this.ctx = oldctx;
-            this.draw_async();
+            this.drawAsync();
         });
     }
 
+    protected initUI(): void {
+    }
+
 }
-
-$(() => {
-    new TimelineView();
-});
-

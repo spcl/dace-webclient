@@ -16,7 +16,6 @@ import { OverlayManager } from './overlay_manager';
 import { DagreGraph, SDFGRenderer } from './renderer/renderer';
 import {
     ConditionalBlock,
-    ControlFlowBlock,
     SDFG,
     SDFGElement,
     SDFGNode,

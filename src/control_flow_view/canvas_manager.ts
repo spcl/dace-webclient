@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Point2D } from '../types';
-import { lerpMatrix } from '../utils/lerp_matrix';
+import { lerpMatrix } from '../rendering_core/html_canvas/lerp_matrix';
 import { ControlFlowView } from './control_flow_view';
 
 const animation_duration = 1000;

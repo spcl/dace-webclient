@@ -1,3 +1,5 @@
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
+
 import { DataSubset, Point2D } from '../types';
 import { bytesToString, sdfg_range_elem_to_string } from '../utils/sdfg/display';
 import { SDFVSettings } from '../utils/sdfv_settings';
@@ -9,9 +11,9 @@ import {
     InputOutputMap,
     MemoryEvent,
     MemoryTimelineScope,
-    TimelineView,
-} from './access_timeline';
-
+    AccessTimelineView,
+} from './access_timeline_view';
+import type { AccessTimelineRenderer } from './access_timeline_renderer';
 
 export type TimelineViewElementClasses = 'container' | 'access' | 'axes';
 
@@ -43,28 +45,28 @@ export class TimelineViewElement {
     }
 
     public draw(
-        _renderer: TimelineView, _ctx: CanvasRenderingContext2D,
+        _renderer: AccessTimelineView, _ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D, _realMousepos?: Point2D
     ): void {
         return;
     }
 
     public simpleDraw(
-        _renderer: TimelineView, _ctx: CanvasRenderingContext2D,
+        _renderer: AccessTimelineView, _ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D, _realMousepos?: Point2D
     ): void {
         return;
     }
 
     public shade(
-        _renderer: TimelineView, _ctx: CanvasRenderingContext2D, _color: string,
+        _renderer: AccessTimelineView, _ctx: CanvasRenderingContext2D, _color: string,
         _alpha: number = 0.4
     ): void {
         return;
     }
 
     public debugDraw(
-        renderer: TimelineView, ctx: CanvasRenderingContext2D
+        renderer: AccessTimelineView, ctx: CanvasRenderingContext2D
     ): void {
         if (renderer.debugDraw) {
             // Print the center and bounding box in debug mode.
@@ -204,19 +206,19 @@ export class TimelineChart extends TimelineViewElement {
     public readonly scaleX: number;
     public readonly scaleY: number;
 
-    public readonly renderer: TimelineView;
+    public readonly renderer: AccessTimelineView;
 
     private medianReuse: number = Infinity;
     private medianRatio: number = 0.0;
 
     public readonly deferredDrawCalls: Set<(
-        renderer: TimelineView, ctx: CanvasRenderingContext2D,
+        renderer: AccessTimelineView, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D
     ) => void> = new Set();
 
     public constructor(
         timeline: MemoryEvent[], rootScope: MemoryTimelineScope,
-        renderer: TimelineView
+        renderer: AccessTimelineView
     ) {
         super();
 
@@ -416,7 +418,7 @@ export class TimelineChart extends TimelineViewElement {
     }
 
     public draw(
-        renderer: TimelineView, ctx: CanvasRenderingContext2D,
+        renderer: AccessTimelineRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, realMousepos?: Point2D
     ): void {
         for (const elem of this.containers)
@@ -479,7 +481,7 @@ export class TimelineChart extends TimelineViewElement {
     }
 
     public drawDeferred(
-        renderer: TimelineView, ctx: CanvasRenderingContext2D,
+        renderer: AccessTimelineView, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D
     ): void {
         for (const deferredCall of this.deferredDrawCalls)
@@ -541,7 +543,7 @@ export class ChartAxis extends TimelineViewElement {
     }
 
     public draw(
-        renderer: TimelineView, ctx: CanvasRenderingContext2D,
+        renderer: AccessTimelineView, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, realMousepos?: Point2D
     ): void {
         ctx.beginPath();
@@ -571,7 +573,7 @@ export class ChartAxis extends TimelineViewElement {
     }
 
     public simpleDraw(
-        renderer: TimelineView, ctx: CanvasRenderingContext2D,
+        renderer: AccessTimelineView, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, realMousepos?: Point2D
     ): void {
         this.draw(renderer, ctx, mousepos);
@@ -642,7 +644,7 @@ export class ContainerAccess extends TimelineViewElement {
     }
 
     public draw(
-        renderer: TimelineView, ctx: CanvasRenderingContext2D,
+        renderer: AccessTimelineView, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, realMousepos?: Point2D
     ): void {
         if (this.mode == 'read') {
@@ -798,7 +800,7 @@ export class AllocatedContainer extends TimelineViewElement {
     };
 
     public draw(
-        renderer: TimelineView, ctx: CanvasRenderingContext2D,
+        renderer: AccessTimelineView, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, realMousepos?: Point2D
     ): void {
         if (this.conditional) {
@@ -900,7 +902,7 @@ export class ScopeElement extends TimelineViewElement {
     }
 
     public draw(
-        renderer: TimelineView, ctx: CanvasRenderingContext2D,
+        renderer: AccessTimelineView, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, realMousepos?: Point2D
     ): void {
         if (this.label.startsWith('Loop'))

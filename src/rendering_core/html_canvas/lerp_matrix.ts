@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 /**
  * Returns a function taking a number from 0 to 1 which linearly interpolates

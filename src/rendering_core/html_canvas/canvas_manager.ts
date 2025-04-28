@@ -1,24 +1,10 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import {
-    ControlFlowBlock,
-    Edge,
-    EntryNode,
-    SDFGElement,
-    SDFGElementType,
-    SDFGNode,
-} from './renderer_elements';
-import { lerpMatrix } from '../rendering_core/html_canvas/lerp_matrix';
-import { updateEdgeBoundingBox } from '../utils/bounding_box';
-import {
-    getPositioningInfo,
-    initialize_positioning_info,
-} from '../utils/sdfg/sdfg_utils';
-import type { SDFGRenderer, CFGListType, DagreGraph } from './renderer';
-import { Point2D } from '../types';
-import { intersectRect } from '../utils/utils';
+import type { Point2D, SimpleRect } from '../../types';
+import type { HTMLCanvasRenderer } from './html_canvas_renderer';
+import { lerpMatrix } from './lerp_matrix';
 
-const animation_duration = 1000;
+const ANIMATION_DURATION = 1000;
 
 // cubic ease out
 const animation_function = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -54,13 +40,20 @@ export class CanvasManager {
     private _svg: SVGSVGElement;
     private user_transform: DOMMatrix;
 
+    private _viewport: SimpleRect = {
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+    };
+
     public static counter(): number {
         return _canvas_manager_counter++;
     }
 
     public constructor(
         private ctx: CanvasRenderingContext2D,
-        private renderer: SDFGRenderer,
+        private renderer: HTMLCanvasRenderer,
         private canvas: HTMLCanvasElement
     ) {
         this._svg = document.createElementNS(
@@ -70,6 +63,10 @@ export class CanvasManager {
         this.user_transform = this._svg.createSVGMatrix();
 
         this.addCtxTransformTracking();
+    }
+
+    public get viewport(): SimpleRect {
+        return this._viewport;
     }
 
     public stopAnimation(): void {
@@ -340,6 +337,7 @@ export class CanvasManager {
      * @param {*} move_entire_edge  Whether to move the entire edge for edges
      * @param {*} edge_dpoints      List of edge points for edges
      */
+    /*
     public translate_element(
         el: SDFGElement,
         old_mousepos: Point2D,
@@ -716,6 +714,7 @@ export class CanvasManager {
             updateEdgeBoundingBox(edge);
         });
     }
+    */
 
     public mapPixelToCoordsX(xpos: number): number {
         return this.svgPoint(xpos, 0).matrixTransform(
@@ -749,7 +748,7 @@ export class CanvasManager {
 
         if (this.animation_start === null) {
             this.animation_start = now;
-            this.animation_end = now + animation_duration;
+            this.animation_end = now + ANIMATION_DURATION;
         }
 
         if (this.animation_end === null || now >= this.animation_end) {
@@ -792,6 +791,26 @@ export class CanvasManager {
         this.applyUserTransform();
         if (this.request_scale)
             this.request_scale = this.contention !== 1;
+
+        const viewX = this.mapPixelToCoordsX(0);
+        const viewY = this.mapPixelToCoordsY(0);
+        const canvasw = this.canvas?.width;
+        const canvash = this.canvas?.height;
+        let endx = null;
+        if (canvasw)
+            endx = this.mapPixelToCoordsX(canvasw);
+        let endy = null;
+        if (canvash)
+            endy = this.mapPixelToCoordsY(canvash);
+        const viewWidth = (endx ? endx : 0) - (viewX ? viewX : 0);
+        const viewHeight = (endy ? endy : 0) - (viewY ? viewY : 0);
+
+        this._viewport = {
+            x: viewX ? viewX : 0,
+            y: viewY ? viewY : 0,
+            w: viewWidth,
+            h: viewHeight,
+        };
 
         this.renderer.draw(dt);
         this.contention -= 1;
