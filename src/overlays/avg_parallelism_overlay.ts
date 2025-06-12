@@ -1,30 +1,27 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import type {
     DagreGraph,
-    GraphElementInfo,
-    SDFGElementGroup,
     SDFGRenderer,
-} from '../renderer/renderer';
+} from '../renderer/sdfg/sdfg_renderer';
 import {
     ConditionalBlock,
     ControlFlowBlock,
-    Edge,
     NestedSDFG,
-    SDFGElement,
     SDFGNode,
-} from '../renderer/renderer_elements';
-import { OverlayType, Point2D, SymbolMap } from '../types';
+} from '../renderer/sdfg/sdfg_elements';
+import { OverlayType, SymbolMap } from '../types';
 import { getGraphElementUUID } from '../utils/sdfg/sdfg_utils';
 import { getTempColorHslString } from '../utils/utils';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
+import { doForAllDagreGraphElements } from '../utils/sdfg/traversal';
 
 export class AvgParallelismOverlay extends GenericSdfgOverlay {
 
     public static readonly type: OverlayType = OverlayType.NODE;
     public readonly olClass: typeof GenericSdfgOverlay = AvgParallelismOverlay;
 
-    private avg_parallelism_map: { [uuids: string]: any } = {};
+    private avgParallelismMap: Record<string, string | undefined> = {};
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
@@ -34,102 +31,109 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
         );
     }
 
-    public clear_cached_avg_parallelism_values(): void {
-        this.renderer.doForAllGraphElements((_group, _info, obj) => {
+    public clearCachedAvgParallelismValues(): void {
+        if (!this.renderer.graph)
+            return;
+        doForAllDagreGraphElements((_group, _info, obj) => {
             if (obj.data) {
                 if (obj.data.avg_parallelism !== undefined)
                     obj.data.avg_parallelism = undefined;
                 if (obj.data.avg_parallelism_string !== undefined)
                     obj.data.avg_parallelism_string = undefined;
             }
-        });
+        }, this.renderer.graph, this.renderer.sdfg);
     }
 
-    public calculate_avg_parallelism_node(
-        node: SDFGNode, symbol_map: SymbolMap, avg_parallelism_values: number[]
+    public ccalculateAvgParallelismNode(
+        node: SDFGNode | ControlFlowBlock, symbolMap: SymbolMap,
+        avgParallelismValues: number[]
     ): number | undefined {
-        const avg_parallelism_string = this.avg_parallelism_map[
+        const avgParaString = this.avgParallelismMap[
             getGraphElementUUID(node)
         ];
-        let avg_parallelism = undefined;
-        if (avg_parallelism_string !== undefined) {
-            avg_parallelism = this.symbolResolver.parse_symbol_expression(
-                avg_parallelism_string,
-                symbol_map
+        let avgPara = undefined;
+        if (avgParaString !== undefined) {
+            avgPara = this.symbolResolver.parseExpression(
+                avgParaString,
+                symbolMap
             );
         }
 
-        node.data.avg_parallelism_string = avg_parallelism_string;
-        node.data.avg_parallelism = avg_parallelism;
+        node.data ??= {};
+        node.data.avg_parallelism_string = avgParaString;
+        node.data.avg_parallelism = avgPara;
 
-        if (avg_parallelism !== undefined && avg_parallelism > 0)
-            avg_parallelism_values.push(avg_parallelism);
+        if (avgPara !== undefined && avgPara > 0)
+            avgParallelismValues.push(avgPara);
 
-        return avg_parallelism;
+        return avgPara;
     }
 
-    public calculate_avg_parallelism_graph(
-        g: DagreGraph, symbol_map: SymbolMap, avg_parallelism_values: number[]
+    public calcAvgParallelismGraph(
+        g: DagreGraph, symbolMap: SymbolMap, avgParallelismValues: number[]
     ): void {
         g.nodes().forEach(v => {
-            const node = g.node(v);
-            this.calculate_avg_parallelism_node(
-                node, symbol_map, avg_parallelism_values
+            const node = g.node(v) as SDFGNode | ControlFlowBlock;
+            this.ccalculateAvgParallelismNode(
+                node, symbolMap, avgParallelismValues
             );
             if (node instanceof ConditionalBlock) {
                 for (const [_, branch] of node.branches) {
-                    this.calculate_avg_parallelism_node(
-                        branch, symbol_map, avg_parallelism_values
+                    this.ccalculateAvgParallelismNode(
+                        branch, symbolMap, avgParallelismValues
                     );
-                    if (branch.data.graph) {
-                        this.calculate_avg_parallelism_graph(
-                            branch.data.graph, symbol_map,
-                            avg_parallelism_values
+                    if (branch.graph) {
+                        this.calcAvgParallelismGraph(
+                            branch.graph, symbolMap,
+                            avgParallelismValues
                         );
                     }
                 }
             } else {
-                const state_graph = node.data.graph;
-                if (state_graph) {
-                    state_graph.nodes().forEach((v: string) => {
-                        const node = state_graph.node(v);
+                const stateGraph = node.graph;
+                if (stateGraph) {
+                    stateGraph.nodes().forEach((v: string) => {
+                        const node = stateGraph.node(v);
                         if (node instanceof NestedSDFG) {
-                            const nested_symbols_map: SymbolMap = {};
-                            const mapping =
-                                node.data.node.attributes.symbol_mapping ?? {};
+                            const nestedSymbolsMap: SymbolMap = {};
+                            const mapping = (
+                                node.attributes()?.symbol_mapping ?? {}
+                            ) as Record<string, string>;
                             // Translate the symbol mappings for the nested SDFG
                             // based on the mapping described on the node.
                             Object.keys(mapping).forEach((symbol: string) => {
-                                nested_symbols_map[symbol] =
-                                    this.symbolResolver.parse_symbol_expression(
+                                nestedSymbolsMap[symbol] =
+                                    this.symbolResolver.parseExpression(
                                         mapping[symbol],
-                                        symbol_map
+                                        symbolMap
                                     );
                             });
                             // Merge in the parent mappings.
-                            Object.keys(symbol_map).forEach((symbol) => {
-                                if (!(symbol in nested_symbols_map)) {
-                                    nested_symbols_map[symbol] = symbol_map[
+                            Object.keys(symbolMap).forEach((symbol) => {
+                                if (!(symbol in nestedSymbolsMap)) {
+                                    nestedSymbolsMap[symbol] = symbolMap[
                                         symbol
                                     ];
                                 }
                             });
 
-                            this.calculate_avg_parallelism_node(
+                            this.ccalculateAvgParallelismNode(
                                 node,
-                                nested_symbols_map,
-                                avg_parallelism_values
+                                nestedSymbolsMap,
+                                avgParallelismValues
                             );
-                            this.calculate_avg_parallelism_graph(
-                                node.data.graph,
-                                nested_symbols_map,
-                                avg_parallelism_values
-                            );
-                        } else {
-                            this.calculate_avg_parallelism_node(
+                            if (node.graph) {
+                                this.calcAvgParallelismGraph(
+                                    node.graph,
+                                    nestedSymbolsMap,
+                                    avgParallelismValues
+                                );
+                            }
+                        } else if (node instanceof ControlFlowBlock) {
+                            this.ccalculateAvgParallelismNode(
                                 node,
-                                symbol_map,
-                                avg_parallelism_values
+                                symbolMap,
+                                avgParallelismValues
                             );
                         }
                     });
@@ -139,65 +143,59 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
     }
 
     public recalculateAvgParallelismValues(graph: DagreGraph): void {
-        this.heatmap_scale_center = 5;
-        this.heatmap_hist_buckets = [];
+        this.heatmapScaleCenter = 5;
+        this.heatmapHistBuckets = [];
 
-        const avg_parallelism_values: number[] = [];
-        this.calculate_avg_parallelism_graph(
-            graph,
-            this.symbolResolver.get_symbol_value_map(),
-            avg_parallelism_values
+        const avgParallelismValues: number[] = [];
+        this.calcAvgParallelismGraph(
+            graph, this.symbolResolver.symbolValueMap, avgParallelismValues
         );
 
-        this.update_heatmap_scale(avg_parallelism_values);
+        this.updateHeatmapScale(avgParallelismValues);
 
-        if (avg_parallelism_values.length === 0)
-            avg_parallelism_values.push(0);
+        if (avgParallelismValues.length === 0)
+            avgParallelismValues.push(0);
     }
 
-    public update_avg_parallelism_map(
-        avg_parallelism_map: { [uuids: string]: any }
+    public updateAvgParallelismMap(
+        avgParallelismMap: Record<string, any>
     ): void {
-        this.avg_parallelism_map = avg_parallelism_map;
+        this.avgParallelismMap = avgParallelismMap;
         this.refresh();
     }
 
     public refresh(): void {
-        this.clear_cached_avg_parallelism_values();
-        const graph = this.renderer.get_graph();
+        this.clearCachedAvgParallelismValues();
+        const graph = this.renderer.graph;
         if (graph)
             this.recalculateAvgParallelismValues(graph);
 
-        this.renderer.draw_async();
+        this.renderer.drawAsync();
     }
 
-    private shadeElem(elem: SDFGNode, ctx: CanvasRenderingContext2D): void {
-        const avgParallelism = elem.data.avg_parallelism;
-        const avgParallelismString = elem.data.avg_parallelism_string;
+    private shadeElem(
+        elem: SDFGNode | ControlFlowBlock, ctx: CanvasRenderingContext2D
+    ): void {
+        const avgParallelism = elem.data?.avg_parallelism as number | undefined;
+        const avgParallelismString =
+            elem.data?.avg_parallelism_string as string | undefined;
 
-        const mousepos = this.renderer.get_mousepos();
+        const mousepos = this.renderer.getMousePos();
         if (avgParallelismString !== undefined && mousepos &&
             elem.intersect(mousepos.x, mousepos.y)) {
             // Show the computed avg_parallelism value if applicable.
-            if (isNaN(avgParallelismString) &&
+            if (avgParallelismString && isNaN(+avgParallelismString) &&
                 avgParallelism !== undefined) {
-                this.renderer.set_tooltip(() => {
-                    const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont) {
-                        tt_cont.innerText = (
-                            'Average Parallelism: ' + avgParallelismString +
-                            ' (' + avgParallelism + ')'
-                        );
-                    }
-                });
+                this.renderer.showTooltip(
+                    mousepos.x, mousepos.y,
+                    'Average Parallelism: ' + avgParallelismString +
+                    ' (' + avgParallelism.toString() + ')'
+                );
             } else {
-                this.renderer.set_tooltip(() => {
-                    const ttCont = this.renderer.get_tooltip_container();
-                    if (ttCont) {
-                        ttCont.innerText = 'Average Parallelism: ' +
-                            avgParallelismString;
-                    }
-                });
+                this.renderer.showTooltip(
+                    mousepos.x, mousepos.y,
+                    'Average Parallelism: ' + avgParallelismString
+                );
             }
         }
 
@@ -226,13 +224,13 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
     }
 
     protected shadeNode(
-        node: SDFGNode, ctx: CanvasRenderingContext2D, ...args: any[]
+        node: SDFGNode, ctx: CanvasRenderingContext2D, ..._args: any[]
     ): void {
         this.shadeElem(node, ctx);
     }
 
     protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ...args: any[]
+        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ..._args: any[]
     ): void {
         this.shadeElem(block, ctx);
     }
@@ -241,6 +239,7 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
         this.shadeSDFG();
     }
 
+    /*
     public on_mouse_event(
         type: string,
         _ev: Event,
@@ -252,16 +251,16 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
         if (type === 'click' && !ends_drag) {
             if (foreground_elem && !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.avg_parallelism === undefined) {
-                    const avg_parallelism_string = this.avg_parallelism_map[
+                    const avg_parallelism_string = this.avgParallelismMap[
                         getGraphElementUUID(foreground_elem)
                     ];
                     if (avg_parallelism_string) {
-                        this.symbolResolver.parse_symbol_expression(
+                        this.symbolResolver.parseExpression(
                             avg_parallelism_string,
                             this.symbolResolver.get_symbol_value_map(),
                             true,
                             () => {
-                                this.clear_cached_avg_parallelism_values();
+                                this.clearCachedAvgParallelismValues();
                                 const graph = this.renderer.get_graph();
                                 if (graph)
                                     this.recalculateAvgParallelismValues(graph);
@@ -273,5 +272,6 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
         }
         return false;
     }
+    */
 
 }

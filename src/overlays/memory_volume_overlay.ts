@@ -1,23 +1,21 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import type {
     DagreGraph,
-    GraphElementInfo,
-    SDFGElementGroup,
     SDFGRenderer,
-} from '../renderer/renderer';
+} from '../renderer/sdfg/sdfg_renderer';
 import {
     ConditionalBlock,
     ControlFlowBlock,
     ControlFlowRegion,
     Edge,
     NestedSDFG,
-    SDFGElement,
     State,
-} from '../renderer/renderer_elements';
-import { OverlayType, Point2D, SymbolMap } from '../types';
+} from '../renderer/sdfg/sdfg_elements';
+import { OverlayType, SymbolMap } from '../types';
 import { getTempColorHslString } from '../utils/utils';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
+import { doForAllDagreGraphElements } from '../utils/sdfg/traversal';
 
 export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
@@ -31,22 +29,23 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
     }
 
     public clearCachedVolumeValues(): void {
-        this.renderer.doForAllGraphElements((_group, info, obj: any) => {
+        if (!this.renderer.graph)
+            return;
+        doForAllDagreGraphElements((_group, info, obj) => {
             if (obj.data) {
                 if (obj.data.volume !== undefined)
                     obj.data.volume = undefined;
             }
-        });
+        }, this.renderer.graph, this.renderer.sdfg);
     }
 
     public calculateVolumeEdge(
-        edge: Edge,
-        symbolMap: SymbolMap,
-        volumes: number[]
+        edge: Edge, symbolMap: SymbolMap, volumes: number[]
     ): number | undefined {
         let volumeString = undefined;
-        if (edge.data && edge.data.attributes) {
-            volumeString = edge.data.attributes.volume;
+        const attrs = edge.attributes();
+        if (attrs) {
+            volumeString = attrs.volume as string | undefined;
             if (volumeString !== undefined) {
                 volumeString = volumeString.replace(/\*\*/g, '^');
                 volumeString = volumeString.replace(/ceiling/g, 'ceil');
@@ -54,12 +53,13 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         }
         let volume = undefined;
         if (volumeString !== undefined) {
-            volume = this.symbolResolver.parse_symbol_expression(
+            volume = this.symbolResolver.parseExpression(
                 volumeString,
                 symbolMap
             );
         }
 
+        edge.data ??= {};
         edge.data.volume = volume;
 
         if (volume !== undefined && volume > 0)
@@ -74,11 +74,11 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         volumes: number[]
     ): void {
         g.nodes().forEach((v: string) => {
-            const block: ControlFlowBlock = g.node(v);
+            const block = g.node(v) as ControlFlowBlock;
             if (block instanceof State) {
-                const stateGraph = block.data.graph;
+                const stateGraph = block.graph;
                 if (stateGraph) {
-                    stateGraph.edges().forEach((e: number) => {
+                    stateGraph.edges().forEach((e) => {
                         const edge = stateGraph.edge(e);
                         if (edge instanceof Edge) {
                             this.calculateVolumeEdge(
@@ -89,48 +89,49 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                         }
                     });
 
-                    stateGraph.nodes().forEach((v: number) => {
+                    stateGraph.nodes().forEach((v) => {
                         const node = stateGraph.node(v);
                         if (node instanceof NestedSDFG) {
-                            const nested_symbols_map: SymbolMap = {};
-                            const mapping =
-                                node.data.node.attributes.symbol_mapping ?? {};
+                            const nestedSymbolsMap: SymbolMap = {};
+                            const mapping = (
+                                node.attributes()?.symbol_mapping ?? {}
+                            ) as Record<string, string>;
                             // Translate the symbol mappings for the nested SDFG
                             // based on the mapping described on the node.
                             Object.keys(mapping).forEach((symbol) => {
-                                nested_symbols_map[symbol] =
-                                    this.symbolResolver.parse_symbol_expression(
+                                nestedSymbolsMap[symbol] =
+                                    this.symbolResolver.parseExpression(
                                         mapping[symbol],
                                         symbolMaps
                                     );
                             });
                             // Merge in the parent mappings.
                             Object.keys(symbolMaps).forEach((symbol) => {
-                                if (!(symbol in nested_symbols_map)) {
-                                    nested_symbols_map[symbol] =
+                                if (!(symbol in nestedSymbolsMap)) {
+                                    nestedSymbolsMap[symbol] =
                                         symbolMaps[symbol];
                                 }
                             });
 
-                            this.calculateVolumeGraph(
-                                node.data.graph,
-                                nested_symbols_map,
-                                volumes
-                            );
+                            if (node.graph) {
+                                this.calculateVolumeGraph(
+                                    node.graph, nestedSymbolsMap, volumes
+                                );
+                            }
                         }
                     });
                 }
             } else if (block instanceof ControlFlowRegion) {
-                if (block.data.graph) {
+                if (block.graph) {
                     this.calculateVolumeGraph(
-                        block.data.graph, symbolMaps, volumes
+                        block.graph, symbolMaps, volumes
                     );
                 }
             } else if (block instanceof ConditionalBlock) {
                 for (const [_, branch] of block.branches) {
-                    if (branch.data.graph) {
+                    if (branch.graph) {
                         this.calculateVolumeGraph(
-                            branch.data.graph, symbolMaps, volumes
+                            branch.graph, symbolMaps, volumes
                         );
                     }
                 }
@@ -139,43 +140,43 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
     }
 
     public recalculateVolumeValues(graph: DagreGraph): void {
-        this.heatmap_scale_center = 5;
-        this.heatmap_hist_buckets = [];
+        this.heatmapScaleCenter = 5;
+        this.heatmapHistBuckets = [];
 
-        const volume_values: number[] = [];
+        const volumeValues: number[] = [];
         this.calculateVolumeGraph(
-            graph,
-            this.symbolResolver.get_symbol_value_map(),
-            volume_values
+            graph, this.symbolResolver.symbolValueMap, volumeValues
         );
 
-        this.update_heatmap_scale(volume_values);
+        this.updateHeatmapScale(volumeValues);
 
-        if (volume_values.length === 0)
-            volume_values.push(0);
+        if (volumeValues.length === 0)
+            volumeValues.push(0);
     }
 
     public refresh(): void {
         this.clearCachedVolumeValues();
-        const graph = this.renderer.get_graph();
+        const graph = this.renderer.graph;
         if (graph)
             this.recalculateVolumeValues(graph);
 
-        this.renderer.draw_async();
+        this.renderer.drawAsync();
     }
 
     protected shadeEdge(edge: Edge, ctx: CanvasRenderingContext2D): void {
-        const volume = edge.data.volume;
+        const volume = (edge.data?.volume ?? 0) as number;
         const color = getTempColorHslString(this.getSeverityValue(volume));
         edge.shade(this.renderer, ctx, color);
     }
 
     public draw(): void {
         this.shadeSDFG((elem) => {
-            return elem.data?.volume !== undefined && elem.data.volume > 0;
+            return elem.data?.volume !== undefined &&
+                elem.data.volume as number > 0;
         });
     }
 
+    /*
     public on_mouse_event(
         type: string,
         _ev: MouseEvent,
@@ -188,7 +189,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
             if (foreground_elem && foreground_elem instanceof Edge) {
                 if (foreground_elem.data.volume === undefined) {
                     if (foreground_elem.data.attributes.volume) {
-                        this.symbolResolver.parse_symbol_expression(
+                        this.symbolResolver.parseExpression(
                             foreground_elem.data.attributes.volume,
                             this.symbolResolver.get_symbol_value_map(),
                             true,
@@ -206,5 +207,6 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         }
         return false;
     }
+    */
 
 }

@@ -1,87 +1,100 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { MathNode, parse, SymbolNode } from 'mathjs';
-import type { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
 import type {
-    GraphElementInfo,
-    SDFGElementGroup,
-    SDFGRenderer,
-} from './renderer/renderer';
-import type { SDFGElement } from './renderer/renderer_elements';
+    GenericSdfgOverlay,
+} from './overlays/common/generic_sdfg_overlay';
 import { createElement } from './utils/utils';
-import { Point2D, SymbolMap } from './types';
+import {
+    JsonSDFG,
+    Point2D,
+    SDFGElementGroup,
+    SDFGElementInfo,
+    SymbolMap,
+} from './types';
+import type { SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
+import { SDFGElement } from './renderer/sdfg/sdfg_elements';
+
+
+type SymDefinitionDialogT = HTMLDivElement & {
+    _show: (sym: string, map: SymbolMap, callback: () => void) => void,
+    _hide: () => void,
+    _title: HTMLSpanElement,
+    _content: HTMLDivElement,
+    _input: HTMLInputElement,
+    _map?: SymbolMap,
+    _symbol?: string,
+    _callback?: () => void,
+};
 
 export class SymbolResolver {
 
-    private sdfg: any;
-    private symbol_value_map: SymbolMap = {};
-    private symbols_to_define: string[] = [];
-    private popup_dialogue: any = undefined;
+    private readonly sdfg: JsonSDFG;
+    private _symbolValueMap: SymbolMap = {};
+    private symbolsToDefine: string[] = [];
+    private popupDialogue?: SymDefinitionDialogT = undefined;
 
     public constructor(
         private readonly renderer: SDFGRenderer
     ) {
-        this.sdfg = this.renderer.get_sdfg();
+        this.sdfg = this.renderer.sdfg;
 
         // Initialize the symbol mapping to the graph's symbol table.
-        Object.keys(this.sdfg.attributes.symbols ?? []).forEach((s) => {
-            if (this.sdfg.attributes.constants_prop !== undefined &&
-                Object.keys(this.sdfg.attributes.constants_prop).includes(s) &&
-                this.sdfg.attributes.constants_prop[s][0]['type'] ===
-                    'Scalar') {
-                this.symbol_value_map[s] = this.sdfg.attributes.constants_prop[
-                    s
-                ][1];
-            } else {
-                this.symbol_value_map[s] = undefined;
-            }
+        Object.keys(this.sdfg.attributes?.symbols ?? []).forEach((s) => {
+            const constants = this.sdfg.attributes?.constants_prop as
+                Record<string, [Record<string, unknown>, number]> | undefined;
+            if (constants && Object.keys(constants).includes(s) &&
+                constants[s][0].type === 'Scalar')
+                this.symbolValueMap[s] = constants[s][1];
+            else
+                this.symbolValueMap[s] = undefined;
         });
 
-        this.init_overlay_popup_dialogue();
+        this.initOverlayPopupDialogue();
     }
 
     public removeStaleSymbols(): void {
         const toKeep: SymbolMap = {};
-        for (const sym in this.renderer.get_sdfg().attributes.symbols ?? [])
-            toKeep[sym] = this.symbol_value_map[sym];
-        this.symbol_value_map = toKeep;
+        for (const sym in this.sdfg.attributes?.symbols ?? {})
+            toKeep[sym] = this._symbolValueMap[sym];
+        this._symbolValueMap = toKeep;
     }
 
-    public symbol_value_changed(
+    public symbolValueChanged(
         symbol: string, value: number | undefined
     ): void {
-        if (symbol in this.symbol_value_map)
-            this.symbol_value_map[symbol] = value;
+        if (symbol in this.symbolValueMap)
+            this.symbolValueMap[symbol] = value;
     }
 
-    public parse_symbol_expression(
-        expression_string: string,
-        mapping: SymbolMap,
-        prompt_completion: boolean = false,
-        callback: CallableFunction | undefined = undefined
+    public parseExpression(
+        expr: string, mapping: SymbolMap,
+        promptUnknown: boolean = false,
+        callback?: () => void
     ): number | undefined {
         let result: number | undefined = undefined;
         try {
             // Ensure any expressions with the sympy symbol for 'power of' (**)
             // is cleaned by replacing with the symbol '^', which is parseable
             // by mathjs.
-            const pow_cleaned = expression_string.replaceAll('**', '^');
+            const powCleaned = expr.replaceAll('**', '^');
 
-            const expression_tree = parse(pow_cleaned);
-            if (prompt_completion) {
-                this.recursive_find_undefined_symbol(expression_tree, mapping);
-                this.prompt_define_symbol(mapping, callback);
+            const exprTree = parse(powCleaned);
+            if (promptUnknown) {
+                this.recursivelyFindUndefinedSymbol(exprTree, mapping);
+                this.promptUnknownSymbol(mapping, callback);
             } else {
                 try {
-                    const evaluated =
-                        expression_tree.evaluate(mapping);
-                    if (evaluated !== undefined &&
-                        !isNaN(evaluated) &&
+                    const compiled = exprTree.compile();
+                    const evaluated = compiled.evaluate(
+                        mapping
+                    ) as number | undefined;
+                    if (evaluated !== undefined && !isNaN(evaluated) &&
                         Number.isInteger(+evaluated))
                         result = +evaluated;
                     else
                         result = undefined;
-                } catch (e) {
+                } catch (_e) {
                     result = undefined;
                 }
             }
@@ -92,32 +105,32 @@ export class SymbolResolver {
         }
     }
 
-    public prompt_define_symbol(
-        mapping: SymbolMap, callback: CallableFunction | undefined = undefined
+    public promptUnknownSymbol(
+        mapping: SymbolMap, callback?: () => void
     ): void {
-        if (this.symbols_to_define.length > 0) {
-            const symbol = this.symbols_to_define.pop();
+        if (this.symbolsToDefine.length > 0) {
+            const symbol = this.symbolsToDefine.pop();
             if (symbol === undefined)
                 return;
-            this.popup_dialogue._show(
+            this.popupDialogue?._show(
                 symbol,
                 mapping,
                 () => {
                     this.renderer.emit(
                         'symbol_definition_changed', symbol, mapping[symbol]
                     );
-                    if (callback !== undefined)
+                    if (callback)
                         callback();
-                    this.prompt_define_symbol(mapping, callback);
+                    this.promptUnknownSymbol(mapping, callback);
                 }
             );
         }
     }
 
-    public recursive_find_undefined_symbol(
-        expression_tree: MathNode, mapping: SymbolMap
+    public recursivelyFindUndefinedSymbol(
+        exprTree: MathNode, mapping: SymbolMap
     ): void {
-        expression_tree.forEach((
+        exprTree.forEach((
             node: MathNode, _path: string, _parent: MathNode
         ) => {
             switch (node.type) {
@@ -126,16 +139,16 @@ export class SymbolResolver {
                         const symnode = node as SymbolNode;
                         if (symnode.name && symnode.name in mapping &&
                             mapping[symnode.name] === undefined &&
-                            !this.symbols_to_define.includes(symnode.name)) {
+                            !this.symbolsToDefine.includes(symnode.name)) {
                             // This is an undefined symbol.
                             // Ask for it to be defined.
-                            this.symbols_to_define.push(symnode.name);
+                            this.symbolsToDefine.push(symnode.name);
                         }
                     }
                     break;
                 case 'OperatorNode':
                 case 'ParenthesisNode':
-                    this.recursive_find_undefined_symbol(node, mapping);
+                    this.recursivelyFindUndefinedSymbol(node, mapping);
                     break;
                 default:
                     // Ignore
@@ -144,161 +157,161 @@ export class SymbolResolver {
         });
     }
 
-    public init_overlay_popup_dialogue(): void {
-        const dialogue_background: any = createElement(
+    public initOverlayPopupDialogue(): void {
+        const dBackground = createElement(
             'div', '', ['sdfv_modal_background'], document.body
-        );
-        dialogue_background._show = function () {
+        ) as HTMLDivElement & { _show: () => void; _hide: () => void };
+        dBackground._show = function () {
             this.style.display = 'block';
         };
-        dialogue_background._hide = function () {
+        dBackground._hide = function () {
             this.style.display = 'none';
         };
 
-        const popup_dialogue: any = createElement(
-            'div', 'sdfv_overlay_dialogue', ['sdfv_modal'], dialogue_background
-        );
-        popup_dialogue.addEventListener('click', (ev: Event) => {
+        const dialogue = createElement(
+            'div', 'sdfv_overlay_dialogue', ['sdfv_modal'], dBackground
+        ) as SymDefinitionDialogT;
+        dialogue.addEventListener('click', (ev: Event) => {
             ev.stopPropagation();
         });
-        popup_dialogue.style.display = 'none';
-        this.popup_dialogue = popup_dialogue;
+        dialogue.style.display = 'none';
+        this.popupDialogue = dialogue;
 
-        const header_bar = createElement(
-            'div', '', ['sdfv_modal_title_bar'], this.popup_dialogue
+        const header = createElement(
+            'div', '', ['sdfv_modal_title_bar'], this.popupDialogue
         );
-        this.popup_dialogue._title = createElement(
-            'span', '', ['sdfv_modal_title'], header_bar
+        this.popupDialogue._title = createElement(
+            'span', '', ['sdfv_modal_title'], header
         );
-        const close_button = createElement(
-            'div', '', ['modal_close'], header_bar
+        const closeBtn = createElement(
+            'div', '', ['modal_close'], header
         );
-        close_button.innerHTML = '<i class="material-symbols-outlined">' +
+        closeBtn.innerHTML = '<i class="material-symbols-outlined">' +
             'close</i>';
-        close_button.addEventListener('click', () => {
-            popup_dialogue._hide();
+        closeBtn.addEventListener('click', () => {
+            dialogue._hide();
         });
 
-        const content_box = createElement(
-            'div', '', ['sdfv_modal_content_box'], this.popup_dialogue
+        const contentBox = createElement(
+            'div', '', ['sdfv_modal_content_box'], this.popupDialogue
         );
-        this.popup_dialogue._content = createElement(
-            'div', '', ['sdfv_modal_content'], content_box
+        this.popupDialogue._content = createElement(
+            'div', '', ['sdfv_modal_content'], contentBox
         );
-        this.popup_dialogue._input = createElement(
+        this.popupDialogue._input = createElement(
             'input', 'symbol_input', ['sdfv_modal_input_text'],
-            this.popup_dialogue._content
+            this.popupDialogue._content
         );
 
-        function set_val(): void {
-            if (popup_dialogue._map && popup_dialogue._symbol) {
-                const val = popup_dialogue._input.value;
-                if (val && !isNaN(val) && Number.isInteger(+val) && val > 0) {
-                    popup_dialogue._map[popup_dialogue._symbol] = val;
-                    popup_dialogue._hide();
-                    if (popup_dialogue._callback)
-                        popup_dialogue._callback();
+        function setVal(): void {
+            if (dialogue._map && dialogue._symbol) {
+                const val = dialogue._input.value;
+                if (val && !isNaN(+val) && Number.isInteger(+val) && +val > 0) {
+                    dialogue._map[dialogue._symbol] = +val;
+                    dialogue._hide();
+                    if (dialogue._callback)
+                        dialogue._callback();
                     return;
                 }
             }
-            popup_dialogue._input.setCustomValidity('Invalid, not an integer');
+            dialogue._input.setCustomValidity('Invalid, not an integer');
         }
-        this.popup_dialogue._input.addEventListener(
+        this.popupDialogue._input.addEventListener(
             'keypress', (ev: KeyboardEvent) => {
                 if (ev.code === 'Enter')
-                    set_val();
+                    setVal();
             }
         );
 
-        const footer_bar = createElement(
-            'div', '', ['sdfv_modal_footer_bar'], this.popup_dialogue
+        const footer = createElement(
+            'div', '', ['sdfv_modal_footer_bar'], this.popupDialogue
         );
-        const confirm_button = createElement(
+        const confirmBtn = createElement(
             'div', '', ['btn', 'btn-primary', 'sdfv_modal_confirm_button'],
-            footer_bar
+            footer
         );
-        confirm_button.addEventListener('click', (_ev: MouseEvent) => {
-            set_val();
+        confirmBtn.addEventListener('click', (_ev: MouseEvent) => {
+            setVal();
         });
-        const confirm_button_text = createElement(
-            'span', '', [], confirm_button
+        const confirmBtnText = createElement(
+            'span', '', [], confirmBtn
         );
-        confirm_button_text.innerText = 'Confirm';
-        createElement('div', '', ['clearfix'], footer_bar);
+        confirmBtnText.innerText = 'Confirm';
+        createElement('div', '', ['clearfix'], footer);
 
-        this.popup_dialogue._show = function (
-            symbol: string, map: SymbolMap, callback: CallableFunction
+        this.popupDialogue._show = function (
+            symbol: string, map: SymbolMap, callback: () => void
         ) {
             this.style.display = 'block';
-            popup_dialogue._title.innerText = 'Define symbol ' + symbol;
-            popup_dialogue._symbol = symbol;
-            popup_dialogue._map = map;
-            popup_dialogue._callback = callback;
-            dialogue_background._show();
+            dialogue._title.innerText = 'Define symbol ' + symbol;
+            dialogue._symbol = symbol;
+            dialogue._map = map;
+            dialogue._callback = callback;
+            dBackground._show();
         };
-        this.popup_dialogue._hide = function () {
+        this.popupDialogue._hide = function () {
             this.style.display = 'none';
-            popup_dialogue._title.innerText = '';
-            popup_dialogue._input.value = '';
-            popup_dialogue._input.setCustomValidity('');
-            dialogue_background._hide();
+            dialogue._title.innerText = '';
+            dialogue._input.value = '';
+            dialogue._input.setCustomValidity('');
+            dBackground._hide();
         };
-        dialogue_background.addEventListener('click', (_ev: MouseEvent) => {
-            popup_dialogue._hide();
+        dBackground.addEventListener('click', (_ev: MouseEvent) => {
+            dialogue._hide();
         });
     }
 
-    public get_symbol_value_map(): SymbolMap {
-        return this.symbol_value_map;
+    public get symbolValueMap(): SymbolMap {
+        return this._symbolValueMap;
     }
 
 }
 
 export class OverlayManager {
 
-    private heatmap_scaling_method: string = 'median';
-    private heatmap_scaling_hist_n_buckets: number = 0;
-    private heatmap_scaling_exp_base: number = 2;
-    private overlays: GenericSdfgOverlay[] = [];
-    private symbol_resolver: SymbolResolver;
+    private _heatmapScalingMethod: string = 'median';
+    private _heatmapScalingHistNBuckets: number = 0;
+    private _heatmapScalingExpBase: number = 2;
+    private _overlays: GenericSdfgOverlay[] = [];
+    public readonly symbolResolver: SymbolResolver;
 
     public constructor(private readonly renderer: SDFGRenderer) {
-        this.symbol_resolver = new SymbolResolver(this.renderer);
+        this.symbolResolver = new SymbolResolver(this.renderer);
     }
 
-    public register_overlay(type: typeof GenericSdfgOverlay): void {
+    public registerOverlay(type: typeof GenericSdfgOverlay): void {
         this.overlays.push(new type(this.renderer));
-        this.renderer.draw_async();
+        this.renderer.drawAsync();
     }
 
-    public register_overlay_instance(overlay: GenericSdfgOverlay): void {
+    public registerOverlayInstance(overlay: GenericSdfgOverlay): void {
         this.overlays.push(overlay);
-        this.renderer.draw_async();
+        this.renderer.drawAsync();
     }
 
-    public deregister_overlay(type: typeof GenericSdfgOverlay): void {
-        this.overlays = this.overlays.filter(overlay => {
+    public deregisterOverlay(type: typeof GenericSdfgOverlay): void {
+        this._overlays = this.overlays.filter(overlay => {
             return !(overlay instanceof type);
         });
-        this.renderer.draw_async();
+        this.renderer.drawAsync();
     }
 
     public deregisterAll(except?: (typeof GenericSdfgOverlay)[]): void {
         for (const ol of this.overlays) {
             // Do not deregister the overlays given in the "except" list.
-            if (except && except.includes(ol.olClass))
+            if (except?.includes(ol.olClass))
                 continue;
-            this.deregister_overlay(ol.olClass);
+            this.deregisterOverlay(ol.olClass);
         }
     }
 
-    public is_overlay_active(type: typeof GenericSdfgOverlay): boolean {
+    public isOverlayActive(type: typeof GenericSdfgOverlay): boolean {
         return this.overlays.filter(overlay => {
             return overlay instanceof type;
         }).length > 0;
     }
 
-    public get_overlay(
+    public getOverlay(
         type: typeof GenericSdfgOverlay
     ): GenericSdfgOverlay | undefined {
         let overlay = undefined;
@@ -311,31 +324,10 @@ export class OverlayManager {
         return overlay;
     }
 
-    public on_symbol_value_changed(
+    public onSymbolValueChanged(
         symbol: string, value: number | undefined
     ): void {
-        this.symbol_resolver.symbol_value_changed(symbol, value);
-        this.overlays.forEach(overlay => {
-            overlay.refresh();
-        });
-    }
-
-    public update_heatmap_scaling_method(method: string): void {
-        this.heatmap_scaling_method = method;
-        this.overlays.forEach(overlay => {
-            overlay.refresh();
-        });
-    }
-
-    public update_heatmap_scaling_hist_n_buckets(n: number): void {
-        this.heatmap_scaling_hist_n_buckets = n;
-        this.overlays.forEach(overlay => {
-            overlay.refresh();
-        });
-    }
-
-    public update_heatmap_scaling_exp_base(base: number): void {
-        this.heatmap_scaling_exp_base = base;
+        this.symbolResolver.symbolValueChanged(symbol, value);
         this.overlays.forEach(overlay => {
             overlay.refresh();
         });
@@ -357,10 +349,11 @@ export class OverlayManager {
         type: string,
         ev: MouseEvent,
         mousepos: Point2D,
-        elements: Record<SDFGElementGroup, GraphElementInfo[]>,
+        elements: Record<SDFGElementGroup, SDFGElementInfo[]>,
         foreground_elem: SDFGElement | null,
         ends_drag: boolean
     ): boolean {
+        /*
         let dirty = false;
         this.overlays.forEach(overlay => {
             dirty = dirty || overlay.on_mouse_event(
@@ -369,26 +362,45 @@ export class OverlayManager {
             );
         });
         return dirty;
+        */
+        return false;
     }
 
-    public get_heatmap_scaling_hist_n_buckets(): number {
-        return this.heatmap_scaling_hist_n_buckets;
+    public get heatmapScalingMethod(): string {
+        return this._heatmapScalingMethod;
     }
 
-    public get_heatmap_scaling_exp_base(): number {
-        return this.heatmap_scaling_exp_base;
+    public set heatmapScalingMethod(method: string) {
+        this._heatmapScalingMethod = method;
+        this.overlays.forEach(overlay => {
+            overlay.refresh();
+        });
     }
 
-    public get_heatmap_scaling_method(): string {
-        return this.heatmap_scaling_method;
+    public get heatmapScalingHistNBuckets(): number {
+        return this._heatmapScalingHistNBuckets;
     }
 
-    public get_symbol_resolver(): SymbolResolver {
-        return this.symbol_resolver;
+    public set heatmapScalingHistNBuckets(n: number) {
+        this._heatmapScalingHistNBuckets = n;
+        this.overlays.forEach(overlay => {
+            overlay.refresh();
+        });
     }
 
-    public get_overlays(): GenericSdfgOverlay[] {
-        return this.overlays;
+    public get heatmapScalingExpBase(): number {
+        return this._heatmapScalingExpBase;
+    }
+
+    public set heatmapScalingExpBase(base: number) {
+        this._heatmapScalingExpBase = base;
+        this.overlays.forEach(overlay => {
+            overlay.refresh();
+        });
+    }
+
+    public get overlays(): GenericSdfgOverlay[] {
+        return this._overlays;
     }
 
 }

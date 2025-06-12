@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Rectangle } from '@pixi/math';
 import $ from 'jquery';
@@ -38,7 +38,7 @@ class MemoryTile extends Graphics {
 
     public descendants: MemoryTile[] | null = null;
 
-    public stackDistances: Map<number, number> = new Map();
+    public stackDistances = new Map<number, number>();
     public stackDistancesFlattened: number[] = [];
     public coldMisses: number = 0;
     public totalMisses: number = 0;
@@ -59,9 +59,9 @@ class MemoryTile extends Graphics {
             this.elementWidth, this.elementHeight
         );
 
-        this.on('mouseover', this.onMouseOver);
-        this.on('mouseout', this.onMouseOut);
-        this.on('pointerdown', this.onClicked);
+        this.on('mouseover', this.onMouseOver.bind(this));
+        this.on('mouseout', this.onMouseOut.bind(this));
+        this.on('pointerdown', this.onClicked.bind(this));
     }
 
     private markCacheLine(): void {
@@ -95,7 +95,7 @@ class MemoryTile extends Graphics {
     }
 
     private markRelatedAccesses(asAccess: boolean = false): void {
-        const relatedAccesses = new AccessMap<(number | undefined)[]>();
+        const relatedAccesses = new AccessMap();
         const neighborhood =
             this.memoryNode.parentGraph.neighborhood(this.memoryNode);
         for (const neighbor of neighborhood) {
@@ -126,12 +126,16 @@ class MemoryTile extends Graphics {
                         const tiles: MemoryTile[] = [];
                         if (asAccess) {
                             node[1].applyToIdx(
-                                access[1], (t) => t.onMarkAccess(),
+                                access[1], (t) => {
+                                    t.onMarkAccess();
+                                },
                                 undefined, undefined, tiles
                             );
                         } else {
                             node[1].applyToIdx(
-                                access[1], (t) => t.onMarkRelated(),
+                                access[1], (t) => {
+                                    t.onMarkRelated();
+                                },
                                 undefined, undefined, tiles
                             );
                         }
@@ -158,7 +162,7 @@ class MemoryTile extends Graphics {
             region[1].forEach((val, key) => {
                 const nodeRet =
                     this.memoryNode.parentGraph.memoryNodesMap.get(key);
-                const nxt = nodeRet?.values()?.next()?.value;
+                const nxt = nodeRet?.values().next().value;
                 if (nxt !== undefined) {
                     const node = nxt[1];
 
@@ -178,7 +182,9 @@ class MemoryTile extends Graphics {
             });
         });
 
-        redrawNodes.forEach(node => node.draw());
+        redrawNodes.forEach(node => {
+            node.draw();
+        });
     }
 
     private unmarkTilingRegion(): void {
@@ -195,7 +201,7 @@ class MemoryTile extends Graphics {
         const keys = [...this.stackDistances.keys()];
         const maxKey = Math.max(...keys);
         const allVals = Array.from(Array(maxKey + 1).keys());
-        const data = Array(maxKey + 1).fill(0);
+        const data = Array(maxKey + 1).fill(0) as number[];
         for (const key of keys) {
             const val = this.stackDistances.get(key);
             if (val !== undefined && key >= 0)
@@ -210,7 +216,7 @@ class MemoryTile extends Graphics {
                     label: this.memoryNode.dataContainer.name +
                         '[' + this.index.toString() + ']',
                     backgroundColor: '#00538A',
-                    data: [...data, coldMisses === undefined ? 0 : coldMisses],
+                    data: [...data, coldMisses ?? 0],
                 },
             ],
         };
@@ -407,7 +413,7 @@ class MemoryTile extends Graphics {
 
         this.lineStyle(DEFAULT_LINE_STYLE);
 
-        if (this.selected) {
+        if (this.selected && this.borderMarkingColors.length === 0) {
             if (this.showingRelated)
                 this.beginFill(0x5050CC);
             else
@@ -529,15 +535,14 @@ export class MemoryNode extends Node {
     private readonly tiles: MemoryTile[];
     private readonly gfxText: Text;
 
-    public static readonly accessMap: Map<MemoryTile, number> = new Map();
-    public static readonly accessHistogram: Map<number, number> = new Map();
-    public static readonly reuseDistanceHistogram: Map<number, number> =
-        new Map();
-    public static readonly minReuseDistanceHistogram: Map<number, number> =
-        new Map();
-    public static readonly maxReuseDistanceHistogram: Map<number, number> =
-        new Map();
-    public static readonly missesHistogram: Map<number, number> = new Map();
+    public static readonly accessMap = new Map<MemoryTile, number>();
+    public static readonly accessHistogram = new Map<number, number>();
+    public static readonly reuseDistanceHistogram = new Map<number, number>();
+    public static readonly minReuseDistanceHistogram =
+        new Map<number, number>();
+    public static readonly maxReuseDistanceHistogram =
+        new Map<number, number>();
+    public static readonly missesHistogram = new Map<number, number>();
 
     public reuseDistanceOverlayActive: boolean = false;
     public reuseDistanceMetric: string = 'median';
@@ -579,7 +584,7 @@ export class MemoryNode extends Node {
 
         this.tiles = new Array(
             this.dataContainer.dim[0].value
-        ).fill(null);
+        ).fill(null) as MemoryTile[];
         this.recursiveInit(
             this.dataContainer.dim.slice(), 0, tilesY,
             this._unscaledWidth, this._unscaledHeight, this.tiles, []
@@ -588,15 +593,9 @@ export class MemoryNode extends Node {
 
     private calcUnscaledWidthRecursive(dims: DataDimension[]): number {
         if (dims.length === 1) {
-            return dims[0].value * (
-                this.tileSizeOverride !== undefined ?
-                    this.tileSizeOverride : TILE_SIZE
-            );
+            return dims[0].value * (this.tileSizeOverride ?? TILE_SIZE);
         } else if (dims.length === 2) {
-            return dims[1].value * (
-                this.tileSizeOverride !== undefined ?
-                    this.tileSizeOverride : TILE_SIZE
-            );
+            return dims[1].value * (this.tileSizeOverride ?? TILE_SIZE);
         } else if (dims.length % 2 === 0) {
             return INTERNAL_PADDING + this.calcUnscaledWidthRecursive(
                 dims.slice(1)
@@ -612,15 +611,9 @@ export class MemoryNode extends Node {
 
     private calcUnscaledHeightRecursive(dims: DataDimension[]): number {
         if (dims.length === 1) {
-            return (
-                this.tileSizeOverride !== undefined ?
-                    this.tileSizeOverride : TILE_SIZE
-            );
+            return this.tileSizeOverride ?? TILE_SIZE;
         } else if (dims.length === 2) {
-            return dims[0].value * (
-                this.tileSizeOverride !== undefined ?
-                    this.tileSizeOverride : TILE_SIZE
-            );
+            return dims[0].value * (this.tileSizeOverride ?? TILE_SIZE);
         } else if (dims.length % 2 !== 0) {
             return INTERNAL_PADDING + this.calcUnscaledHeightRecursive(
                 dims.slice(1)
@@ -641,21 +634,17 @@ export class MemoryNode extends Node {
     }
 
     public getTilingRegionsForIdx(idx: number[]): [
-        Map<string, number>, AccessMap<(number | undefined)[]>
+        Map<string, number>, AccessMap
     ][] {
         const regions = this.getTilingRegions();
 
-        const matchedRegions: [
-            Map<string, number>, AccessMap<(number | undefined)[]>
-        ][] = [];
+        const matchedRegions: [Map<string, number>, AccessMap ][] = [];
         regions.forEach(region => {
             const containerRegions = region[1].get(this.dataContainer);
             if (containerRegions === undefined)
                 return;
 
-            for (let i = 0; i < containerRegions.length; i++) {
-                const val = containerRegions[i];
-
+            for (const val of containerRegions) {
                 let match = true;
                 for (let j = 0; j < val.length; j++) {
                     if (j > idx.length - 1 || val[1][j] !== idx[j]) {
@@ -674,9 +663,7 @@ export class MemoryNode extends Node {
         return matchedRegions;
     }
 
-    public getTilingRegions(): [
-        Map<string, number>, AccessMap<(number | undefined)[]>
-    ][] {
+    public getTilingRegions(): [Map<string, number>, AccessMap][] {
         const adjacentMaps: MapNode[] = [];
         this.inEdges.forEach(inEdge => {
             if (inEdge.src instanceof MapNode)
@@ -687,9 +674,7 @@ export class MemoryNode extends Node {
                 adjacentMaps.push(outEdge.dst);
         });
 
-        const regions: [
-            Map<string, number>, AccessMap<(number | undefined)[]>
-        ][] = [];
+        const regions: [Map<string, number>, AccessMap ][] = [];
         adjacentMaps.forEach(map => {
             const mapPattern = map.getAccessPattern();
             mapPattern.forEach(pattern => {
@@ -773,7 +758,7 @@ export class MemoryNode extends Node {
             const next = remaining.shift();
 
             next?.forEach(tile => {
-                if (tile.descendants && tile.descendants.length)
+                if (tile.descendants?.length)
                     remaining.push(tile.descendants);
                 fun(tile);
             });
@@ -928,9 +913,9 @@ export class MemoryNode extends Node {
         while (remaining.length > 0) {
             const next = remaining.shift();
             if (next) {
-                for (let i = 0; i < next.length; i++) {
-                    next[i].draw();
-                    const desc = next[i].descendants;
+                for (const tile of next) {
+                    tile.draw();
+                    const desc = tile.descendants;
                     if (desc !== null)
                         remaining.push(desc);
                 }

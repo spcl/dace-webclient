@@ -1,23 +1,21 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import type {
     DagreGraph,
-    GraphElementInfo,
-    SDFGElementGroup,
     SDFGRenderer,
-} from '../renderer/renderer';
+} from '../renderer/sdfg/sdfg_renderer';
 import {
     ConditionalBlock,
     ControlFlowBlock,
-    Edge,
     NestedSDFG,
     SDFGElement,
     SDFGNode,
-} from '../renderer/renderer_elements';
-import { OverlayType, Point2D, SymbolMap } from '../types';
+} from '../renderer/sdfg/sdfg_elements';
+import { OverlayType, SymbolMap } from '../types';
 import { getGraphElementUUID } from '../utils/sdfg/sdfg_utils';
 import { getTempColorHslString } from '../utils/utils';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
+import { doForAllDagreGraphElements } from '../utils/sdfg/traversal';
 
 export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
 
@@ -25,7 +23,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
     public readonly olClass: typeof GenericSdfgOverlay =
         SimulatedOperationalIntensityOverlay;
 
-    private op_in_map: { [uuids: string]: any } = {};
+    private opIntMap: Record<string, string | undefined> = {};
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
@@ -36,93 +34,102 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         );
     }
 
-    public clear_cached_op_in_values(): void {
-        this.renderer.doForAllGraphElements((_group, _info, obj) => {
+    public clearCachedOpIntValues(): void {
+        if (!this.renderer.graph)
+            return;
+        doForAllDagreGraphElements((_group, _info, obj) => {
             if (obj.data) {
                 if (obj.data.op_in !== undefined)
                     obj.data.op_in = undefined;
                 if (obj.data.op_in_string !== undefined)
                     obj.data.op_in_string = undefined;
             }
-        });
+        }, this.renderer.graph, this.renderer.sdfg);
     }
 
-    public calculate_op_in_node(
-        node: SDFGNode, symbol_map: SymbolMap, op_in_values: number[]
+    public calculateOpIntNode(
+        node: SDFGNode | ControlFlowBlock, symbolMap: SymbolMap,
+        opIntValues: number[]
     ): number | undefined {
-        const op_in_string = this.op_in_map[getGraphElementUUID(node)];
-        let op_in = undefined;
-        if (op_in_string !== undefined) {
-            op_in = this.symbolResolver.parse_symbol_expression(
-                op_in_string,
-                symbol_map,
+        const opIntString = this.opIntMap[getGraphElementUUID(node)];
+        let opInt = undefined;
+        if (opIntString !== undefined) {
+            opInt = this.symbolResolver.parseExpression(
+                opIntString,
+                symbolMap,
                 false
             );
         }
 
-        node.data.op_in_string = op_in_string;
-        node.data.op_in = op_in;
+        node.data ??= {};
+        node.data.op_in_string = opIntString;
+        node.data.op_in = opInt;
 
-        if (op_in !== undefined && op_in > 0)
-            op_in_values.push(op_in);
+        if (opInt !== undefined && opInt > 0)
+            opIntValues.push(opInt);
 
-        return op_in;
+        return opInt;
     }
 
-    public calculate_op_in_graph(
-        g: DagreGraph, symbol_map: SymbolMap, op_in_values: number[]
+    public calculateOpIntGraph(
+        g: DagreGraph, symbolMap: SymbolMap, opIntValues: number[]
     ): void {
         g.nodes().forEach(v => {
-            const node = g.node(v);
-            this.calculate_op_in_node(node, symbol_map, op_in_values);
+            const node = g.node(v) as SDFGNode | ControlFlowBlock;
+            this.calculateOpIntNode(node, symbolMap, opIntValues);
             if (node instanceof ConditionalBlock) {
                 for (const [_, branch] of node.branches) {
-                    this.calculate_op_in_node(branch, symbol_map, op_in_values);
-                    if (branch.data.graph) {
-                        this.calculate_op_in_graph(
-                            branch.data.graph, symbol_map, op_in_values
+                    this.calculateOpIntNode(branch, symbolMap, opIntValues);
+                    if (branch.graph) {
+                        this.calculateOpIntGraph(
+                            branch.graph, symbolMap, opIntValues
                         );
                     }
                 }
             } else {
-                const state_graph = node.data.graph;
-                if (state_graph) {
-                    state_graph.nodes().forEach((v: string) => {
-                        const node = state_graph.node(v);
+                const stateGraph = node.graph;
+                if (stateGraph) {
+                    stateGraph.nodes().forEach((v: string) => {
+                        const node = stateGraph.node(v);
                         if (node instanceof NestedSDFG) {
-                            const nested_symbols_map: SymbolMap = {};
-                            const mapping =
-                                node.data.node.attributes.symbol_mapping;
+                            const nestedSymbolsMap: SymbolMap = {};
+                            const mapping = (
+                                node.attributes()?.symbol_mapping
+                            ) as Record<string, string>;
                             // Translate the symbol mappings for the nested SDFG
                             // based on the mapping described on the node.
                             Object.keys(mapping).forEach((symbol: string) => {
-                                nested_symbols_map[symbol] =
-                                    this.symbolResolver.parse_symbol_expression(
+                                nestedSymbolsMap[symbol] =
+                                    this.symbolResolver.parseExpression(
                                         mapping[symbol],
-                                        symbol_map
+                                        symbolMap
                                     );
                             });
                             // Merge in the parent mappings.
-                            Object.keys(symbol_map).forEach((symbol) => {
-                                if (!(symbol in nested_symbols_map))
-                                    nested_symbols_map[symbol] = symbol_map[symbol];
+                            Object.keys(symbolMap).forEach((symbol) => {
+                                if (!(symbol in nestedSymbolsMap)) {
+                                    nestedSymbolsMap[symbol] =
+                                        symbolMap[symbol];
+                                }
                             });
 
-                            this.calculate_op_in_node(
+                            this.calculateOpIntNode(
                                 node,
-                                nested_symbols_map,
-                                op_in_values
+                                nestedSymbolsMap,
+                                opIntValues
                             );
-                            this.calculate_op_in_graph(
-                                node.data.graph,
-                                nested_symbols_map,
-                                op_in_values
-                            );
-                        } else {
-                            this.calculate_op_in_node(
+                            if (node.graph) {
+                                this.calculateOpIntGraph(
+                                    node.graph,
+                                    nestedSymbolsMap,
+                                    opIntValues
+                                );
+                            }
+                        } else if (node instanceof ControlFlowBlock) {
+                            this.calculateOpIntNode(
                                 node,
-                                symbol_map,
-                                op_in_values
+                                symbolMap,
+                                opIntValues
                             );
                         }
                     });
@@ -131,71 +138,62 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         });
     }
 
-    public recalculate_op_in_values(graph: DagreGraph): void {
-        this.heatmap_scale_center = 5;
-        this.heatmap_hist_buckets = [];
+    public recalcculateOpIntValues(graph: DagreGraph): void {
+        this.heatmapScaleCenter = 5;
+        this.heatmapHistBuckets = [];
 
-        const op_in_values: number[] = [];
-        this.calculate_op_in_graph(
-            graph,
-            this.symbolResolver.get_symbol_value_map(),
-            op_in_values
+        const opIntValues: number[] = [];
+        this.calculateOpIntGraph(
+            graph, this.symbolResolver.symbolValueMap, opIntValues
         );
 
-        this.update_heatmap_scale(op_in_values);
+        this.updateHeatmapScale(opIntValues);
 
-        if (op_in_values.length === 0)
-            op_in_values.push(0);
+        if (opIntValues.length === 0)
+            opIntValues.push(0);
     }
 
-    public update_op_in_map(op_in_map: { [uuids: string]: any }): void {
-        this.op_in_map = op_in_map;
+    public updateOpIntMap(opIntMap: Record<string, any>): void {
+        this.opIntMap = opIntMap;
         this.refresh();
     }
 
     public refresh(): void {
-        this.clear_cached_op_in_values();
-        const graph = this.renderer.get_graph();
+        this.clearCachedOpIntValues();
+        const graph = this.renderer.graph;
         if (graph)
-            this.recalculate_op_in_values(graph);
+            this.recalcculateOpIntValues(graph);
 
-        this.renderer.draw_async();
+        this.renderer.drawAsync();
     }
 
     private shadeElem(elem: SDFGElement, ctx: CanvasRenderingContext2D): void {
-        const op_in = elem.data.op_in;
-        const op_in_string = elem.data.op_in_string;
+        const opInt = elem.data?.op_in as number | undefined;
+        const opIntString = elem.data?.op_in_string as string | undefined;
 
-        const mousepos = this.renderer.get_mousepos();
-        if (op_in_string !== undefined && mousepos &&
+        const mousepos = this.renderer.getMousePos();
+        if (opIntString !== undefined && mousepos &&
             elem.intersect(mousepos.x, mousepos.y)) {
             // Show the computed op_in value if applicable.
-            if (isNaN(op_in_string) && op_in !== undefined) {
-                this.renderer.set_tooltip(() => {
-                    const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont) {
-                        tt_cont.innerText = (
-                            'Operational Intensity: ' + op_in_string + ' (' +
-                                op_in + ')'
-                        );
-                    }
-                });
+            if (isNaN(+opIntString) && opInt !== undefined) {
+                this.renderer.showTooltip(
+                    mousepos.x, mousepos.y,
+                    'Operational Intensity: ' + opIntString + ' (' +
+                        opInt.toString() + ')'
+                );
             } else {
-                this.renderer.set_tooltip(() => {
-                    const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont) {
-                        tt_cont.innerText = 'Operational Intensity: ' +
-                            op_in_string;
-                    }
-                });
+                this.renderer.showTooltip(
+                    mousepos.x, mousepos.y,
+                    'Operational Intensity: ' + opIntString
+                );
             }
         }
 
-        if (op_in === undefined) {
+        if (opInt === undefined) {
             // If the op_in can't be calculated, but there's an entry for this
             // node's op_in, that means that there's an unresolved symbol. Shade
             // the node grey to indicate that.
-            if (op_in_string !== undefined) {
+            if (opIntString !== undefined) {
                 elem.shade(this.renderer, ctx, 'gray');
                 return;
             } else {
@@ -204,23 +202,23 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         }
 
         // Only draw positive op_in.
-        if (op_in <= 0)
+        if (opInt <= 0)
             return;
 
         // Calculate the severity color.
-        const color = getTempColorHslString(1 - this.getSeverityValue(op_in));
+        const color = getTempColorHslString(1 - this.getSeverityValue(opInt));
 
         elem.shade(this.renderer, ctx, color);
     }
 
     protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ...args: any[]
+        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ..._args: any[]
     ): void {
         this.shadeElem(block, ctx);
     }
 
     protected shadeNode(
-        node: SDFGNode, ctx: CanvasRenderingContext2D, ...args: any[]
+        node: SDFGNode, ctx: CanvasRenderingContext2D, ..._args: any[]
     ): void {
         this.shadeElem(node, ctx);
     }
@@ -229,6 +227,7 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         this.shadeSDFG();
     }
 
+    /*
     public on_mouse_event(
         type: string,
         _ev: Event,
@@ -240,19 +239,19 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         if (type === 'click' && !ends_drag) {
             if (foreground_elem && !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.op_in === undefined) {
-                    const op_in_string = this.op_in_map[
+                    const op_in_string = this.opIntMap[
                         getGraphElementUUID(foreground_elem)
                     ];
                     if (op_in_string) {
-                        this.symbolResolver.parse_symbol_expression(
+                        this.symbolResolver.parseExpression(
                             op_in_string,
                             this.symbolResolver.get_symbol_value_map(),
                             true,
                             () => {
-                                this.clear_cached_op_in_values();
+                                this.clearCachedOpIntValues();
                                 const graph = this.renderer.get_graph();
                                 if (graph)
-                                    this.recalculate_op_in_values(graph);
+                                    this.recalcculateOpIntValues(graph);
                             }
                         );
                     }
@@ -261,5 +260,6 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         }
         return false;
     }
+    */
 
 }

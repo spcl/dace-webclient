@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import $ from 'jquery';
 
@@ -13,26 +13,30 @@ import {
     RuntimeMicroSecondsOverlay,
 } from './overlays/runtime_micro_seconds_overlay';
 import { OverlayManager } from './overlay_manager';
-import { DagreGraph, SDFGRenderer } from './renderer/renderer';
+import { DagreGraph, SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
 import {
     ConditionalBlock,
+    Edge,
     SDFG,
     SDFGElement,
-    SDFGNode,
-} from './renderer/renderer_elements';
+    State,
+} from './renderer/sdfg/sdfg_elements';
 import { htmlSanitize } from './utils/sanitization';
 import {
     checkCompatLoad,
     checkCompatSave,
-    parse_sdfg,
-    stringify_sdfg,
+    parseSDFG,
+    stringifySDFG,
 } from './utils/sdfg/json_serializer';
 import { SDFVSettings } from './utils/sdfv_settings';
 import { DiffMap, WebSDFGDiffViewer } from './sdfg_diff_viewer';
 import { ISDFVUserInterface, SDFVWebUI } from './sdfv_ui';
-import { GenericSdfgOverlay } from './overlays/generic_sdfg_overlay';
+import { GenericSdfgOverlay } from './overlays/common/generic_sdfg_overlay';
 import { JsonSDFG, ModeButtons } from './types';
-import { traverseSDFGScopes } from './utils/sdfg/traversal';
+import {
+    doForAllJsonSDFGElements,
+    traverseSDFGScopes,
+} from './utils/sdfg/traversal';
 import { showErrorModal } from './utils/utils';
 
 declare const vscode: any;
@@ -41,6 +45,16 @@ export interface ISDFV {
     linkedUI: ISDFVUserInterface;
 
     outline(): void;
+}
+
+interface ITraceEvent {
+    ph: string;
+    args: {
+        sdfg_id: string;
+        state_id?: string;
+        id?: string;
+    };
+    dur: number;
 }
 
 export abstract class SDFV extends EventEmitter implements ISDFV {
@@ -58,8 +72,8 @@ export abstract class SDFV extends EventEmitter implements ISDFV {
     public static DEFAULT_MAX_FONTSIZE: number = 20; // 20
     public static DEFAULT_FAR_FONT_MULTIPLIER: number = 16; // 16
 
-    protected renderer: SDFGRenderer | null = null;
-    protected localViewRenderer: LViewRenderer | null = null;
+    protected _renderer?: SDFGRenderer;
+    protected _localViewRenderer?: LViewRenderer;
 
     public constructor() {
         super();
@@ -69,14 +83,12 @@ export abstract class SDFV extends EventEmitter implements ISDFV {
     public abstract get linkedUI(): ISDFVUserInterface;
 
     public onLoadedRuntimeReport(
-        report: { traceEvents: any[] },
-        renderer: SDFGRenderer | null = null
+        report: { traceEvents?: ITraceEvent[] }, renderer?: SDFGRenderer
     ): void {
-        const runtimeMap: { [uuids: string]: number[] } = {};
-        const summaryMap: { [uuids: string]: { [key: string]: number } } = {};
+        const runtimeMap: Record<string, number[] | undefined> = {};
+        const summaryMap: Record<string, Record<string, number>> = {};
 
-        if (!renderer)
-            renderer = this.renderer;
+        renderer = this.renderer;
 
         if (report.traceEvents && renderer) {
             for (const event of report.traceEvents) {
@@ -93,88 +105,89 @@ export abstract class SDFV extends EventEmitter implements ISDFV {
                     }
 
                     if (runtimeMap[uuid] !== undefined)
-                        runtimeMap[uuid].push(event.dur);
+                        runtimeMap[uuid]!.push(event.dur);
                     else
                         runtimeMap[uuid] = [event.dur];
                 }
             }
 
             for (const key in runtimeMap) {
-                const values = runtimeMap[key];
-                const minmax = get_minmax(values);
+                const values = runtimeMap[key] ?? [];
+                const minmax = getMinMax(values);
                 const min = minmax[0];
                 const max = minmax[1];
-                const runtime_summary = {
+                const rtSummary = {
                     'min': min,
                     'max': max,
                     'mean': mean(values),
                     'med': median(values),
                     'count': values.length,
                 };
-                summaryMap[key] = runtime_summary;
+                summaryMap[key] = rtSummary;
             }
 
-            if (!renderer.overlayManager.is_overlay_active(
+            if (!renderer.overlayManager.isOverlayActive(
                 RuntimeMicroSecondsOverlay
             )) {
-                renderer.overlayManager.register_overlay(
+                renderer.overlayManager.registerOverlay(
                     RuntimeMicroSecondsOverlay
                 );
             }
-            const ol = renderer.overlayManager.get_overlay(
+            const ol = renderer.overlayManager.getOverlay(
                 RuntimeMicroSecondsOverlay
             );
             if (ol && ol instanceof RuntimeMicroSecondsOverlay) {
-                ol.set_runtime_map(summaryMap);
+                ol.setRuntimeMap(summaryMap);
                 ol.refresh();
             }
         }
     }
 
     public onLoadedMemoryFootprintFile(
-        footprintMap: { [uuids: string]: number },
-        renderer: SDFGRenderer | null = null
+        footprintMap: Record<string, number>, renderer?: SDFGRenderer
     ): void {
-        if (!renderer)
-            renderer = this.renderer;
+        renderer = this.renderer;
 
-        renderer?.doForAllSDFGElements((_group, _info, elem) => {
-            const guid = elem.attributes.guid;
+        if (!renderer?.sdfg)
+            return;
+
+        doForAllJsonSDFGElements((_group, _info, elem) => {
+            const guid = elem.attributes?.guid as string | undefined;
             if (guid && guid in footprintMap)
-                elem.attributes.maxFootprintBytes = footprintMap[guid];
-        });
+                elem.attributes!.maxFootprintBytes = footprintMap[guid];
+        }, renderer.sdfg);
 
-        renderer?.draw_async();
+        renderer.drawAsync();
     }
 
     public abstract outline(): void;
 
-    public set_renderer(renderer: SDFGRenderer | null): void {
+    public setRenderer(renderer?: SDFGRenderer): void {
         if (renderer) {
-            this.localViewRenderer?.destroy();
-            this.localViewRenderer?.resizeObserver.disconnect();
-            this.localViewRenderer = null;
+            this._localViewRenderer?.destroy();
+            this._localViewRenderer?.resizeObserver.disconnect();
+            this._localViewRenderer = undefined;
         }
-        this.renderer = renderer;
+        this._renderer = renderer;
 
         SDFVWebUI.getInstance().enableInfoClear();
         SDFVWebUI.getInstance().infoClear();
     }
 
-    public setLocalViewRenderer(localViewRenderer: LViewRenderer | null): void {
+    public setLocalViewRenderer(localViewRenderer?: LViewRenderer): void {
         if (localViewRenderer) {
-            this.renderer?.destroy();
-            this.renderer = null;
+            this._renderer?.destroy();
+            this._renderer = undefined;
         }
-        this.localViewRenderer = localViewRenderer;
+        this._localViewRenderer = localViewRenderer;
     }
 
-    public get_renderer(): SDFGRenderer | null {
-        return this.renderer;
+    public get renderer(): SDFGRenderer | undefined {
+        return this._renderer;
     }
 
-    public getLocalViewRenderer(): LViewRenderer | null {
-        return this.localViewRenderer;
+    public get localViewRenderer(): LViewRenderer | undefined {
+        return this._localViewRenderer;
     }
 
 }
@@ -198,8 +211,8 @@ export class WebSDFV extends SDFV {
         return this.UI;
     }
 
-    private currentSDFGFile: File | null = null;
-    private modeButtons: ModeButtons | null = null;
+    private currentSDFGFile?: File;
+    private modeButtons?: ModeButtons;
 
     public get inittialized(): boolean {
         return this._initialized;
@@ -221,10 +234,11 @@ export class WebSDFV extends SDFV {
         this.modeButtons = modeButtons;
     }
 
-    private loadSDFG(change: any): void {
-        if (change.target.files.length < 1)
+    private loadSDFG(change: JQuery.TriggeredEvent): void {
+        const target = change.target as { files?: File[] } | undefined;
+        if ((target?.files?.length ?? 0) < 1)
             return;
-        this.currentSDFGFile = change.target.files[0];
+        this.currentSDFGFile = target!.files![0];
         this.readSDFGFile();
     }
 
@@ -252,7 +266,7 @@ export class WebSDFV extends SDFV {
                 // Use setTimeout function to force the browser to reload the
                 // dom with the above loader element.
                 setTimeout(() => {
-                    this.setSDFG(checkCompatLoad(parse_sdfg(resultString)));
+                    this.setSDFG(checkCompatLoad(parseSDFG(resultString)));
                 }, 10);
             }
         };
@@ -274,26 +288,28 @@ export class WebSDFV extends SDFV {
         $('#diff-container').show();
     }
 
-    private loadDiffSDFG(e: any): void {
-        if (e.target.files.length < 1 || !e.target.files[0])
+    private loadDiffSDFG(e: JQuery.TriggeredEvent): void {
+        const target = e.target as { files?: File[] } | undefined;
+        if ((target?.files?.length ?? 0) < 1 || !target!.files![0])
             return;
 
         const fileReader = new FileReader();
         fileReader.onload = (e) => {
-            const sdfgB = this.renderer?.get_sdfg();
+            const sdfgB = this.renderer?.sdfg;
             if (e.target?.result && sdfgB) {
-                const sdfgA = checkCompatLoad(parse_sdfg(e.target.result));
+                const sdfgA = checkCompatLoad(parseSDFG(e.target.result));
                 this.enterDiffView(sdfgA, sdfgB);
             }
         };
-        fileReader.readAsArrayBuffer(e.target.files[0]);
+        fileReader.readAsArrayBuffer(target!.files![0]);
         // Reset the input to nothing so we are able to observe a change event
         // again if the user wants to re-diff with the same file again.
-        e.target.value = '';
+        (e.target as HTMLInputElement).value = '';
     }
 
-    private loadRuntimeReportFile(e: any): void {
-        if (e.target.files.length < 1 || !e.target.files[0])
+    private loadRuntimeReportFile(e: JQuery.TriggeredEvent): void {
+        const target = e.target as { files?: File[] } | undefined;
+        if ((target?.files?.length ?? 0) < 1 || !target!.files![0])
             return;
 
         const fileReader = new FileReader();
@@ -308,13 +324,16 @@ export class WebSDFV extends SDFV {
                     resultString = res;
                 }
             }
-            this.onLoadedRuntimeReport(JSON.parse(resultString));
+            this.onLoadedRuntimeReport(
+                JSON.parse(resultString) as { traceEvents?: any[] }
+            );
         };
-        fileReader.readAsText(e.target.files[0]);
+        fileReader.readAsText(target!.files![0]);
     }
 
-    private loadMemoryFootprintFile(e: any): void {
-        if (e.target.files.length < 1 || !e.target.files[0])
+    private loadMemoryFootprintFile(e: JQuery.TriggeredEvent): void {
+        const target = e.target as { files?: File[] } | undefined;
+        if ((target?.files?.length ?? 0) < 1 || !target!.files![0])
             return;
 
         const fileReader = new FileReader();
@@ -329,9 +348,11 @@ export class WebSDFV extends SDFV {
                     resultString = res;
                 }
             }
-            this.onLoadedMemoryFootprintFile(JSON.parse(resultString));
+            this.onLoadedMemoryFootprintFile(
+                JSON.parse(resultString) as Record<string, number>
+            );
         };
-        fileReader.readAsText(e.target.files[0]);
+        fileReader.readAsText(target!.files![0]);
     }
 
     public registerEventListeners(): void {
@@ -392,8 +413,7 @@ export class WebSDFV extends SDFV {
     }
 
     public outline(): void {
-        const graph = this.renderer?.get_graph();
-        if (!graph)
+        if (!this.renderer?.graph)
             return;
 
         this.UI.infoSetTitle('SDFG Outline');
@@ -410,56 +430,65 @@ export class WebSDFV extends SDFV {
                 <span class="material-symbols-outlined"
                       style="font-size: inherit">
                     filter_center_focus
-                </span> SDFG ${this.renderer?.get_sdfg().attributes.name}
+                </span> SDFG ${this.renderer.sdfg.attributes?.name}
             `,
             click: () => {
-                this.renderer?.zoom_to_view();
+                this.renderer?.zoomToFitContents();
             },
         }).appendTo(sidebar);
 
-        const stack: (JQuery<HTMLElement> | null)[] = [sidebar];
+        const stack: (JQuery | null)[] = [sidebar];
 
         // Add elements to tree view in sidebar
-        traverseSDFGScopes(graph, (node, parent) => {
+        traverseSDFGScopes(this.renderer.graph, (node, parent) => {
             // Skip exit nodes when scopes are known
-            if (node.type().endsWith('Exit') &&
-                node.data.node.scope_entry >= 0) {
+            if (node.type.endsWith('Exit') && node.jsonData?.scope_entry &&
+                node.jsonData.scope_entry as number >= 0) {
                 stack.push(null);
                 return true;
             }
 
-            let is_collapsed = node.attributes().is_collapsed;
-            is_collapsed = (is_collapsed === undefined) ? false : is_collapsed;
-            let node_type = node.type();
+            let isCollapsed = node.attributes()?.is_collapsed;
+            isCollapsed = (isCollapsed === undefined) ? false : isCollapsed;
+            let nodeType = node.type;
 
             // If a scope has children, remove the name "Entry" from the type
-            if (node.type().endsWith('Entry') && node.parent_id && node.id) {
-                const state = node.parentElem?.data.state;
-                if (state.scope_dict[node.id] !== undefined)
-                    node_type = node_type.slice(0, -5);
+            if (node.type.endsWith('Entry') && node.parentStateId && node.id) {
+                const state = (node.parentElem as State | undefined)?.jsonData;
+                if (state?.scope_dict?.[node.id])
+                    nodeType = nodeType.slice(0, -5);
             }
 
             // Create element
             const entry = $('<div>', {
                 class: 'context_menu_option',
                 html: htmlSanitize`
-                    ${node_type} ${node.label()}${is_collapsed ? ' (collapsed)' : ''}
+                    ${nodeType} ${node.label}${isCollapsed ? ' (collapsed)' : ''}
                 `,
                 click: (e: JQuery.Event) => {
                     // Show node or entire scope
-                    const nodes_to_display = [node];
-                    if (node.type().endsWith('Entry') && node.parentElem &&
+                    const nodesToDisplay = [node];
+                    if (node.type.endsWith('Entry') && node.parentElem &&
                         node.id) {
-                        const state = node.parentElem?.data.state;
-                        if (state.scope_dict[node.id] !== undefined) {
-                            for (const subnode_id of state.scope_dict[node.id])
-                                nodes_to_display.push(parent.node(subnode_id));
+                        const state = (
+                            node.parentElem as State | undefined
+                        )?.jsonData;
+                        if (state?.scope_dict?.[node.id]) {
+                            const scNodes = state.scope_dict[node.id];
+                            for (const subnodeId of scNodes ?? []) {
+                                nodesToDisplay.push(
+                                    parent.node(subnodeId.toString())
+                                );
+                            }
                         }
                     }
 
-                    this.renderer?.zoom_to_view(nodes_to_display);
+                    this.renderer?.zoomToFit(nodesToDisplay);
 
                     // Ensure that the innermost div handles the event.
+                    /* eslint-disable
+                       @typescript-eslint/no-unnecessary-condition,
+                       @typescript-eslint/no-deprecated */
                     if (!e) {
                         if (window.event) {
                             window.event.cancelBubble = true;
@@ -469,16 +498,19 @@ export class WebSDFV extends SDFV {
                         if (e.stopPropagation)
                             e.stopPropagation();
                     }
+                    /* eslint-enable
+                       @typescript-eslint/no-unnecessary-condition,
+                       @typescript-eslint/no-deprecated */
                 },
             });
             stack.push(entry);
 
             // If is collapsed, don't traverse further
-            if (is_collapsed)
+            if (isCollapsed)
                 return false;
 
             return true;
-        }, (_node: SDFGNode, _parent: DagreGraph) => {
+        }, (_node, _parent) => {
             // After scope ends, pop ourselves as the current element
             // and add to parent
             const elem = stack.pop();
@@ -495,7 +527,9 @@ export class WebSDFV extends SDFV {
             const query = advanced ? $('#advsearch').val() : $('#search').val();
             if (query && this.renderer) {
                 if (advanced) {
-                    const predicate = eval(query.toString());
+                    const predicate = eval(query.toString()) as (
+                        graph: DagreGraph, element: SDFGElement
+                    ) => boolean;
                     findInGraphPredicate(this.UI, this.renderer, predicate);
                 } else {
                     findInGraph(
@@ -511,21 +545,21 @@ export class WebSDFV extends SDFV {
         sdfg: JsonSDFG | null = null,
         userTransform: DOMMatrix | null = null,
         debugDraw: boolean = false,
-        contents_container_id: string = 'contents'
+        contentsContainerId: string = 'contents'
     ): void {
         this.renderer?.destroy();
-        const container = document.getElementById(contents_container_id);
+        const container = document.getElementById(contentsContainerId);
         if (container && sdfg) {
             const renderer = new SDFGRenderer(
                 sdfg, container, this, null, userTransform, debugDraw, null,
                 this.modeButtons
             );
-            this.set_renderer(renderer);
+            this.setRenderer(renderer);
             renderer.on('selection_changed', () => {
-                const selectedElements = renderer.get_selected_elements();
+                const selectedElements = renderer.selectedElements;
                 let element;
                 if (selectedElements.length === 0)
-                    element = new SDFG(renderer.get_sdfg());
+                    element = new SDFG(renderer.sdfg);
                 else if (selectedElements.length === 1)
                     element = selectedElements[0];
                 else
@@ -555,7 +589,7 @@ export class WebSDFV extends SDFV {
  * This is more stable than Math.min/max for large arrays, since Math.min/max
  * is recursive and causes a too high stack-length with long arrays.
  */
-function get_minmax(arr: number[]): [number, number] {
+function getMinMax(arr: number[]): [number, number] {
     let max = -Number.MAX_VALUE;
     let min = Number.MAX_VALUE;
     arr.forEach(val => {
@@ -585,7 +619,7 @@ function loadSDFGFromURL(url: string): void {
     request.responseType = 'text'; // Will be parsed as JSON by parse_sdfg
     request.onload = () => {
         if (request.status === 200) {
-            const sdfg = checkCompatLoad(parse_sdfg(request.response));
+            const sdfg = checkCompatLoad(parseSDFG(request.response as string));
             WebSDFV.getInstance().setSDFG(sdfg, null);
         } else {
             showErrorModal('Failed to load SDFG from URL');
@@ -594,19 +628,22 @@ function loadSDFGFromURL(url: string): void {
     };
     request.onerror = () => {
         showErrorModal(
-            'Failed to load SDFG from URL. Error code: ' + request.status
+            'Failed to load SDFG from URL. Error code: ' +
+            request.status.toString()
         );
         WebSDFV.getInstance().setSDFG(null);
     };
     request.open(
-        'GET', url + ((/\?/).test(url) ? '&' : '?') + (new Date()).getTime(),
+        'GET', url + (url.includes('?') ? '&' : '?') +
+        (new Date()).getTime().toString(),
         true
     );
     request.send();
 }
 
 export function graphFindRecursive(
-    graph: DagreGraph, predicate: CallableFunction,
+    graph: DagreGraph,
+    predicate: (graph: DagreGraph, element: SDFGElement) => boolean,
     results: (dagre.Node<SDFGElement> | dagre.GraphEdge)[]
 ): void {
     for (const nodeid of graph.nodes()) {
@@ -614,37 +651,37 @@ export function graphFindRecursive(
         if (predicate(graph, node))
             results.push(node);
         // Enter states or nested SDFGs recursively
-        if (node.data.graph) {
-            graphFindRecursive(node.data.graph, predicate, results);
+        if (node.graph) {
+            graphFindRecursive(node.graph, predicate, results);
         } else if (node instanceof ConditionalBlock) {
             for (const [_, branch] of node.branches) {
-                if (branch.data.graph)
-                    graphFindRecursive(branch.data.graph, predicate, results);
+                if (branch.graph)
+                    graphFindRecursive(branch.graph, predicate, results);
             }
         }
     }
     for (const edgeid of graph.edges()) {
-        const edge = graph.edge(edgeid);
+        const edge = graph.edge(edgeid) as Edge;
         if (predicate(graph, edge))
             results.push(edge);
     }
 }
 
 export function findInGraphPredicate(
-    ui: ISDFVUserInterface, renderer: SDFGRenderer, predicate: CallableFunction
+    ui: ISDFVUserInterface, renderer: SDFGRenderer,
+    predicate: (graph: DagreGraph, element: SDFGElement) => boolean
 ): void {
-    const sdfg = renderer.get_graph();
-    if (!sdfg)
+    if (!renderer.graph)
         return;
 
     ui.infoSetTitle('Search Results');
 
-    const results: (dagre.Node<SDFGElement> | dagre.GraphEdge)[] = [];
-    graphFindRecursive(sdfg, predicate, results);
+    const results: SDFGElement[] = [];
+    graphFindRecursive(renderer.graph, predicate, results);
 
     // Zoom to bounding box of all results first
     if (results.length > 0)
-        renderer.zoom_to_view(results);
+        renderer.zoomToFit(results);
 
     // Show clickable results in sidebar
     const sidebar = ui.infoContentContainer;
@@ -653,21 +690,21 @@ export function findInGraphPredicate(
         for (const result of results) {
             const d = $('<div>', {
                 class: 'context_menu_option',
-                html: htmlSanitize`${result.type()} ${result.label()}`,
+                html: htmlSanitize`${result.type} ${result.label}`,
                 click: () => {
-                    renderer.zoom_to_view([result]);
+                    renderer.zoomToFit([result]);
                 },
             });
             d.on('mouseenter', () => {
                 if (!result.highlighted) {
                     result.highlighted = true;
-                    renderer.draw_async();
+                    renderer.drawAsync();
                 }
             });
             d.on('mouseleave', () => {
                 if (result.highlighted) {
                     result.highlighted = false;
-                    renderer.draw_async();
+                    renderer.drawAsync();
                 }
             });
             sidebar.append(d);
@@ -679,16 +716,16 @@ export function findInGraphPredicate(
 
 export function findInGraph(
     ui: ISDFVUserInterface, renderer: SDFGRenderer, query: string,
-    case_sensitive: boolean = false
+    caseSensitive: boolean = false
 ): void {
-    if (!case_sensitive)
+    if (!caseSensitive)
         query = query.toLowerCase();
     findInGraphPredicate(
         ui, renderer, (graph: DagreGraph, element: SDFGElement) => {
-            let text = element.text_for_find();
-            if (!case_sensitive)
+            let text = element.textForFind();
+            if (!caseSensitive)
                 text = text.toLowerCase();
-            return text.indexOf(query) !== -1;
+            return text.includes(query);
         }
     );
 }
@@ -713,7 +750,7 @@ function settingReadDefault(
     name: string, def: boolean | string | number | null | undefined
 ): boolean | string | number | null | undefined {
     if (document.currentScript?.hasAttribute(name)) {
-        const attr = document.currentScript?.getAttribute(name);
+        const attr = document.currentScript.getAttribute(name);
         if (attr)
             return parseScriptParamValue(attr);
     }
@@ -728,6 +765,7 @@ function settingReadDefault(
 $(() => {
     // Do not run initiailization code if inside of VSCode.
     try {
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
         vscode;
         if (vscode)
             return;
@@ -750,19 +788,20 @@ $(() => {
 
     WebSDFV.getInstance().init();
 
-    // If the renderer is not null, an SDFG has already been set from somewhere else.
-    if (WebSDFV.getInstance().get_renderer() === null) {
+    // If the renderer is not null, an SDFG has already been set from somewhere
+    // else.
+    if (WebSDFV.getInstance().renderer === undefined) {
         if (document.currentScript?.hasAttribute('data-sdfg-json')) {
-            const sdfg_string =
-                document.currentScript?.getAttribute('data-sdfg-json');
-            if (sdfg_string) {
+            const sdfgString =
+                document.currentScript.getAttribute('data-sdfg-json');
+            if (sdfgString) {
                 WebSDFV.getInstance().setSDFG(
-                    checkCompatLoad(parse_sdfg(sdfg_string)), null
+                    checkCompatLoad(parseSDFG(sdfgString)), null
                 );
             }
         } else if (document.currentScript?.hasAttribute('data-url')) {
             const url =
-                document.currentScript?.getAttribute('data-url');
+                document.currentScript.getAttribute('data-url');
             if (url)
                 loadSDFGFromURL(url);
         } else {
@@ -789,8 +828,8 @@ declare global {
         SDFGRenderer: typeof SDFGRenderer;
 
         // Exported functions
-        parse_sdfg: (sdfg_json: string) => JsonSDFG;
-        stringify_sdfg: (sdfg: JsonSDFG) => string;
+        parseSDFG: (sdfgJson: string) => JsonSDFG;
+        stringifySDFG: (sdfg: JsonSDFG) => string;
         checkCompatLoad: (sdfg: JsonSDFG) => JsonSDFG;
         checkCompatSave: (sdfg: JsonSDFG) => JsonSDFG;
     }
@@ -802,7 +841,7 @@ window.SDFGElement = SDFGElement;
 window.SDFV = SDFV;
 window.WebSDFV = WebSDFV;
 window.SDFGRenderer = SDFGRenderer;
-window.parse_sdfg = parse_sdfg;
-window.stringify_sdfg = stringify_sdfg;
+window.parseSDFG = parseSDFG;
+window.stringifySDFG = stringifySDFG;
 window.checkCompatLoad = checkCompatLoad;
 window.checkCompatSave = checkCompatSave;

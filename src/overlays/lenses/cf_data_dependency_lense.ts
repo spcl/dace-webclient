@@ -1,23 +1,20 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import type {
     DagreGraph,
-    GraphElementInfo,
-    SDFGElementGroup,
     SDFGRenderer,
-} from '../../renderer/renderer';
+} from '../../renderer/sdfg/sdfg_renderer';
 import {
     ConditionalBlock,
     Connector,
     ControlFlowBlock,
     ControlFlowRegion,
     NestedSDFG,
-    SDFGElement,
-    State
-} from '../../renderer/renderer_elements';
+    State,
+} from '../../renderer/sdfg/sdfg_elements';
 import { SDFV } from '../../sdfv';
-import { JsonSDFG, OverlayType, Point2D } from '../../types';
-import { GenericSdfgOverlay } from '../generic_sdfg_overlay';
+import { JsonSDFG, OverlayType } from '../../types';
+import { GenericSdfgOverlay } from '../common/generic_sdfg_overlay';
 
 export class CFDataDependencyLense extends GenericSdfgOverlay {
 
@@ -28,9 +25,9 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
     public static readonly CONNECTOR_WIDTH: number = 8;
     public static readonly CONNECTOR_HEIGHT: number = 8;
 
-    private readonly connectorMap: Map<
+    private readonly connectorMap = new Map<
         ControlFlowBlock, [Connector[], Connector[]]
-    > = new Map();
+    >();
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
@@ -50,16 +47,22 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
                 let readIdx = 0;
                 for (const read in attrs.possible_reads) {
                     let certainAccess = null;
-                    if (attrs.certain_reads && read in attrs.certain_reads)
-                        certainAccess = attrs.certain_reads[read];
+                    if (attrs.certain_reads &&
+                        read in (attrs.certain_reads as object)) {
+                        certainAccess = (
+                            attrs.certain_reads as Record<string, unknown>
+                        )[read];
+                    }
 
                     const connector = new Connector(
                         {
                             name: read,
-                            access: attrs.possible_reads[read],
+                            access: (
+                                attrs.possible_reads as Record<string, unknown>
+                            )[read],
                             certainAccess: certainAccess,
                         },
-                        readIdx, sdfg, null
+                        readIdx, sdfg, undefined
                     );
                     connector.connectorType = 'in';
                     connector.linkedElem = block;
@@ -71,16 +74,22 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
                 let writeIdx = 0;
                 for (const write in attrs.possible_writes) {
                     let certainAccess = null;
-                    if (attrs.certain_writes && write in attrs.certain_writes)
-                        certainAccess = attrs.certain_writes[write];
+                    if (attrs.certain_writes &&
+                        write in (attrs.certain_writes as object)) {
+                        certainAccess = (
+                            attrs.certain_writes as Record<string, unknown>
+                        )[write];
+                    }
 
                     const connector = new Connector(
                         {
                             name: write,
-                            access: attrs.possible_writes[write],
+                            access: (
+                                attrs.possible_writes as Record<string, unknown>
+                            )[write],
                             certainAccess: certainAccess,
                         },
-                        writeIdx, sdfg, null
+                        writeIdx, sdfg, undefined
                     );
                     connector.connectorType = 'out';
                     connector.linkedElem = block;
@@ -122,35 +131,36 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
         graph: DagreGraph, sdfg: JsonSDFG
     ): void {
         for (const gId of graph.nodes()) {
-            const block = graph.node(gId);
+            const block = graph.node(gId) as ControlFlowBlock;
 
             this.createConnectorsForBlock(block, sdfg);
 
             if (block instanceof ControlFlowRegion) {
-                if (block.data.graph)
-                    this.recursiveSetConnectorsGraph(block.data.graph, sdfg);
+                if (block.graph)
+                    this.recursiveSetConnectorsGraph(block.graph, sdfg);
             } else if (block instanceof ConditionalBlock) {
-                if (!block.attributes().is_collapsed) {
+                if (!block.attributes()?.is_collapsed) {
                     for (const branch of block.branches) {
                         this.createConnectorsForBlock(branch[1], sdfg);
-                        if (!branch[1].attributes().is_collapsed) {
+                        if (!branch[1].attributes()?.is_collapsed &&
+                            branch[1].graph) {
                             this.recursiveSetConnectorsGraph(
-                                branch[1].data.graph, sdfg
+                                branch[1].graph, sdfg
                             );
                         }
                     }
                 }
             } else if (block instanceof State) {
-                if (!block.attributes().is_collapsed) {
-                    const stateGraph = block.data.graph;
+                if (!block.attributes()?.is_collapsed) {
+                    const stateGraph = block.graph;
                     if (stateGraph) {
                         for (const nId of stateGraph.nodes()) {
                             const node = stateGraph.node(nId);
                             if (node instanceof NestedSDFG &&
-                                !node.attributes().is_collapsed) {
-                                const nsdfg = node.data.graph;
+                                !node.attributes()?.is_collapsed &&
+                                node.graph) {
                                 this.recursiveSetConnectorsGraph(
-                                    nsdfg, node.sdfg
+                                    node.graph, node.sdfg
                                 );
                             }
                         }
@@ -161,44 +171,41 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
     }
 
     public refresh(): void {
-        const g = this.renderer.get_graph();
-        const sdfg = this.renderer.get_sdfg();
-        if (g == null)
+        if (!this.renderer.graph)
             return;
         this.connectorMap.clear();
-        this.recursiveSetConnectorsGraph(g, sdfg);
-        this.renderer.draw_async();
+        this.recursiveSetConnectorsGraph(
+            this.renderer.graph, this.renderer.sdfg
+        );
+        this.renderer.drawAsync();
     }
 
     protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ...args: any[]
+        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ..._args: any[]
     ): void {
-        // Only draw connectors when close enough to see them
-        const ppp = this.renderer.get_canvas_manager()?.points_per_pixel() ?? 0;
+        // Only draw connectors when close enough to see them.
+        const ppp = this.renderer.canvasManager.pointsPerPixel;
         if (!this.renderer.adaptiveHiding || ppp < SDFV.CONNECTOR_LOD) {
-            const mPos = this.renderer.get_mousepos() ?? undefined;
-            const ttCont = this.renderer.get_tooltip_container();
+            const mPos = this.renderer.getMousePos() ?? undefined;
             const connectors = this.connectorMap.get(block);
             if (connectors) {
                 for (const connector of connectors[0]) {
                     connector.hovered = false;
-                    if (mPos && connector.intersect(mPos.x, mPos.y)) {
+                    if (mPos && connector.intersect(mPos.x, mPos.y))
                         connector.hovered = true;
                         //if (ttCont)
                         //    connector.tooltip(ttCont);
-                    }
-                    connector.draw(this.renderer, ctx, mPos, {} as any);
-                    connector.debug_draw(this.renderer, ctx);
+                    connector.draw(this.renderer, ctx, mPos, undefined);
+                    connector.debugDraw(this.renderer, ctx);
                 }
                 for (const connector of connectors[1]) {
                     connector.hovered = false;
-                    if (mPos && connector.intersect(mPos.x, mPos.y)) {
+                    if (mPos && connector.intersect(mPos.x, mPos.y))
                         connector.hovered = true;
                         //if (ttCont)
                         //    connector.tooltip(ttCont);
-                    }
-                    connector.draw(this.renderer, ctx, mPos, {} as any);
-                    connector.debug_draw(this.renderer, ctx);
+                    connector.draw(this.renderer, ctx, mPos, undefined);
+                    connector.debugDraw(this.renderer, ctx);
                 }
             }
         }
@@ -206,17 +213,6 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
 
     public draw(): void {
         this.shadeSDFG(() => true, true);
-    }
-
-    public on_mouse_event(
-        _type: string,
-        _ev: MouseEvent,
-        _mousepos: Point2D,
-        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
-        _foreground_elem: SDFGElement | null,
-        _ends_drag: boolean
-    ): boolean {
-        return false;
     }
 
 }

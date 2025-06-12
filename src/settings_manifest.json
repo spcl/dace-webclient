@@ -214,6 +214,11 @@
                         "type": "color",
                         "default": "#deebf7"
                     },
+                    "stateForegroundColor": {
+                        "label": "State foreground",
+                        "type": "color",
+                        "default": "#000000"
+                    },
                     "breakBlockColor": {
                         "label": "Break block",
                         "type": "color",

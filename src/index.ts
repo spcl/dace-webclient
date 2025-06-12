@@ -1,5 +1,6 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
+export * from './overlays/common/generic_sdfg_overlay';
 export * from './overlays/memory_volume_overlay';
 export * from './overlays/runtime_micro_seconds_overlay';
 export * from './overlays/memory_location_overlay';
@@ -9,16 +10,19 @@ export * from './overlays/static_flops_overlay';
 export * from './overlays/depth_overlay';
 export * from './overlays/avg_parallelism_overlay';
 export * from './overlays/logical_group_overlay';
-export * from './renderer/canvas_manager';
-export * from './renderer/renderer_elements';
-export * from './renderer/renderer';
+export * from './renderer/core/common/renderable';
+export * from './renderer/core/common/renderer_base';
+export * from './renderer/core/html_canvas/canvas_manager';
+export * from './renderer/core/html_canvas/html_canvas_renderer';
+export * from './renderer/core/html_canvas/html_canvas_utils';
+export * from './renderer/sdfg/sdfg_elements';
+export * from './renderer/sdfg/sdfg_renderer';
 export * from './utils/sdfg/display';
 export * from './utils/sdfg/json_serializer';
 export * from './utils/sdfg/sdfg_utils';
 export * from './utils/sdfg/traversal';
 export * from './utils/sdfv_settings';
 export * from './utils/bounding_box';
-export * from './rendering_core/html_canvas/lerp_matrix';
 export * from './utils/sanitization';
 export * from './utils/utils';
 export * from './overlay_manager';

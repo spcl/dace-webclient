@@ -1,10 +1,9 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Polygon, Rectangle } from '@pixi/math';
 import $ from 'jquery';
 import { evaluate as mathEvaluate } from 'mathjs';
 import { Text } from 'pixi.js';
-import { SDFGRenderer } from '../../renderer/renderer';
 import { AccessStack } from '../../utils/collections';
 import { showErrorModal } from '../../utils/utils';
 import { Graph } from '../graph/graph';
@@ -17,35 +16,33 @@ import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from './element';
 import { MemoryNode } from './memory_node';
 import { Node } from './node';
 
-type Range = {
-    itvar: string,
-    start: number | string,
-    end: number | string,
-    step: number | string,
-    freeSymbol?: string,
-    freeSymbolDefault?: number,
-};
+interface Range {
+    itvar: string;
+    start: number | string;
+    end: number | string;
+    step: number | string;
+    freeSymbol?: string;
+    freeSymbolDefault?: number;
+}
 
 export class MapNode extends Node {
 
     private readonly labels: Text[] = [];
-    private readonly sliders: Map<string, Slider> = new Map();
-    private readonly freeSymbolSliders: Map<string, [Range, Slider]> =
-        new Map();
+    private readonly sliders = new Map<string, Slider>();
+    private readonly freeSymbolSliders = new Map<string, [Range, Slider]>();
     public readonly playButton: Button;
     public readonly resetButton: Button;
     public readonly pauseButton: Button;
     public showingAccessPatternControls: boolean = false;
     private labelWidth: number;
     private accessPattern: [
-        Map<string, number>, AccessMap<(number | undefined)[]>,
-        ConcreteDataAccess[]
+        Map<string, number>, AccessMap, ConcreteDataAccess[]
     ][];
     private playbackTicker: number = 0;
     private playbackInterval: number | null = null;
     private playbackPlaying: boolean = false;
 
-    private extScope: Map<string, number> = new Map();
+    private extScope = new Map<string, number>();
 
     private headerHeight: number = 80;
     private nestingPadding: number = 30;
@@ -66,21 +63,29 @@ export class MapNode extends Node {
 
         try {
             this.nestingPadding = parseInt(
-                SDFGRenderer.getCssProperty('--local-view-map-nesting-padding')
+                this.renderer?.sdfgRenderer?.getCssProperty(
+                    '--local-view-map-nesting-padding'
+                ) ?? '30'
             );
             this.headerHeight = parseInt(
-                SDFGRenderer.getCssProperty('--local-view-map-header-height')
+                this.renderer?.sdfgRenderer?.getCssProperty(
+                    '--local-view-map-header-height'
+                ) ?? '80'
             );
             this.buttonPadding = parseInt(
-                SDFGRenderer.getCssProperty('--local-view-map-button-padding')
+                this.renderer?.sdfgRenderer?.getCssProperty(
+                    '--local-view-map-button-padding'
+                ) ?? '10'
             );
             this.buttonInternalPadding = parseInt(
-                SDFGRenderer.getCssProperty(
+                this.renderer?.sdfgRenderer?.getCssProperty(
                     '--local-view-map-button-internal-padding'
-                )
+                ) ?? '5'
             );
             this.buttonSize = parseInt(
-                SDFGRenderer.getCssProperty('--local-view-map-button-size')
+                this.renderer?.sdfgRenderer?.getCssProperty(
+                    '--local-view-map-button-size'
+                ) ?? '30'
             );
         } catch (_ignored) {
             // Ignored.
@@ -100,15 +105,16 @@ export class MapNode extends Node {
 
         // Construct the labels and sliders for each dimension.
         let maxLabelWidth = 0;
-        for (let i = 0; i < this.ranges.length; i++) {
-            const range = this.ranges[i];
+        for (const range of this.ranges) {
             const labelText =
-                range.itvar + '=' + range.start + ':' + range.end +
-                (+range.step > 1 ? (':' + range.step) : '');
+                range.itvar + '=' + range.start.toString() + ':' +
+                range.end.toString() + (
+                    +range.step > 1 ? (':' + range.step.toString()) : ''
+                );
             const label = new Text(labelText, DEFAULT_TEXT_STYLE);
             label.renderable = false;
             maxLabelWidth = Math.max(maxLabelWidth, label.width + 60);
-            label.anchor.set(0.5),
+            label.anchor.set(0.5);
             this.labels.push(label);
         }
 
@@ -138,17 +144,22 @@ export class MapNode extends Node {
             let end;
             let step;
             if (range.freeSymbol) {
-                const scope: Map<string, number> = new Map();
-                const symbolDefault = range.freeSymbolDefault !== undefined ?
-                    range.freeSymbolDefault : 0;
+                const scope = new Map<string, number>();
+                const symbolDefault = range.freeSymbolDefault ?? 0;
                 scope.set(range.freeSymbol, symbolDefault);
 
-                start = typeof(range.start) === 'string' ?
-                    mathEvaluate(range.start, scope) : range.start;
-                end = typeof(range.end) === 'string' ?
-                    mathEvaluate(range.end, scope) : range.end;
-                step = typeof(range.step) === 'string' ?
-                    mathEvaluate(range.step, scope) : range.step;
+                start = (
+                    typeof(range.start) === 'string' ?
+                        mathEvaluate(range.start, scope) : range.start
+                ) as number;
+                end = (
+                    typeof(range.end) === 'string' ?
+                        mathEvaluate(range.end, scope) : range.end
+                ) as number;
+                step = (
+                    typeof(range.step) === 'string' ?
+                        mathEvaluate(range.step, scope) : range.step
+                ) as number;
             } else {
                 start = typeof(range.start) === 'string' ? 0 : range.start;
                 end = typeof(range.end) === 'string' ? 0 : range.end;
@@ -293,10 +304,8 @@ export class MapNode extends Node {
     private onSlidersUpdated(): void {
         const scope = new Map<string, number>([...this.extScope.entries()]);
 
-        for (let i = 0; i < this.ranges.length; i++) {
-            const range = this.ranges[i];
+        for (const range of this.ranges) {
             const slider = this.sliders.get(range.itvar);
-
             if (slider)
                 scope.set(range.itvar, slider.value);
         }
@@ -312,10 +321,7 @@ export class MapNode extends Node {
 
     private recursiveSimulate(
         scope: Map<string, number>, nRanges: Range[],
-        accesses: [
-            Map<string, number>, AccessMap<(number | undefined)[]>,
-            ConcreteDataAccess[]
-        ][]
+        accesses: [Map<string, number>, AccessMap, ConcreteDataAccess[]][]
     ): void {
         const nRange = nRanges[0];
         const newNRanges = nRanges.slice(1);
@@ -368,10 +374,10 @@ export class MapNode extends Node {
                 if (nxt) {
                     const node = nxt[1];
 
-                    if (node && !access.index.includes(undefined)) {
+                    if (!access.index.includes(undefined)) {
                         const cl = node.getCacheLine(access.index as number[]);
 
-                        if (cl && cl.length > 0) {
+                        if (cl.length > 0) {
                             const start = cl[0];
                             const distance = lineStack.touch(start);
 
@@ -481,10 +487,10 @@ export class MapNode extends Node {
         this.resetButton.disable();
 
         const playbackSpeedInputVal = (
-            <HTMLInputElement> document.getElementById(
+            document.getElementById(
                 'map-playback-speed-input'
-            )
-        )?.value;
+            ) as HTMLInputElement
+        ).value;
         const playbackSpeed = parseInt(playbackSpeedInputVal);
 
         this.playbackPlaying = true;
@@ -499,9 +505,7 @@ export class MapNode extends Node {
         }, 1000 / playbackSpeed);
     }
 
-    public showAccesses(
-        map: AccessMap<(number | undefined)[]>, redraw: boolean = true
-    ): void {
+    public showAccesses(map: AccessMap, redraw: boolean = true): void {
         map.forEach((accessList, container) => {
             const nodes =
                 this.parentGraph.memoryNodesMap.get(container);
@@ -621,7 +625,7 @@ export class MapNode extends Node {
     ): void {
         const next = remaining[0];
         next[1].forEach(val => {
-            const nScope: { [key: string]: number } = {};
+            const nScope: Record<string, number> = {};
             nScope[next[0]] = val;
             const mergedScope = new Map([...scope.entries(), [next[0], val]]);
             if (remaining.length > 1)
@@ -633,8 +637,8 @@ export class MapNode extends Node {
 
     public getAccessesFor(
         scope: Map<string, number>, updateParameters: boolean = false
-    ): [AccessMap<(number | undefined)[]>, ConcreteDataAccess[]] {
-        const idxMap = new AccessMap<(number | undefined)[]>();
+    ): [AccessMap, ConcreteDataAccess[]] {
+        const idxMap = new AccessMap();
 
         if (updateParameters) {
             this.extScope.clear();
@@ -652,15 +656,19 @@ export class MapNode extends Node {
                     const slider = val[1];
                     const range = val[0];
 
-                    const start = typeof(range.start) === 'string' ?
-                        mathEvaluate(range.start, scope) : range.start;
-                    const end = typeof(range.end) === 'string' ?
-                        mathEvaluate(range.end, scope) : range.end;
-                    const step = typeof(range.step) === 'string' ?
-                        mathEvaluate(range.step, scope) : range.step;
-                    slider?.updateBounds(
-                        start, end, step
-                    );
+                    const start = (
+                        typeof(range.start) === 'string' ?
+                            mathEvaluate(range.start, scope) : range.start
+                    ) as number;
+                    const end = (
+                        typeof(range.end) === 'string' ?
+                            mathEvaluate(range.end, scope) : range.end
+                    ) as number;
+                    const step = (
+                        typeof(range.step) === 'string' ?
+                            mathEvaluate(range.step, scope) : range.step
+                    ) as number;
+                    slider.updateBounds(start, end, step);
                 }
             }
         }
@@ -672,7 +680,7 @@ export class MapNode extends Node {
                 start = range.start;
             } else {
                 try {
-                    start = mathEvaluate(range.start, scope);
+                    start = mathEvaluate(range.start, scope) as number;
                 } catch {
                     start = undefined;
                 }
@@ -683,7 +691,7 @@ export class MapNode extends Node {
                 end = range.end;
             } else {
                 try {
-                    end = mathEvaluate(range.end, scope);
+                    end = mathEvaluate(range.end, scope) as number;
                 } catch {
                     end = undefined;
                 }
@@ -694,7 +702,7 @@ export class MapNode extends Node {
                 step = range.step;
             } else {
                 try {
-                    step = mathEvaluate(range.step, scope);
+                    step = mathEvaluate(range.step, scope) as number;
                 } catch {
                     step = undefined;
                 }
@@ -713,7 +721,7 @@ export class MapNode extends Node {
                     errMsg += sep + k + ': ' + v.toString();
                     sep = ', ';
                 }
-                errMsg + '}. The access range [' +
+                errMsg += '}. The access range [' +
                     range.start.toString() + ':' +
                     range.end.toString() + ':' +
                     range.step.toString() + '] cannot be evaluated under ' +
@@ -749,13 +757,12 @@ export class MapNode extends Node {
 
     public getRelatedAccesses(
         source: DataContainer, index: number[], _origin?: Node
-    ): AccessMap<(number | undefined)[]> {
+    ): AccessMap {
         return this.innerGraph.getRelatedAccesses(source, index);
     }
 
     public getAccessPattern(): [
-        Map<string, number>, AccessMap<(number | undefined)[]>,
-        ConcreteDataAccess[]
+        Map<string, number>, AccessMap, ConcreteDataAccess[]
     ][] {
         return this.accessPattern;
     }

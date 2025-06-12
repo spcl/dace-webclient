@@ -1,30 +1,28 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import type {
     DagreGraph,
-    GraphElementInfo,
-    SDFGElementGroup,
     SDFGRenderer,
-} from '../renderer/renderer';
+} from '../renderer/sdfg/sdfg_renderer';
 import {
     ConditionalBlock,
     ControlFlowBlock,
-    Edge,
     NestedSDFG,
     SDFGElement,
     SDFGNode,
-} from '../renderer/renderer_elements';
-import { OverlayType, Point2D, SymbolMap } from '../types';
+} from '../renderer/sdfg/sdfg_elements';
+import { OverlayType, SymbolMap } from '../types';
 import { getGraphElementUUID } from '../utils/sdfg/sdfg_utils';
 import { getTempColorHslString } from '../utils/utils';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
+import { doForAllDagreGraphElements } from '../utils/sdfg/traversal';
 
 export class DepthOverlay extends GenericSdfgOverlay {
 
     public static readonly type: OverlayType = OverlayType.NODE;
     public readonly olClass: typeof GenericSdfgOverlay = DepthOverlay;
 
-    private depth_map: { [uuids: string]: any } = {};
+    private depthMap: Record<string, string | undefined> = {};
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
@@ -34,95 +32,103 @@ export class DepthOverlay extends GenericSdfgOverlay {
         );
     }
 
-    public clear_cached_depth_values(): void {
-        this.renderer.doForAllGraphElements((_group, _info, obj: any) => {
+    public clearCachedDepthValues(): void {
+        if (!this.renderer.graph)
+            return;
+        doForAllDagreGraphElements((_group, _info, obj) => {
             if (obj.data) {
                 if (obj.data.depth !== undefined)
                     obj.data.depth = undefined;
                 if (obj.data.depth_string !== undefined)
                     obj.data.depth_string = undefined;
             }
-        });
+        }, this.renderer.graph, this.renderer.sdfg);
     }
 
-    public calculate_depth_node(
-        node: SDFGNode, symbol_map: SymbolMap, depth_values: number[]
+    public calcDepthNode(
+        node: SDFGNode | ControlFlowBlock, symbolMap: SymbolMap,
+        depthValues: number[]
     ): number | undefined {
-        const depth_string = this.depth_map[getGraphElementUUID(node)];
+        const nodeId = getGraphElementUUID(node);
+        const depthString = this.depthMap[nodeId];
         let depth = undefined;
-        if (depth_string !== undefined) {
-            depth = this.symbolResolver.parse_symbol_expression(
-                depth_string,
-                symbol_map
+        if (depthString !== undefined) {
+            depth = this.symbolResolver.parseExpression(
+                depthString,
+                symbolMap
             );
         }
 
-        node.data.depth_string = depth_string;
+        node.data ??= {};
+        node.data.depth_string = depthString;
         node.data.depth = depth;
 
         if (depth !== undefined && depth > 0)
-            depth_values.push(depth);
+            depthValues.push(depth);
 
         return depth;
     }
 
-    public calculate_depth_graph(
-        g: DagreGraph, symbol_map: SymbolMap, depth_values: number[]
+    public calcDepthGraph(
+        g: DagreGraph, symbolMap: SymbolMap, depthValues: number[]
     ): void {
         g.nodes().forEach(v => {
-            const node = g.node(v);
-            this.calculate_depth_node(node, symbol_map, depth_values);
+            const node = g.node(v) as SDFGNode | ControlFlowBlock;
+            this.calcDepthNode(node, symbolMap, depthValues);
             if (node instanceof ConditionalBlock) {
                 for (const [_, branch] of node.branches) {
-                    this.calculate_depth_node(branch, symbol_map, depth_values);
-                    if (branch.data.graph) {
-                        this.calculate_depth_graph(
-                            branch.data.graph, symbol_map, depth_values
+                    this.calcDepthNode(branch, symbolMap, depthValues);
+                    if (branch.graph) {
+                        this.calcDepthGraph(
+                            branch.graph, symbolMap, depthValues
                         );
                     }
                 }
             } else {
-                const state_graph = node.data.graph;
-                if (state_graph) {
-                    state_graph.nodes().forEach((v: string) => {
-                        const node = state_graph.node(v);
+                const stateGraph = node.graph;
+                if (stateGraph) {
+                    stateGraph.nodes().forEach((v: string) => {
+                        const node = stateGraph.node(v);
                         if (node instanceof NestedSDFG) {
-                            const nested_symbols_map: SymbolMap = {};
-                            const mapping =
-                                node.data.node.attributes.symbol_mapping ?? {};
+                            const nestedSymbolsMap: SymbolMap = {};
+                            const mapping = (
+                                node.attributes()?.symbol_mapping ?? {}
+                            ) as Record<string, string>;
                             // Translate the symbol mappings for the nested SDFG
                             // based on the mapping described on the node.
                             Object.keys(mapping).forEach((symbol: string) => {
-                                nested_symbols_map[symbol] =
-                                    this.symbolResolver.parse_symbol_expression(
+                                nestedSymbolsMap[symbol] =
+                                    this.symbolResolver.parseExpression(
                                         mapping[symbol],
-                                        symbol_map
+                                        symbolMap
                                     );
                             });
                             // Merge in the parent mappings.
-                            Object.keys(symbol_map).forEach((symbol) => {
-                                if (!(symbol in nested_symbols_map)) {
-                                    nested_symbols_map[symbol] = symbol_map[
+                            Object.keys(symbolMap).forEach((symbol) => {
+                                if (!(symbol in nestedSymbolsMap)) {
+                                    nestedSymbolsMap[symbol] = symbolMap[
                                         symbol
                                     ];
                                 }
                             });
 
-                            this.calculate_depth_node(
+                            this.calcDepthNode(
                                 node,
-                                nested_symbols_map,
-                                depth_values
+                                nestedSymbolsMap,
+                                depthValues
                             );
-                            this.calculate_depth_graph(
-                                node.data.graph,
-                                nested_symbols_map,
-                                depth_values
-                            );
-                        } else {
-                            this.calculate_depth_node(
+                            if (node.graph) {
+                                this.calcDepthGraph(
+                                    node.graph,
+                                    nestedSymbolsMap,
+                                    depthValues
+                                );
+                            }
+                        } else if (node instanceof ControlFlowBlock) {
+                            this.calcDepthNode(
                                 node,
-                                symbol_map,
-                                depth_values
+                                symbolMap,
+                                depthValues
                             );
                         }
                     });
@@ -131,60 +137,52 @@ export class DepthOverlay extends GenericSdfgOverlay {
         });
     }
 
-    public recalculate_depth_values(graph: DagreGraph): void {
-        this.heatmap_scale_center = 5;
-        this.heatmap_hist_buckets = [];
+    public recalculateDepthValues(graph: DagreGraph): void {
+        this.heatmapScaleCenter = 5;
+        this.heatmapHistBuckets = [];
 
-        const depth_values: number[] = [];
-        this.calculate_depth_graph(
-            graph,
-            this.symbolResolver.get_symbol_value_map(),
-            depth_values
+        const depthValues: number[] = [];
+        this.calcDepthGraph(
+            graph, this.symbolResolver.symbolValueMap, depthValues
         );
 
-        this.update_heatmap_scale(depth_values);
+        this.updateHeatmapScale(depthValues);
 
-        if (depth_values.length === 0)
-            depth_values.push(0);
+        if (depthValues.length === 0)
+            depthValues.push(0);
     }
 
-    public update_depth_map(depth_map: { [uuids: string]: any }): void {
-        this.depth_map = depth_map;
+    public updateDepthMap(depthMap: Record<string, any>): void {
+        this.depthMap = depthMap;
         this.refresh();
     }
 
     public refresh(): void {
-        this.clear_cached_depth_values();
-        const graph = this.renderer.get_graph();
+        this.clearCachedDepthValues();
+        const graph = this.renderer.graph;
         if (graph)
-            this.recalculate_depth_values(graph);
+            this.recalculateDepthValues(graph);
 
-        this.renderer.draw_async();
+        this.renderer.drawAsync();
     }
 
     private shadeElem(elem: SDFGElement, ctx: CanvasRenderingContext2D): void {
-        const depth = elem.data.depth;
-        const depth_string = elem.data.depth_string;
+        const depth = elem.data?.depth as number | undefined;
+        const depthString = elem.data?.depth_string as string | undefined;
 
-        const mousepos = this.renderer.get_mousepos();
-        if (depth_string !== undefined && mousepos &&
+        const mousepos = this.renderer.getMousePos();
+        if (depthString !== undefined && mousepos &&
             elem.intersect(mousepos.x, mousepos.y)) {
             // Show the computed Depth value if applicable.
-            if (isNaN(depth_string) && depth !== undefined) {
-                this.renderer.set_tooltip(() => {
-                    const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont) {
-                        tt_cont.innerText = (
-                            'Depth: ' + depth_string + ' (' + depth + ')'
-                        );
-                    }
-                });
+            if (depthString && isNaN(+depthString) && depth !== undefined) {
+                this.renderer.showTooltip(
+                    mousepos.x, mousepos.y,
+                    'Depth: ' + depthString + ' (' + depth.toString() + ')'
+                );
             } else {
-                this.renderer.set_tooltip(() => {
-                    const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont)
-                        tt_cont.innerText = 'Depth: ' + depth_string;
-                });
+                this.renderer.showTooltip(
+                    mousepos.x, mousepos.y, 'Depth: ' + depthString
+                );
             }
         }
 
@@ -192,7 +190,7 @@ export class DepthOverlay extends GenericSdfgOverlay {
             // If the Depth can't be calculated, but there's an entry for this
             // node's Depth, that means that there's an unresolved symbol. Shade
             // the node grey to indicate that.
-            if (depth_string !== undefined) {
+            if (depthString !== undefined) {
                 elem.shade(this.renderer, ctx, 'gray');
                 return;
             } else {
@@ -211,13 +209,13 @@ export class DepthOverlay extends GenericSdfgOverlay {
     }
 
     protected shadeNode(
-        node: SDFGNode, ctx: CanvasRenderingContext2D, ...args: any[]
+        node: SDFGNode, ctx: CanvasRenderingContext2D, ..._args: any[]
     ): void {
         this.shadeElem(node, ctx);
     }
 
     protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ...args: any[]
+        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ..._args: any[]
     ): void {
         this.shadeElem(block, ctx);
     }
@@ -226,6 +224,7 @@ export class DepthOverlay extends GenericSdfgOverlay {
         this.shadeSDFG();
     }
 
+    /*
     public on_mouse_event(
         type: string,
         _ev: Event,
@@ -237,19 +236,19 @@ export class DepthOverlay extends GenericSdfgOverlay {
         if (type === 'click' && !ends_drag) {
             if (foreground_elem && !(foreground_elem instanceof Edge)) {
                 if (foreground_elem.data.depth === undefined) {
-                    const depth_string = this.depth_map[
+                    const depth_string = this.depthMap[
                         getGraphElementUUID(foreground_elem)
                     ];
                     if (depth_string) {
-                        this.symbolResolver.parse_symbol_expression(
+                        this.symbolResolver.parseExpression(
                             depth_string,
                             this.symbolResolver.get_symbol_value_map(),
                             true,
                             () => {
-                                this.clear_cached_depth_values();
+                                this.clearCachedDepthValues();
                                 const graph = this.renderer.get_graph();
                                 if (graph)
-                                    this.recalculate_depth_values(graph);
+                                    this.recalculateDepthValues(graph);
                             }
                         );
                     }
@@ -258,5 +257,6 @@ export class DepthOverlay extends GenericSdfgOverlay {
         }
         return false;
     }
+    */
 
 }

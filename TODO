@@ -1,0 +1,7 @@
+# Post-Refactoring Feature Testing
+
+## Renderer
+
+### HTML Canvas Renderer
+- Interaction window
+- Error popover

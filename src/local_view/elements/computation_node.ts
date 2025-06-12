@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import CoffeeQuate from 'coffeequate';
 import * as math from 'mathjs';
@@ -63,8 +63,8 @@ export class ComputationNode extends Node {
      */
     public getAccessesFor(
         scope: Record<string, any>
-    ): [AccessMap<(number | undefined)[]>, ConcreteDataAccess[]] {
-        const idxMap = new AccessMap<(number | undefined)[]>();
+    ): [AccessMap, ConcreteDataAccess[]] {
+        const idxMap = new AccessMap();
         const resolvedAccessOrder: ConcreteDataAccess[] = [];
 
         for (const val of this.accessOrder) {
@@ -72,7 +72,7 @@ export class ComputationNode extends Node {
             for (const e of val.index) {
                 let res = undefined;
                 try {
-                    res = math.evaluate(e, scope);
+                    res = math.evaluate(e, scope) as unknown;
                     if (typeof res !== 'number')
                         res = undefined;
                 } catch (_ignored) {
@@ -116,33 +116,31 @@ export class ComputationNode extends Node {
      */
     private findRelatedFromScope(
         source: DataContainer, scope: Map<string, number>,
-        idxMap: AccessMap<(number | undefined)[]>
+        idxMap: AccessMap
     ): void {
         for (const access of this.accessOrder) {
             if (!RELATE_INCLUSIVE && access.dataContainer === source)
                 continue;
-            if (access.index) {
-                const idx: (number | undefined)[] = [];
-                for (const e of access.index) {
-                    let res = undefined;
-                    try {
-                        res = math.evaluate(e, scope);
-                        if (typeof res !== 'number')
-                            res = undefined;
-                    } catch (_ignored) {
+            const idx: (number | undefined)[] = [];
+            for (const e of access.index) {
+                let res = undefined;
+                try {
+                    res = math.evaluate(e, scope) as unknown;
+                    if (typeof res !== 'number')
                         res = undefined;
-                    }
-                    idx.push(res);
+                } catch (_ignored) {
+                    res = undefined;
                 }
-                const prev = idxMap.get(access.dataContainer);
-                if (prev !== undefined) {
-                    prev.push([access.accessMode, idx]);
-                } else {
-                    idxMap.set(
-                        access.dataContainer,
-                        [[access.accessMode, idx]]
-                    );
-                }
+                idx.push(res);
+            }
+            const prev = idxMap.get(access.dataContainer);
+            if (prev !== undefined) {
+                prev.push([access.accessMode, idx]);
+            } else {
+                idxMap.set(
+                    access.dataContainer,
+                    [[access.accessMode, idx]]
+                );
             }
         }
     }
@@ -156,8 +154,8 @@ export class ComputationNode extends Node {
      */
     public getRelatedAccesses(
         source: DataContainer, index: number[], _origin?: Node
-    ): AccessMap<(number | undefined)[]> {
-        const idxMap = new AccessMap<(number | undefined)[]>();
+    ): AccessMap {
+        const idxMap = new AccessMap();
 
         // Find out what symbolic accesses the numeric indices to the source
         // relate to.
@@ -176,19 +174,29 @@ export class ComputationNode extends Node {
                 if (i < index.length) {
                     const rightHand = index[i];
                     const leftHand = idx;
+                    /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+                    /* eslint-disable @typescript-eslint/no-unsafe-call */
+                    /* eslint-disable
+                       @typescript-eslint/no-unsafe-member-access */
                     const equation = CoffeeQuate(
                         leftHand.toString() + ' = ' + rightHand.toString()
                     );
                     const variables = equation.getAllVariables();
                     if (variables.length === 1) {
-                        const solutions = equation.solve(variables[0]);
+                        const solutions = equation.solve(
+                            variables[0]
+                        ) as number[];
                         if (solutions.length === 1) {
                             scope.set(
-                                variables[0],
-                                math.evaluate(solutions[0].toString())
+                                variables[0] as string,
+                                math.evaluate(solutions[0].toString()) as number
                             );
                         }
                     }
+                    /* eslint-enable
+                       @typescript-eslint/no-unsafe-member-access */
+                    /* eslint-enable @typescript-eslint/no-unsafe-call */
+                    /* eslint-enable @typescript-eslint/no-unsafe-assignment */
                 }
             });
             this.findRelatedFromScope(source, scope, idxMap);

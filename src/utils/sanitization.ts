@@ -1,7 +1,13 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
+
+/**
+ * Escape characters in a string for HTML representation.
+ * @param s String to escape.
+ * @returns Escaped HTML string.
+ */
 export function escapeHTML(s: string): string {
-    const escapeCharacters: Map<string, string> = new Map([
+    const escapeCharacters = new Map<string, string>([
         ['&', '&amp;'],
         ['<', '&lt;'],
         ['>', '&gt;'],
@@ -9,9 +15,15 @@ export function escapeHTML(s: string): string {
         ['\'', '&#039;'],
     ]);
 
-    return `${s}`.replace(/[&<>"']/g, m => escapeCharacters.get(m)!);
+    return s.replace(/[&<>"']/g, m => escapeCharacters.get(m)!);
 }
 
+/**
+ * Sanetize HTML string, escaping illegal or reserved characters.
+ * @param strings String to sanetize.
+ * @param values  Values to sanetize.
+ * @returns       Escaped and sanetized HTML string.
+ */
 export function htmlSanitize(
     strings: TemplateStringsArray, ...values: any[]
 ): string {

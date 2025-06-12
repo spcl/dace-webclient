@@ -1,18 +1,21 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import type {
-    GraphElementInfo,
-    SDFGElementGroup,
     SDFGRenderer,
-} from '../renderer/renderer';
+} from '../renderer/sdfg/sdfg_renderer';
 import {
     AccessNode,
-    SDFGElement,
     SDFGNode,
-} from '../renderer/renderer_elements';
-import { OverlayType, Point2D } from '../types';
+    State,
+} from '../renderer/sdfg/sdfg_elements';
+import {
+    JsonSDFG,
+    JsonSDFGNode,
+    JsonSDFGState,
+    OverlayType,
+} from '../types';
 import { KELLY_COLORS } from '../utils/utils';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
 
 // Available data storage types in the SDFG.
 export enum StorageType {
@@ -139,29 +142,31 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
     }
 
     public refresh(): void {
-        this.renderer.draw_async();
+        this.renderer.drawAsync();
     }
 
     public static recursiveFindScopeSchedule(
-        node: any, parentId?: number, sdfg?: any
+        node: SDFGNode | JsonSDFGNode, parentId?: number, sdfg?: JsonSDFG
     ): ScheduleType | undefined {
         let scopeNode;
         if (node instanceof SDFGNode) {
-            if (node.data?.node?.scope_entry !== undefined &&
-                node.parent_id !== null) {
-                scopeNode = node.parentElem?.data.state.nodes[
-                    node.data.node.scope_entry
-                ];
-                parentId = node.parent_id;
+            if (node.jsonData?.scope_entry !== undefined &&
+                node.parentStateId !== undefined) {
+                scopeNode = (
+                    node.parentElem as State | undefined
+                )?.jsonData?.nodes[+node.jsonData.scope_entry];
+                parentId = node.parentStateId;
                 sdfg = node.sdfg;
             }
         } else if (node.scope_entry !== undefined &&
             parentId !== undefined && sdfg !== undefined) {
-            scopeNode = sdfg.nodes[parentId].nodes[node.scope_entry];
+            const state = sdfg.nodes[parentId] as JsonSDFGState;
+            scopeNode = state.nodes[+node.scope_entry];
         }
 
-        const schedule = scopeNode?.attributes?.schedule;
-        if (schedule) {
+        const schedule = scopeNode?.attributes?.schedule as
+            ScheduleType | undefined;
+        if (schedule && scopeNode) {
             if (schedule === ScheduleType.Default) {
                 const parentSchedule = this.recursiveFindScopeSchedule(
                     scopeNode, parentId, sdfg
@@ -176,47 +181,49 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
 
     public static getStorageType(node: AccessNode): {
         type: StorageType,
-        originalType: StorageType | null,
+        originalType?: StorageType,
     } {
-        const sdfgArray = node.sdfg.attributes._arrays[node.attributes().data];
+        const sdfg = node.sdfg;
+        const data = node.attributes()?.data as string | undefined;
+        if (!data) {
+            return {
+                type: StorageType.Default,
+                originalType: undefined,
+            };
+        }
+        const sdfgArray = sdfg.attributes?._arrays[data];
 
         let storageType = sdfgArray?.attributes?.storage;
-        let originalType: StorageType | null = null;
+        let originalType: StorageType | undefined = undefined;
 
-        if (!storageType)
-            storageType = StorageType.Default;
+        storageType ??= StorageType.Default;
 
-        if (storageType === StorageType.Default) {
+        if (storageType === StorageType.Default.toString()) {
             const schedule =
                 MemoryLocationOverlay.recursiveFindScopeSchedule(node);
             const derivedStorageType = SCOPEDEFAULT_STORAGE.get(schedule);
             if (derivedStorageType) {
-                originalType = storageType;
+                originalType = storageType as StorageType;
                 storageType = derivedStorageType;
             }
         }
         return {
-            type: storageType,
+            type: storageType as StorageType,
             originalType: originalType,
         };
     }
 
     protected shadeNode(node: AccessNode, ctx: CanvasRenderingContext2D): void {
         const storageType = MemoryLocationOverlay.getStorageType(node);
-        const mousepos = this.renderer.get_mousepos();
+        const mousepos = this.renderer.getMousePos();
         if (mousepos && node.intersect(mousepos.x, mousepos.y)) {
-            this.renderer.set_tooltip(() => {
-                const ttContainer = this.renderer.get_tooltip_container();
-                if (ttContainer) {
-                    if (storageType.originalType) {
-                        ttContainer.innerHTML = 'Location: ' +
-                            storageType.originalType + ' &rarr; ' +
-                            storageType.type;
-                    } else {
-                        ttContainer.innerHTML = 'Location: ' + storageType.type;
-                    }
-                }
-            });
+            this.renderer.showTooltip(
+                mousepos.x, mousepos.y,
+                'Location: ' + (storageType.originalType ? (
+                    storageType.originalType.toString() + ' &rarr; ' +
+                    storageType.type
+                ) : storageType.type)
+            );
         }
 
         const color = STYPE_COLOR.get(storageType.type)?.toString(16);
@@ -228,17 +235,6 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
         this.shadeSDFG((elem) => {
             return elem instanceof AccessNode;
         });
-    }
-
-    public on_mouse_event(
-        _type: string,
-        _ev: MouseEvent,
-        _mousepos: Point2D,
-        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
-        _foreground_elem: SDFGElement | null,
-        _ends_drag: boolean
-    ): boolean {
-        return false;
     }
 
 }

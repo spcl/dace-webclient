@@ -1,181 +1,232 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { simplify } from 'mathjs';
-import type { SDFGRenderer } from '../../renderer/renderer';
+import {
+    DataSubset,
+    JsonSDFGCodeBlock,
+    JsonSDFGLogicalGroup,
+    JsonSDFGMemletAttributes,
+    JsonSDFGSerializedAtom,
+    JsonSDFGSymExpr,
+    JsonSDFGTypeclass,
+    SDFGRange,
+} from '../../types';
+import {
+    SDFVSettingKey,
+    SDFVSettings,
+    SDFVSettingValT,
+} from '../sdfv_settings';
 
-export function sdfg_range_elem_to_string(
-    range: any,
-    settings: any = null
+
+/**
+ * Convert an SDFG range element to a string.
+ * @param range    Range element to convert.
+ * @param settings Current view settings.
+ * @returns        String representation of `range`.
+ */
+export function sdfgRangeElemToString(
+    range: SDFGRange, settings?: Record<SDFVSettingKey, SDFVSettingValT>
 ): string {
     let preview = '';
     const step = parseInt(range.step);
     const tile = parseInt(range.tile);
     if (range.start === range.end && step === 1 && tile === 1) {
-        preview += sdfg_property_to_string(range.start, settings);
+        preview += sdfgPropertyToString(range.start, settings);
     } else {
-        if (settings && settings.inclusive_ranges) {
-            preview += sdfg_property_to_string(range.start, settings) + '..' +
-                sdfg_property_to_string(range.end, settings);
+        if (settings?.inclusiveRanges) {
+            preview += sdfgPropertyToString(range.start, settings) + '..' +
+                sdfgPropertyToString(range.end, settings);
         } else {
-            let endp1 = sdfg_property_to_string(range.end, settings) + ' + 1';
+            let endp1 = sdfgPropertyToString(range.end, settings) + ' + 1';
             try {
                 endp1 = simplify(endp1).toString();
-            } catch (e) { }
-            preview += sdfg_property_to_string(range.start, settings) + ':' +
+            } catch (_e) {}
+            preview += sdfgPropertyToString(range.start, settings) + ':' +
                 endp1;
         }
 
         if (step !== 1) {
-            preview += ':' + sdfg_property_to_string(range.step, settings);
+            preview += ':' + sdfgPropertyToString(range.step, settings);
             if (tile !== 1)
-                preview += ':' + sdfg_property_to_string(range.tile, settings);
+                preview += ':' + sdfgPropertyToString(range.tile, settings);
         } else if (tile !== 1) {
-            preview += '::' + sdfg_property_to_string(range.tile, settings);
+            preview += '::' + sdfgPropertyToString(range.tile, settings);
         }
     }
     return preview;
 }
 
-export function sdfg_consume_elem_to_string(
-    num_pes: number,
-    settings: any = null
+/**
+ * Convert an SDFG consume element to a string.
+ * @param numPEs   Number of PEs.
+ * @param settings Current view settings.
+ * @returns        String representation of `numPEs`.
+ */
+export function sdfgConsumeElemToString(
+    numPEs: number, settings?: Record<SDFVSettingKey, SDFVSettingValT>
 ): string {
     let result = '0';
-    if (settings && settings.inclusive_ranges)
-        result += '..' + (num_pes - 1).toString();
+    if (settings?.inclusiveRanges)
+        result += '..' + (numPEs - 1).toString();
     else
-        result += ':' + num_pes.toString();
+        result += ':' + numPEs.toString();
     return result;
 }
 
-// Includes various properties and returns their string representation
-export function sdfg_property_to_string(
-    prop: any,
-    settings: any = null
+/**
+ * Convert SDFG properties to their string representation.
+ * @param prop      SDFG property.
+ * @param settings  Current view settings.
+ * @returns         A string representation of the property `prop`.
+ */
+export function sdfgPropertyToString(
+    prop: unknown, settings?: Record<SDFVSettingKey, SDFVSettingValT>
 ): string {
     if (prop === null || prop === undefined)
-        return prop;
+        return '';
     if (typeof prop === 'boolean') {
         if (prop)
             return 'True';
         return 'False';
-    } else if (prop.type === 'Indices' || prop.type === 'subsets.Indices') {
-        const indices = prop.indices;
-        let preview = '[';
-        for (const index of indices)
-            preview += sdfg_property_to_string(index, settings) + ', ';
-        return preview.slice(0, -2) + ']';
-    } else if (prop.type === 'Range' || prop.type === 'subsets.Range') {
-        const ranges = prop.ranges;
-
-        // Generate string from range
-        let preview = '[';
-        for (const range of ranges)
-            preview += sdfg_range_elem_to_string(range, settings) + ', ';
-        return preview.slice(0, -2) + ']';
-    } else if (prop.type === 'SubsetUnion' ||
-               prop.type === 'subsets.SubsetUnion') {
-        const subsList = prop.subset_list;
-        if (subsList.length < 2)
-            return sdfg_property_to_string(subsList[0], settings);
-        let preview = '{';
-        for (const subs of subsList)
-            preview += sdfg_property_to_string(subs, settings) + '\n';
-        return preview + '}';
-    } else if (prop.type === 'LogicalGroup' && prop.color !== undefined &&
-        prop.name !== undefined) {
-        return '<span style="color: ' + prop.color + ';">' + prop.name + ' (' +
-            prop.color + ' )</span>';
-    } else if (prop.language !== undefined) {
-        // Code
-        if (prop.string_data !== '' && prop.string_data !== undefined &&
-            prop.string_data !== null) {
-            return '<pre class="code"><code>' + prop.string_data.trim() +
+    } else if (typeof prop === 'string') {
+        return prop;
+    } else if (Object.hasOwn(prop, 'type')) {
+        const sProp = prop as JsonSDFGSerializedAtom;
+        if (sProp.type === 'Indices' || sProp.type === 'subsets.Indices') {
+            const indices = (sProp as DataSubset).indices;
+            let preview = '[';
+            for (const index of indices ?? [])
+                preview += sdfgPropertyToString(index, settings) + ', ';
+            return preview.slice(0, -2) + ']';
+        } else if (sProp.type === 'Range' || sProp.type === 'subsets.Range') {
+            const ranges = (sProp as DataSubset).ranges;
+            let preview = '[';
+            for (const range of ranges ?? [])
+                preview += sdfgRangeElemToString(range, settings) + ', ';
+            return preview.slice(0, -2) + ']';
+        } else if (sProp.type === 'SubsetUnion' ||
+                sProp.type === 'subsets.SubsetUnion') {
+            const subsList = (sProp as DataSubset).subset_list ?? [];
+            if (subsList.length < 2)
+                return sdfgPropertyToString(subsList[0], settings);
+            let preview = '{';
+            for (const subs of subsList)
+                preview += sdfgPropertyToString(subs, settings) + '\n';
+            return preview + '}';
+        } else if (sProp.type === 'LogicalGroup') {
+            return '<span style="color: ' +
+                ((sProp as JsonSDFGLogicalGroup).color ?? 'black') +
+                ';">' + ((sProp as JsonSDFGLogicalGroup).name ?? '') + ' (' +
+                ((sProp as JsonSDFGLogicalGroup).color ?? 'undefined') +
+                ' )</span>';
+        }
+    } else if (Object.hasOwn(prop, 'language')) {
+        const codesProp = prop as JsonSDFGCodeBlock;
+        if (codesProp.string_data !== '' &&
+            codesProp.string_data !== undefined &&
+            codesProp.string_data !== null) {
+            return '<pre class="code"><code>' +
+                codesProp.string_data.trim() +
                 '</code></pre><div class="clearfix"></div>';
         }
         return '';
-    } else if (prop.approx !== undefined && prop.main !== undefined) {
-        // SymExpr
-        return prop.main;
+    } else if (Object.hasOwn(prop, 'main') &&
+        Object.hasOwn(prop, 'approx') &&
+        (prop as JsonSDFGSymExpr).main !== undefined &&
+        (prop as JsonSDFGSymExpr).approx !== undefined) {
+        return (prop as JsonSDFGSymExpr).main!;
     } else if (prop.constructor === Object) {
-        // General dictionary
-        return '<pre class="code"><code>' + JSON.stringify(prop, undefined, 4) +
+        // General dictionary / object.
+        return '<pre class="code"><code>' +
+            JSON.stringify(prop, undefined, 4) +
             '</code></pre><div class="clearfix"></div>';
     } else if (prop.constructor === Array) {
-        // General array
+        // Array of properties / general array.
         let result = '[ ';
         let first = true;
-        for (const subprop of prop) {
+        for (const subsProp of prop as unknown[]) {
             if (!first)
                 result += ', ';
-            result += sdfg_property_to_string(subprop, settings);
+            result += sdfgPropertyToString(subsProp, settings);
             first = false;
         }
         return result + ' ]';
-    } else {
-        return prop;
     }
+    console.error('Property could not be converted to a string:', prop);
+    throw Error('Property could not be converted to a string');
 }
 
+/**
+ * Create an HTML representation of an SDFG memlet.
+ * @param memletAttributes Attributes of the SDFG memlet.
+ * @returns                String containing the memlet's HTML representation.
+ */
 export function memletToHtml(
-    renderer: SDFGRenderer, memletAttributes: any
+    memletAttributes: JsonSDFGMemletAttributes
 ): string {
-        const dsettings = renderer.view_settings();
+    const dsettings = SDFVSettings.settingsDict;
 
-        let htmlStr = memletAttributes.data;
-        htmlStr += sdfg_property_to_string(memletAttributes.subset, dsettings);
+    let htmlStr = memletAttributes.data ?? '';
+    htmlStr += sdfgPropertyToString(memletAttributes.subset, dsettings);
 
-        if (memletAttributes.other_subset) {
-            // TODO: Obtain other data name, if possible
-            if (memletAttributes.is_data_src) {
-                htmlStr += ' -> ' + sdfg_property_to_string(
-                    memletAttributes.other_subset, dsettings
-                );
-            } else {
-                htmlStr = sdfg_property_to_string(
-                    memletAttributes.other_subset, dsettings
-                ) + ' -> ' + htmlStr;
-            }
-        }
-
-        if (memletAttributes.wcr) {
-            htmlStr += '<br /><b>CR: ' + sdfg_property_to_string(
-                memletAttributes.wcr, dsettings
-            ) + '</b>';
-        }
-
-        let num_accesses = null;
-        if (memletAttributes.volume) {
-            num_accesses = sdfg_property_to_string(
-                memletAttributes.volume, dsettings
+    if (memletAttributes.other_subset) {
+        // TODO: Obtain other data name, if possible
+        if (memletAttributes.is_data_src) {
+            htmlStr += ' -> ' + sdfgPropertyToString(
+                memletAttributes.other_subset, dsettings
             );
         } else {
-            num_accesses = sdfg_property_to_string(
-                memletAttributes.num_accesses, dsettings
-            );
+            htmlStr = sdfgPropertyToString(
+                memletAttributes.other_subset, dsettings
+            ) + ' -> ' + htmlStr;
         }
+    }
 
-        if (memletAttributes.dynamic) {
-            if (num_accesses === '0' || num_accesses === '-1') {
-                num_accesses = '<b>Dynamic (unbounded)</b>';
-            } else {
-                num_accesses = '<b>Dynamic</b> (up to ' +
-                    num_accesses + ')';
-            }
-        } else if (num_accesses === '-1') {
-            num_accesses = '<b>Dynamic (unbounded)</b>';
+    if (memletAttributes.wcr) {
+        htmlStr += '<br /><b>CR: ' + sdfgPropertyToString(
+            memletAttributes.wcr, dsettings
+        ) + '</b>';
+    }
+
+    let numAccesses = null;
+    if (memletAttributes.volume) {
+        numAccesses = sdfgPropertyToString(
+            memletAttributes.volume, dsettings
+        );
+    } else {
+        numAccesses = sdfgPropertyToString(
+            memletAttributes.num_accesses, dsettings
+        );
+    }
+
+    if (memletAttributes.dynamic) {
+        if (numAccesses === '0' || numAccesses === '-1') {
+            numAccesses = '<b>Dynamic (unbounded)</b>';
+        } else {
+            numAccesses = '<b>Dynamic</b> (up to ' +
+                numAccesses + ')';
         }
-        htmlStr += '<br /><font style="font-size: 14px">Volume: ' +
-            num_accesses + '</font>';
+    } else if (numAccesses === '-1') {
+        numAccesses = '<b>Dynamic (unbounded)</b>';
+    }
+    htmlStr += '<br /><font style="font-size: 14px">Volume: ' +
+        numAccesses + '</font>';
 
-        return htmlStr;
+    return htmlStr;
 }
 
-export function string_to_sdfg_typeclass(str: string): any {
+/**
+ * Convert a string to an SDFG typeclass.
+ * @param str String to convert.
+ * @returns   Typeclass corresponding to `str`.
+ */
+export function stringToSDFGTypeclass(
+    str: string
+): JsonSDFGTypeclass | undefined {
     str.replace(/\s+/g, '');
 
     if (str === '' || str === 'null')
-        return null;
+        return undefined;
 
     if (str.endsWith(')')) {
         if (str.startsWith('vector(')) {
@@ -183,7 +234,7 @@ export function string_to_sdfg_typeclass(str: string): any {
             if (argstring) {
                 const splitidx = argstring.lastIndexOf(',');
                 if (splitidx) {
-                    const dtype = string_to_sdfg_typeclass(
+                    const dtype = stringToSDFGTypeclass(
                         argstring.substring(0, splitidx)
                     );
                     const count = argstring.substring(splitidx);
@@ -201,7 +252,7 @@ export function string_to_sdfg_typeclass(str: string): any {
             if (argstring) {
                 return {
                     type: 'pointer',
-                    dtype: string_to_sdfg_typeclass(argstring),
+                    dtype: stringToSDFGTypeclass(argstring),
                 };
             }
         } else if (str.startsWith('opaque(')) {
@@ -217,28 +268,26 @@ export function string_to_sdfg_typeclass(str: string): any {
             if (argstring) {
                 const splitidx = argstring.lastIndexOf(',');
                 if (splitidx) {
-                    const cb_argstring = argstring.substring(0, splitidx);
-                    if (cb_argstring.startsWith('[') &&
-                        cb_argstring.endsWith(']')) {
-                        const cb_args_raw = cb_argstring.substring(
-                            1, cb_argstring.length - 1
+                    const cbArgString = argstring.substring(0, splitidx);
+                    if (cbArgString.startsWith('[') &&
+                        cbArgString.endsWith(']')) {
+                        const cbArgsRaw = cbArgString.substring(
+                            1, cbArgString.length - 1
                         ).split(',');
-                        const ret_type = string_to_sdfg_typeclass(
+                        const retType = stringToSDFGTypeclass(
                             argstring.substring(splitidx)
                         );
 
-                        const cb_args: any[] = [];
-                        if (cb_args_raw) {
-                            cb_args_raw.forEach(raw_arg => {
-                                cb_args.push(string_to_sdfg_typeclass(raw_arg));
-                            });
-                        }
+                        const cbArgs: any[] = [];
+                        cbArgsRaw.forEach(rawArg => {
+                            cbArgs.push(stringToSDFGTypeclass(rawArg));
+                        });
 
-                        if (cb_args && ret_type) {
+                        if (retType) {
                             return {
                                 type: 'callback',
-                                arguments: cb_args,
-                                returntype: ret_type,
+                                arguments: cbArgs,
+                                returntype: retType,
                             };
                         }
                     }
@@ -246,49 +295,60 @@ export function string_to_sdfg_typeclass(str: string): any {
             }
         }
     }
-    return str;
+
+    console.error('Could not convert string to typeclass: ', str);
+    throw Error('Could not convert string to typeclass');
 }
 
-export function sdfg_typeclass_to_string(typeclass: any): string {
+/**
+ * Convert an SDFG typeclass property to a string.
+ * @param typeclass Typeclass property to convert.
+ * @returns         String representation of `typeclass`.
+ */
+export function sdfgTypeclassToString(typeclass: unknown): string {
     if (typeclass === undefined || typeclass === null)
         return 'null';
 
-    if (typeclass.constructor === Object) {
-        if (typeclass.type !== undefined) {
-            switch (typeclass.type) {
+    if (typeof typeclass === 'string') {
+        return typeclass;
+    } else if (typeclass.constructor === Object) {
+        if (Object.hasOwn(typeclass, 'type') &&
+            (typeclass as JsonSDFGSerializedAtom).type !== undefined) {
+            const sdfgTclass = typeclass as JsonSDFGTypeclass;
+            switch (sdfgTclass.type) {
                 case 'vector':
-                    if (typeclass.elements !== undefined &&
-                        typeclass.dtype !== undefined) {
-                        return 'vector(' + sdfg_typeclass_to_string(
-                            typeclass.dtype
-                        ) + ', ' + typeclass.elements + ')';
+                    if (sdfgTclass.elements !== undefined &&
+                        sdfgTclass.dtype !== undefined) {
+                        return 'vector(' + sdfgTypeclassToString(
+                            sdfgTclass.dtype
+                        ) + ', ' + sdfgTclass.elements + ')';
                     }
                     break;
                 case 'pointer':
-                    if (typeclass.dtype !== undefined) {
-                        return 'pointer(' + sdfg_typeclass_to_string(
-                            typeclass.dtype
+                    if (sdfgTclass.dtype !== undefined) {
+                        return 'pointer(' + sdfgTypeclassToString(
+                            sdfgTclass.dtype
                         ) + ')';
                     }
                     break;
                 case 'opaque':
-                    if (typeclass.name !== undefined)
-                        return 'opaque(' + typeclass.name + ')';
+                    if (sdfgTclass.name !== undefined)
+                        return 'opaque(' + sdfgTclass.name + ')';
                     break;
                 case 'callback':
-                    if (typeclass.arguments !== undefined) {
+                    if (sdfgTclass.arguments !== undefined) {
                         let str = 'callback([';
-                        for (let i = 0; i < typeclass.arguments.length; i++) {
-                            str += sdfg_typeclass_to_string(
-                                typeclass.arguments[i]
+                        for (let i = 0; i < sdfgTclass.arguments.length; i++) {
+                            str += sdfgTypeclassToString(
+                                sdfgTclass.arguments[i]
                             );
-                            if (i < typeclass.arguments.length - 1)
+                            if (i < sdfgTclass.arguments.length - 1)
                                 str += ', ';
                         }
                         str += '], ';
-                        if (typeclass.returntype !== undefined) {
-                            str += sdfg_typeclass_to_string(
-                                typeclass.returntype
+                        if (sdfgTclass.returntype !== undefined) {
+                            str += sdfgTypeclassToString(
+                                sdfgTclass.returntype
                             );
                         } else {
                             str += 'None';
@@ -301,22 +361,22 @@ export function sdfg_typeclass_to_string(typeclass: any): string {
         }
 
         // This is an unknown typeclass, just show the entire JSON.
-        return sdfg_property_to_string(typeclass);
+        return sdfgPropertyToString(typeclass);
     }
 
-    // This typeclass already is a regular string.
-    return typeclass;
+    console.error('Typeclass cannot be converted to a string:', typeclass);
+    throw Error('Typeclass cannot be converted to a string');
 }
 
 /**
  * Format bytes as human-readable text.
  * Taken from https://stackoverflow.com/a/14919494
- * 
+ *
  * @param bytes Number of bytes.
- * @param si True to use metric (SI) units, aka powers of 1000. False to use 
+ * @param si True to use metric (SI) units, aka powers of 1000. False to use
  *           binary (IEC), aka powers of 1024.
  * @param dp Number of decimal places to display.
- * 
+ *
  * @return Formatted string.
  */
 export function bytesToString(
@@ -325,11 +385,11 @@ export function bytesToString(
     const thresh = si ? 1000 : 1024;
 
     if (Math.abs(bytes) < thresh)
-        return bytes + ' B';
+        return bytes.toString() + ' B';
 
-    const units = si
-        ? ['kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-        : ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
+    const units = si ?
+        ['kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'] :
+        ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
     let u = -1;
     const r = 10**dp;
 

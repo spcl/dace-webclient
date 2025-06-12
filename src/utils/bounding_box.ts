@@ -1,9 +1,16 @@
 // Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import type { GraphEdge } from 'dagre';
-import type { Edge, SDFGElement } from '../renderer/renderer_elements';
-import type { DagreGraph } from '../renderer/renderer';
+import type { Edge } from '../renderer/sdfg/sdfg_elements';
+import type { DagreGraph } from '../renderer/sdfg/sdfg_renderer';
+import { Renderable } from '../renderer/core/common/renderable';
 
+
+/**
+ * Calculate the bounding box for a dagre layout graph.
+ * @param g Dagre graph to calculate the bounding box for.
+ * @returns Bounding box of `g`.
+ */
 export function calculateBoundingBox(g: DagreGraph): {
     x: number, y: number, width: number, height: number
 } {
@@ -36,8 +43,14 @@ export function calculateBoundingBox(g: DagreGraph): {
     return bb;
 }
 
+/**
+ * Calculate the bounding box for a list of Renderables.
+ * @param elements Renderables to calculate bounding box for.
+ * @param padding  Padding to add to the bounding box, in pixels.
+ * @returns        Bounding box containing all renderables in `elements`.
+ */
 export function boundingBox(
-    elements: SDFGElement[], padding: number = 0
+    elements: Renderable[], padding: number = 0
 ): DOMRect {
     const bb: {
         x1: number | null,
@@ -51,7 +64,7 @@ export function boundingBox(
         y2: null,
     };
 
-    elements.forEach((v: SDFGElement) => {
+    elements.forEach((v: Renderable) => {
         const topleft = v.topleft();
         if (bb.x1 === null || topleft.x < bb.x1)
             bb.x1 = topleft.x;
@@ -67,21 +80,26 @@ export function boundingBox(
             bb.y2 = y2;
     });
 
-    const ret_bb = new DOMRect(
-        (bb.x1 ? bb.x1 : 0) - padding,
-        (bb.y1 ? bb.y1 : 0) - padding,
-        ((bb.x2 ? bb.x2 : 0) - (bb.x1 ? bb.x1 : 0)) + 2 * padding,
-        ((bb.y2 ? bb.y2 : 0) - (bb.y1 ? bb.y1 : 0)) + 2 * padding
+    const retBB = new DOMRect(
+        (bb.x1 ?? 0) - padding,
+        (bb.y1 ?? 0) - padding,
+        ((bb.x2 ?? 0) - (bb.x1 ?? 0)) + 2 * padding,
+        ((bb.y2 ?? 0) - (bb.y1 ?? 0)) + 2 * padding
     );
 
-    return ret_bb;
+    return retBB;
 }
 
+/**
+ * Calculate the bounding box around an edge.
+ * @param edge Edge to calculate the bounding box for.
+ * @returns    The bounding box around `edge`.
+ */
 export function calculateEdgeBoundingBox(edge: Edge | GraphEdge): {
     x: number, y: number, width: number, height: number
 } {
     // iterate over all points, calculate the size of the bounding box
-    const points = edge.get_points();
+    const points = edge.points;
     const bb = {
         x1: points[0].x,
         y1: points[0].y,
@@ -89,30 +107,35 @@ export function calculateEdgeBoundingBox(edge: Edge | GraphEdge): {
         y2: points[0].y,
     };
 
-    points.forEach((p: any) => {
+    points.forEach(p => {
         bb.x1 = p.x < bb.x1 ? p.x : bb.x1;
         bb.y1 = p.y < bb.y1 ? p.y : bb.y1;
         bb.x2 = p.x > bb.x2 ? p.x : bb.x2;
         bb.y2 = p.y > bb.y2 ? p.y : bb.y2;
     });
 
-    const ret_bb = {
+    const retBB = {
         x: bb.x1,
         y: bb.y1,
         width: bb.x2 - bb.x1,
         height: bb.y2 - bb.y1,
     };
-    if (ret_bb.width <= 5) {
-        ret_bb.width = 10;
-        ret_bb.x -= 5;
+    if (retBB.width <= 5) {
+        retBB.width = 10;
+        retBB.x -= 5;
     }
-    if (ret_bb.height <= 5) {
-        ret_bb.height = 10;
-        ret_bb.y -= 5;
+    if (retBB.height <= 5) {
+        retBB.height = 10;
+        retBB.y -= 5;
     }
-    return ret_bb;
+    return retBB;
 }
 
+/**
+ * Update the layout values of an edge with a recalculated edge bounding box.
+ * This operates in-place on the edge.
+ * @param edge The edge to recalculate the layout for.
+ */
 export function updateEdgeBoundingBox(edge: Edge | GraphEdge): void {
     const bb = calculateEdgeBoundingBox(edge);
     edge.x = (bb.x ? bb.x : 0) + bb.width / 2;

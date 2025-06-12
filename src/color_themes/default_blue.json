@@ -2,6 +2,7 @@
     "defaultTextColor": "#000000",
     "nodeBackgroundColor": "#ffffff",
     "stateBackgroundColor": "#deebf7",
+    "stateForegroundColor": "#000000",
     "breakBlockColor": "#ffc79a",
     "continueBlockColor": "#94ffa2",
     "returnBlockColor": "#ff7d7d",

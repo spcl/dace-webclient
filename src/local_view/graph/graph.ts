@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { DisplayObject, Graphics } from 'pixi.js';
 import { StorageType } from '../../overlays/memory_location_overlay';
@@ -23,7 +23,7 @@ type MemoryNodeMap = Map<DataContainer, Set<[AccessMode, MemoryNode]>>;
 export class Graph extends Graphics {
 
     public readonly memoryNodesMap: MemoryNodeMap = new Map();
-    public readonly dataContainers: Map<string, DataContainer> = new Map();
+    public readonly dataContainers = new Map<string, DataContainer>();
 
     public readonly nodes: Set<Node> = new Set<Node>();
     public readonly edges: Set<Edge> = new Set<Edge>();
@@ -62,8 +62,7 @@ export class Graph extends Graphics {
                 for (const neighbor of this.neighborhood(node)) {
                     if (this.isNodeContractible(neighbor)) {
                         let neighborContraction = contractionDir.get(neighbor);
-                        if (neighborContraction === undefined)
-                            neighborContraction = new Set<Node>([neighbor]);
+                        neighborContraction ??= new Set<Node>([neighbor]);
                         const newContraction = new Set([
                             ...contraction,
                             ...neighborContraction,
@@ -87,7 +86,7 @@ export class Graph extends Graphics {
     public contractGraph(): void {
         const contractionRegions = this.findContractionRegions();
         for (const region of contractionRegions) {
-            const regionId = region.values().next()!.value!.id;
+            const regionId = region.values().next().value!.id;
             const regionInEdges = new Set<Edge>();
             const regionOutEdges = new Set<Edge>();
             const removedContainers = new Set<DataContainer>();
@@ -121,7 +120,7 @@ export class Graph extends Graphics {
             }
 
             const contracted = new ComputationNode(
-                regionId, this, contractedText ? contractedText : 'Contracted',
+                regionId, this, contractedText ?? 'Contracted',
                 cleanedAccessOrder, 'Contracted', this.nodes.size > 0
             );
             this.addChild(contracted);
@@ -146,10 +145,8 @@ export class Graph extends Graphics {
 
     public getAccessesFor(
         scope: Map<string, number>, updateParameters: boolean = false
-    ): [
-        AccessMap<(number | undefined)[]>, ConcreteDataAccess[]
-    ] {
-        const idxMap = new AccessMap<(number | undefined)[]>();
+    ): [AccessMap, ConcreteDataAccess[]] {
+        const idxMap = new AccessMap();
         const resolvedAccessOrder: ConcreteDataAccess[] = [];
 
         for (const child of this.children) {
@@ -176,8 +173,8 @@ export class Graph extends Graphics {
     public getRelatedAccesses(
         source: DataContainer,
         index: number[]
-    ): AccessMap<(number | undefined)[]> {
-        const idxMap = new AccessMap<(number | undefined)[]>();
+    ): AccessMap {
+        const idxMap = new AccessMap();
 
         for (const child of this.children) {
             if (child instanceof MapNode || child instanceof ComputationNode) {

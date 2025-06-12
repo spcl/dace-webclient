@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { IShape, RoundedRectangle } from '@pixi/math';
 import { Graphics, Text } from 'pixi.js';
@@ -31,10 +31,8 @@ export class Button extends GUIComponent {
                 }
             );
 
-            if (w === undefined)
-                w = this.labelGraphic.width + 10;
-            if (h === undefined)
-                h = this.labelGraphic.height + 10;
+            w ??= this.labelGraphic.width + 10;
+            h ??= this.labelGraphic.height + 10;
 
             this.labelGraphic.position.set(w / 2, h / 2);
             this.labelGraphic.anchor.set(0.5);

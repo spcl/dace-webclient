@@ -1,9 +1,8 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import $ from 'jquery';
 import { cos, sin, tanh } from 'mathjs';
-import { Point, Text } from 'pixi.js';
-import { SDFGRenderer } from '../../renderer/renderer';
+import { Text } from 'pixi.js';
 import { getTempColorHEX } from '../../utils/utils';
 import { Graph } from '../graph/graph';
 import { LViewRenderer } from '../lview_renderer';
@@ -11,6 +10,7 @@ import { Edge } from './edge';
 import { DEFAULT_TEXT_STYLE } from './element';
 import { MemoryNode } from './memory_node';
 import { Node } from './node';
+import { Point2D } from '../../types';
 
 export class MemoryMovementEdge extends Edge {
 
@@ -23,7 +23,7 @@ export class MemoryMovementEdge extends Edge {
     constructor(
         public readonly text: string | null,
         private readonly parentGraph: Graph,
-        public points: Point[],
+        public points: Point2D[],
         src: Node,
         dst: Node,
         renderer?: LViewRenderer
@@ -147,15 +147,21 @@ export class MemoryMovementEdge extends Edge {
             color = getTempColorHEX(badness);
 
             try {
-                lineWidth = parseInt(SDFGRenderer.getCssProperty(
-                    '--local-view-edge-overlay-width'
-                ));
-                arrowHeadLength = parseInt(SDFGRenderer.getCssProperty(
-                    '--local-view-edge-overlay-arrowhead-length'
-                ));
-                fontSize = parseInt(SDFGRenderer.getCssProperty(
-                    '--local-view-edge-overlay-fontsize'
-                ));
+                lineWidth = parseInt(
+                    this.renderer?.sdfgRenderer?.getCssProperty(
+                        '--local-view-edge-overlay-width'
+                    ) ?? '1'
+                );
+                arrowHeadLength = parseInt(
+                    this.renderer?.sdfgRenderer?.getCssProperty(
+                        '--local-view-edge-overlay-arrowhead-length'
+                    ) ?? '16'
+                );
+                fontSize = parseInt(
+                    this.renderer?.sdfgRenderer?.getCssProperty(
+                        '--local-view-edge-overlay-fontsize'
+                    ) ?? '30'
+                );
             } catch (_ignored) {
                 // Ignored.
             }
@@ -180,20 +186,26 @@ export class MemoryMovementEdge extends Edge {
             }
             text = vol.toString() + ' ' + unitString;
         } else {
-            text = SDFGRenderer.getCssProperty(
+            text = this.renderer?.sdfgRenderer?.getCssProperty(
                 '--local-view-edge-show-label'
             ).toLowerCase() === 'true' ? this.text : '';
 
             try {
-                lineWidth = parseInt(SDFGRenderer.getCssProperty(
-                    '--local-view-edge-width'
-                ));
-                arrowHeadLength = parseInt(SDFGRenderer.getCssProperty(
-                    '--local-view-edge-arrowhead-length'
-                ));
-                fontSize = parseInt(SDFGRenderer.getCssProperty(
-                    '--local-view-edge-fontsize'
-                ));
+                lineWidth = parseInt(
+                    this.renderer?.sdfgRenderer?.getCssProperty(
+                        '--local-view-edge-width'
+                    ) ?? '1'
+                );
+                arrowHeadLength = parseInt(
+                    this.renderer?.sdfgRenderer?.getCssProperty(
+                        '--local-view-edge-arrowhead-length'
+                    ) ?? '16'
+                );
+                fontSize = parseInt(
+                    this.renderer?.sdfgRenderer?.getCssProperty(
+                        '--local-view-edge-fontsize'
+                    ) ?? '30'
+                );
             } catch (_ignored) {
                 // Ignored.
             }

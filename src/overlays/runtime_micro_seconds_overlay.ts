@@ -1,19 +1,21 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import type { SDFGRenderer } from '../renderer/renderer';
+import type { SDFGRenderer } from '../renderer/sdfg/sdfg_renderer';
 import {
     ControlFlowBlock,
     SDFGElement,
     SDFGNode,
-} from '../renderer/renderer_elements';
+} from '../renderer/sdfg/sdfg_elements';
 import { getTempColorHslString } from '../utils/utils';
 import { getGraphElementUUID } from '../utils/sdfg/sdfg_utils';
 import {
     GenericSdfgOverlay,
     RuntimeReportOverlay,
-} from './generic_sdfg_overlay';
+} from './common/generic_sdfg_overlay';
 import { OverlayType } from '../types';
 
+
+type RuntimeSummaryT = Record<string, number>;
 
 export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
 
@@ -21,35 +23,35 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
     public readonly olClass: typeof GenericSdfgOverlay =
         RuntimeMicroSecondsOverlay;
 
-    protected criterium: string = 'mean';
-    private runtime_map: { [uuids: string]: any } = {};
+    protected _criterium: string = 'mean';
+    private runtimeMap: Record<string, RuntimeSummaryT | undefined> = {};
 
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
-        this.heatmap_scale_center = 0;
+        this.heatmapScaleCenter = 0;
     }
 
     public refresh(): void {
-        this.heatmap_scale_center = 5;
-        this.heatmap_hist_buckets = [];
+        this.heatmapScaleCenter = 5;
+        this.heatmapHistBuckets = [];
 
-        const micros_values = [];
+        const microsValues: number[] = [];
 
-        for (const key of Object.keys(this.runtime_map)) {
+        for (const key of Object.keys(this.runtimeMap)) {
             // Make sure the overall SDFG's runtime isn't included in this.
-            if (key !== '0/-1/-1/-1')
-                micros_values.push(this.runtime_map[key][this.criterium]);
+            if (key !== '0/-1/-1/-1' && this.runtimeMap[key] !== undefined)
+                microsValues.push(this.runtimeMap[key][this.criterium]);
         }
 
-        this.update_heatmap_scale(micros_values);
+        this.updateHeatmapScale(microsValues);
 
-        if (micros_values.length === 0)
-            micros_values.push(0);
+        if (microsValues.length === 0)
+            microsValues.push(0);
 
-        this.renderer.draw_async();
+        this.renderer.drawAsync();
     }
 
-    public pretty_print_micros(micros: number): string {
+    public prettyPrintMicroSections(micros: number): string {
         let unit = 'µs';
         let value = micros;
         if (micros > 1000) {
@@ -68,59 +70,50 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
     }
 
     private shadeElem(elem: SDFGElement, ctx: CanvasRenderingContext2D): void {
-        const rt_summary = this.runtime_map[getGraphElementUUID(elem)];
-
-        if (rt_summary === undefined)
+        const runtimeSummary = this.runtimeMap[getGraphElementUUID(elem)];
+        if (runtimeSummary === undefined)
             return;
 
-        const mousepos = this.renderer.get_mousepos();
+        const mousepos = this.renderer.getMousePos();
         if (mousepos && elem.intersect(mousepos.x, mousepos.y)) {
             // Show the measured runtime.
-            if (rt_summary['min'] === rt_summary['max']) {
-                this.renderer.set_tooltip(() => {
-                    const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont) {
-                        tt_cont.innerText = this.pretty_print_micros(
-                            rt_summary['min']
-                        );
-                    }
-                });
+            if (runtimeSummary.min === runtimeSummary.max) {
+                this.renderer.showTooltip(
+                    mousepos.x, mousepos.y,
+                    this.prettyPrintMicroSections(runtimeSummary.min)
+                );
             } else {
-                this.renderer.set_tooltip(() => {
-                    const tt_cont = this.renderer.get_tooltip_container();
-                    if (tt_cont) {
-                        tt_cont.innerText = (
-                            'Min: ' +
-                            this.pretty_print_micros(rt_summary['min']) +
-                            '\nMax: ' +
-                            this.pretty_print_micros(rt_summary['max']) +
-                            '\nMean: ' +
-                            this.pretty_print_micros(rt_summary['mean']) +
-                            '\nMedian: ' +
-                            this.pretty_print_micros(rt_summary['med']) +
-                            '\nCount: ' +
-                            rt_summary['count']
-                        );
-                    }
-                });
+                const tooltipText = (
+                    'Min: ' +
+                    this.prettyPrintMicroSections(runtimeSummary.min) +
+                    '\nMax: ' +
+                    this.prettyPrintMicroSections(runtimeSummary.max) +
+                    '\nMean: ' +
+                    this.prettyPrintMicroSections(runtimeSummary.mean) +
+                    '\nMedian: ' +
+                    this.prettyPrintMicroSections(runtimeSummary.med) +
+                    '\nCount: ' +
+                    runtimeSummary.count.toString()
+                );
+                this.renderer.showTooltip(mousepos.x, mousepos.y, tooltipText);
             }
         }
 
         // Calculate the severity color.
-        const micros = rt_summary[this.criterium];
+        const micros = runtimeSummary[this.criterium];
         const color = getTempColorHslString(this.getSeverityValue(micros));
 
         elem.shade(this.renderer, ctx, color);
     }
 
     protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ...args: any[]
+        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ..._args: any[]
     ): void {
         this.shadeElem(block, ctx);
     }
 
     protected shadeNode(
-        node: SDFGNode, ctx: CanvasRenderingContext2D, ...args: any[]
+        node: SDFGNode, ctx: CanvasRenderingContext2D, ..._args: any[]
     ): void {
         this.shadeElem(node, ctx);
     }
@@ -129,12 +122,12 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
         this.shadeSDFG();
     }
 
-    public set_runtime_map(runtime_map: { [uuids: string]: any }): void {
-        this.runtime_map = runtime_map;
+    public setRuntimeMap(runtimeMap: Record<string, any>): void {
+        this.runtimeMap = runtimeMap;
     }
 
     public clearRuntimeData(): void {
-        this.set_runtime_map({});
+        this.setRuntimeMap({});
         this.refresh();
     }
 

@@ -1,10 +1,11 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { rgb2hex } from '@pixi/utils';
 import $ from 'jquery';
 import { Point2D } from '../types';
+import type { RendererBase } from '../renderer/core/common/renderer_base';
 
-declare const SDFGRenderer: any;
+declare const SDFGRenderer: RendererBase;
 
 // From: https://eleanormaclure.files.wordpress.com/2011/03/colour-coding.pdf,
 // Via: https://stackoverflow.com/a/4382138/3547036
@@ -33,17 +34,29 @@ export const KELLY_COLORS = [
     0x232C16, // Dark Olive Green
 ];
 
+/**
+ * A general purpose equality check for objects.
+ * This is sensitive to ordering.
+ * @param a First object to compare.
+ * @param b Second object to compare.
+ * @returns Boolean indicating whether the objects are considered equal.
+ */
 export function equals<T>(a: T, b: T): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
+/**
+ * Create a deep copy for an object.
+ * @param obj Object to copy.
+ * @returns   Copy of `obj`.
+ */
 export function deepCopy<T>(obj: T): T {
     if (typeof obj !== 'object' || obj === null)
         return obj;
     if (Array.isArray(obj))
-        return obj.map(o => deepCopy(o)) as any;
+        return obj.map(o => deepCopy(o) as unknown) as T;
     else
-        return Object.fromEntries(deepCopy([...Object.entries(obj)])) as any;
+        return Object.fromEntries(deepCopy([...Object.entries(obj)])) as T;
 }
 
 /**
@@ -67,9 +80,9 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
     const element = document.createElement(type);
     if (id !== '')
         element.id = id;
-    for (const class_name of classList) {
-        if (!element.classList.contains(class_name))
-            element.classList.add(class_name);
+    for (const className of classList) {
+        if (!element.classList.contains(className))
+            element.classList.add(className);
     }
     if (parent)
         parent.appendChild(element);
@@ -78,16 +91,22 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
 
 /**
  * Similar to Object.assign, but skips properties that already exist in `obj`.
+ * @param obj   Object to which to assign.
+ * @param other Other object, from which to assign.
+ * @returns     Object `obj` with all properties from `other` if not previously
+ *              a part of `obj`.
  */
 export function assignIfNotExists<T, E>(
     obj: T, other: E
-): T & Omit<E, keyof T> {
-    const o = obj as any;
-    for (const [key, val] of Object.entries(other as any)) {
-        if (!(key in (obj as any)))
-            o[key] = val;
+): T & E {
+    for (const [key, val] of Object.entries(other as object)) {
+        if (!Object.hasOwn(obj as object, key)) {
+            /* eslint-disable-next-line
+               @typescript-eslint/no-unsafe-member-access */
+            (obj as any)[key] = val as unknown;
+        }
     }
-    return o;
+    return obj as T & E;
 }
 
 // This function was taken from the now deprecated dagrejs library, see:
@@ -137,6 +156,13 @@ export function intersectRect(
     };
 }
 
+/**
+ * Convert an HSL color to RGB.
+ * @param h Hue.
+ * @param s Saturation.
+ * @param l Lightness.
+ * @returns RGB value array.
+ */
 export function hsl2rgb(h: number, s: number, l: number): number[] {
     const a = s * Math.min(l, 1 - l);
     const f = (n: number, k = (n + h / 30) % 12): number => {
@@ -164,13 +190,13 @@ function tempColor(badness: number): [number, number, number] {
         const rSaturation = parseFloat(
             SDFGRenderer.getCssProperty('--overlay-color-saturation')
         );
-        if (rSaturation !== undefined && !Number.isNaN(rSaturation))
+        if (!Number.isNaN(rSaturation))
             saturation = rSaturation;
 
         const rLightness = parseFloat(
             SDFGRenderer.getCssProperty('--overlay-color-lightness')
         );
-        if (rLightness !== undefined && !Number.isNaN(rLightness))
+        if (!Number.isNaN(rLightness))
             lightness = rLightness;
     } catch (_ignored) {
         // Ignored.
@@ -185,8 +211,8 @@ function tempColor(badness: number): [number, number, number] {
  */
 export function getTempColorHslString(badness: number): string {
     const col = tempColor(badness);
-    return 'hsl(' + col[0] + ',' + (col[1] * 100) + '%,' + (col[2] * 100) +
-        '%)';
+    return 'hsl(' + col[0].toString() + ',' + (col[1] * 100).toString() + '%,' +
+        (col[2] * 100).toString() + '%)';
 }
 
 /**
@@ -198,6 +224,11 @@ export function getTempColorHEX(badness: number): number {
     return rgb2hex(hsl2rgb(...tempColor(badness)));
 }
 
+/**
+ * Display a modal popup with an error message.
+ * @param message Message to display.
+ * @param title   Optional title of the modal. Defaults to 'Error'.
+ */
 export function showErrorModal(message: string, title: string = 'Error'): void {
     const errModalBg = $('<div>', {
         class: 'sdfv_modal_background',
@@ -230,13 +261,25 @@ export function showErrorModal(message: string, title: string = 'Error'): void {
     errModalBg.show();
 }
 
+export function median(values: number[]): number {
+    if (values.length === 0)
+        throw new Error('Input array is empty');
+
+    // Sorting values, preventing original array from being mutated.
+    values = [...values].sort((a, b) => a - b);
+    const half = Math.floor(values.length / 2);
+    return (
+        values.length % 2 ? values[half] : (values[half - 1] + values[half]) / 2
+    );
+}
+
 // A utility type to create a single type from a discriminate union of types.
 type UnionToIntersection<U> =
     (U extends any ? (k: U) => void : never) extends (
         (k: infer I) => void
     ) ? I : never;
 
-type Indexify<T> = T & { [str: string]: undefined; };
+type Indexify<T> = T & Record<string, undefined>;
 type UndefinedVals<T> = { [K in keyof T]: undefined };
 type AllUnionKeys<T> = keyof UnionToIntersection<UndefinedVals<T>>;
 export type AllFields<T> = { [K in AllUnionKeys<T> & string]: Indexify<T>[K] };

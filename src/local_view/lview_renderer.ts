@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
     BarController,
@@ -13,8 +13,7 @@ import {
 import annotationPlugin from 'chartjs-plugin-annotation';
 import $ from 'jquery';
 import { Viewport } from 'pixi-viewport';
-import { Application } from 'pixi.js';
-import { SDFGRenderer } from '../renderer/renderer';
+import { Application, InteractionManager } from 'pixi.js';
 import { SDFV } from '../sdfv';
 import { MapNode } from './elements/map_node';
 import { MemoryMovementEdge } from './elements/memory_movement_edge';
@@ -30,6 +29,7 @@ import {
 import { CacheLineOverlay } from './overlays/cache_line_overlay';
 import { PhysicalMovementOverlay } from './overlays/physical_movement_overlay';
 import { ReuseDistanceOverlay } from './overlays/reuse_distance_overlay';
+import { SDFGRenderer } from '../renderer/sdfg/sdfg_renderer';
 
 export class LViewRenderer {
 
@@ -54,7 +54,7 @@ export class LViewRenderer {
     protected nOverlay?: NodeOverlay;
     protected eOverlay?: EdgeOverlay;
 
-    public globalMemoryMovementHistogram: Map<number, number> = new Map();
+    public globalMemoryMovementHistogram = new Map<number, number>();
 
     private readonly invisibleCssBootstrapElement: Node;
 
@@ -66,9 +66,9 @@ export class LViewRenderer {
         this.initLocalViewSidebar();
 
         const containerRect = this.container.getBoundingClientRect();
-        const bgColorString = SDFGRenderer.getCssProperty(
+        const bgColorString = this.sdfgRenderer?.getCssProperty(
             '--state-background-color'
-        );
+        ) ?? '#ffffff';
         this.pixiApp = new Application({
             width: containerRect.width - 10,
             height: containerRect.height - 10,
@@ -82,17 +82,17 @@ export class LViewRenderer {
         this.viewport = new Viewport({
             screenWidth: containerRect.width,
             screenHeight: containerRect.height,
-            interaction: this.pixiApp.renderer.plugins.interaction,
+            interaction: (
+                this.pixiApp.renderer.plugins.interaction
+            ) as InteractionManager | undefined,
         });
 
         this.resizeObserver = new ResizeObserver(entries => {
             entries.forEach(entry => {
-                if (entry.contentBoxSize) {
-                    this.pixiApp?.resize();
-                    this.viewport?.resize(
-                        entry.contentRect.width, entry.contentRect.height
-                    );
-                }
+                this.pixiApp.resize();
+                this.viewport.resize(
+                    entry.contentRect.width, entry.contentRect.height
+                );
             });
         });
         this.resizeObserver.observe(this.container);
@@ -116,7 +116,7 @@ export class LViewRenderer {
         this.container.appendChild(this.invisibleCssBootstrapElement);
 
         if (this._graph)
-            this.viewport?.addChild(this._graph);
+            this.viewport.addChild(this._graph);
         this._graph?.draw();
     }
 
@@ -155,10 +155,10 @@ export class LViewRenderer {
     public set graph(g: Graph | undefined) {
         if (g) {
             this._graph = g;
-            this.viewport?.addChild(this._graph);
+            this.viewport.addChild(this._graph);
             this._graph.draw();
         } else {
-            this.viewport?.removeChildren();
+            this.viewport.removeChildren();
             this._graph = undefined;
         }
     }
@@ -172,11 +172,9 @@ export class LViewRenderer {
     }
 
     public destroy(): void {
-        if (this.pixiApp) {
-            this.container.removeChild(this.pixiApp.view);
-            this.pixiApp.destroy();
-            this.container.removeChild(this.invisibleCssBootstrapElement);
-        }
+        this.container.removeChild(this.pixiApp.view);
+        this.pixiApp.destroy();
+        this.container.removeChild(this.invisibleCssBootstrapElement);
     }
 
     private initOverlays(): void {
@@ -204,7 +202,7 @@ export class LViewRenderer {
                 this.nOverlay = inst;
                 inst.onSelect();
             }
-            this.nViewModeSelector?.append(option);
+            this.nViewModeSelector.append(option);
         }
 
         for (const cls of [
@@ -222,12 +220,12 @@ export class LViewRenderer {
                 this.eOverlay = inst;
                 inst.onSelect();
             }
-            this.eViewModeSelector?.append(option);
+            this.eViewModeSelector.append(option);
         }
 
         // TODO: When changing the node overlay, any selected memory node tiles
         // should be cleared.
-        this.nViewModeSelector?.on('change', () => {
+        this.nViewModeSelector.on('change', () => {
             const newVal = this.nViewModeSelector?.val();
             if (newVal && typeof newVal === 'string') {
                 const inst = NodeOverlay.overlayMap.get(newVal);
@@ -240,7 +238,7 @@ export class LViewRenderer {
             }
         });
 
-        this.eViewModeSelector?.on('change', () => {
+        this.eViewModeSelector.on('change', () => {
             const newVal = this.eViewModeSelector?.val();
             if (newVal && typeof newVal === 'string') {
                 const inst = EdgeOverlay.overlayMap.get(newVal);
@@ -260,7 +258,7 @@ export class LViewRenderer {
         this.sdfvInstance.linkedUI.disableInfoClear();
 
         const contents = this.sdfvInstance.linkedUI.infoContentContainer;
-        contents.html(`
+        contents?.html(`
 <div id="lview-sidebar">
     <label for="map-playback-speed-input">
         Access Pattern Playback Speed:
@@ -320,10 +318,10 @@ export class LViewRenderer {
 </div>
         `);
 
-        $('#cache-line-size-input')?.on('change', () => {
+        $('#cache-line-size-input').on('change', () => {
             this.recalculateAll();
         });
-        $('#reuse-distance-threshold-input')?.on('change', () => {
+        $('#reuse-distance-threshold-input').on('change', () => {
             this.recalculateAll();
         });
 
@@ -374,8 +372,8 @@ export class LViewRenderer {
         g.nodes.forEach(node => {
             if (node instanceof MapNode) {
                 const accessPattern = node.getAccessPattern();
-                for (let i = 0; i < accessPattern.length; i++) {
-                    const map = accessPattern[i][1];
+                for (const entry of accessPattern) {
+                    const map = entry[1];
                     node.showAccesses(map, false);
                 }
                 node.playButton.draw();
@@ -404,7 +402,7 @@ export class LViewRenderer {
         });
     }
 
-    public showReuseDistanceHist(data: ChartData): void {
+    public showReuseDistanceHist(data?: ChartData): void {
         this.chartContainer?.show();
         if (data && this.reuseDistanceHistogram) {
             this.reuseDistanceHistogram.data = data;
@@ -484,6 +482,10 @@ export class LViewRenderer {
 
     public get nodeOverlayAdditional(): JQuery<HTMLDivElement> | undefined {
         return this.nViewModeSelectorAdditional;
+    }
+
+    public get sdfgRenderer(): SDFGRenderer | undefined {
+        return this.sdfvInstance.renderer;
     }
 
 }

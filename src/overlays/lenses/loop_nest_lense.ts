@@ -2,15 +2,13 @@
 
 import type {
     DagreGraph,
-    GraphElementInfo,
-    SDFGElementGroup,
     SDFGRenderer,
-} from '../../renderer/renderer';
+} from '../../renderer/sdfg/sdfg_renderer';
 import {
-    LoopRegion,
     SDFGElement,
     SDFGElementType,
-} from '../../renderer/renderer_elements';
+    SDFGNode,
+} from '../../renderer/sdfg/sdfg_elements';
 import { SDFV } from '../../sdfv';
 import {
     JsonSDFG,
@@ -18,10 +16,9 @@ import {
     JsonSDFGControlFlowRegion,
     JsonSDFGState,
     OverlayType,
-    Point2D,
 } from '../../types';
 import { SDFVSettings } from '../../utils/sdfv_settings';
-import { GenericSdfgOverlay } from '../generic_sdfg_overlay';
+import { GenericSdfgOverlay } from '../common/generic_sdfg_overlay';
 
 interface ControlFlowEntry {
     position: {
@@ -91,7 +88,7 @@ export class LoopNestLense extends GenericSdfgOverlay {
         conditional: boolean = false
     ): void {
         for (const nd of cfg.nodes) {
-            if (nd.type === SDFGElementType.ConditionalBlock) {
+            if (nd.type === SDFGElementType.ConditionalBlock.toString()) {
                 const cond = nd as JsonSDFGConditionalBlock;
                 const allBranches: ControlFlowEntry[][] = [];
                 for (const branch of cond.branches) {
@@ -117,59 +114,59 @@ export class LoopNestLense extends GenericSdfgOverlay {
                         height: 0,
                     };
                     loopList.push(condEntry);
-                } else if (cleanedBranches.length == 0) {
+                } else if (cleanedBranches.length === 0) {
                     continue;
                 } else {
                     for (const entry of cleanedBranches[0])
                         loopList.push(entry);
                 }
-            } else if (nd.type === SDFGElementType.LoopRegion) {
-                const cfgList = this.renderer.getCFGList();
-                const cfgTree = this.renderer.getCFGTree();
+            } else if (nd.type === SDFGElementType.LoopRegion.toString()) {
+                const cfgList = this.renderer.cfgList;
+                const cfgTree = this.renderer.cfgTree;
                 let pivotCfg = cfgList[cfg.cfg_list_id];
-                let lastParent: SDFGElement | undefined = pivotCfg.graph?.node(
+                let lastParent = pivotCfg.graph?.node(
                     nd.id.toString()
-                );
+                ) as SDFGNode | undefined;
                 const linkedLoopElem = lastParent;
                 while (!lastParent) {
-                    let pivotElemId = pivotCfg.jsonObj.id?.toString();
-                    if (pivotElemId === undefined) {
-                        // Reached an SDFG.
-                        if (pivotCfg.jsonObj.cfg_list_id === 0) {
-                            // Top SDFG.
-                            lastParent = undefined; 
-                            break;
-                        } else {
-                            if (!pivotCfg.nsdfgNode) {
-                                // Find the state this nested SDFG is in.
-                                const qGuid = pivotCfg.jsonObj.attributes.guid;
-                                const parentCfgId = cfgTree[
-                                    pivotCfg.jsonObj.cfg_list_id
-                                ];
-                                const parentCfg = cfgList[parentCfgId];
-                                for (const b of parentCfg.jsonObj.nodes) {
-                                    if (b.type === SDFGElementType.SDFGState) {
-                                        const state = b as JsonSDFGState;
-                                        for (const dfnode of state.nodes) {
-                                            if (dfnode.type ===
-                                                SDFGElementType.NestedSDFG &&
-                                                dfnode.attributes.sdfg &&
-                                                dfnode.attributes.sdfg.attributes.guid == qGuid) {
-                                                pivotElemId = state.id.toString();
-                                            }
-                                        }
+                    let pivotElemId = pivotCfg.jsonObj.id.toString();
+                    // Reached an SDFG.
+                    if (pivotCfg.jsonObj.cfg_list_id === 0) {
+                        // Top SDFG.
+                        lastParent = undefined;
+                        break;
+                    } else {
+                        if (!pivotCfg.nsdfgNode) {
+                            // Find the state this nested SDFG is in.
+                            const qGuid = pivotCfg.jsonObj.attributes?.guid;
+                            const parentCfgId = cfgTree[
+                                pivotCfg.jsonObj.cfg_list_id
+                            ];
+                            const parentCfg = cfgList[parentCfgId];
+                            for (const b of parentCfg.jsonObj.nodes) {
+                                if (b.type ===
+                                    SDFGElementType.SDFGState.toString()) {
+                                    const state = b as JsonSDFGState;
+                                    for (const dfnode of state.nodes) {
+                                        if (dfnode.type === SDFGElementType.
+                                            NestedSDFG.toString() &&
+                                            dfnode.attributes?.sdfg &&
+                                            dfnode.attributes.sdfg.
+                                                attributes?.guid === qGuid)
+                                            pivotElemId = state.id.toString();
                                     }
                                 }
-                            } else {
-                                lastParent = pivotCfg.nsdfgNode;
-                                break;
                             }
+                        } else {
+                            lastParent = pivotCfg.nsdfgNode;
+                            break;
                         }
                     }
                     const parentCfgId = cfgTree[pivotCfg.jsonObj.cfg_list_id];
                     const parentCfg = cfgList[parentCfgId];
                     pivotCfg = parentCfg;
-                    lastParent = pivotCfg.graph?.node(pivotElemId);
+                    lastParent = pivotCfg.graph?.node(pivotElemId) as
+                        SDFGNode | undefined;
                 }
                 const entry: LoopEntry = {
                     children: [],
@@ -192,13 +189,15 @@ export class LoopNestLense extends GenericSdfgOverlay {
                 this.recursivelyConstructLoopsList(
                     nd as JsonSDFGControlFlowRegion, loopList, conditional
                 );
-            } else if (nd.type === SDFGElementType.SDFGState) {
+            } else if (nd.type === SDFGElementType.SDFGState.toString()) {
                 for (const n of (nd as JsonSDFGState).nodes) {
-                    if (n.type === SDFGElementType.NestedSDFG) {
-                        this.recursivelyConstructLoopsList(
-                            n.attributes.sdfg as JsonSDFGControlFlowRegion,
-                            loopList, conditional
-                        );
+                    if (n.type === SDFGElementType.NestedSDFG.toString()) {
+                        if (n.attributes?.sdfg) {
+                            this.recursivelyConstructLoopsList(
+                                n.attributes.sdfg as JsonSDFGControlFlowRegion,
+                                loopList, conditional
+                            );
+                        }
                     }
                 }
             }
@@ -212,12 +211,10 @@ export class LoopNestLense extends GenericSdfgOverlay {
     public refresh(): void {
         this.loops = [];
 
-        const g = this.renderer.get_graph();
-        const sdfg = this.renderer.get_sdfg();
-        if (g == null)
+        if (!this.renderer.graph)
             return;
 
-        this.constructLoopNestGraph(g, sdfg);
+        this.constructLoopNestGraph(this.renderer.graph, this.renderer.sdfg);
 
         this.layout();
 
@@ -231,12 +228,11 @@ export class LoopNestLense extends GenericSdfgOverlay {
         let minHeight = 0;
         loop.position.x = posX;
         if (!loop.linkedElem) {
-            if (loop.lastParentElem && loop.lastParentElem !== parent) {
+            //minHeight = loop.lastParentElem.height;
+            if (loop.lastParentElem && loop.lastParentElem !== parent)
                 loop.position.y = loop.lastParentElem.topleft().y;
-                //minHeight = loop.lastParentElem.height;
-            } else {
-                loop.position.y = posY
-            }
+            else
+                loop.position.y = posY;
         } else {
             // If a linked element is found, lay the height out based on that.
             loop.position.y = loop.linkedElem.topleft().y;
@@ -244,7 +240,7 @@ export class LoopNestLense extends GenericSdfgOverlay {
         }
 
         let contentHeight = 0;
-        let offsX = -LoopNestLense.LOOP_ENTRY_WIDTH;
+        const offsX = -LoopNestLense.LOOP_ENTRY_WIDTH;
         let offsY = LoopNestLense.LOOP_ENTRY_HEIGHT;
         for (const child of loop.children) {
             if (Object.hasOwn(child, 'nExecs')) {
@@ -265,7 +261,8 @@ export class LoopNestLense extends GenericSdfgOverlay {
         );
     }
 
-    private layoutConditional(conditional: ConditionalEntry): void {
+    private layoutConditional(_conditional: ConditionalEntry): void {
+        return;
     }
 
     private layout(): void {
@@ -301,8 +298,8 @@ export class LoopNestLense extends GenericSdfgOverlay {
 
         ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
         const oldFont = ctx.font;
-        let font_size = SDFV.DEFAULT_CANVAS_FONTSIZE * 0.5;
-        ctx.font = font_size + 'px sans-serif';
+        const fontSize = SDFV.DEFAULT_CANVAS_FONTSIZE * 0.5;
+        ctx.font = fontSize.toString() + 'px sans-serif';
         const labelMeasurements = ctx.measureText(loop.label);
         ctx.fillText(
             loop.label,
@@ -324,31 +321,19 @@ export class LoopNestLense extends GenericSdfgOverlay {
     }
 
     private drawConditional(
-        cond: ConditionalEntry, ctx: CanvasRenderingContext2D
+        _cond: ConditionalEntry, _ctx: CanvasRenderingContext2D
     ): void {
+        return;
     }
 
     public draw(): void {
-        const ctx = this.renderer.get_context();
-        if (ctx) {
-            for (const entry of this.loops) {
-                if (Object.hasOwn(entry, 'nExecs'))
-                    this.drawLoop(entry as LoopEntry, ctx);
-                else
-                    this.drawConditional(entry as ConditionalEntry, ctx);
-            }
+        const ctx = this.renderer.ctx;
+        for (const entry of this.loops) {
+            if (Object.hasOwn(entry, 'nExecs'))
+                this.drawLoop(entry as LoopEntry, ctx);
+            else
+                this.drawConditional(entry as ConditionalEntry, ctx);
         }
-    }
-
-    public on_mouse_event(
-        _type: string,
-        _ev: MouseEvent,
-        _mousepos: Point2D,
-        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
-        _foreground_elem: SDFGElement | null,
-        _ends_drag: boolean
-    ): boolean {
-        return false;
     }
 
 }

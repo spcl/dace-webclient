@@ -1,18 +1,32 @@
 {
     "compilerOptions": {
+        /* Language and environment */
         "target": "ES2022",
+
+        /* Modules */
         "module": "commonjs",
-        "strict": true,
-        "declaration": true,
-        "esModuleInterop": true,
-        "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true,
         "moduleResolution": "node",
         "resolveJsonModule": true,
+
+        /* Emit */
+        "declaration": true,
+        "sourceMap": true,
+        "outDir": "./out",
+
+        /* Javascript support */
         "allowJs": true,
         "checkJs": false,
-        "sourceMap": true,
-        "outDir": "./out"
+
+        /* Interop constraints */
+        "forceConsistentCasingInFileNames": true,
+        "esModuleInterop": true,
+
+        /* Type checking */
+        "strict": true,
+        "noImplicitAny": true,
+
+        /* Completeness */
+        "skipLibCheck": true,
     },
     "include": [
         "src/**/*"
