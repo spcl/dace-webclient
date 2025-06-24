@@ -64,6 +64,7 @@ export enum SDFGElementType {
     BranchRegion = 'BranchRegion',
     NamedRegion = 'NamedRegion',
     FunctionCallRegion = 'FunctionCallRegion',
+    UnstructuredControlFlow = 'UnstructuredControlFlow',
 
     AccessNode = 'AccessNode',
     Tasklet = 'Tasklet',
@@ -843,6 +844,8 @@ export class BranchRegion extends ControlFlowRegion {}
 export class NamedRegion extends ControlFlowRegion {}
 
 export class FunctionCallRegion extends ControlFlowRegion {}
+
+export class UnstructuredControlFlow extends ControlFlowRegion {}
 
 export class SDFGNode extends SDFGElement {
 
@@ -2791,6 +2794,7 @@ export const SDFGElements: Record<string, typeof SDFGElement> = {
     BranchRegion,
     NamedRegion,
     FunctionCallRegion,
+    UnstructuredControlFlow,
 
     ControlFlowBlock,
     'State': State,
