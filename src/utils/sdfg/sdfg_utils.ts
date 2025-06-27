@@ -216,7 +216,7 @@ export function getPositioningInfo(
  * @param elem The element that contains the information
  */
 export function deletePositioningInfo(elem: SDFGElement): void {
-    delete elem.attributes()?.poisition;
+    delete elem.attributes()?.position;
 }
 
 /**

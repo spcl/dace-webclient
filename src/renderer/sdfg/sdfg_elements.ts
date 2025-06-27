@@ -381,8 +381,8 @@ export class SDFGElement extends Renderable {
                         this.id.toString()
                     ) ?? [];
                     if (preds.length === 1) {
-                        const predElem = parGraph!.node(preds[0]);
-                        if (predElem.summarizeOutEdges &&
+                        const predElem = parGraph!.node(preds[0].id.toString());
+                        if (predElem?.summarizeOutEdges &&
                             predElem.outSummaryHasEffect) {
                             // If the previous element has its outgoing edges
                             // summarized, draw the sumary symbol halfway in
@@ -420,8 +420,8 @@ export class SDFGElement extends Renderable {
                         this.id.toString()
                     ) ?? [];
                     if (succs.length === 1) {
-                        const succElem = parGraph!.node(succs[0]);
-                        if (succElem.summarizeInEdges &&
+                        const succElem = parGraph!.node(succs[0].id.toString());
+                        if (succElem?.summarizeInEdges &&
                             succElem.inSummaryHasEffect) {
                             // If the next element has its incoming edges
                             // summarized, draw the sumary symbol halfway in
@@ -898,6 +898,7 @@ export abstract class Edge extends SDFGElement {
     public points: Point2D[] = [];
     public srcConnector?: string;
     public dstConnector?: string;
+    public summarized: boolean = false;
 
     public setViewToSource(renderer: SDFGRenderer): void {
         const tPoint = this.points[0];
@@ -1820,6 +1821,7 @@ export class ScopeNode extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, options?: ElemDrawingOptions
     ): void {
+        ctx.lineWidth = 1.0;
         ctx.strokeStyle = this.strokeStyle(renderer);
         ctx.fillStyle = SDFVSettings.get<string>('nodeBackgroundColor');
         this._drawShape(renderer, ctx, true, true);
@@ -2543,9 +2545,11 @@ function batchedDrawEdges(
     const labelEdges: Edge[] = [];
     ctx.beginPath();
     graph.edges().forEach(e => {
-        const edge = graph.edge(e) as Edge;
-        if (renderer.viewportOnly && viewport && !edge.intersect(
-            viewport.x, viewport.y, viewport.w, viewport.h
+        const edge = graph.edge(e);
+        if (!edge || (
+            renderer.viewportOnly && viewport && !edge.intersect(
+                viewport.x, viewport.y, viewport.w, viewport.h
+            )
         ))
             return;
 
@@ -2612,8 +2616,8 @@ function batchedDrawEdges(
 
     if (renderer.debugDraw) {
         for (const e of graph.edges()) {
-            const edge: Edge = (graph.edge(e) as Edge);
-            edge.debugDraw(renderer, ctx);
+            const edge = graph.edge(e);
+            edge?.debugDraw(renderer, ctx);
         }
     }
 }
@@ -2626,8 +2630,10 @@ function drawStateContents(
     for (const nodeId of stateGraph.nodes()) {
         const node = stateGraph.node(nodeId);
 
-        if (renderer.viewportOnly && visibleRect && !node.intersect(
-            visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h
+        if (!node || (
+            renderer.viewportOnly && visibleRect && !node.intersect(
+                visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h
+            )
         ))
             continue;
 
@@ -2667,7 +2673,7 @@ function drawStateContents(
 
                 let edge: Edge | undefined = undefined;
                 stateGraph.inEdges(nodeId)?.forEach((e) => {
-                    const eobj = stateGraph.edge(e) as Edge | undefined;
+                    const eobj = stateGraph.edge(e);
                     if (eobj?.dstConnector === c.data?.name)
                         edge = eobj;
                 });
@@ -2684,7 +2690,7 @@ function drawStateContents(
 
                 let edge: Edge | undefined = undefined;
                 stateGraph.outEdges(nodeId)?.forEach((e) => {
-                    const eobj = stateGraph.edge(e) as Edge | undefined;
+                    const eobj = stateGraph.edge(e);
                     if (eobj?.srcConnector === c.data?.name)
                         edge = eobj;
                 });
@@ -2721,8 +2727,10 @@ function drawStateMachine(
         const block = stateMachineGraph.node(nodeId);
 
         // Skip invisible states.
-        if (renderer.viewportOnly && visibleRect && !block.intersect(
-            visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h
+        if (!block || (
+            renderer.viewportOnly && visibleRect && !block.intersect(
+                visibleRect.x, visibleRect.y, visibleRect.w, visibleRect.h
+            )
         ))
             continue;
 

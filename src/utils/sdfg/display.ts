@@ -16,6 +16,7 @@ import {
     SDFVSettings,
     SDFVSettingValT,
 } from '../sdfv_settings';
+import { htmlSanitize } from '../sanitization';
 
 
 /**
@@ -73,6 +74,14 @@ export function sdfgConsumeElemToString(
     return result;
 }
 
+function dictionaryToString(dict: unknown): string {
+    return htmlSanitize`
+<pre class="code"><code>
+    ${JSON.stringify(dict, undefined, 4)}
+</code></pre><div class="clearfix"></div>
+    `;
+}
+
 /**
  * Convert SDFG properties to their string representation.
  * @param prop      SDFG property.
@@ -90,35 +99,54 @@ export function sdfgPropertyToString(
         return 'False';
     } else if (typeof prop === 'string') {
         return prop;
+    } else if (typeof prop === 'number') {
+        return prop.toString();
     } else if (Object.hasOwn(prop, 'type')) {
-        const sProp = prop as JsonSDFGSerializedAtom;
-        if (sProp.type === 'Indices' || sProp.type === 'subsets.Indices') {
-            const indices = (sProp as DataSubset).indices;
-            let preview = '[';
-            for (const index of indices ?? [])
-                preview += sdfgPropertyToString(index, settings) + ', ';
-            return preview.slice(0, -2) + ']';
-        } else if (sProp.type === 'Range' || sProp.type === 'subsets.Range') {
-            const ranges = (sProp as DataSubset).ranges;
-            let preview = '[';
-            for (const range of ranges ?? [])
-                preview += sdfgRangeElemToString(range, settings) + ', ';
-            return preview.slice(0, -2) + ']';
-        } else if (sProp.type === 'SubsetUnion' ||
-                sProp.type === 'subsets.SubsetUnion') {
-            const subsList = (sProp as DataSubset).subset_list ?? [];
-            if (subsList.length < 2)
-                return sdfgPropertyToString(subsList[0], settings);
-            let preview = '{';
-            for (const subs of subsList)
-                preview += sdfgPropertyToString(subs, settings) + '\n';
-            return preview + '}';
-        } else if (sProp.type === 'LogicalGroup') {
-            return '<span style="color: ' +
-                ((sProp as JsonSDFGLogicalGroup).color ?? 'black') +
-                ';">' + ((sProp as JsonSDFGLogicalGroup).name ?? '') + ' (' +
-                ((sProp as JsonSDFGLogicalGroup).color ?? 'undefined') +
-                ' )</span>';
+        switch ((prop as JsonSDFGSerializedAtom).type) {
+            case 'Indices':
+            case 'subsets.Indices':
+            {
+                const indices = (prop as DataSubset).indices;
+                let preview = '[';
+                for (const index of indices ?? [])
+                    preview += sdfgPropertyToString(index, settings) + ', ';
+                return preview.slice(0, -2) + ']';
+            }
+            case 'Range':
+            case 'subsets.Range':
+            {
+                const ranges = (prop as DataSubset).ranges;
+                let preview = '[';
+                for (const range of ranges ?? [])
+                    preview += sdfgRangeElemToString(range, settings) + ', ';
+                return preview.slice(0, -2) + ']';
+            }
+            case 'SubsetUnion':
+            case 'subsets.SubsetUnion':
+            {
+                const subsList = (prop as DataSubset).subset_list ?? [];
+                if (subsList.length < 2)
+                    return sdfgPropertyToString(subsList[0], settings);
+                let preview = '{';
+                for (const subs of subsList)
+                    preview += sdfgPropertyToString(subs, settings) + '\n';
+                return preview + '}';
+            }
+            case 'LogicalGroup':
+                return '<span style="color: ' +
+                    ((prop as JsonSDFGLogicalGroup).color ?? 'black') +
+                    ';">' + ((prop as JsonSDFGLogicalGroup).name ?? '') + ' (' +
+                    ((prop as JsonSDFGLogicalGroup).color ?? 'undefined') +
+                    ' )</span>';
+            case 'Array':
+            case 'Scalar':
+            case 'Data':
+            case 'Structure':
+            case 'View':
+            case 'ContainerView':
+            case 'ArrayView':
+            case 'ContainerArray':
+                return dictionaryToString(prop);
         }
     } else if (Object.hasOwn(prop, 'language')) {
         const codesProp = prop as JsonSDFGCodeBlock;
@@ -137,9 +165,7 @@ export function sdfgPropertyToString(
         return (prop as JsonSDFGSymExpr).main!;
     } else if (prop.constructor === Object) {
         // General dictionary / object.
-        return '<pre class="code"><code>' +
-            JSON.stringify(prop, undefined, 4) +
-            '</code></pre><div class="clearfix"></div>';
+        return dictionaryToString(prop);
     } else if (prop.constructor === Array) {
         // Array of properties / general array.
         let result = '[ ';

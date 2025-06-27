@@ -55,14 +55,14 @@ export abstract class SDFGDiffViewer implements ISDFV {
     protected diffMap?: DiffMap;
 
     public constructor(
-        protected readonly leftRenderer: SDFGRenderer,
-        protected readonly rightRenderer: SDFGRenderer
+        protected leftRenderer?: SDFGRenderer,
+        protected rightRenderer?: SDFGRenderer
     ) {
     }
 
     protected destroy(): void {
-        this.leftRenderer.destroy();
-        this.rightRenderer.destroy();
+        this.leftRenderer?.destroy();
+        this.rightRenderer?.destroy();
     }
 
     public static diff(graphA: SDFG, graphB: SDFG): DiffMap {
@@ -82,21 +82,24 @@ export abstract class SDFGDiffViewer implements ISDFV {
         ) {
             for (const nid of graph.nodes()) {
                 const node = graph.node(nid);
-                dict.set(node.guid, node);
-                if ((node instanceof ControlFlowRegion ||
-                     node instanceof State ||
-                     node instanceof NestedSDFG) && node.graph) {
-                    recursiveAddIds(node.graph, dict);
-                } else if (node instanceof ConditionalBlock) {
-                    for (const [_, branch] of node.branches) {
-                        if (branch.graph)
-                            recursiveAddIds(branch.graph, dict);
+                if (node) {
+                    dict.set(node.guid, node);
+                    if ((node instanceof ControlFlowRegion ||
+                        node instanceof State ||
+                        node instanceof NestedSDFG) && node.graph) {
+                        recursiveAddIds(node.graph, dict);
+                    } else if (node instanceof ConditionalBlock) {
+                        for (const [_, branch] of node.branches) {
+                            if (branch.graph)
+                                recursiveAddIds(branch.graph, dict);
+                        }
                     }
                 }
             }
             for (const eid of graph.edges()) {
-                const edge = graph.edge(eid) as Edge;
-                dict.set(edge.guid, edge);
+                const edge = graph.edge(eid);
+                if (edge)
+                    dict.set(edge.guid, edge);
             }
         }
 
@@ -151,8 +154,8 @@ export abstract class SDFGDiffViewer implements ISDFV {
     protected findInDiffGraphPredicate(
         predicate: (g: DagreGraph, el: SDFGElement) => boolean
     ): void {
-        const lGraph = this.leftRenderer.graph;
-        const rGraph = this.rightRenderer.graph;
+        const lGraph = this.leftRenderer?.graph;
+        const rGraph = this.rightRenderer?.graph;
         if (!lGraph || !rGraph)
             return;
 
@@ -165,19 +168,19 @@ export abstract class SDFGDiffViewer implements ISDFV {
 
         // Zoom to bounding box of all results first
         if (lResults.length > 0)
-            this.leftRenderer.zoomToFit(lResults);
+            this.leftRenderer!.zoomToFit(lResults);
         if (rResults.length > 0)
-            this.rightRenderer.zoomToFit(rResults);
+            this.rightRenderer!.zoomToFit(rResults);
 
         const addedIDs = new Map<string, [SDFGElement, SDFGRenderer][]>();
         const mergedResults: string[] = [];
         for (const res of lResults) {
             const existing = addedIDs.get(res.guid);
             if (existing) {
-                existing.push([res, this.leftRenderer]);
+                existing.push([res, this.leftRenderer!]);
             } else {
                 const newEntry: [SDFGElement, SDFGRenderer][] =
-                    [[res, this.leftRenderer]];
+                    [[res, this.leftRenderer!]];
                 addedIDs.set(res.guid, newEntry);
                 mergedResults.push(res.guid);
             }
@@ -185,10 +188,10 @@ export abstract class SDFGDiffViewer implements ISDFV {
         for (const res of rResults) {
             const existing = addedIDs.get(res.guid);
             if (existing) {
-                existing.push([res, this.rightRenderer]);
+                existing.push([res, this.rightRenderer!]);
             } else {
                 const newEntry: [SDFGElement, SDFGRenderer][] =
-                    [[res, this.rightRenderer]];
+                    [[res, this.rightRenderer!]];
                 addedIDs.set(res.guid, newEntry);
                 mergedResults.push(res.guid);
             }
@@ -320,9 +323,9 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         // Re-instantiate the regular SDFG viewer (SDFV).
         $('#contents').show();
         WebSDFV.getInstance().registerEventListeners();
-        WebSDFV.getInstance().setSDFG(
-            this.rightRenderer.sdfg,
-            this.rightRenderer.canvasManager.getUserTransform()
+        void WebSDFV.getInstance().setSDFG(
+            this.rightRenderer?.sdfg,
+            this.rightRenderer?.canvasManager.getUserTransform()
         );
     }
 
@@ -334,8 +337,9 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         if (!leftContainer || !rightContainer)
             throw Error('Failed to find diff renderer containers');
 
+        const viewer = new WebSDFGDiffViewer();
         const leftRenderer = new SDFGRenderer(
-            graphA, leftContainer, undefined, null, null, false, null,
+            leftContainer, viewer, null, null, false, null,
             undefined, [
                 'settings',
                 'zoom_to_fit_all',
@@ -345,7 +349,7 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             ]
         );
         const rightRenderer = new SDFGRenderer(
-            graphB, rightContainer, undefined, null, null, false, null,
+            rightContainer, viewer, null, null, false, null,
             undefined, [
                 'zoom_to_fit_all',
                 'zoom_to_fit_width',
@@ -353,18 +357,19 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
                 'expand',
             ]
         );
+        viewer.leftRenderer = leftRenderer;
+        viewer.rightRenderer = rightRenderer;
 
-        const viewer = new WebSDFGDiffViewer(leftRenderer, rightRenderer);
+        void leftRenderer.setSDFG(graphA);
+        void rightRenderer.setSDFG(graphB);
+
         viewer.registerEventListeners();
         viewer.initUI();
-
-        leftRenderer.setSDFVInstance(viewer);
-        rightRenderer.setSDFVInstance(viewer);
 
         const rendererSelectionChange = (renderer: SDFGRenderer) => {
             const selectedElements = renderer.selectedElements;
             let element;
-            if (selectedElements.length === 0)
+            if (selectedElements.length === 0 && renderer.sdfg)
                 element = new SDFG(renderer.sdfg);
             else if (selectedElements.length === 1)
                 element = selectedElements[0];
@@ -592,10 +597,10 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             return;
         }
 
-        const lSDFG = this.leftRenderer.sdfg;
-        const rSDFG = this.rightRenderer.sdfg;
-        const lGraph = this.leftRenderer.graph;
-        const rGraph = this.rightRenderer.graph;
+        const lSDFG = this.leftRenderer?.sdfg;
+        const rSDFG = this.rightRenderer?.sdfg;
+        const lGraph = this.leftRenderer?.graph;
+        const rGraph = this.rightRenderer?.graph;
         if (!lGraph || !rGraph)
             return;
 
@@ -607,15 +612,15 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
 
         // Entire SDFG
         const sdfgStatus = this.diffMap.changedKeys.has(
-            (lSDFG.attributes?.guid ?? '') as string
+            (lSDFG?.attributes?.guid ?? '') as string
         ) ?  'changed' : 'nodiff';
         const leftSdfgLocalEntry: localGraphDiffStackEntry = {
-            guid: (lSDFG.attributes?.guid ?? '') as string,
+            guid: (lSDFG?.attributes?.guid ?? '') as string,
             htmlLabel: htmlSanitize`
                 <span class="material-symbols-outlined"
                       style="font-size: inherit">
                     filter_center_focus
-                </span> SDFG ${lSDFG.attributes?.name}
+                </span> SDFG ${lSDFG?.attributes?.name}
             `,
             changeStatus: sdfgStatus,
             zoomToNodes: () => {
@@ -627,12 +632,12 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         leftSdfgLocalEntry.children = this.constructGraphOutlineBase(lGraph);
         this.sortChildrenByGUID(leftSdfgLocalEntry);
         const rightSdfgLocalEntry: localGraphDiffStackEntry = {
-            guid: (rSDFG.attributes?.guid ?? '') as string,
+            guid: (rSDFG?.attributes?.guid ?? '') as string,
             htmlLabel: htmlSanitize`
                 <span class="material-symbols-outlined"
                       style="font-size: inherit">
                     filter_center_focus
-                </span> SDFG ${rSDFG.attributes?.name}
+                </span> SDFG ${rSDFG?.attributes?.name}
             `,
             changeStatus: sdfgStatus,
             zoomToNodes: () => {
@@ -672,8 +677,8 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
                 const row = $('<div>', {
                     class: `row diff-outline-entry ${left.changeStatus}`,
                     click: () => {
-                        this.leftRenderer.zoomToFit(left.zoomToNodes());
-                        this.rightRenderer.zoomToFit(right.zoomToNodes());
+                        this.leftRenderer!.zoomToFit(left.zoomToNodes());
+                        this.rightRenderer!.zoomToFit(right.zoomToNodes());
                     },
                 }).appendTo(container);
                 $('<div>', {
@@ -688,7 +693,7 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
                 const row = $('<div>', {
                     class: `row diff-outline-entry ${left.changeStatus}`,
                     click: () => {
-                        this.leftRenderer.zoomToFit(left.zoomToNodes());
+                        this.leftRenderer!.zoomToFit(left.zoomToNodes());
                     },
                 }).appendTo(container);
                 $('<div>', {
@@ -702,7 +707,7 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
                 const row = $('<div>', {
                     class: `row diff-outline-entry ${right.changeStatus}`,
                     click: () => {
-                        this.rightRenderer.zoomToFit(right.zoomToNodes());
+                        this.rightRenderer!.zoomToFit(right.zoomToNodes());
                     },
                 }).appendTo(container);
                 $('<div>', {

@@ -6,7 +6,6 @@ import type {
 } from './overlays/common/generic_sdfg_overlay';
 import { createElement } from './utils/utils';
 import {
-    JsonSDFG,
     Point2D,
     SDFGElementGroup,
     SDFGElementInfo,
@@ -29,7 +28,6 @@ type SymDefinitionDialogT = HTMLDivElement & {
 
 export class SymbolResolver {
 
-    private readonly sdfg: JsonSDFG;
     private _symbolValueMap: SymbolMap = {};
     private symbolsToDefine: string[] = [];
     private popupDialogue?: SymDefinitionDialogT = undefined;
@@ -37,11 +35,11 @@ export class SymbolResolver {
     public constructor(
         private readonly renderer: SDFGRenderer
     ) {
-        this.sdfg = this.renderer.sdfg;
-
         // Initialize the symbol mapping to the graph's symbol table.
-        Object.keys(this.sdfg.attributes?.symbols ?? []).forEach((s) => {
-            const constants = this.sdfg.attributes?.constants_prop as
+        Object.keys(
+            this.renderer.sdfg?.attributes?.symbols ?? []
+        ).forEach((s) => {
+            const constants = this.renderer.sdfg!.attributes?.constants_prop as
                 Record<string, [Record<string, unknown>, number]> | undefined;
             if (constants && Object.keys(constants).includes(s) &&
                 constants[s][0].type === 'Scalar')
@@ -55,7 +53,7 @@ export class SymbolResolver {
 
     public removeStaleSymbols(): void {
         const toKeep: SymbolMap = {};
-        for (const sym in this.sdfg.attributes?.symbols ?? {})
+        for (const sym in this.renderer.sdfg?.attributes?.symbols ?? {})
             toKeep[sym] = this._symbolValueMap[sym];
         this._symbolValueMap = toKeep;
     }

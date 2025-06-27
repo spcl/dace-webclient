@@ -23,21 +23,27 @@ export function calculateBoundingBox(g: DagreGraph): {
     };
 
     g.nodes().forEach((v) => {
-        const x = g.node(v).x + g.node(v).width / 2.0;
-        const y = g.node(v).y + g.node(v).height / 2.0;
-        if (x > bb.width)
-            bb.width = x;
-        if (y > bb.height)
-            bb.height = y;
+        const node = g.node(v);
+        if (node) {
+            const x = node.x + node.width / 2.0;
+            const y = node.y + node.height / 2.0;
+            if (x > bb.width)
+                bb.width = x;
+            if (y > bb.height)
+                bb.height = y;
+        }
     });
     g.edges().forEach((e) => {
-        const points = g.edge(e).points;
-        points.forEach((p) => {
-            if (p.x > bb.width)
-                bb.width = p.x;
-            if (p.y > bb.height)
-                bb.height = p.y;
-        });
+        const edge = g.edge(e);
+        if (edge) {
+            const points = edge.points;
+            points.forEach((p) => {
+                if (p.x > bb.width)
+                    bb.width = p.x;
+                if (p.y > bb.height)
+                    bb.height = p.y;
+            });
+        }
     });
 
     return bb;

@@ -12,7 +12,6 @@ import {
     Edge,
     EntryNode,
     InterstateEdge,
-    Memlet,
     NestedSDFG,
     SDFGElement,
     SDFGElementType,
@@ -85,14 +84,15 @@ export type RendererUIFeature = (
 
 type MouseModeT = 'pan' | 'move' | 'select' | 'add';
 
-export type DagreGraph = dagre.graphlib.Graph<SDFGElement> & {
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    edge: (edgeObj: string) => Edge | undefined,
-    node: (key: string) => SDFGNode | ControlFlowBlock | undefined,
-};
+export type DagreGraph =
+    Omit<Omit<dagre.graphlib.Graph<SDFGElement>, 'node'>, 'edge'> & {
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        edge: (edgeObj: dagre.Edge | string) => Edge | undefined,
+        node: (key: string) => SDFGNode | ControlFlowBlock | undefined,
+    };
 
 export type CFGListType = Record<string, {
     jsonObj: JsonSDFGControlFlowRegion,
@@ -146,10 +146,10 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     protected mouseFollowSVGs?: Record<string, string>;
     protected cutoutBtn?: JQuery;
     protected localViewBtn?: JQuery;
-    protected panModeBtn?: HTMLElement;
-    protected moveModeBtn?: HTMLElement;
-    protected selectModeBtn?: HTMLElement;
-    protected addModeButtons: HTMLElement[] = [];
+    protected panModeBtn?: JQuery<HTMLButtonElement>;
+    protected moveModeBtn?: JQuery<HTMLButtonElement>;
+    protected selectModeBtn?: JQuery<HTMLButtonElement>;
+    protected addModeButtons: JQuery<HTMLButtonElement>[] = [];
     protected addElementType?: SDFGElementType;
     protected addModeLib?: string;
     private modeBtnSelectedBGColor: string = '#CCCCCC';
@@ -175,10 +175,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     // Selection related fields.
     protected _selectedElements: SDFGElement[] = [];
 
+    protected _sdfg?: JsonSDFG;
+
     public constructor(
-        protected _sdfg: JsonSDFG,
         container: HTMLElement,
-        protected sdfvInstance?: ISDFV,
+        protected sdfvInstance: ISDFV,
         extMouseHandler: (
             (...args: any[]) => boolean
         ) | null = null,
@@ -243,7 +244,10 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 this.drawAsync();
         });
 
-        void this.setSDFG(_sdfg, true);
+        this.initUI();
+
+        if (initialUserTransform === null)
+            this.zoomToFitContents();
     }
 
     // ====================
@@ -257,6 +261,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     public destroy(): void {
+        super.destroy();
         this.mouseFollowElement?.remove();
     }
 
@@ -358,6 +363,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                     class: 'dropdown-item',
                     text: 'Export top-level CFG as DOT graph',
                     click: () => {
+                        if (!this.sdfg)
+                            return;
                         const filename = this.getSDFGName() + '.dot';
                         this.save(
                             filename,
@@ -557,7 +564,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 }).appendTo(zoomInOutContainer);
             }
 
-            if (this.modeButtons) {
+            if (this.modeButtons?.pan || this.modeButtons?.move ||
+                this.modeButtons?.select || this.modeButtons?.addBtns) {
                 // If we get the "external" mode buttons we are in vscode and do
                 // not need to create them.
                 this.panModeBtn = this.modeButtons.pan;
@@ -567,9 +575,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 if (!this.enableMaskUI ||
                     this.enableMaskUI.includes('add_mode')) {
                     for (const addBtn of this.addModeButtons) {
-                        if (addBtn.getAttribute('type') ===
-                            SDFGElementType.LibraryNode) {
-                            addBtn.onclick = () => {
+                        const addBtnType = addBtn.attr(
+                            'type'
+                        ) as SDFGElementType;
+                        if (addBtnType === SDFGElementType.LibraryNode) {
+                            addBtn.on('click', () => {
                                 const libNodeCallback = () => {
                                     this._mouseMode = 'add';
                                     this.addElementType =
@@ -579,18 +589,16 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                                     this.updateToggleButtons();
                                 };
                                 this.emit('query_libnode', libNodeCallback);
-                            };
+                            });
                         } else {
-                            addBtn.onclick = () => {
+                            addBtn.on('click', () => {
                                 this._mouseMode = 'add';
-                                this.addElementType = addBtn.getAttribute(
-                                    'type'
-                                ) as SDFGElementType;
+                                this.addElementType = addBtnType;
                                 this.addModeLib = undefined;
                                 this.addEdgeStart = undefined;
                                 this.addEdgeStartConnector = undefined;
                                 this.updateToggleButtons();
-                            };
+                            });
                         }
                     }
                 }
@@ -612,7 +620,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                         html: '<i class="material-symbols-outlined">' +
                             'pan_tool</i>',
                         title: 'Pan mode',
-                    }).appendTo(modeButtonGroup)[0];
+                    }).appendTo(modeButtonGroup) as JQuery<HTMLButtonElement>;
                 }
 
                 // Enter move mode.
@@ -623,7 +631,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                         html: '<i class="material-symbols-outlined">' +
                             'open_with</i>',
                         title: 'Object moving mode',
-                    }).appendTo(modeButtonGroup)[0];
+                    }).appendTo(modeButtonGroup) as JQuery<HTMLButtonElement>;
                 }
 
                 // Enter box select mode.
@@ -633,7 +641,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                         class: 'btn btn-secondary btn-sm btn-material',
                         html: '<i class="material-symbols-outlined">select</i>',
                         title: 'Select mode',
-                    }).appendTo(modeButtonGroup)[0];
+                    }).appendTo(modeButtonGroup) as JQuery<HTMLButtonElement>;
                 }
             }
 
@@ -641,17 +649,17 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             if (this.panModeBtn) {
                 if (!this.enableMaskUI ||
                     this.enableMaskUI.includes('pan_mode')) {
-                    $(this.panModeBtn).prop('disabled', false);
-                    this.panModeBtn.onclick = () => {
+                    this.panModeBtn.prop('disabled', false);
+                    this.panModeBtn.on('click', () => {
                         this._mouseMode = 'pan';
                         this.addElementType = undefined;
                         this.addModeLib = undefined;
                         this.addEdgeStart = undefined;
                         this.addEdgeStartConnector = undefined;
                         this.updateToggleButtons();
-                    };
+                    });
                 } else {
-                    $(this.panModeBtn).prop('disabled', true);
+                    this.panModeBtn.prop('disabled', true);
                 }
             }
 
@@ -659,14 +667,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             if (this.moveModeBtn) {
                 if (!this.enableMaskUI ||
                     this.enableMaskUI.includes('move_mode')) {
-                    $(this.moveModeBtn).prop('disabled', false);
-                    this.moveModeBtn.onclick = (
-                        _: MouseEvent,
-                        shiftClick: boolean | undefined = undefined
-                    ): void => {
+                    this.moveModeBtn.prop('disabled', false);
+                    this.moveModeBtn.on('click', (e): void => {
                         // shift_click is false if shift key has been released
                         // and undefined if it has been a normal mouse click.
-                        if (this.shiftKeyMovement && shiftClick === false)
+                        if (this.shiftKeyMovement && !e.shiftKey)
                             this._mouseMode = 'pan';
                         else
                             this._mouseMode = 'move';
@@ -674,11 +679,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                         this.addModeLib = undefined;
                         this.addEdgeStart = undefined;
                         this.addEdgeStartConnector = undefined;
-                        this.shiftKeyMovement = shiftClick ?? false;
+                        this.shiftKeyMovement = e.shiftKey;
                         this.updateToggleButtons();
-                    };
+                    });
                 } else {
-                    $(this.moveModeBtn).prop('disabled', true);
+                    this.moveModeBtn.prop('disabled', true);
                 }
             }
 
@@ -686,14 +691,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             if (this.selectModeBtn) {
                 if (!this.enableMaskUI ||
                     this.enableMaskUI.includes('box_select_mode')) {
-                    $(this.selectModeBtn).prop('disabled', false);
-                    this.selectModeBtn.onclick = (
-                        _: MouseEvent,
-                        ctrlClick: boolean | undefined = undefined
-                    ): void => {
+                    this.selectModeBtn.prop('disabled', false);
+                    this.selectModeBtn.on('click', (e): void => {
                         // ctrl_click is false if ctrl key has been released and
                         // undefined if it has been a normal mouse click
-                        if (this.ctrlKeySelection && ctrlClick === false)
+                        if (this.ctrlKeySelection && !e.ctrlKey)
                             this._mouseMode = 'pan';
                         else
                             this._mouseMode = 'select';
@@ -701,11 +703,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                         this.addModeLib = undefined;
                         this.addEdgeStart = undefined;
                         this.addEdgeStartConnector = undefined;
-                        this.ctrlKeySelection = ctrlClick ?? false;
+                        this.ctrlKeySelection = e.ctrlKey;
                         this.updateToggleButtons();
-                    };
+                    });
                 } else {
-                    $(this.selectModeBtn).prop('disabled', true);
+                    this.selectModeBtn.prop('disabled', true);
                 }
             }
 
@@ -863,13 +865,13 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             class: 'add-svgs-container',
         }).appendTo(this.container);
 
-        this.updateToggleButtons();
+        //this.updateToggleButtons();
     }
 
     protected _drawMinimapContents(): void {
         for (const nd of this.graph?.nodes() ?? []) {
             const node = this.graph!.node(nd);
-            node.simpleDraw(this, this.minimapCtx!, this.mousePos);
+            node?.simpleDraw(this, this.minimapCtx!, this.mousePos);
         }
     }
 
@@ -908,7 +910,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     // ==================
 
     public async setSDFG(
-        sdfg: JsonSDFG, layout: boolean = true
+        sdfg: JsonSDFG, layout: boolean = true, zoomToFit: boolean = true
     ): Promise<void> {
         return new Promise((resolve) => {
             this._sdfg = sdfg;
@@ -920,7 +922,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             if (this.selectedElements.length === 1) {
                 const uuid = getGraphElementUUID(this.selectedElements[0]);
                 if (this.graph) {
-                    this.sdfvInstance?.linkedUI.showElementInfo(
+                    this.sdfvInstance.linkedUI.showElementInfo(
                         findGraphElementByUUID(this.cfgList, uuid), this
                     );
                 }
@@ -928,22 +930,31 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
             if (layout) {
                 this.layout().then(() => {
-                    this.drawAsync();
+                    if (zoomToFit)
+                        this.zoomToFitContents();
+                    else
+                        this.drawAsync();
                     resolve();
                 }).catch(() => {
                     console.error('Error while laying out SDFG');
                     resolve();
                 });
             } else {
-                this.drawAsync();
+                if (zoomToFit)
+                    this.zoomToFitContents();
+                else
+                    this.drawAsync();
                 resolve();
             }
         });
     }
 
-    public async layout(instigator?: SDFGElement): Promise<DagreGraph> {
+    public async layout(
+        instigator?: SDFGElement
+    ): Promise<DagreGraph | undefined> {
         const doLayout = () => {
-            this.showProcessingAnimation();
+            if (!this.sdfg)
+                return undefined;
 
             // Collect currently-visible elements for reorientation
             const elements = this.getVisibleElementsAsObjects(true);
@@ -974,19 +985,20 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
             // In a VSCode environment, we need to update the outline.
             if (this.inVSCode)
-                this.sdfvInstance?.outline();
-
-            this.hideProcessingAnimation();
+                this.sdfvInstance.outline();
 
             return this._graph;
         };
 
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                const graph = doLayout();
-                resolve(graph);
-            }, 0);
-        });
+        return this.sdfvInstance.linkedUI.showActivityIndicatorFor(
+            'Laying out SDFG', () => {
+                return new Promise<DagreGraph | undefined>(
+                    (resolve) => {
+                        resolve(doLayout());
+                    }
+                );
+            }
+        );
     }
 
     public doForVisibleGraphElements(
@@ -1000,7 +1012,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         ) => unknown,
         excludeClipped: boolean = false
     ): void {
-        if (!this.graph)
+        if (!this.graph || !this.sdfg)
             return;
         const viewport = this.canvasManager.updateViewport();
         doForIntersectedDagreGraphElements(
@@ -1033,15 +1045,10 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         this.sdfvInstance = instance;
     }
 
-    public showProcessingAnimation(): void {
-        // TODO
-    }
-
-    public hideProcessingAnimation(): void {
-        // TODO
-    }
-
     public saveSDFG(): void {
+        if (!this.sdfg)
+            return;
+
         const name = this.getSDFGName();
         const sdfgString = stringifySDFG(checkCompatSave(this.sdfg));
         const contents = 'data:text/json;charset=utf-8,' + encodeURIComponent(
@@ -1115,6 +1122,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     public collapseAll(): void {
+        if (!this.sdfg || !this.graph)
+            return;
+
         doForAllJsonSDFGElements(
             (_t, _d, obj) => {
                 if (obj.attributes && 'is_collapsed' in obj.attributes &&
@@ -1127,7 +1137,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     public expandNextLevel(): void {
-        if (!this.graph)
+        if (!this.sdfg || !this.graph)
             return;
 
         traverseSDFGScopes(
@@ -1145,6 +1155,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     public expandAll(): void {
+        if (!this.sdfg || !this.graph)
+            return;
+
         doForAllJsonSDFGElements(
             (_t, _d, obj) => {
                 if (obj.attributes && 'is_collapsed' in obj.attributes &&
@@ -1156,16 +1169,16 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         this.emit('collapse_state_changed', false, true);
     }
 
-    public exitLocalView(): void {
+    public async exitLocalView(): Promise<void> {
         if (!(this.sdfvInstance instanceof SDFV))
             return;
 
         if (this.sdfvInstance instanceof WebSDFV)
-            this.sdfvInstance.setSDFG(this.sdfg);
+            await this.sdfvInstance.setSDFG(this.sdfg);
     }
 
     public async localViewSelection(): Promise<void> {
-        if (!this.graph || !(this.sdfvInstance instanceof SDFV))
+        if (!this.graph || !this.sdfg || !(this.sdfvInstance instanceof SDFV))
             return;
 
         // Transition to the local view by first cutting out the selection.
@@ -1194,7 +1207,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 }).appendTo(this.container);
                 exitBtn.on('click', () => {
                     this._sdfg = parseSDFG(origSdfg);
-                    this.exitLocalView();
+                    void this.exitLocalView();
                     exitBtn.remove();
                 });
                 this.container.append(exitBtn);
@@ -1256,9 +1269,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
             if (cfgNode.data?.graph) {
                 for (const blockId of cfgNode.jsonData?.nodes.keys() ?? []) {
-                    const block = cfgNode.graph?.node(
-                        blockId.toString()
-                    ) as ControlFlowBlock | undefined;
+                    const block = cfgNode.graph?.node(blockId.toString());
                     if (!block)
                         continue;
                     if (block instanceof ControlFlowRegion) {
@@ -1383,7 +1394,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     // ====================
 
     public resetElementPositions(): void {
-        if (!this.graph)
+        if (!this.graph || !this.sdfg)
             return;
 
         doForAllDagreGraphElements(
@@ -1401,6 +1412,19 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         });
     }
 
+    private onModeButtonClick(e: JQuery.Event): void {
+        if (this.ctrlKeySelection && !e.ctrlKey)
+            this._mouseMode = 'pan';
+        else
+            this._mouseMode = 'select';
+        this.addElementType = undefined;
+        this.addModeLib = undefined;
+        this.addEdgeStart = undefined;
+        this.addEdgeStartConnector = undefined;
+        this.ctrlKeySelection = e.ctrlKey ?? false;
+        this.updateToggleButtons();
+    }
+
     // Updates buttons based on cursor mode
     private updateToggleButtons(): void {
         // First clear out of all modes, then jump in to the correct mode.
@@ -1408,32 +1432,32 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         this.hideInteractionInfo();
 
         if (this.panModeBtn)
-            this.panModeBtn.classList.remove('selected');
+            this.panModeBtn.removeClass('selected');
 
         if (this.moveModeBtn)
-            this.moveModeBtn.classList.remove('selected');
+            this.moveModeBtn.removeClass('selected');
 
         if (this.selectModeBtn)
-            this.selectModeBtn.classList.remove('selected');
+            this.selectModeBtn.removeClass('selected');
 
         this.mouseFollowElement?.html('');
 
         for (const addBtn of this.addModeButtons) {
-            const btnType = addBtn.getAttribute('type');
+            const btnType = addBtn.attr('type') as SDFGElementType;
             if (btnType === this.addElementType) {
-                addBtn.classList.add('selected');
+                addBtn.addClass('selected');
                 const svgHtml = this.mouseFollowSVGs?.[btnType];
                 if (svgHtml)
                     this.mouseFollowElement?.html(svgHtml);
             } else {
-                addBtn.classList.remove('selected');
+                addBtn.removeClass('selected');
             }
         }
 
         switch (this._mouseMode) {
             case 'move':
                 if (this.moveModeBtn)
-                    this.moveModeBtn.classList.add('selected');
+                    this.moveModeBtn.addClass('selected');
                 this.showInteractionInfo(
                     'Middle Mouse: Pan view<br>Right Click: Reset position',
                     true
@@ -1441,7 +1465,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 break;
             case 'select':
                 if (this.selectModeBtn)
-                    this.selectModeBtn.classList.add('selected');
+                    this.selectModeBtn.addClass('selected');
                 if (this.ctrlKeySelection) {
                     this.showInteractionInfo('Middle Mouse: Pan view');
                 } else {
@@ -1484,13 +1508,13 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             case 'pan':
             default:
                 if (this.panModeBtn)
-                    this.panModeBtn.classList.add('selected');
+                    this.panModeBtn.addClass('selected');
                 break;
         }
     }
 
     private getSDFGName(): string {
-        return (this.sdfg.attributes && 'name' in this.sdfg.attributes) ?
+        return (this.sdfg?.attributes && 'name' in this.sdfg.attributes) ?
             this.sdfg.attributes.name as string : 'program';
     }
 
@@ -1500,7 +1524,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
      */
     protected reorient(oldVisibleElements: SDFGElement[]): void {
         // Nothing to reorient to.
-        if (oldVisibleElements.length === 0 || !this.graph)
+        if (oldVisibleElements.length === 0 || !this.graph || !this.sdfg)
             return;
 
         // If the current view contains everything that was visible before,
@@ -1540,13 +1564,19 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     protected recomputeGraphBoundingBox(): void {
         const topLevelBlocks: SDFGElement[] = [];
         if (this.graph) {
-            for (const bId of this.graph.nodes())
-                topLevelBlocks.push(this.graph.node(bId));
+            for (const bId of this.graph.nodes()) {
+                const node = this.graph.node(bId);
+                if (node)
+                    topLevelBlocks.push(node);
+            }
         }
         this.graphBoundingBox = boundingBox(topLevelBlocks);
     }
 
     protected resetCFGList(): void {
+        if (!this.sdfg)
+            return;
+
         this._cfgTree = {};
         this._cfgList = {};
         this.cfgList[this.sdfg.cfg_list_id] = {
@@ -1596,6 +1626,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     protected resetMemletTrees(): void {
+        if (!this.sdfg)
+            return;
+
         this.allMemletTressSDFG = memletTreeComplete(this.sdfg);
         this.updateFastMemletLookup();
     }
@@ -1653,7 +1686,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
                 // Move edges (outgoing only)
                 graph.inEdges(node.id.toString())?.forEach(edgeId => {
-                    const edge = graph.edge(edgeId) as Edge;
+                    const edge = graph.edge(edgeId);
+                    if (!edge)
+                        return;
                     const edgePos = getPositioningInfo(edge);
 
                     let finalPosD;
@@ -1707,7 +1742,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
         // Find the parent graph in the list of available SDFGs
         let parentGraph = this.cfgList[el.cfg!.cfg_list_id].graph;
-        let parentElement: SDFGElement | null = null;
+        let parentElement: SDFGElement | undefined = undefined;
 
         if (entireGraph !== parentGraph && (
             el instanceof State || el instanceof InterstateEdge
@@ -1729,10 +1764,14 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         if (parentGraph && !(el instanceof Edge)) {
             // Find all the edges connected to the moving node
             parentGraph.outEdges(el.id.toString())?.forEach(edgeId => {
-                outEdges.push(parentGraph.edge(edgeId) as Edge);
+                const edge = parentGraph.edge(edgeId);
+                if (edge)
+                    outEdges.push(edge);
             });
             parentGraph.inEdges(el.id.toString())?.forEach(edgeId => {
-                inEdges.push(parentGraph.edge(edgeId) as Edge);
+                const edge = parentGraph.edge(edgeId);
+                if (edge)
+                    inEdges.push(edge);
             });
         }
 
@@ -1902,22 +1941,23 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             } else if (!node.attributes()?.is_collapsed) {
                 // We're moving a control flow block, move all its contents too.
                 node.graph?.nodes().forEach(nodeId => {
-                    const nNode = node.graph!.node(
-                        nodeId
-                    ) as ControlFlowBlock | SDFGNode;
-                    moveNode(nNode);
+                    const nNode = node.graph!.node(nodeId);
+                    if (nNode)
+                        moveNode(nNode);
                 });
 
                 // Drag all the edges along
                 node.graph?.edges().forEach(edgeId => {
-                    const edge = node.graph!.edge(edgeId) as Edge;
-                    edge.x += dx;
-                    edge.y += dy;
-                    edge.points.forEach((point: Point2D) => {
-                        point.x += dx;
-                        point.y += dy;
-                    });
-                    updateEdgeBoundingBox(edge);
+                    const edge = node.graph!.edge(edgeId);
+                    if (edge) {
+                        edge.x += dx;
+                        edge.y += dy;
+                        edge.points.forEach((point: Point2D) => {
+                            point.x += dx;
+                            point.y += dy;
+                        });
+                        updateEdgeBoundingBox(edge);
+                    }
                 });
             }
         }
@@ -1926,36 +1966,41 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         function translateRecursive(ng: DagreGraph) {
             ng.nodes().forEach(stateId => {
                 const state = ng.node(stateId);
+                if (!state)
+                    return;
                 state.x += dx;
                 state.y += dy;
                 const g = state.graph;
                 g?.nodes().forEach(nodeId => {
-                    const node = g.node(
-                        nodeId
-                    ) as ControlFlowBlock | SDFGNode;
-                    moveNode(node);
+                    const node = g.node(nodeId);
+                    if (node)
+                        moveNode(node);
                 });
 
                 g?.edges().forEach(edgeId => {
-                    const edge = g.edge(edgeId) as Edge;
+                    const edge = g.edge(edgeId);
+                    if (edge) {
+                        edge.x += dx;
+                        edge.y += dy;
+                        edge.points.forEach((point: Point2D) => {
+                            point.x += dx;
+                            point.y += dy;
+                        });
+                        updateEdgeBoundingBox(edge);
+                    }
+                });
+            });
+            ng.edges().forEach(edgeId => {
+                const edge = ng.edge(edgeId);
+                if (edge) {
                     edge.x += dx;
                     edge.y += dy;
-                    edge.points.forEach((point: Point2D) => {
+                    edge.points.forEach(point => {
                         point.x += dx;
                         point.y += dy;
                     });
                     updateEdgeBoundingBox(edge);
-                });
-            });
-            ng.edges().forEach(edgeId => {
-                const edge = ng.edge(edgeId) as Edge;
-                edge.x += dx;
-                edge.y += dy;
-                edge.points.forEach(point => {
-                    point.x += dx;
-                    point.y += dy;
-                });
-                updateEdgeBoundingBox(edge);
+                }
             });
         }
 
@@ -2117,7 +2162,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             controlFlowRegions: [],
             controlFlowBlocks: [],
         };
-        if (this.graph) {
+        if (this.graph && this.sdfg) {
             doForIntersectedDagreGraphElements(
                 (group, objInfo, obj) => {
                     objInfo.obj = obj;
@@ -2356,10 +2401,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                                         obj.data?.name ||
                                         edge.dst_connector ===
                                         obj.data?.name) {
-                                        const gedge = stateGraph?.edge(
-                                            edge.src, edge.dst,
-                                            id.toString()
-                                        ) as Memlet | undefined;
+                                        const gedge = stateGraph?.edge({
+                                            v: edge.src,
+                                            w: edge.dst,
+                                            name: id.toString(),
+                                        });
                                         if (gedge)
                                             gedge.highlighted = true;
                                     }
@@ -2378,10 +2424,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                                 stateJson?.edges.forEach((edge, id) => {
                                     if (edge.src_connector === obj.data?.name ||
                                         edge.dst_connector === obj.data?.name) {
-                                        const gedge = stateGraph?.edge(
-                                            edge.src, edge.dst,
-                                            id.toString()
-                                        ) as Memlet | undefined;
+                                        const gedge = stateGraph?.edge({
+                                            v: edge.src,
+                                            w: edge.dst,
+                                            name: id.toString(),
+                                        });
                                         if (gedge)
                                             gedge.highlighted = false;
                                     }
@@ -2494,10 +2541,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                             (edge, id) => {
                                 if (edge.src === obj.id.toString() ||
                                     edge.dst === obj.id.toString()) {
-                                    const gedge = stateGraph?.edge(
-                                        edge.src, edge.dst,
-                                        id.toString()
-                                    ) as Memlet | undefined;
+                                    const gedge = stateGraph?.edge({
+                                        v: edge.src,
+                                        w: edge.dst,
+                                        name: id.toString(),
+                                    });
                                     if (gedge)
                                         gedge.highlighted = true;
                                 }
@@ -2514,9 +2562,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                         stateJson?.edges.forEach((edge, id) => {
                             if (edge.src === obj.id.toString() ||
                                 edge.dst === obj.id.toString()) {
-                                const gedge = stateGraph?.edge(
-                                    edge.src, edge.dst, id.toString()
-                                ) as Memlet | undefined;
+                                const gedge = stateGraph?.edge({
+                                    v: edge.src,
+                                    w: edge.dst,
+                                    name: id.toString(),
+                                });
                                 if (gedge)
                                     gedge.highlighted = false;
                             }
@@ -2811,7 +2861,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     private onClick(event: MouseEvent): boolean {
-        if (!this.graph || !this.mousePos)
+        if (!this.graph || !this.sdfg || !this.mousePos)
             return true;
 
         let dirty = false;
@@ -2920,8 +2970,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                         this.addEdgeStart
                     )) {
                         // Cancel add mode.
-                        if (this.panModeBtn?.onclick)
-                            this.panModeBtn.onclick(event);
+                        this.panModeBtn?.trigger('click', event);
                     }
                 }
             }
@@ -3035,10 +3084,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                     // Reset the position of the element (if it has been
                     // manually moved)
                     if (el instanceof Edge) {
-                        const edgeEl: Edge = el;
                         // Create inverted points to move it back
-                        const newPoints = new Array(edgeEl.points.length);
-                        for (let j = 1; j < edgeEl.points.length - 1; j++) {
+                        const newPoints = new Array(el.points.length);
+                        for (let j = 1; j < el.points.length - 1; j++) {
                             newPoints[j] = {
                                 dx: - position.points[j].x,
                                 dy: - position.points[j].y,
@@ -3050,7 +3098,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
                         // Move it to original position
                         this.translateElement(
-                            edgeEl, this.graph, { x: 0, y: 0 },
+                            el, this.graph, { x: 0, y: 0 },
                             { x: 0, y: 0 }, false, false, newPoints
                         );
 
@@ -3101,13 +3149,15 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 this.emit('element_position_changed', 'manual_move');
         } else if (this._mouseMode === 'add') {
             // Cancel add mode
-            this.panModeBtn?.onclick?.(event);
+            this.panModeBtn?.trigger('click', event);
         } else if (this._mouseMode === 'pan') {
             // Shift + Rightclick to toggle expand/collapse
             if (event.shiftKey)
                 this.toggleElementCollapse(fgElem);
         }
 
+        event.preventDefault();
+        event.stopPropagation();
         return false;
     }
 
@@ -3123,7 +3173,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         return this._graph;
     }
 
-    public get sdfg(): JsonSDFG {
+    public get sdfg(): JsonSDFG  | undefined {
         return this._sdfg;
     }
 

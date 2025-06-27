@@ -34,7 +34,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
     }
 
     public clearCachedValues(): void {
-        if (!this.renderer.graph)
+        if (!this.renderer.graph || !this.renderer.sdfg)
             return;
         doForAllDagreGraphElements((_group, _info, obj) => {
             if (obj.data) {

@@ -164,10 +164,10 @@ export interface JsonSDFGLogicalGroup extends JsonSDFGSerializedAtom {
 }
 
 export interface ModeButtons {
-    pan?: HTMLElement;
-    move?: HTMLElement;
-    select?: HTMLElement;
-    addBtns: HTMLElement[];
+    pan?: JQuery<HTMLButtonElement>;
+    move?: JQuery<HTMLButtonElement>;
+    select?: JQuery<HTMLButtonElement>;
+    addBtns: JQuery<HTMLButtonElement>[];
 };
 
 export type SDFVTooltipFunc = (container: HTMLElement) => void;

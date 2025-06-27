@@ -69,31 +69,35 @@ function offsetControlFlowRegion(
 ): void {
     cfg.nodes.forEach((blockJson: JsonSDFGBlock, id: number) => {
         const block = cfgGraph.node(id.toString());
-        block.x += offs.x;
-        block.y += offs.y;
-        if (!block.attributes()?.is_collapsed) {
-            if (block instanceof State) {
-                offsetSDFGState(block, offs);
-            } else if (block instanceof ConditionalBlock) {
-                offsetConditionalBlock(block, offs);
-            } else if (block instanceof ControlFlowRegion) {
-                if (block.graph) {
-                    offsetControlFlowRegion(
-                        blockJson as JsonSDFGControlFlowRegion, block.graph,
-                        offs
-                    );
+        if (block) {
+            block.x += offs.x;
+            block.y += offs.y;
+            if (!block.attributes()?.is_collapsed) {
+                if (block instanceof State) {
+                    offsetSDFGState(block, offs);
+                } else if (block instanceof ConditionalBlock) {
+                    offsetConditionalBlock(block, offs);
+                } else if (block instanceof ControlFlowRegion) {
+                    if (block.graph) {
+                        offsetControlFlowRegion(
+                            blockJson as JsonSDFGControlFlowRegion, block.graph,
+                            offs
+                        );
+                    }
                 }
             }
         }
     });
     cfg.edges.forEach((e: JsonSDFGEdge, _eid: number) => {
-        const edge = cfgGraph.edge(e.src, e.dst) as InterstateEdge;
-        edge.x += offs.x;
-        edge.y += offs.y;
-        edge.points.forEach((p: Point2D) => {
-            p.x += offs.x;
-            p.y += offs.y;
-        });
+        const edge = cfgGraph.edge({ v: e.src, w: e.dst });
+        if (edge) {
+            edge.x += offs.x;
+            edge.y += offs.y;
+            edge.points.forEach((p: Point2D) => {
+                p.x += offs.x;
+                p.y += offs.y;
+            });
+        }
     });
 }
 
@@ -125,7 +129,9 @@ function offsetSDFGState(state: State, offs: Point2D): void {
     if (!stateGraph || !jsonState)
         return;
     jsonState.nodes.forEach((_n, nid) => {
-        const node = stateGraph.node(nid.toString());
+        const node = stateGraph.node(nid.toString()) as SDFGNode | undefined;
+        if (!node)
+            return;
         drawnNodes.add(nid.toString());
 
         node.x += offs.x;
@@ -150,13 +156,19 @@ function offsetSDFGState(state: State, offs: Point2D): void {
         if (!ne)
             return;
         e = ne;
-        const edge = stateGraph.edge(e.src, e.dst, eid.toString()) as Memlet;
-        edge.x += offs.x;
-        edge.y += offs.y;
-        edge.points.forEach((p: Point2D) => {
-            p.x += offs.x;
-            p.y += offs.y;
+        const edge = stateGraph.edge({
+            v: e.src,
+            w: e.dst,
+            name: eid.toString(),
         });
+        if (edge) {
+            edge.x += offs.x;
+            edge.y += offs.y;
+            edge.points.forEach((p: Point2D) => {
+                p.x += offs.x;
+                p.y += offs.y;
+            });
+        }
     });
 }
 
@@ -419,10 +431,12 @@ function layoutSDFGState(
 ): DagreGraph {
     const stateJson = state.jsonData;
     if (!stateJson)
-        return new dagre.graphlib.Graph() as DagreGraph;
+        return new dagre.graphlib.Graph() as unknown as DagreGraph;
 
     // layout the sdfg block as a dagre graph.
-    const g = new dagre.graphlib.Graph({ multigraph: true }) as DagreGraph;
+    const g = new dagre.graphlib.Graph({
+        multigraph: true,
+    }) as unknown as DagreGraph;
 
     // Set layout options and a simpler algorithm for large graphs.
     const layoutOptions = {
@@ -565,7 +579,7 @@ function layoutSDFGState(
         }
     });
 
-    dagre.layout(g);
+    dagre.layout(g as unknown as dagre.graphlib.Graph);
 
     // Layout connectors and nested SDFGs.
     stateJson.nodes.forEach((node: JsonSDFGNode, id: number) => {
@@ -662,9 +676,11 @@ function layoutSDFGState(
                 if (edge.dst === gnode.id.toString() &&
                     edge.dst_connector === c.data?.name) {
                     // If in-edges are to be summarized, set Memlet.summarized
-                    const gedge = g.edge(
-                        edge.src, edge.dst, id.toString()
-                    ) as Memlet | undefined;
+                    const gedge = g.edge({
+                        v: edge.src,
+                        w: edge.dst,
+                        name: id.toString(),
+                    });
                     if (gedge && gnode.summarizeInEdges)
                         gedge.summarized = true;
 
@@ -717,9 +733,11 @@ function layoutSDFGState(
                 stateJson.edges.forEach((edge: JsonSDFGEdge, id: number) => {
                     if (edge.src === gnode.id.toString() &&
                         edge.src_connector === c.data!.name) {
-                        const gedge = g.edge(
-                            edge.src, edge.dst, id.toString()
-                        ) as Memlet | undefined;
+                        const gedge = g.edge({
+                            v: edge.src,
+                            w: edge.dst,
+                            name: id.toString(),
+                        });
                         if (gedge)
                             gedge.summarized = true;
                     }
@@ -733,9 +751,11 @@ function layoutSDFGState(
         if (!nedge)
             return;
         edge = nedge;
-        const gedge = g.edge(
-            edge.src, edge.dst, id.toString()
-        ) as Memlet | undefined;
+        const gedge = g.edge({
+            v: edge.src,
+            w: edge.dst,
+            name: id.toString(),
+        });
         const gedgeAttrs = gedge?.attributes();
         if (!gedge || ((omitAccessNodes && gedgeAttrs?.shortcut === false) ||
             (!omitAccessNodes && gedgeAttrs?.shortcut))) {
@@ -749,37 +769,40 @@ function layoutSDFGState(
         let dstConn = null;
         if (edge.src_connector) {
             const srcNode = g.node(edge.src);
-            let cindex = -1;
-            for (let i = 0; i < srcNode.outConnectors.length; i++) {
-                if (
-                    srcNode.outConnectors[i].data?.name === edge.src_connector
-                ) {
-                    cindex = i;
-                    break;
+            if (srcNode) {
+                let cindex = -1;
+                for (let i = 0; i < srcNode.outConnectors.length; i++) {
+                    if (srcNode.outConnectors[i].data?.name ===
+                        edge.src_connector) {
+                        cindex = i;
+                        break;
+                    }
                 }
-            }
-            if (cindex >= 0) {
-                gedge.points[0].x = srcNode.outConnectors[cindex].x;
-                gedge.points[0].y = srcNode.outConnectors[cindex].y;
-                srcConn = srcNode.outConnectors[cindex];
+                if (cindex >= 0) {
+                    gedge.points[0].x = srcNode.outConnectors[cindex].x;
+                    gedge.points[0].y = srcNode.outConnectors[cindex].y;
+                    srcConn = srcNode.outConnectors[cindex];
+                }
             }
         }
         if (edge.dst_connector) {
             const dstNode = g.node(edge.dst);
-            let cindex = -1;
-            for (let i = 0; i < dstNode.inConnectors.length; i++) {
-                const c = dstNode.inConnectors[i];
-                if (c.data?.name === edge.dst_connector) {
-                    cindex = i;
-                    break;
+            if (dstNode) {
+                let cindex = -1;
+                for (let i = 0; i < dstNode.inConnectors.length; i++) {
+                    const c = dstNode.inConnectors[i];
+                    if (c.data?.name === edge.dst_connector) {
+                        cindex = i;
+                        break;
+                    }
                 }
-            }
-            if (cindex >= 0) {
-                gedge.points[gedge.points.length - 1].x =
-                    dstNode.inConnectors[cindex].x;
-                gedge.points[gedge.points.length - 1].y =
-                    dstNode.inConnectors[cindex].y;
-                dstConn = dstNode.inConnectors[cindex];
+                if (cindex >= 0) {
+                    gedge.points[gedge.points.length - 1].x =
+                        dstNode.inConnectors[cindex].x;
+                    gedge.points[gedge.points.length - 1].y =
+                        dstNode.inConnectors[cindex].y;
+                    dstConn = dstNode.inConnectors[cindex];
+                }
             }
         }
 
@@ -831,7 +854,7 @@ function layoutConditionalBlock(
     const condBlock = condBlockElem.jsonData as JsonSDFGConditionalBlock;
 
     // Layout the state machine as a dagre graph.
-    const g = new dagre.graphlib.Graph() as DagreGraph;
+    const g = new dagre.graphlib.Graph() as unknown as DagreGraph;
     g.setGraph({});
     g.setDefaultEdgeLabel(() => {
         return {};
@@ -903,13 +926,15 @@ function layoutConditionalBlock(
     // Annotate the JSON with layout information
     for (const [_, branch] of condBlock.branches) {
         const gnode = g.node(branch.id.toString());
-        branch.attributes ??= {};
-        branch.attributes.layout = {
-            x: gnode.x,
-            y: gnode.y,
-            width: gnode.width,
-            height: gnode.height,
-        };
+        if (gnode) {
+            branch.attributes ??= {};
+            branch.attributes.layout = {
+                x: gnode.x,
+                y: gnode.y,
+                width: gnode.width,
+                height: gnode.height,
+            };
+        }
     }
 
     return g;
@@ -924,7 +949,7 @@ function layoutControlFlowRegion(
     const sdfg = cfgElem.sdfg;
 
     // Layout the state machine as a dagre graph.
-    const g = new dagre.graphlib.Graph() as DagreGraph;
+    const g = new dagre.graphlib.Graph() as unknown as DagreGraph;
     g.setGraph({});
     g.setDefaultEdgeLabel(() => {
         return {};
@@ -1087,43 +1112,47 @@ function layoutControlFlowRegion(
         try {
             SMLayouter.layoutDagreCompat(g, cfg.start_block.toString());
         } catch (_ignored) {
-            dagre.layout(g);
+            dagre.layout(g as unknown as dagre.graphlib.Graph);
         }
     } else {
-        dagre.layout(g);
+        dagre.layout(g as unknown as dagre.graphlib.Graph);
     }
 
     // Annotate the sdfg with its layout info
     for (const block of cfg.nodes) {
         const gnode = g.node(block.id.toString());
-        block.attributes ??= {};
-        block.attributes.layout = {
-            x: gnode.x,
-            y: gnode.y,
-            width: gnode.width,
-            height: gnode.height,
-        } as ILayoutAttr;
+        if (gnode) {
+            block.attributes ??= {};
+            block.attributes.layout = {
+                x: gnode.x,
+                y: gnode.y,
+                width: gnode.width,
+                height: gnode.height,
+            } as ILayoutAttr;
+        }
     }
 
     for (const edge of cfg.edges) {
-        const gedge = g.edge(edge.src, edge.dst);
-        const bb = calculateEdgeBoundingBox(gedge);
-        // Convert from top-left to center
-        bb.x += bb.width / 2.0;
-        bb.y += bb.height / 2.0;
+        const gedge = g.edge({ v: edge.src, w: edge.dst });
+        if (gedge) {
+            const bb = calculateEdgeBoundingBox(gedge);
+            // Convert from top-left to center
+            bb.x += bb.width / 2.0;
+            bb.y += bb.height / 2.0;
 
-        gedge.x = bb.x;
-        gedge.y = bb.y;
-        gedge.width = bb.width;
-        gedge.height = bb.height;
-        edge.attributes ??= {};
-        edge.attributes.layout = {
-            width: bb.width,
-            height: bb.height,
-            x: bb.x,
-            y: bb.y,
-            points: gedge.points,
-        };
+            gedge.x = bb.x;
+            gedge.y = bb.y;
+            gedge.width = bb.width;
+            gedge.height = bb.height;
+            edge.attributes ??= {};
+            edge.attributes.layout = {
+                width: bb.width,
+                height: bb.height,
+                x: bb.x,
+                y: bb.y,
+                points: gedge.points,
+            };
+        }
     }
 
     // Offset node and edge locations to be in state margins
@@ -1131,6 +1160,8 @@ function layoutControlFlowRegion(
         const block = cfg.nodes[blockId];
         if (!block.attributes?.is_collapsed) {
             const gBlock = g.node(blockId.toString());
+            if (!gBlock)
+                continue;
             const topleft = gBlock.topleft();
             if (gBlock instanceof State) {
                 offsetSDFGState(gBlock, {

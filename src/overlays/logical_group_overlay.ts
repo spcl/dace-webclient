@@ -90,7 +90,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
 
     public draw(): void {
         const sdfg = this.renderer.sdfg;
-        const sdfgGroups = sdfg.attributes?.logical_groups;
+        const sdfgGroups = sdfg?.attributes?.logical_groups;
         const nGroups = (sdfgGroups as { length?: number } | undefined)?.length;
         if (sdfgGroups === undefined || nGroups === 0)
             return;

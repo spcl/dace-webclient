@@ -127,7 +127,9 @@ export class GenericSdfgOverlay {
                 if (this.olClass.type === OverlayType.EDGE ||
                     this.olClass.type === OverlayType.BOTH) {
                     for (const e of stateGraph.edges()) {
-                        const edge = stateGraph.edge(e) as Edge;
+                        const edge = stateGraph.edge(e);
+                        if (!edge)
+                            continue;
 
                         // Skip if edge is invisible, or zoomed out far
                         if (this.renderer.adaptiveHiding && (!edge.intersect(
@@ -164,7 +166,9 @@ export class GenericSdfgOverlay {
         if (this.olClass.type === OverlayType.EDGE ||
             this.olClass.type === OverlayType.BOTH) {
             for (const e of graph.edges()) {
-                const edge = graph.edge(e) as Edge;
+                const edge = graph.edge(e);
+                if (!edge)
+                    continue;
 
                 // Skip if edge is invisible, or zoomed out far
                 if (this.renderer.adaptiveHiding && (!edge.intersect(

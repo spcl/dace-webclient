@@ -29,11 +29,20 @@ export interface ISDFVUserInterface {
         elem: SDFGElement | DagreGraph | null | undefined,
         renderer: SDFGRenderer
     ): void;
+    showActivityIndicatorFor<T>(
+        message: string, fun: (...args: unknown[]) => Promise<T>
+    ): Promise<T>;
 }
 
 export class SDFVWebUI implements ISDFVUserInterface {
 
     private static readonly INSTANCE: SDFVWebUI = new SDFVWebUI();
+
+    private activities: [
+        string, (...args: unknown[]) => unknown
+    ][] = [];
+    private activityIndicator?: JQuery;
+    private activityInfoField?: JQuery;
 
     private constructor() {
         return;
@@ -82,24 +91,79 @@ export class SDFVWebUI implements ISDFVUserInterface {
 
         // Set up any external interaction mode buttons that may override the
         // renderer.
-        const panBtn = document.getElementById('pan-btn');
-        const moveBtn = document.getElementById('move-btn') ?? undefined;
-        const selectBtn = document.getElementById('select-btn') ?? undefined;
-        const addBtns: HTMLElement[] = [];
-        addBtns.push(document.getElementById('elem_map')!);
-        addBtns.push(document.getElementById('elem_consume')!);
-        addBtns.push(document.getElementById('elem_tasklet')!);
-        addBtns.push(document.getElementById('elem_nested_sdfg')!);
-        addBtns.push(document.getElementById('elem_access_node')!);
-        addBtns.push(document.getElementById('elem_stream')!);
-        addBtns.push(document.getElementById('elem_state')!);
-        if (panBtn) {
+        const panBtn = $('#pan-btn');
+        const moveBtn = $('#move-btn');
+        const selectBtn = $('#select-btn');
+        const addBtns: JQuery<HTMLButtonElement>[] = [];
+        for (const btnId of [
+            'elem_map',
+            'elem_consume',
+            'elem_tasklet',
+            'elem_nested_sdfg',
+            'elem_access_node',
+            'elem_stream',
+            'elem_state',
+        ]) {
+            const elem = $(`#${btnId}`);
+            if (elem.length)
+                addBtns.push(elem as JQuery<HTMLButtonElement>);
+        }
+        if (panBtn.length && moveBtn.length && selectBtn.length) {
             WebSDFV.getInstance().setModeButtons({
-                pan: panBtn,
-                move: moveBtn,
-                select: selectBtn,
+                pan: panBtn as JQuery<HTMLButtonElement>,
+                move: moveBtn as JQuery<HTMLButtonElement>,
+                select: selectBtn as JQuery<HTMLButtonElement>,
                 addBtns: addBtns,
             });
+        }
+
+        this.activityIndicator = $('#activity-indicator');
+        this.activityInfoField = $('#activity-info-field');
+    }
+
+    private showActivityIndicator(): void {
+        this.hideActivityIndicator();
+        this.activityIndicator?.append($('<div>', {
+            class: 'loader',
+        }));
+    }
+
+    private hideActivityIndicator(): void {
+        this.activityIndicator?.empty();
+    }
+
+    public async showActivityIndicatorFor<T>(
+        message: string, fun: (...args: unknown[]) => (Promise<T> | T)
+    ): Promise<T> {
+        if (this.activities.length === 0)
+            this.showActivityIndicator();
+        this.activities.push([message, fun]);
+        this.activityInfoField?.text(message);
+
+        try {
+            const ret = await fun();
+            this.activities.pop();
+            if (this.activities.length === 0) {
+                this.hideActivityIndicator();
+                this.activityInfoField?.text('');
+            } else {
+                this.activityInfoField?.text(
+                    this.activities[this.activities.length - 1][0]
+                );
+            }
+            return ret;
+        } catch (err) {
+            this.activities.pop();
+            if (this.activities.length === 0) {
+                this.hideActivityIndicator();
+                this.activityInfoField?.text('');
+            } else {
+                this.activityInfoField?.text(
+                    this.activities[this.activities.length - 1][0]
+                );
+            }
+            console.error('Error during activity:', err);
+            throw err;
         }
     }
 
@@ -188,6 +252,7 @@ export class SDFVWebUI implements ISDFVUserInterface {
                 case 'possible_writes':
                 case 'certain_reads':
                 case 'certain_writes':
+                case 'debuginfo':
                     continue;
                 default:
                     contents.append($('<b>', {

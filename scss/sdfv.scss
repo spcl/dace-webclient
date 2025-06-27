@@ -9,10 +9,11 @@ $material-symbols-font-path: "~material-symbols/";
 @import "~material-symbols";
 
 @import "./color_schemes/default_blue";
-@import "./html_canvas_renderer";
 
 .sdfv {
   @import "~bootstrap/scss/bootstrap";
+
+  @import "./html_canvas_renderer";
 }
 
 html.sdfv {
@@ -344,7 +345,7 @@ body.sdfv {
     border-color: rgba(255, 0, 0, 1);
   }
 
-  .sdfg_canvas {
+  .sdfv_canvas {
     --loop-border-color: #3d3d3d;
     --conditional-border-color: #3d3d3d;
     --control-flow-region-border-color: #3d3d3d;

@@ -211,7 +211,7 @@ export class LoopNestLense extends GenericSdfgOverlay {
     public refresh(): void {
         this.loops = [];
 
-        if (!this.renderer.graph)
+        if (!this.renderer.graph || !this.renderer.sdfg)
             return;
 
         this.constructLoopNestGraph(this.renderer.graph, this.renderer.sdfg);

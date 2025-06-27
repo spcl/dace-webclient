@@ -111,7 +111,7 @@ export class LViewRenderer {
         // css stylesheets.
         this.invisibleCssBootstrapElement = $('<div>', {
             style: 'display: none',
-            class: 'sdfg_canvas',
+            class: 'sdfv_canvas',
         })[0];
         this.container.appendChild(this.invisibleCssBootstrapElement);
 

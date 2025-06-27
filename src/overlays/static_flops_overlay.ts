@@ -33,7 +33,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
     }
 
     public clearCachedFlopsValues(): void {
-        if (!this.renderer.graph)
+        if (!this.renderer.graph || !this.renderer.sdfg)
             return;
 
         doForAllDagreGraphElements((_group, _info, obj) => {

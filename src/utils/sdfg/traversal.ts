@@ -5,7 +5,6 @@ import {
     Connector,
     ControlFlowBlock,
     ControlFlowRegion,
-    Edge,
     InterstateEdge,
     SDFGElement,
     SDFGElementType,
@@ -44,6 +43,8 @@ export function traverseSDFGScopes(
 
         for (const nodeid of nodes) {
             const node = graph.node(nodeid.toString());
+            if (!node)
+                continue;
 
             if (processedNodes.has(node.id.toString()))
                 continue;
@@ -279,6 +280,8 @@ export function doForAllDagreGraphElements(
                     return;
                 ng.nodes().forEach(nodeIdString => {
                     const node = ng.node(nodeIdString);
+                    if (!node)
+                        return;
                     const nodeId = Number(nodeIdString);
                     // Selected nodes.
                     func(
@@ -343,18 +346,20 @@ export function doForAllDagreGraphElements(
 
                 // Selected edges
                 ng.edges().forEach(edgeId => {
-                    const edge = ng.edge(edgeId) as Edge;
-                    func(
-                        'edges',
-                        {
-                            sdfg: rSDFG,
-                            graph: ng,
-                            id: edge.id,
-                            cfgId: rCFG.cfg_list_id,
-                            stateId: blockId,
-                        },
-                        edge
-                    );
+                    const edge = ng.edge(edgeId);
+                    if (edge) {
+                        func(
+                            'edges',
+                            {
+                                sdfg: rSDFG,
+                                graph: ng,
+                                id: edge.id,
+                                cfgId: rCFG.cfg_list_id,
+                                stateId: blockId,
+                            },
+                            edge
+                        );
+                    }
                 });
             } else if (block instanceof ControlFlowRegion) {
                 // Control Flow Regions.
@@ -479,6 +484,8 @@ export function doForIntersectedDagreGraphElements(
                 if (block instanceof State) {
                     ng.nodes().forEach(nodeIdString => {
                         const node = ng.node(nodeIdString);
+                        if (!node)
+                            return;
                         const nodeId = Number(nodeIdString);
                         if (node.intersect(x, y, w, h)) {
                             // Selected nodes
@@ -550,8 +557,8 @@ export function doForIntersectedDagreGraphElements(
 
                     // Selected edges
                     ng.edges().forEach(edgeId => {
-                        const edge = ng.edge(edgeId) as Edge;
-                        if (edge.intersect(x, y, w, h)) {
+                        const edge = ng.edge(edgeId);
+                        if (edge?.intersect(x, y, w, h)) {
                             func(
                                 'edges',
                                 {

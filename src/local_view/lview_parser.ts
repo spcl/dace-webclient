@@ -75,9 +75,11 @@ function parseMap(
     if (mapScopeDict) {
         const scopeEdges = new Set<dagre.Edge>();
         for (const id of mapScopeDict) {
+            const node = state.graph.node(id.toString());
+            if (!node)
+                continue;
             const childElem = parseElement(
-                graph, state.graph.node(id.toString()), state, sdfg, symbolMap,
-                renderer
+                graph, node, state, sdfg, symbolMap, renderer
             );
             if (childElem) {
                 innerGraph.addChild(childElem);
@@ -247,20 +249,24 @@ function parseTasklet(
 
     const accessOrder: SymbolicDataAccess[] = [];
     for (const iedgeId of state.graph?.inEdges(el.id.toString()) ?? []) {
-        const iedge = state.graph?.edge(iedgeId) as Edge;
-        const accesses = getMemletAccess(
-            iedge, AccessMode.ReadOnly, graph, state, symbolMap
-        );
-        if (accesses)
-            accessOrder.push(accesses);
+        const iedge = state.graph?.edge(iedgeId);
+        if (iedge) {
+            const accesses = getMemletAccess(
+                iedge, AccessMode.ReadOnly, graph, state, symbolMap
+            );
+            if (accesses)
+                accessOrder.push(accesses);
+        }
     }
     for (const oedgeId of state.graph?.outEdges(el.id.toString()) ?? []) {
-        const oedge = state.graph?.edge(oedgeId) as Edge;
-        const accesses = getMemletAccess(
-            oedge, AccessMode.Write, graph, state, symbolMap
-        );
-        if (accesses)
-            accessOrder.push(accesses);
+        const oedge = state.graph?.edge(oedgeId);
+        if (oedge) {
+            const accesses = getMemletAccess(
+                oedge, AccessMode.Write, graph, state, symbolMap
+            );
+            if (accesses)
+                accessOrder.push(accesses);
+        }
     }
 
     const node = new ComputationNode(
@@ -282,8 +288,10 @@ function parseEdge(
     let src = state.graph.node(el.v) as SDFGNode;
     if (src instanceof ExitNode)
         src = state.graph.node(src.jsonData?.scope_entry ?? '') as SDFGNode;
-    const dst = state.graph.node(el.w) as SDFGNode;
-    const edge = state.graph.edge(el) as Edge;
+    const dst = state.graph.node(el.w);
+    const edge = state.graph.edge(el);
+    if  (!dst || !edge)
+        return undefined;
     const srcAttrs = src.attributes();
     const dstAttrs = dst.attributes();
 

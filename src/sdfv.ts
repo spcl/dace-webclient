@@ -16,7 +16,6 @@ import { OverlayManager } from './overlay_manager';
 import { DagreGraph, SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
 import {
     ConditionalBlock,
-    Edge,
     SDFG,
     SDFGElement,
     State,
@@ -247,27 +246,17 @@ export class WebSDFV extends SDFV {
             return;
 
         const fileReader = new FileReader();
-        fileReader.onload = (e) => {
+        fileReader.onload = async (e) => {
             const resultString = e.target?.result;
-            const container = document.getElementById('contents');
-            const infoField = document.getElementById('task-info-field');
 
-            if (resultString && container && infoField) {
-                // Create the loader element before starting to parse and layout
-                // the graph. The layouting can take several seconds for large
-                // graphs on slow machines. The user sees a loading animation in
-                // the meantime so that the site doesn't appear unresponsive.
-                // The loader element is removed/cleared again at the end of the
-                // layout function in the SDFGRenderer.
-                const loaderDiv = document.createElement('div');
-                loaderDiv.classList.add('loader');
-                infoField.appendChild(loaderDiv);
-
-                // Use setTimeout function to force the browser to reload the
-                // dom with the above loader element.
-                setTimeout(() => {
-                    this.setSDFG(checkCompatLoad(parseSDFG(resultString)));
-                }, 10);
+            if (resultString) {
+                const parsedSDFG = await this.UI.showActivityIndicatorFor(
+                    'Parsing SDFG',
+                    () => {
+                        return checkCompatLoad(parseSDFG(resultString));
+                    }
+                );
+                void this.setSDFG(parsedSDFG);
             }
         };
         fileReader.readAsArrayBuffer(this.currentSDFGFile);
@@ -430,7 +419,7 @@ export class WebSDFV extends SDFV {
                 <span class="material-symbols-outlined"
                       style="font-size: inherit">
                     filter_center_focus
-                </span> SDFG ${this.renderer.sdfg.attributes?.name}
+                </span> SDFG ${this.renderer.sdfg?.attributes?.name}
             `,
             click: () => {
                 this.renderer?.zoomToFitContents();
@@ -476,9 +465,9 @@ export class WebSDFV extends SDFV {
                         if (state?.scope_dict?.[node.id]) {
                             const scNodes = state.scope_dict[node.id];
                             for (const subnodeId of scNodes ?? []) {
-                                nodesToDisplay.push(
-                                    parent.node(subnodeId.toString())
-                                );
+                                const subnd = parent.node(subnodeId.toString());
+                                if (subnd)
+                                    nodesToDisplay.push(subnd);
                             }
                         }
                     }
@@ -541,24 +530,26 @@ export class WebSDFV extends SDFV {
         }, 1);
     }
 
-    public setSDFG(
+    public async setSDFG(
         sdfg: JsonSDFG | null = null,
         userTransform: DOMMatrix | null = null,
         debugDraw: boolean = false,
-        contentsContainerId: string = 'contents'
-    ): void {
+        contentsContainerId: string = 'contents',
+        zoomToFit: boolean = true
+    ): Promise<void> {
         this.renderer?.destroy();
         const container = document.getElementById(contentsContainerId);
+        this.UI.infoClear();
         if (container && sdfg) {
             const renderer = new SDFGRenderer(
-                sdfg, container, this, null, userTransform, debugDraw, null,
+                container, this, null, userTransform, debugDraw, null,
                 this.modeButtons
             );
             this.setRenderer(renderer);
             renderer.on('selection_changed', () => {
                 const selectedElements = renderer.selectedElements;
                 let element;
-                if (selectedElements.length === 0)
+                if (selectedElements.length === 0 && renderer.sdfg)
                     element = new SDFG(renderer.sdfg);
                 else if (selectedElements.length === 1)
                     element = selectedElements[0];
@@ -575,11 +566,12 @@ export class WebSDFV extends SDFV {
                 }
                 SDFVWebUI.getInstance().infoShow();
             });
+
+            await renderer.setSDFG(sdfg, true, zoomToFit);
+            $('#load-instrumentation-report-btn').prop('disabled', false);
+            $('#load-memory-footprint-file-btn').prop('disabled', false);
+            $('#diff-view-btn').prop('disabled', false);
         }
-        this.UI.infoClear();
-        $('#load-instrumentation-report-btn').prop('disabled', false);
-        $('#load-memory-footprint-file-btn').prop('disabled', false);
-        $('#diff-view-btn').prop('disabled', false);
     }
 
 }
@@ -620,10 +612,10 @@ function loadSDFGFromURL(url: string): void {
     request.onload = () => {
         if (request.status === 200) {
             const sdfg = checkCompatLoad(parseSDFG(request.response as string));
-            WebSDFV.getInstance().setSDFG(sdfg, null);
+            void WebSDFV.getInstance().setSDFG(sdfg, null);
         } else {
             showErrorModal('Failed to load SDFG from URL');
-            WebSDFV.getInstance().setSDFG(null);
+            void WebSDFV.getInstance().setSDFG(null);
         }
     };
     request.onerror = () => {
@@ -631,7 +623,7 @@ function loadSDFGFromURL(url: string): void {
             'Failed to load SDFG from URL. Error code: ' +
             request.status.toString()
         );
-        WebSDFV.getInstance().setSDFG(null);
+        void WebSDFV.getInstance().setSDFG(null);
     };
     request.open(
         'GET', url + (url.includes('?') ? '&' : '?') +
@@ -648,10 +640,10 @@ export function graphFindRecursive(
 ): void {
     for (const nodeid of graph.nodes()) {
         const node = graph.node(nodeid);
-        if (predicate(graph, node))
+        if (node && predicate(graph, node))
             results.push(node);
         // Enter states or nested SDFGs recursively
-        if (node.graph) {
+        if (node?.graph) {
             graphFindRecursive(node.graph, predicate, results);
         } else if (node instanceof ConditionalBlock) {
             for (const [_, branch] of node.branches) {
@@ -661,8 +653,8 @@ export function graphFindRecursive(
         }
     }
     for (const edgeid of graph.edges()) {
-        const edge = graph.edge(edgeid) as Edge;
-        if (predicate(graph, edge))
+        const edge = graph.edge(edgeid);
+        if (edge && predicate(graph, edge))
             results.push(edge);
     }
 }
@@ -795,7 +787,7 @@ $(() => {
             const sdfgString =
                 document.currentScript.getAttribute('data-sdfg-json');
             if (sdfgString) {
-                WebSDFV.getInstance().setSDFG(
+                void WebSDFV.getInstance().setSDFG(
                     checkCompatLoad(parseSDFG(sdfgString)), null
                 );
             }
@@ -809,7 +801,7 @@ $(() => {
             if (url)
                 loadSDFGFromURL(url);
             else
-                WebSDFV.getInstance().setSDFG(null);
+                void WebSDFV.getInstance().setSDFG(null);
         }
     }
 });

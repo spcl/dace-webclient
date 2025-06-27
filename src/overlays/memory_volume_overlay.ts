@@ -29,7 +29,7 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
     }
 
     public clearCachedVolumeValues(): void {
-        if (!this.renderer.graph)
+        if (!this.renderer.graph || !this.renderer.sdfg)
             return;
         doForAllDagreGraphElements((_group, info, obj) => {
             if (obj.data) {

@@ -191,27 +191,24 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
             this.errorPopoverContainer.hide();
         });
 
-        // Initialize subclass UI components.
-        this.initUI();
-
-        // Set initial zoom, if not already set.
-        if (this.initialUserTransform === null)
-            this.zoomToFitContents();
+        this.onresize();
     }
 
     public destroy(): void {
         try {
             this.canvasManager.destroy();
-            this.canvas.remove();
+            this.container.empty();
             this.dbgInfoBox?.remove();
         } catch (_ex) {
             // Do nothing
+            console.log('Error while destroying HTMLCanvasRenderer:', _ex);
         }
     }
 
     public showTooltip(
         x: number, y: number, text: string, html: boolean = false
     ): void {
+        /*
         this.hideTooltip();
         if (html) {
             this.tooltipText = $('<span>', {
@@ -248,6 +245,7 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
             'top',
             (((y + containerBcr.y) - (bcr.height / 2)) - 8).toString() + 'px'
         );
+        */
     }
 
     public hideTooltip(): void {
@@ -391,7 +389,7 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
             this.onMinimapClicked(ev);
         });
         this.minimapCanvas.id = 'minimap';
-        this.minimapCanvas.classList.add('sdfg_canvas');
+        this.minimapCanvas.classList.add('sdfv_canvas');
         this.minimapCanvas.style.backgroundColor = 'white';
         this.minimapCtx = this.minimapCanvas.getContext('2d') ?? undefined;
         this.container.append(this.minimapCanvas);
@@ -597,7 +595,9 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
     }
 
     public zoomToFitContents(
-        animate?: boolean, padding?: number, redraw?: boolean
+        animate: boolean = true,
+        padding: number | undefined = undefined,
+        redraw: boolean = true
     ): void {
         const contentsBB = this.getContentsBoundingBox();
         let absPadding = 10;
@@ -608,9 +608,7 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
         contentsBB.w += 2 * absPadding;
         contentsBB.h += 2 * absPadding;
         const bb = new DOMRect(
-            contentsBB.x, contentsBB.y,
-            contentsBB.w + 2 * absPadding,
-            contentsBB.h + 2 * absPadding
+            contentsBB.x, contentsBB.y, contentsBB.w, contentsBB.h
         );
         this.canvasManager.setView(bb, animate);
 
@@ -639,8 +637,10 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
     }
 
     public zoomToFit(
-        elements?: Renderable[], animate?: boolean, padding?: number,
-        redraw?: boolean
+        elements: Renderable[] | undefined = undefined,
+        animate: boolean = true,
+        padding: number | undefined = undefined,
+        redraw: boolean = true
     ): void {
         if (elements) {
             let paddingPercent = 10;

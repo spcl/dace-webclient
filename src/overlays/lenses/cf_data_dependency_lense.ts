@@ -171,7 +171,7 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
     }
 
     public refresh(): void {
-        if (!this.renderer.graph)
+        if (!this.renderer.graph || !this.renderer.sdfg)
             return;
         this.connectorMap.clear();
         this.recursiveSetConnectorsGraph(

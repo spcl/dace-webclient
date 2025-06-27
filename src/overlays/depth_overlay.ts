@@ -33,7 +33,7 @@ export class DepthOverlay extends GenericSdfgOverlay {
     }
 
     public clearCachedDepthValues(): void {
-        if (!this.renderer.graph)
+        if (!this.renderer.graph || !this.renderer.sdfg)
             return;
         doForAllDagreGraphElements((_group, _info, obj) => {
             if (obj.data) {
