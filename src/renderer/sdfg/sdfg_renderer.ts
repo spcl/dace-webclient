@@ -41,7 +41,7 @@ import {
     SDFGElementInfo,
     SimpleRect,
 } from '../../types';
-import { boundingBox, updateEdgeBoundingBox } from '../../utils/bounding_box';
+import { updateEdgeBoundingBox } from '../../utils/bounding_box';
 import { cfgToDotGraph } from '../../utils/sdfg/dotgraph';
 import {
     checkCompatSave,
@@ -73,6 +73,7 @@ import {
 } from '../../utils/sdfv_settings';
 import { intersectRect, showErrorModal } from '../../utils/utils';
 import { HTMLCanvasRenderer } from '../core/html_canvas/html_canvas_renderer';
+import { boundingBox } from '../core/common/renderer_utils';
 
 
 export type RendererUIFeature = (

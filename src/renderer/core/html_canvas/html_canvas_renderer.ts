@@ -10,8 +10,8 @@ import type {
 import { SDFVSettings } from '../../../utils/sdfv_settings';
 import { RendererBase } from '../common/renderer_base';
 import { Renderable } from '../common/renderable';
-import { boundingBox } from '../../../utils/bounding_box';
 import { htmlSanitize } from '../../../utils/sanitization';
+import { boundingBox } from '../common/renderer_utils';
 
 
 // External, non-typescript libraries which are presented as previously loaded

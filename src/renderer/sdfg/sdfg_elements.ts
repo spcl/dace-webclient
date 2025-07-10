@@ -229,10 +229,11 @@ export class SDFGElement extends Renderable {
         ctx: CanvasRenderingContext2D, contentBox?: SimpleRect
     ): void {
         ctx.strokeStyle = this.defaultColorFG;
+        const topleft = this.topleft();
         const centerX = contentBox ?
-            contentBox.x + contentBox.w / 2 : this.x + this.width / 2;
+            contentBox.x + contentBox.w / 2 : topleft.x + this.width / 2;
         const centerY = contentBox ?
-            contentBox.y + contentBox.h / 2 : this.y + this.height / 2;
+            contentBox.y + contentBox.h / 2 : topleft.y + this.height / 2;
         ctx.beginPath();
         ctx.moveTo(centerX, centerY - SDFV.LINEHEIGHT);
         ctx.lineTo(centerX, centerY + SDFV.LINEHEIGHT);
@@ -241,10 +242,18 @@ export class SDFGElement extends Renderable {
         ctx.stroke();
     }
 
+    protected _setDrawStyleProperties(ctx: CanvasRenderingContext2D): void {
+        ctx.lineWidth = 1.0;
+        ctx.globalAlpha = 1.0;
+        ctx.setLineDash([]);
+    }
+
     protected _internalDraw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, options?: ElemDrawingOptions
     ): void {
+        this._setDrawStyleProperties(ctx);
+
         ctx.fillStyle = options?.colorBG ?
             SDFVSettings.get<string>(options.colorBG) : this.defaultColorBG;
 
@@ -269,12 +278,12 @@ export class SDFGElement extends Renderable {
         // If collapsed, draw a "+" sign in the middle and add summary
         // information.
         if (this.COLLAPSIBLE && this.attributes()?.is_collapsed) {
-            if (options?.expandPlus)
+            if (options?.expandPlus !== false)
                 this._drawExpandPlus(ctx);
-            if (options?.summary) {
+            if (options?.summary !== false) {
                 this.drawSummaryInfo(
                     renderer, ctx, mousepos,
-                    options.overrideTooFarForText ?? false
+                    options?.overrideTooFarForText ?? false
                 );
             }
         }
@@ -291,6 +300,7 @@ export class SDFGElement extends Renderable {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousePos?: Point2D
     ): void {
+        this._setDrawStyleProperties(ctx);
         ctx.fillStyle = this.defaultColorBG;
         ctx.strokeStyle = this.strokeStyle(renderer);
         this._drawShape(renderer, ctx, true, false);
@@ -915,6 +925,7 @@ export abstract class Edge extends SDFGElement {
         offset: number = 0, padding: number = 0
     ): void {
         // Rotate the context to point along the path
+        console.log(size);
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
         const rot = Math.atan2(dy, dx);
@@ -1004,6 +1015,8 @@ export abstract class Edge extends SDFGElement {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         skipArrow: boolean = false
     ): void {
+        this._setDrawStyleProperties(ctx);
+
         const oldLineCap = ctx.lineCap;
         ctx.lineCap = 'butt';
         ctx.beginPath();
@@ -1025,6 +1038,7 @@ export abstract class Edge extends SDFGElement {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
+        this._setDrawStyleProperties(ctx);
         ctx.strokeStyle = this.strokeStyle(renderer);
         ctx.fillStyle = this.strokeStyle(renderer);
         this._drawShape(renderer, ctx);
@@ -1034,6 +1048,7 @@ export abstract class Edge extends SDFGElement {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousePos?: Point2D
     ): void {
+        this._setDrawStyleProperties(ctx);
         ctx.strokeStyle = this.strokeStyle(renderer);
         ctx.fillStyle = this.strokeStyle(renderer);
         this._drawShape(renderer, ctx);
@@ -1129,6 +1144,8 @@ export class Memlet extends Edge {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
+        this._setDrawStyleProperties(ctx);
+
         ctx.fillStyle = ctx.strokeStyle = this.strokeStyle(renderer);
 
         let skipArrow = false;
@@ -1254,6 +1271,8 @@ export class InterstateEdge extends Edge {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
+        this._setDrawStyleProperties(ctx);
+
         let style = this.strokeStyle(renderer);
 
         // Interstate edge
@@ -1439,6 +1458,8 @@ export class Connector extends SDFGElement {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, options?: ElemDrawingOptions, edge?: Edge
     ): void {
+        this._setDrawStyleProperties(ctx);
+
         const topleft = this.topleft();
         ctx.beginPath();
         drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
@@ -1622,19 +1643,19 @@ export class AccessNode extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
+        this._setDrawStyleProperties(ctx);
+
         const name = this.attributes()?.data as string | undefined;
         const nodedesc = this.getDesc();
         // Streams have dashed edges
         if (nodedesc?.type === 'Stream')
             ctx.setLineDash([5, 3]);
         else
-            ctx.setLineDash([1, 0]);
+            ctx.setLineDash([]);
 
         // Non-transient (external) data is thicker
-        if (nodedesc?.attributes?.transient === true)
-            ctx.lineWidth = 1.0;
-        else
-            ctx.lineWidth = 3.0;
+        if (nodedesc?.attributes?.transient !== true)
+            ctx.lineWidth = 2.0;
 
         // Views are colored like connectors
         if (nodedesc?.type?.includes('View')) {
@@ -1744,7 +1765,7 @@ export class ScopeNode extends SDFGNode {
         if (this.type.startsWith('Consume'))
             ctx.setLineDash([5, 3]);
         else
-            ctx.setLineDash([1, 0]);
+            ctx.setLineDash([]);
         if (this.attributes()?.is_collapsed) {
             drawHexagon(ctx, this.x, this.y, this.width, this.height, {
                 x: 0,
@@ -1821,7 +1842,8 @@ export class ScopeNode extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, options?: ElemDrawingOptions
     ): void {
-        ctx.lineWidth = 1.0;
+        this._setDrawStyleProperties(ctx);
+
         ctx.strokeStyle = this.strokeStyle(renderer);
         ctx.fillStyle = SDFVSettings.get<string>('nodeBackgroundColor');
         this._drawShape(renderer, ctx, true, true);
@@ -2229,9 +2251,10 @@ export class Tasklet extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
+        this._setDrawStyleProperties(ctx);
+
         ctx.fillStyle = this.defaultColorBG;
         ctx.strokeStyle = this.strokeStyle(renderer);
-        ctx.lineWidth = 1.0;
         this._drawShape(renderer, ctx, true, true);
 
         const ppp = renderer.canvasManager.pointsPerPixel;
@@ -2365,6 +2388,8 @@ export class NestedSDFG extends SDFGNode {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
+        this._setDrawStyleProperties(ctx);
+
         this._drawShape(renderer, ctx, true, true);
 
         if (this.attributes()?.is_collapsed) {
@@ -2544,32 +2569,30 @@ function batchedDrawEdges(
     const arrowEdges: Edge[] = [];
     const labelEdges: Edge[] = [];
     ctx.beginPath();
-    graph.edges().forEach(e => {
+    for (const e of graph.edges()) {
         const edge = graph.edge(e);
         if (!edge || (
             renderer.viewportOnly && viewport && !edge.intersect(
                 viewport.x, viewport.y, viewport.w, viewport.h
             )
         ))
-            return;
+            continue;
 
-        if (!(graph instanceof State)) {
-            if (edge.parentStateId !== undefined) {
-                // WCR edge or dependency edge.
-                if (edge.attributes()?.wcr || !edge.attributes()?.data) {
-                    deferredEdges.push(edge);
-                    return;
-                }
+        if (graph instanceof State && edge.parentStateId !== undefined) {
+            // WCR edge or dependency edge.
+            if (edge.attributes()?.wcr || !edge.attributes()?.data) {
+                deferredEdges.push(edge);
+                continue;
             }
         }
 
         // Colored edge through selection/hovering/highlighting.
         if (edge.selected || edge.hovered || edge.highlighted) {
             deferredEdges.push(edge);
-            return;
+            continue;
         } else if (edge instanceof Memlet && edge.summarized) {
             // Don't draw if Memlet is summarized
-            return;
+            continue;
         }
 
         const lPoint = edge.points[edge.points.length - 1];
@@ -2587,32 +2610,32 @@ function batchedDrawEdges(
             labelEdges.push(edge);
 
         edge.createArrowLine(ctx);
-    });
-    ctx.setLineDash([1, 0]);
+    }
+    ctx.lineWidth = 1.0;
+    ctx.setLineDash([]);
     ctx.fillStyle = ctx.strokeStyle = SDFVSettings.get<string>(color);
     ctx.stroke();
 
     // Only draw Arrowheads when close enough to see them
     const ppp = renderer.canvasManager.pointsPerPixel;
     if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.ARROW_LOD)) {
-        arrowEdges.forEach(e => {
+        for (const e of arrowEdges) {
             e.drawArrow(
                 ctx,
                 e.points[e.points.length - 2],
                 e.points[e.points.length - 1],
                 3
             );
-        });
+        }
     }
 
-    labelEdges.forEach(e => {
+    for (const e of labelEdges) {
         if (e instanceof InterstateEdge)
             e.drawLabel(renderer, ctx);
-    });
+    }
 
-    deferredEdges.forEach(e => {
+    for (const e of deferredEdges)
         e.draw(renderer, ctx, mousepos);
-    });
 
     if (renderer.debugDraw) {
         for (const e of graph.edges()) {
