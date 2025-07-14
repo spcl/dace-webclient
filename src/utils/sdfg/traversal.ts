@@ -251,10 +251,12 @@ export function doForAllDagreGraphElements(
         rGraph: DagreGraph | null, rCFG: JsonSDFGControlFlowRegion,
         rSDFG: JsonSDFG
     ) {
-        rGraph?.nodes().forEach(blockIdString => {
+        if (!rGraph)
+            return;
+        for (const blockIdString of rGraph.nodes()) {
             const block = rGraph.node(blockIdString);
             if (!(block instanceof ControlFlowBlock))
-                return;
+                continue;
             const blockId = Number(blockIdString);
 
             if (block instanceof State) {
@@ -273,15 +275,15 @@ export function doForAllDagreGraphElements(
 
                 const state = block.jsonData;
                 if (state?.attributes?.is_collapsed)
-                    return;
+                    continue;
 
                 const ng = block.graph;
                 if (!ng)
-                    return;
-                ng.nodes().forEach(nodeIdString => {
+                    continue;
+                for (const nodeIdString of ng.nodes()) {
                     const node = ng.node(nodeIdString);
                     if (!node)
-                        return;
+                        continue;
                     const nodeId = Number(nodeIdString);
                     // Selected nodes.
                     func(
@@ -342,10 +344,10 @@ export function doForAllDagreGraphElements(
                             );
                         }
                     );
-                });
+                }
 
                 // Selected edges
-                ng.edges().forEach(edgeId => {
+                for (const edgeId of ng.edges()) {
                     const edge = ng.edge(edgeId);
                     if (edge) {
                         func(
@@ -360,7 +362,7 @@ export function doForAllDagreGraphElements(
                             edge
                         );
                     }
-                });
+                }
             } else if (block instanceof ControlFlowRegion) {
                 // Control Flow Regions.
                 func(
@@ -419,10 +421,10 @@ export function doForAllDagreGraphElements(
                     block
                 );
             }
-        });
+        }
 
         // Selected inter-state edges
-        rGraph?.edges().forEach(isEdgeId => {
+        for (const isEdgeId of rGraph.edges()) {
             const isEdge = rGraph.edge(isEdgeId) as InterstateEdge;
             func(
                 'isedges',
@@ -435,7 +437,7 @@ export function doForAllDagreGraphElements(
                 },
                 isEdge
             );
-        });
+        }
     }
 
     cfg ??= sdfg;
@@ -451,10 +453,10 @@ export function doForIntersectedDagreGraphElements(
     function doRecursive(
         rGraph: DagreGraph, rCFG: JsonSDFGControlFlowRegion, rSDFG: JsonSDFG
     ): void {
-        rGraph.nodes().forEach(blockIdString => {
+        for (const blockIdString of rGraph.nodes()) {
             const block = rGraph.node(blockIdString);
             if (!(block instanceof ControlFlowBlock))
-                return;
+                continue;
 
             const blockId = Number(blockIdString);
             if (block.intersect(x, y, w, h)) {
@@ -475,17 +477,17 @@ export function doForIntersectedDagreGraphElements(
                 func(elemGroup, elemInfo, block);
 
                 if (block.attributes()?.is_collapsed)
-                    return;
+                    continue;
 
                 const ng = block.graph;
                 if (!ng)
-                    return;
+                    continue;
 
                 if (block instanceof State) {
-                    ng.nodes().forEach(nodeIdString => {
+                    for (const nodeIdString of ng.nodes()) {
                         const node = ng.node(nodeIdString);
                         if (!node)
-                            return;
+                            continue;
                         const nodeId = Number(nodeIdString);
                         if (node.intersect(x, y, w, h)) {
                             // Selected nodes
@@ -503,12 +505,12 @@ export function doForIntersectedDagreGraphElements(
 
                             // If nested SDFG, traverse recursively
                             const nData = node.data as {
-                                graph: DagreGraph,
+                                graph?: DagreGraph | null,
                                 node: JsonSDFGNode,
                             };
                             if (nData.node.type ===
                                 SDFGElementType.NestedSDFG.toString() &&
-                                node.attributes()?.sdfg) {
+                                node.attributes()?.sdfg && nData.graph) {
                                 const nsdfg =
                                     node.attributes()?.sdfg as JsonSDFG;
                                 doRecursive(nData.graph, nsdfg, nsdfg);
@@ -553,10 +555,10 @@ export function doForIntersectedDagreGraphElements(
                                 }
                             }
                         );
-                    });
+                    }
 
                     // Selected edges
-                    ng.edges().forEach(edgeId => {
+                    for (const edgeId of ng.edges()) {
                         const edge = ng.edge(edgeId);
                         if (edge?.intersect(x, y, w, h)) {
                             func(
@@ -571,16 +573,16 @@ export function doForIntersectedDagreGraphElements(
                                 edge
                             );
                         }
-                    });
+                    }
                 } else if (block instanceof ControlFlowRegion) {
                     if (block.jsonData)
                         doRecursive(block.graph, block.jsonData, rSDFG);
                 }
             }
-        });
+        }
 
         // Selected inter-state edges
-        rGraph.edges().forEach(isEdgeId => {
+        for (const isEdgeId of rGraph.edges()) {
             const isedge = rGraph.edge(isEdgeId) as InterstateEdge;
             if (isedge.intersect(x, y, w, h)) {
                 func(
@@ -595,7 +597,7 @@ export function doForIntersectedDagreGraphElements(
                     isedge
                 );
             }
-        });
+        }
     }
 
     cfg ??= sdfg;

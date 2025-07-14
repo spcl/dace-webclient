@@ -314,6 +314,7 @@ export class SDFVWebUI implements ISDFVUserInterface {
                         case '_arrays':
                         case 'orig_sdfg':
                         case 'transformation_hist':
+                        case 'debuginfo':
                         case 'position':
                             continue;
                         default:

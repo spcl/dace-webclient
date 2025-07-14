@@ -1454,7 +1454,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 if (this.moveModeBtn)
                     this.moveModeBtn.addClass('selected');
                 this.showInteractionInfo(
-                    'Middle Mouse: Pan view<br>Right Click: Reset position',
+                    'Middle Mouse: Pan view<br/>Right Click: Reset position',
                     true
                 );
                 break;
@@ -1465,8 +1465,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                     this.showInteractionInfo('Middle Mouse: Pan view');
                 } else {
                     this.showInteractionInfo(
-                        'Shift: Add to selection<br>' +
-                        'Ctrl: Remove from selection<br>' +
+                        'Shift: Add to selection<br/>' +
+                        'Ctrl: Remove from selection<br/>' +
                         'Middle Mouse: Pan view',
                         true
                     );
@@ -1476,15 +1476,15 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 if (this.addElementType?.toString() === 'Edge') {
                     if (this.addEdgeStart) {
                         this.showInteractionInfo(
-                            'Left Click: Select second element (to)<br>' +
-                            'Middle Mouse: Pan view<br>' +
+                            'Left Click: Select second element (to)<br/>' +
+                            'Middle Mouse: Pan view<br/>' +
                             'Right Click / Esc: Abort',
                             true
                         );
                     } else {
                         this.showInteractionInfo(
-                            'Left Click: Select first element (from)<br>' +
-                            'Middle Mouse: Pan view<br>' +
+                            'Left Click: Select first element (from)<br/>' +
+                            'Middle Mouse: Pan view<br/>' +
                             'Right Click / Esc: Abort',
                             true
                         );
@@ -1493,8 +1493,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                     this.showInteractionInfo(
                         'Left Click: Place element<br>' +
                         'Ctrl + Left Click: Place and stay in Add ' +
-                        'Mode<br>' +
-                        'Middle Mouse: Pan view<br>' +
+                        'Mode<br/>' +
+                        'Middle Mouse: Pan view<br/>' +
                         'Right Click / Esc: Abort',
                         true
                     );

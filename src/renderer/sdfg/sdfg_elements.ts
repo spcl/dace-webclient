@@ -327,10 +327,17 @@ export class SDFGElement extends Renderable {
         clampToViewport: boolean = true
     ): void {
         let clamped: SimpleRect;
-        if (clampToViewport)
+        if (clampToViewport) {
             clamped = this.getViewClampedBoundingBox(renderer);
-        else
-            clamped = { x: this.x, y: this.y, w: this.width, h: this.height };
+        } else {
+            const topleft = this.topleft();
+            clamped = {
+                x: topleft.x,
+                y: topleft.y,
+                w: this.width,
+                h: this.height,
+            };
+        }
         if (fill)
             ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
         if (stroke)
@@ -1038,8 +1045,6 @@ export abstract class Edge extends SDFGElement {
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         skipArrow: boolean = false
     ): void {
-        this._setDrawStyleProperties(ctx);
-
         const oldLineCap = ctx.lineCap;
         ctx.lineCap = 'butt';
         ctx.beginPath();
@@ -1053,7 +1058,7 @@ export abstract class Edge extends SDFGElement {
         const ppp = renderer.canvasManager.pointsPerPixel;
         if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.ARROW_LOD)) {
             this.drawArrow(ctx, this.points[this.points.length - 2],
-                this.points[this.points.length - 1], 3, 0, 4);
+                this.points[this.points.length - 1], 3);
         }
     }
 
@@ -2420,6 +2425,9 @@ export class NestedSDFG extends SDFGNode {
         mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
         this._setDrawStyleProperties(ctx);
+
+        ctx.fillStyle = this.defaultColorBG;
+        ctx.strokeStyle = this.strokeStyle(renderer);
 
         this._drawShape(renderer, ctx, true, true);
 

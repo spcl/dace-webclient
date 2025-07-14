@@ -172,8 +172,8 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
         this.interactionInfoBox = $('<div>', {
             class: 'html-canvas-renderer-interaction-info-container',
         }).appendTo(this.container);
-        this.interactionInfoText = $('<span>', {
-            text: '',
+        this.interactionInfoText = $('<div>', {
+            html: '',
         }).appendTo(this.interactionInfoBox);
 
         // Initialze the error popover container.
@@ -255,7 +255,7 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
 
     public showInteractionInfo(text: string, asHtml: boolean = false): void {
         if (asHtml)
-            this.interactionInfoText.html(htmlSanitize`${text}`);
+            this.interactionInfoText.html(text);
         else
             this.interactionInfoText.text(text);
         this.interactionInfoBox.show();
