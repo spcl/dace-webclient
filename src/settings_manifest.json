@@ -273,6 +273,21 @@
                         "label": "Text for nodes with errors",
                         "type": "color",
                         "default": "#ffffff"
+                    },
+                    "diffAddedColor": {
+                        "label": "Added elements in a diff",
+                        "type": "color",
+                        "default": "#5dba4c80"
+                    },
+                    "diffChangedColor": {
+                        "label": "Changed elements in a diff",
+                        "type": "color",
+                        "default": "#ffcc5480"
+                    },
+                    "diffRemovedColor": {
+                        "label": "Removed elements in a diff",
+                        "type": "color",
+                        "default": "#ff6d4580"
                     }
                 }
             }

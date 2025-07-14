@@ -289,7 +289,10 @@ export class WebSDFV extends SDFV {
         fileReader.onload = (e) => {
             const sdfgB = this.renderer?.sdfg;
             if (e.target?.result && sdfgB) {
-                const sdfgA = checkCompatLoad(parseSDFG(e.target.result));
+                const sdfgA = checkCompatLoad(parseSDFG(
+                    e.target.result,
+                    !SDFVSettings.get<boolean>('loadGraphsCollapsed')
+                ));
                 this.enterDiffView(sdfgA, sdfgB);
             }
         };

@@ -12,6 +12,7 @@ import {
 import { DiffMap } from '../sdfg_diff_viewer';
 import { OverlayType } from '../types';
 import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
+import { SDFVSettings } from '../utils/sdfv_settings';
 
 export class DiffOverlay extends GenericSdfgOverlay {
 
@@ -35,17 +36,20 @@ export class DiffOverlay extends GenericSdfgOverlay {
         elem: SDFGElement, ctx: CanvasRenderingContext2D
     ): void {
         if (this.diffMap?.addedKeys.has(elem.guid)) {
-            elem.shade(this.renderer, ctx, this.renderer.getCssProperty(
-                '--color-diff-added'
-            ), 1);
+            elem.shade(
+                this.renderer, ctx,
+                SDFVSettings.get<string>('diffAddedColor'), 1
+            );
         } else if (this.diffMap?.removedKeys.has(elem.guid)) {
-            elem.shade(this.renderer, ctx, this.renderer.getCssProperty(
-                '--color-diff-removed'
-            ), 1);
+            elem.shade(
+                this.renderer, ctx,
+                SDFVSettings.get<string>('diffRemovedColor'), 1
+            );
         } else if (this.diffMap?.changedKeys.has(elem.guid)) {
-            elem.shade(this.renderer, ctx, this.renderer.getCssProperty(
-                '--color-diff-changed'
-            ), 1);
+            elem.shade(
+                this.renderer, ctx,
+                SDFVSettings.get<string>('diffChangedColor'), 1
+            );
         }
     }
 

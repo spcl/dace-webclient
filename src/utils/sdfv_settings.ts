@@ -20,9 +20,8 @@ export type SDFVSettingKey = keyof AllFields<
     ]['settings']
 >;
 export type SDFVColorThemeColor = keyof (
-    typeof settingsManifest.viewerSettings.categories[
-        'customizeColorTheme'
-    ]['settings']
+    typeof
+        settingsManifest.viewerSettings.categories.customizeColorTheme.settings
 );
 
 interface SDFVSetting {

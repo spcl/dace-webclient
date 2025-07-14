@@ -12,8 +12,8 @@ import { JsonSDFG } from './types';
 import { traverseSDFGScopes } from './utils/sdfg/traversal';
 import {
     ConditionalBlock,
+    ControlFlowBlock,
     ControlFlowRegion,
-    Edge,
     NestedSDFG,
     SDFG,
     SDFGElement,
@@ -28,7 +28,7 @@ interface localGraphDiffStackEntry {
     guid: string | null;
     htmlLabel: string;
     changeStatus: ChangeState;
-    zoomToNodes: () => SDFGNode[];
+    zoomToNodes: () => (SDFGNode | ControlFlowBlock)[];
     indents: number;
     children: (localGraphDiffStackEntry | null)[];
 }
@@ -494,7 +494,8 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         ];
         // Add elements to tree view in sidebar
         traverseSDFGScopes(graph, (node, parent) => {
-            if (!(node instanceof SDFGNode))
+            if (!(node instanceof SDFGNode) &&
+                !(node instanceof ControlFlowBlock))
                 return false;
 
             // Skip exit nodes when scopes are known

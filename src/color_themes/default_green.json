@@ -12,5 +12,8 @@
     "loopColor": "#fafafa",
     "interstateEdgeColor": "#86d98a",
     "errorNodeBackgroundColor": "#ff1010",
-    "errorNodeForegroundColor": "#ffffff"
+    "errorNodeForegroundColor": "#ffffff",
+    "diffAddedColor": "#5dba4c80",
+    "diffChangedColor": "#ffcc5480",
+    "diffRemovedColor": "#ff6d4580"
 }
