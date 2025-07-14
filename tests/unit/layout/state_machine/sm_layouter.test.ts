@@ -1,12 +1,13 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DiGraph } from '../../../../src/layouter/graphlib/di_graph';
+import { DiGraph } from '../../../../src/layout/graphlib/di_graph';
 import {
     BACKEDGE_SPACING,
     SMLayouter,
     SMLayouterEdge,
     SMLayouterNode,
-} from '../../../../src/layouter/state_machine/sm_layouter';
+} from '../../../../src/layout/state_machine/sm_layouter';
+
 
 function constructNode(
     graph: DiGraph<SMLayouterNode, SMLayouterEdge>, id: string, height?: number,

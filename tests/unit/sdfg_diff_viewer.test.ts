@@ -1,14 +1,17 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import path from 'path';
 import fs from 'fs';
 import {
     checkCompatLoad,
-    parse_sdfg,
+    parseSDFG,
 } from '../../src/utils/sdfg/json_serializer';
-import { JsonSDFG, SDFG } from '../../src';
+import { setCollapseStateRecursive } from '../../src/utils/sdfg/sdfg_utils';
+import { JsonSDFG } from '../../src/types';
+import { SDFG } from '../../src/renderer/sdfg/sdfg_elements';
 import { SDFGDiffViewer } from '../../src/sdfg_diff_viewer';
-import { layoutSDFG } from '../../src/layouter/layout';
+import { layoutSDFG } from '../../src/layout/layout';
+
 
 function _loadSDFG(name: string): JsonSDFG {
     const file = path.join(
@@ -17,12 +20,15 @@ function _loadSDFG(name: string): JsonSDFG {
     const contents = fs.readFileSync(file, {
         encoding: 'utf-8',
     });
-    return checkCompatLoad(parse_sdfg(contents));
+    return checkCompatLoad(parseSDFG(contents));
 }
 
-async function testDiffTiledGemm(): Promise<void> {
+function testDiffTiledGemm(): void {
     const sdfgAjson = _loadSDFG('gemm_expanded_pure');
     const sdfgBjson = _loadSDFG('gemm_expanded_pure_tiled');
+
+    setCollapseStateRecursive(sdfgAjson, false);
+    setCollapseStateRecursive(sdfgBjson, false);
 
     const graphA = layoutSDFG(sdfgAjson);
     const graphB = layoutSDFG(sdfgBjson);
@@ -32,8 +38,8 @@ async function testDiffTiledGemm(): Promise<void> {
     const sdfgB = new SDFG(sdfgBjson);
     sdfgB.sdfgDagreGraph = graphB;
 
-    const diff = await SDFGDiffViewer.diff(sdfgA, sdfgB);
-    const diffInverse = await SDFGDiffViewer.diff(sdfgB, sdfgA);
+    const diff = SDFGDiffViewer.diff(sdfgA, sdfgB);
+    const diffInverse = SDFGDiffViewer.diff(sdfgB, sdfgA);
 
     const keysAddedToB = [
         'e562bb57-462f-445d-8ed8-bf9969c757fa',

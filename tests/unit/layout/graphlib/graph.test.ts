@@ -1,6 +1,6 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { Graph } from '../../../../src/layouter/graphlib/graph';
+import { Graph } from '../../../../src/layout/graphlib/graph';
 
 function testInsertNode(): void {
     const graph = new Graph();
@@ -375,9 +375,9 @@ function testSubgraph(): void {
     expect(subgraph1.hasEdge(testNodeId1, testNodeId3)).toBeTruthy();
     expect(subgraph1.hasEdge(testNodeId3, testNodeId1)).toBeTruthy();
 
-    const subgraph2 = graph.subgraph(new Set([
-        testNodeId1, testNodeId3, testNodeId4
-    ]));
+    const subgraph2 = graph.subgraph(new Set(
+        [testNodeId1, testNodeId3, testNodeId4]
+    ));
 
     expect(subgraph2.numberOfEdges()).toBe(2);
     expect(subgraph2.numberOfNodes()).toBe(3);

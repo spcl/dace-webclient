@@ -253,7 +253,10 @@ export class WebSDFV extends SDFV {
                 const parsedSDFG = await this.UI.showActivityIndicatorFor(
                     'Parsing SDFG',
                     () => {
-                        return checkCompatLoad(parseSDFG(resultString));
+                        return checkCompatLoad(parseSDFG(
+                            resultString,
+                            !SDFVSettings.get<boolean>('loadGraphsCollapsed')
+                        ));
                     }
                 );
                 void this.setSDFG(parsedSDFG);

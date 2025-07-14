@@ -1,6 +1,7 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { DiGraph } from '../../../../src/layouter/graphlib/di_graph';
+import { DiGraph } from '../../../../src/layout/graphlib/di_graph';
+
 
 function testAddEdges(): void {
     const graph = new DiGraph();
@@ -135,7 +136,6 @@ function testAddEdges(): void {
     expect(oEdges4).toContainEqual([[testNodeId4, testNodeId1], null]);
 
     expect(graph.outDegree(testNodeId5)).toBe(0);
-
 }
 
 function testCopy(): void {
@@ -245,9 +245,9 @@ function testSubgraph(): void {
     expect(subgraph1.hasEdge(testNodeId1, testNodeId3)).toBeTruthy();
     expect(subgraph1.hasEdge(testNodeId3, testNodeId1)).toBeFalsy();
 
-    const subgraph2 = graph.subgraph(new Set([
-        testNodeId1, testNodeId3, testNodeId4
-    ]));
+    const subgraph2 = graph.subgraph(new Set(
+        [testNodeId1, testNodeId3, testNodeId4]
+    ));
 
     expect(subgraph2.numberOfEdges()).toBe(2);
     expect(subgraph2.numberOfNodes()).toBe(3);

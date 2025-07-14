@@ -31,6 +31,11 @@
                         "type": "boolean",
                         "default": true
                     },
+                    "loadGraphsCollapsed": {
+                        "label": "Start off newly loaded programs in a collapsed state",
+                        "type": "boolean",
+                        "default": false
+                    },
                     "toolbar": {
                         "label": "Show toolbar",
                         "type": "boolean",
@@ -209,15 +214,20 @@
                         "type": "color",
                         "default": "#ffffff"
                     },
+                    "nodeBorderColor": {
+                        "label": "Default node border",
+                        "type": "color",
+                        "default": "#333333"
+                    },
                     "stateBackgroundColor": {
                         "label": "State background",
                         "type": "color",
                         "default": "#deebf7"
                     },
-                    "stateForegroundColor": {
-                        "label": "State foreground",
+                    "stateBorderColor": {
+                        "label": "State border",
                         "type": "color",
-                        "default": "#000000"
+                        "default": "#deebf7"
                     },
                     "breakBlockColor": {
                         "label": "Break block",

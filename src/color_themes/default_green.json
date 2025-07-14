@@ -1,8 +1,9 @@
 {
     "defaultTextColor": "#000000",
     "nodeBackgroundColor": "#ffffff",
+    "nodeBorderColor": "#333333",
     "stateBackgroundColor": "#e1f7de",
-    "stateForegroundColor": "#000000",
+    "stateBorderColor": "#e1f7de",
     "breakBlockColor": "#ffc79a",
     "continueBlockColor": "#94c6ff",
     "returnBlockColor": "#ff7d7d",

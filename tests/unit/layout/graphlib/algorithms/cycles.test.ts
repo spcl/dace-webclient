@@ -1,10 +1,10 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
     allBackedges,
     simpleCycles,
-} from '../../../../../src/layouter/graphlib/algorithms/cycles';
-import { DiGraph } from '../../../../../src/layouter/graphlib/di_graph';
+} from '../../../../../src/layout/graphlib/algorithms/cycles';
+import { DiGraph } from '../../../../../src/layout/graphlib/di_graph';
 
 function testFindSimpleCycle(): void {
     const g = new DiGraph();
@@ -93,8 +93,8 @@ function testSelfLoopsTightNestedLoop(): void {
     const g = new DiGraph();
 
     // Construct graph.
-    //   0   
-    //   ↓   
+    //   0
+    //   ↓
     // ┌→1=-┐
     // | ↓  |
     // └-2= |
@@ -124,23 +124,23 @@ function testSelfLoopsTightNestedLoop(): void {
         setifiedCycles.add([new Set(cycle[0]), new Set(cycle[1])]);
     expect(setifiedCycles).toContainEqual([
         new Set(['1']),
-        new Set([['1', '1']])
+        new Set([['1', '1']]),
     ]);
     expect(setifiedCycles).toContainEqual([
         new Set(['2']),
-        new Set([['2', '2']])
+        new Set([['2', '2']]),
     ]);
     expect(setifiedCycles).toContainEqual([
         new Set(['3']),
-        new Set([['3', '3']])
+        new Set([['3', '3']]),
     ]);
     expect(setifiedCycles).toContainEqual([
         new Set(['1', '2']),
-        new Set([['1', '2'], ['2', '1']])
+        new Set([['1', '2'], ['2', '1']]),
     ]);
     expect(setifiedCycles).toContainEqual([
         new Set(['3', '2']),
-        new Set([['3', '2'], ['2', '3']])
+        new Set([['3', '2'], ['2', '3']]),
     ]);
 
     const [backedges, eclipsedBackedges] = allBackedges(g, '1', false);
@@ -192,15 +192,15 @@ function testFindNestedCycles(): void {
         setifiedCycles.add([new Set(cycle[0]), new Set(cycle[1])]);
     expect(setifiedCycles).toContainEqual([
         new Set(['4']),
-        new Set([['4', '4']])
+        new Set([['4', '4']]),
     ]);
     expect(setifiedCycles).toContainEqual([
         new Set(['4', '3', '5', '8']),
-        new Set([['3', '4'], ['4', '5'], ['5', '8'], ['8', '3']])
+        new Set([['3', '4'], ['4', '5'], ['5', '8'], ['8', '3']]),
     ]);
     expect(setifiedCycles).toContainEqual([
         new Set(['4', '3', '5', '6', '2']),
-        new Set([['2', '3'], ['3', '4'], ['4', '5'], ['5', '6'], ['6', '2']])
+        new Set([['2', '3'], ['3', '4'], ['4', '5'], ['5', '6'], ['6', '2']]),
     ]);
 
     const [backedges, eclipsedBackedges] = allBackedges(g, undefined, true);
@@ -298,18 +298,22 @@ function testFindEclipsedBackedgesDistinctLengths(): void {
         setifiedCycles.add([new Set(cycle[0]), new Set(cycle[1])]);
     expect(setifiedCycles).toContainEqual([
         new Set(['4']),
-        new Set([['4', '4']])
+        new Set([['4', '4']]),
     ]);
     expect(setifiedCycles).toContainEqual([
         new Set(['4', '3', '5', '2']),
-        new Set([['2', '3'], ['3', '4'], ['4', '5'], ['5', '2']])
+        new Set([['2', '3'], ['3', '4'], ['4', '5'], ['5', '2']]),
     ]);
     expect(setifiedCycles).toContainEqual([
         new Set(['4', '3', '5', '6', '2', '7']),
         new Set([
-            ['2', '3'], ['3', '4'], ['4', '5'], ['5', '6'], ['6', '7'],
-            ['7', '2']
-        ])
+            ['2', '3'],
+            ['3', '4'],
+            ['4', '5'],
+            ['5', '6'],
+            ['6', '7'],
+            ['7', '2'],
+        ]),
     ]);
 
     const [backedgesSt, eclipsedBackedgesSt] = allBackedges(g, undefined, true);
@@ -365,17 +369,17 @@ function testFindEclipsedBackedgesSimilarLengths(): void {
         setifiedCycles.add([new Set(cycle[0]), new Set(cycle[1])]);
     expect(setifiedCycles).toContainEqual([
         new Set(['4']),
-        new Set([['4', '4']])
+        new Set([['4', '4']]),
     ]);
     expect(setifiedCycles).toContainEqual([
         new Set(['4', '3', '5', '2']),
-        new Set([['2', '3'], ['3', '4'], ['4', '5'], ['5', '2']])
+        new Set([['2', '3'], ['3', '4'], ['4', '5'], ['5', '2']]),
     ]);
     expect(setifiedCycles).toContainEqual([
         new Set(['4', '3', '5', '6', '2']),
-        new Set([
-            ['2', '3'], ['3', '4'], ['4', '5'], ['5', '6'], ['6', '2']
-        ])
+        new Set(
+            [['2', '3'], ['3', '4'], ['4', '5'], ['5', '6'], ['6', '2']]
+        ),
     ]);
 
     const [backedgesSt, eclipsedBackedgesSt] = allBackedges(g, undefined, true);

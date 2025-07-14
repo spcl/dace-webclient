@@ -1,22 +1,24 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import path from 'path';
 import fs from 'fs';
 import {
     checkCompatLoad,
-    parse_sdfg,
+    parseSDFG,
+    stringifySDFG,
 } from '../../../../src/utils/sdfg/json_serializer';
-import { checkCompatSave, JsonSDFG, stringify_sdfg } from '../../../../src';
+import { checkCompatSave, JsonSDFG } from '../../../../src';
+
 
 function _checkDidLoadGemmExpandedPureCorrectly(sdfg: JsonSDFG): void {
     expect(sdfg.label).toBe('');
-    expect(sdfg.attributes.name).toBe('gemm');
-    expect(sdfg.attributes.arg_names).toContain('A');
-    expect(sdfg.attributes.arg_names).toContain('B');
-    expect(sdfg.attributes.arg_names).toContain('C');
-    expect(sdfg.attributes.symbols).toHaveProperty('K');
-    expect(sdfg.attributes.symbols).toHaveProperty('M');
-    expect(sdfg.attributes.symbols).toHaveProperty('N');
+    expect(sdfg.attributes?.name).toBe('gemm');
+    expect(sdfg.attributes?.arg_names).toContain('A');
+    expect(sdfg.attributes?.arg_names).toContain('B');
+    expect(sdfg.attributes?.arg_names).toContain('C');
+    expect(sdfg.attributes?.symbols).toHaveProperty('K');
+    expect(sdfg.attributes?.symbols).toHaveProperty('M');
+    expect(sdfg.attributes?.symbols).toHaveProperty('N');
 }
 
 function testReadSDFG(): void {
@@ -26,7 +28,7 @@ function testReadSDFG(): void {
     const contents = fs.readFileSync(file, {
         encoding: 'utf-8',
     });
-    const sdfg = checkCompatLoad(parse_sdfg(contents));
+    const sdfg = checkCompatLoad(parseSDFG(contents));
 
     _checkDidLoadGemmExpandedPureCorrectly(sdfg);
 }
@@ -39,13 +41,13 @@ function _loadPreDaCe_0_16_Gemm(): JsonSDFG {
     const contents = fs.readFileSync(file, {
         encoding: 'utf-8',
     });
-    return checkCompatLoad(parse_sdfg(contents));
+    return checkCompatLoad(parseSDFG(contents));
 }
 
 function testReadSDFGPreDaCe_0_16(): void {
     const sdfg = _loadPreDaCe_0_16_Gemm();
 
-    expect((<any>sdfg).dace_version).toBe('0.15.0');
+    expect(sdfg.dace_version).toBe('0.15.0');
     expect(sdfg).toHaveProperty('start_block');
     expect(sdfg.start_block).toBe(0);
 
@@ -55,12 +57,12 @@ function testReadSDFGPreDaCe_0_16(): void {
 function testSaveSDFGPreDaCe_0_16(): void {
     const sdfg = checkCompatSave(_loadPreDaCe_0_16_Gemm());
 
-    expect((<any>sdfg).dace_version).toBe('0.15.0');
+    expect(sdfg.dace_version).toBe('0.15.0');
     expect(sdfg).toHaveProperty('start_state');
     expect(sdfg).not.toHaveProperty('start_block');
-    expect((<any>sdfg).start_state).toBe(0);
+    expect(sdfg.start_state).toBe(0);
 
-    const stringified = stringify_sdfg(sdfg);
+    const stringified = stringifySDFG(sdfg);
 
     expect(stringified).toContain('start_state');
     expect(stringified).not.toContain('start_block');

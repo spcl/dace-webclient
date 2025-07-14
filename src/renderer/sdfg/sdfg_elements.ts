@@ -172,8 +172,14 @@ export class SDFGElement extends Renderable {
         return SDFVSettings.get<string>('defaultTextColor');
     }
 
-    protected get defaultColorFG(): string {
-        return SDFVSettings.get<string>('stateForegroundColor');
+    protected get defaultColorBorder(): string {
+        return SDFVSettings.get<string>('stateBorderColor');
+    }
+
+    public strokeStyle(renderer?: SDFGRenderer): string {
+        if (!renderer || !(this.hovered || this.selected || this.highlighted))
+            return this.defaultColorBorder;
+        return super.strokeStyle(renderer);
     }
 
     public get jsonData(): JsonSDFGElement | undefined {
@@ -228,7 +234,7 @@ export class SDFGElement extends Renderable {
     protected _drawExpandPlus(
         ctx: CanvasRenderingContext2D, contentBox?: SimpleRect
     ): void {
-        ctx.strokeStyle = this.defaultColorFG;
+        ctx.strokeStyle = this.defaultColorText;
         const topleft = this.topleft();
         const centerX = contentBox ?
             contentBox.x + contentBox.w / 2 : topleft.x + this.width / 2;
@@ -263,7 +269,7 @@ export class SDFGElement extends Renderable {
         let stroke = false;
         if (!renderer.adaptiveHiding ||
             (ppp && ppp < SDFVSettings.get<number>('nodeLOD')))
-            stroke = this.selected || this.highlighted || this.hovered;
+            stroke = true;
 
         this._drawShape(renderer, ctx, true, stroke);
 
@@ -306,11 +312,25 @@ export class SDFGElement extends Renderable {
         this._drawShape(renderer, ctx, true, false);
     }
 
+    public minimapDraw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
+    ): void {
+        this._setDrawStyleProperties(ctx);
+        ctx.fillStyle = this.defaultColorBG;
+        ctx.strokeStyle = this.strokeStyle(renderer);
+        this._drawShape(renderer, ctx, true, false, false);
+    }
+
     protected _drawShape(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        fill: boolean = true, stroke: boolean = true
+        fill: boolean = true, stroke: boolean = true,
+        clampToViewport: boolean = true
     ): void {
-        const clamped = this.getViewClampedBoundingBox(renderer);
+        let clamped: SimpleRect;
+        if (clampToViewport)
+            clamped = this.getViewClampedBoundingBox(renderer);
+        else
+            clamped = { x: this.x, y: this.y, w: this.width, h: this.height };
         if (fill)
             ctx.fillRect(clamped.x, clamped.y, clamped.w, clamped.h);
         if (stroke)
@@ -711,7 +731,7 @@ export class LoopRegion extends ControlFlowRegion {
         let topSpacing = options?.topMargin ?? SDFV.LABEL_MARGIN_V;
         let remainingHeight = this.height;
         ctx.fillStyle = this.defaultColorText;
-        ctx.strokeStyle = this.defaultColorFG;
+        ctx.strokeStyle = this.defaultColorText;
 
         // Draw the init statement if there is one.
         const initStatement =
@@ -863,6 +883,10 @@ export class SDFGNode extends SDFGElement {
         return SDFVSettings.get<string>('nodeBackgroundColor');
     }
 
+    protected get defaultColorBorder(): string {
+        return SDFVSettings.get<string>('nodeBorderColor');
+    }
+
     protected _drawLabel(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, colorOverrideText?: SDFVColorThemeColor,
@@ -925,7 +949,6 @@ export abstract class Edge extends SDFGElement {
         offset: number = 0, padding: number = 0
     ): void {
         // Rotate the context to point along the path
-        console.log(size);
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
         const rot = Math.atan2(dy, dx);
@@ -1047,6 +1070,15 @@ export abstract class Edge extends SDFGElement {
     public simpleDraw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousePos?: Point2D
+    ): void {
+        this._setDrawStyleProperties(ctx);
+        ctx.strokeStyle = this.strokeStyle(renderer);
+        ctx.fillStyle = this.strokeStyle(renderer);
+        this._drawShape(renderer, ctx);
+    }
+
+    public minimapDraw(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
     ): void {
         this._setDrawStyleProperties(ctx);
         ctx.strokeStyle = this.strokeStyle(renderer);
@@ -1454,6 +1486,10 @@ export class Connector extends SDFGElement {
         return this._guid;
     }
 
+    public get defaultColorBorder(): string {
+        return SDFVSettings.get<string>('nodeBorderColor');
+    }
+
     protected _internalDraw(
         renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, options?: ElemDrawingOptions, edge?: Edge
@@ -1461,9 +1497,7 @@ export class Connector extends SDFGElement {
         this._setDrawStyleProperties(ctx);
 
         const topleft = this.topleft();
-        ctx.beginPath();
         drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
-        ctx.closePath();
         ctx.strokeStyle = this.strokeStyle(renderer);
         let fillColor;
 
@@ -1520,11 +1554,8 @@ export class Connector extends SDFGElement {
             ctx.fillStyle = fillColor;
 
         // PDFs do not support stroke and fill on the same object
-        if ('pdf' in ctx && ctx.pdf) {
-            ctx.beginPath();
+        if ('pdf' in ctx && ctx.pdf)
             drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
-            ctx.closePath();
-        }
         ctx.fill();
 
         if (this.strokeStyle(renderer) !== SDFVSettings.get<string>(

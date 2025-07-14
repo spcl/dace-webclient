@@ -82,7 +82,7 @@ export abstract class RendererBase extends EventEmitter {
     // - Saving / exporting: -
     // -----------------------
 
-    protected save(filename: string, contents?: string): void {
+    public save(filename: string, contents?: string): void {
         if (!contents)
             return;
         const link = document.createElement('a');

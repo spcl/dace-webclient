@@ -74,14 +74,8 @@ import {
 import { intersectRect, showErrorModal } from '../../utils/utils';
 import { HTMLCanvasRenderer } from '../core/html_canvas/html_canvas_renderer';
 import { boundingBox } from '../core/common/renderer_utils';
+import { RendererUIFeature } from './sdfg_renderer_toolbar';
 
-
-export type RendererUIFeature = (
-    'menu' | 'settings' | 'overlays_menu' | 'zoom_to_fit_all' |
-    'zoom_to_fit_width' | 'collapse' | 'expand' | 'add_mode' | 'pan_mode' |
-    'move_mode' | 'box_select_mode' | 'cutout_selection' | 'local_view' |
-    'minimap' | 'zoom_in_out'
-);
 
 type MouseModeT = 'pan' | 'move' | 'select' | 'add';
 
@@ -870,10 +864,10 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     protected _drawMinimapContents(): void {
-        for (const nd of this.graph?.nodes() ?? []) {
-            const node = this.graph!.node(nd);
-            node?.simpleDraw(this, this.minimapCtx!, this.mousePos);
-        }
+        for (const nd of this.graph?.nodes() ?? [])
+            this.graph!.node(nd)?.minimapDraw(this, this.minimapCtx!);
+        for (const e of this.graph?.edges() ?? [])
+            this.graph!.edge(e)?.minimapDraw(this, this.minimapCtx!);
     }
 
     protected internalDraw(dt?: number, ctx?: CanvasRenderingContext2D): void {
@@ -1514,7 +1508,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         }
     }
 
-    private getSDFGName(): string {
+    public getSDFGName(): string {
         return (this.sdfg?.attributes && 'name' in this.sdfg.attributes) ?
             this.sdfg.attributes.name as string : 'program';
     }
