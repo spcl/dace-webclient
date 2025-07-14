@@ -111,7 +111,6 @@ function drawSummarySymbol(
     ctx.lineTo(middleOfLine + 0.5, dotHeight);
     ctx.moveTo(middleOfLine + 4, dotHeight);
     ctx.lineTo(middleOfLine + 5, dotHeight);
-    ctx.closePath();
     ctx.stroke();
 
     // Arrow heads
@@ -120,7 +119,6 @@ function drawSummarySymbol(
     ctx.lineTo(lArrowX - 2, arrowEndY);
     ctx.lineTo(lArrowX + 2, arrowEndY);
     ctx.lineTo(lArrowX, arrowEndY + 2);
-    ctx.closePath();
     ctx.fill();
 
     ctx.beginPath();
@@ -128,7 +126,6 @@ function drawSummarySymbol(
     ctx.lineTo(rArrowX - 2, arrowEndY);
     ctx.lineTo(rArrowX + 2, arrowEndY);
     ctx.lineTo(rArrowX, arrowEndY + 2);
-    ctx.closePath();
     ctx.fill();
 }
 
@@ -1151,6 +1148,10 @@ export class Memlet extends Edge {
 
     private _label = '';
 
+    protected get defaultColorBorder(): string {
+        return SDFVSettings.get<string>('nodeBorderColor');
+    }
+
     public createArrowLine(ctx: CanvasRenderingContext2D): void {
         // Draw memlet edges with quadratic curves through the arrow points.
         ctx.moveTo(this.points[0].x, this.points[0].y);
@@ -1192,7 +1193,7 @@ export class Memlet extends Edge {
             if (attr.wcr)
                 ctx.setLineDash([3, 2]);
             else
-                ctx.setLineDash([1, 0]);
+                ctx.setLineDash([]);
         } else {
             // Empty memlet, i.e., a dependency edge. Do not draw the arrowhead.
             skipArrow = true;
@@ -1200,7 +1201,7 @@ export class Memlet extends Edge {
 
         this._drawShape(renderer, ctx, skipArrow);
 
-        ctx.setLineDash([1, 0]);
+        ctx.setLineDash([]);
 
         if (this.points.length >= 2 && this.selected &&
             renderer.mouseMode === 'move') {
@@ -1323,7 +1324,7 @@ export class InterstateEdge extends Edge {
 
         this._drawShape(renderer, ctx, !drawArrow);
 
-        ctx.setLineDash([1, 0]);
+        ctx.setLineDash([]);
 
         if (this.points.length < 2)
             return;
@@ -2336,7 +2337,6 @@ export class Reduce extends SDFGNode {
             ctx.lineTo(topleft.x + this.width / 2, topleft.y + this.height);
             ctx.lineTo(topleft.x + this.width, topleft.y);
             ctx.lineTo(topleft.x, topleft.y);
-            ctx.closePath();
         };
 
         if ('pdf' in ctx && ctx.pdf && fill && stroke) {
@@ -2617,7 +2617,7 @@ function batchedDrawEdges(
         ))
             continue;
 
-        if (graph instanceof State && edge.parentStateId !== undefined) {
+        if (edge instanceof Memlet && edge.parentStateId !== undefined) {
             // WCR edge or dependency edge.
             if (edge.attributes()?.wcr || !edge.attributes()?.data) {
                 deferredEdges.push(edge);
