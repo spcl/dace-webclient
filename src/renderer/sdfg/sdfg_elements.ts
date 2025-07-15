@@ -1,6 +1,9 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { editor } from 'monaco-editor';
+import {
+    TokenizationRegistry,
+} from 'monaco-editor/esm/vs/editor/common/languages';
 import { SDFV } from '../../sdfv';
 import {
     DataSubset,
@@ -518,6 +521,10 @@ export class SDFGElement extends HTMLCanvasRenderable {
         return clamped.x === this.x || clamped.y === this.y ||
             clamped.x + clamped.w === this.x + this.width ||
             clamped.y + clamped.h === this.y + this.height;
+    }
+
+    public showTooltip(): void {
+        this.renderer.hideTooltip();
     }
 
 }
@@ -1192,19 +1199,16 @@ export class Memlet extends Edge {
                 );
             }
         }
-
-        if (this.hovered && mousepos) {
-            const attr = this.attributes();
-            if (attr?.data) {
-                this.renderer.showTooltip(
-                    mousepos.x, mousepos.y, memletToHtml(attr), true
-                );
-            }
-        }
     }
 
     public get label(): string {
         return this._label;
+    }
+
+    public showTooltip(): void {
+        const attr = this.attributes();
+        if (attr?.data)
+            this.renderer.showTooltipAtMouse(memletToHtml(attr), true);
     }
 
 }
@@ -1322,9 +1326,11 @@ export class InterstateEdge extends Edge {
 
         if (SDFVSettings.get<boolean>('alwaysOnISEdgeLabels'))
             this._drawLabel();
+    }
 
-        if (this.hovered && mousepos)
-            this.renderer.showTooltip(mousepos.x, mousepos.y, this.label);
+    public showTooltip(): void {
+        if (this.label !== '')
+            this.renderer.showTooltipAtMouse(this.label);
     }
 
     protected _drawLabel(
@@ -1542,57 +1548,51 @@ export class Connector extends SDFGElement {
             );
         }
         this.ctx.fill();
+    }
 
-        if (this.strokeStyle() !== SDFVSettings.get<string>(
-            'defaultTextColor'
-        )) {
-            if (this.linkedElem && mousepos &&
-                this.linkedElem instanceof ControlFlowBlock) {
-                let customTooltipHtml = name ?? '';
-                const access = this.data?.access as
-                    Record<string, unknown> | undefined;
-                if (access) {
-                    customTooltipHtml += sdfgPropertyToString(
-                        access.subset, SDFVSettings.settingsDict
-                    );
+    public showTooltip(): void {
+        const name = this.data?.name as string | undefined;
+        if (this.linkedElem && this.linkedElem instanceof ControlFlowBlock) {
+            let customTooltipHtml = name ?? '';
+            const access = this.data?.access as
+                Record<string, unknown> | undefined;
+            if (access) {
+                customTooltipHtml += sdfgPropertyToString(
+                    access.subset, SDFVSettings.settingsDict
+                );
 
-                    if (access.volume !== undefined) {
-                        let numAccesses = (access.volume ?? '0') as string;
-                        if (access.dynamic) {
-                            if (numAccesses === '0' || numAccesses === '-1') {
-                                numAccesses = '<b>Dynamic (unbounded)</b>';
-                            } else {
-                                numAccesses = '<b>Dynamic</b> (up to ' +
-                                    numAccesses + ')';
-                            }
-                        } else if (numAccesses === '-1') {
+                if (access.volume !== undefined) {
+                    let numAccesses = (access.volume ?? '0') as string;
+                    if (access.dynamic) {
+                        if (numAccesses === '0' || numAccesses === '-1') {
                             numAccesses = '<b>Dynamic (unbounded)</b>';
+                        } else {
+                            numAccesses = '<b>Dynamic</b> (up to ' +
+                                numAccesses + ')';
                         }
-                        customTooltipHtml += '<br />Volume: ' + numAccesses;
+                    } else if (numAccesses === '-1') {
+                        numAccesses = '<b>Dynamic (unbounded)</b>';
                     }
+                    customTooltipHtml += '<br />Volume: ' + numAccesses;
                 }
-
-                const certainAccess = this.data?.certainAccess as
-                    Record<string, unknown> | undefined;
-                if (certainAccess) {
-                    if (access?.subset !== certainAccess.subset) {
-                        const certainHtml = sdfgPropertyToString(
-                            certainAccess.subset,
-                            SDFVSettings.settingsDict
-                        );
-                        customTooltipHtml += '<p>Certain:<p>';
-                        customTooltipHtml += certainHtml;
-                    }
-                }
-
-                this.renderer.showTooltip(
-                    mousepos.x, mousepos.y, customTooltipHtml, true
-                );
-            } else if (mousepos) {
-                this.renderer.showTooltip(
-                    mousepos.x, mousepos.y, this.label
-                );
             }
+
+            const certainAccess = this.data?.certainAccess as
+                Record<string, unknown> | undefined;
+            if (certainAccess) {
+                if (access?.subset !== certainAccess.subset) {
+                    const certainHtml = sdfgPropertyToString(
+                        certainAccess.subset,
+                        SDFVSettings.settingsDict
+                    );
+                    customTooltipHtml += '<p>Certain:<p>';
+                    customTooltipHtml += certainHtml;
+                }
+            }
+
+            this.renderer.showTooltipAtMouse(customTooltipHtml, true);
+        } else {
+            this.renderer.showTooltipAtMouse(this.label);
         }
     }
 
@@ -1700,18 +1700,15 @@ export class AccessNode extends SDFGNode {
             this.ctx.fillStyle = SDFVSettings.get<string>(
                 'errorNodeForegroundColor'
             );
-            if (this.strokeStyle() !== SDFVSettings.get<string>(
-                'defaultTextColor'
-            )) {
-                if (this.hovered && mousepos) {
-                    this.renderer.showTooltip(
-                        mousepos.x, mousepos.y, 'Undefined array'
-                    );
-                }
-            }
         }
 
         this._drawLabel(mousepos);
+    }
+
+    public showTooltip(): void {
+        const nodeDesc = this.getDesc();
+        if (!nodeDesc)
+            this.renderer.showTooltipAtMouse('Undefined array');
     }
 
     public get label(): string {
@@ -2097,7 +2094,7 @@ export class Tasklet extends SDFGNode {
         parentElem?: SDFGElement
     ) {
         super(renderer, ctx, data, id, sdfg, cfg, parentStateId, parentElem);
-        this.highlightCode();
+        void this.highlightCode();
     }
 
     public textForFind(): string {
@@ -2108,7 +2105,7 @@ export class Tasklet extends SDFGNode {
         return this.label + ' ' + code;
     }
 
-    public highlightCode(): void {
+    public async highlightCode(): Promise<void> {
         this.inputTokens.clear();
         this.outputTokens.clear();
         this.highlightedCode = [];
@@ -2137,6 +2134,10 @@ export class Tasklet extends SDFGNode {
 
             const highlightedLine: TaskletCodeToken[] = [];
             try {
+                // Ensure the tokenization registry is initialized before using
+                // it in tokenization (it needs to construct a web worker
+                // first).
+                await TokenizationRegistry.getOrCreate(lang);
                 const tokens = editor.tokenize(line, lang)[0];
                 if (tokens.length < 2) {
                     highlightedLine.push({

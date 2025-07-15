@@ -445,4 +445,19 @@ body.sdfv {
     opacity: 0.1 !important;
   }
 
+  .sdfv-tooltip {
+    position: absolute;
+    color: white;
+    background: #333;
+    font-weight: bold;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.9rem;
+    border-radius: 0.2rem;
+    user-select: none;
+
+    .sdfv-tooltip-text {
+      color: white;
+      font-weight: bold;
+    }
+  }
 }

@@ -69,8 +69,8 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
     // Last position of the mouse pointer (in pixel coordinates).
     protected realMousePos?: Point2D;
     protected dragging: boolean = false;
-    protected tooltipContainer?: JQuery<HTMLDivElement>;
-    protected tooltipText?: JQuery<HTMLSpanElement>;
+    protected readonly tooltipContainer: JQuery<HTMLDivElement>;
+    protected readonly tooltipText: JQuery<HTMLSpanElement>;
     // Null if the mouse/touch is not activated.
     protected dragStart?: MouseEvent | TouchEvent;
 
@@ -190,6 +190,25 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
             this.errorPopoverContainer.hide();
         });
 
+        // Initialize tooltips.
+        this.tooltipContainer = $('<div>', {
+            class: 'sdfv-tooltip',
+            css: {
+                left: '0px',
+                top: '0px',
+                display: 'none',
+            },
+        });
+        this.tooltipContainer.appendTo($(document.body));
+        this.tooltipText = $('<span>', {
+            class: 'sdfv-tooltip-text',
+            html: '',
+            css: {
+                'white-space': 'pre-line',
+            },
+        });
+        this.tooltipContainer.append(this.tooltipText);
+
         this.onresize();
     }
 
@@ -207,35 +226,10 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
     public showTooltip(
         x: number, y: number, text: string, html: boolean = false
     ): void {
-        console.log(x, y, text, html);
-        /*
-        this.hideTooltip();
-        if (html) {
-            this.tooltipText = $('<span>', {
-                class: 'timeline-tooltip-text',
-                html: htmlSanitize`${text}`,
-                css: {
-                    'white-space': 'pre-line',
-                },
-            });
-        } else {
-            this.tooltipText = $('<span>', {
-                class: 'timeline-tooltip-text',
-                text: text,
-                css: {
-                    'white-space': 'pre-line',
-                },
-            });
-        }
-        this.tooltipContainer = $('<div>', {
-            class: 'timeline-tooltip-container',
-            css: {
-                left: '0px',
-                top: '0px',
-            },
-        });
-        this.tooltipText.appendTo(this.tooltipContainer);
-        this.tooltipContainer.appendTo($(document.body));
+        if (html)
+            this.tooltipText.html(text);
+        else
+            this.tooltipText.text(text);
         const bcr = this.tooltipContainer[0].getBoundingClientRect();
         const containerBcr = this.container[0].getBoundingClientRect();
         this.tooltipContainer.css(
@@ -245,12 +239,11 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
             'top',
             (((y + containerBcr.y) - (bcr.height / 2)) - 8).toString() + 'px'
         );
-        */
+        this.tooltipContainer.show();
     }
 
     public hideTooltip(): void {
-        if (this.tooltipContainer)
-            this.tooltipContainer.remove();
+        this.tooltipContainer.hide();
     }
 
     public showInteractionInfo(text: string, asHtml: boolean = false): void {

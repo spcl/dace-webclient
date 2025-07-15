@@ -166,6 +166,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     protected allMemletTrees: Set<Edge>[] = [];
     protected stateParentList: SDFGElement[] = [];
 
+    protected readonly _taskletsWithHighlighting = new Set<Tasklet>();
+
     protected _sdfg?: JsonSDFG;
 
     public constructor(
@@ -870,7 +872,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         if (!this.graph)
             return;
 
-        drawSDFG(this, ctx ?? this.ctx, this.graph, this.mousePos);
+        drawSDFG(this, ctx ?? this.ctx, this.graph, this.realMousePos);
 
         if (this.boxSelectionRect) {
             this.ctx.beginPath();
@@ -898,6 +900,17 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
     public get selectedRenderables(): ReadonlySet<SDFGElement> {
         return this._selectedRenderables as Set<SDFGElement>;
+    }
+
+    public clearHighlighted(): void {
+        super.clearHighlighted();
+        for (const tasklet of this._taskletsWithHighlighting) {
+            for (const token of tasklet.inputTokens)
+                token.highlighted = false;
+            for (const token of tasklet.outputTokens)
+                token.highlighted = false;
+        }
+        this._taskletsWithHighlighting.clear();
     }
 
     // ==================
@@ -1380,6 +1393,19 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         const centerY = canvasRect.height / 2;
         this.canvasManager.scale(scaleFactor, centerX, centerY);
         this.drawAsync();
+    }
+
+    public showTooltipAtMouse(text: string, html?: boolean): void {
+        let tooltipX;
+        let tooltipY;
+        if (this.realMousePos) {
+            tooltipX = this.realMousePos.x;
+            tooltipY = this.realMousePos.y;
+        } else {
+            tooltipX = this.canvas.width / 2;
+            tooltipY = this.canvas.height / 2;
+        }
+        super.showTooltip(tooltipX, tooltipY, text, html);
     }
 
     // ====================
@@ -2408,15 +2434,20 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                     // Similarly, highlight any identifiers in a
                     // connector's tasklet, if applicable.
                     if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
+                        const tasklet = obj.linkedElem;
                         if (obj.connectorType === 'in') {
-                            for (const token of obj.linkedElem.inputTokens) {
-                                if (token.token === obj.data?.name)
+                            for (const token of tasklet.inputTokens) {
+                                if (token.token === obj.data?.name) {
                                     token.highlighted = true;
+                                    this._taskletsWithHighlighting.add(tasklet);
+                                }
                             }
                         } else {
-                            for (const token of obj.linkedElem.outputTokens) {
-                                if (token.token === obj.data?.name)
+                            for (const token of tasklet.outputTokens) {
+                                if (token.token === obj.data?.name) {
                                     token.highlighted = true;
+                                    this._taskletsWithHighlighting.add(tasklet);
+                                }
                             }
                         }
                     }
@@ -2698,6 +2729,14 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
             if (this.recomputeHoveredElements(mouseElements.elements))
                 this.drawAsync();
+
+            if (mouseElements.foregroundConnector)
+                mouseElements.foregroundConnector.showTooltip();
+            else if (mouseElements.foregroundElement)
+                mouseElements.foregroundElement.showTooltip();
+            else
+                this.hideTooltip();
+
             return false;
         }
     }
