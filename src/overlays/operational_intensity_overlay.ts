@@ -17,6 +17,7 @@ import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
 import { doForAllDagreGraphElements } from '../utils/sdfg/traversal';
 
+
 export class OperationalIntensityOverlay extends GenericSdfgOverlay {
 
     public static readonly type: OverlayType = OverlayType.NODE;
@@ -142,7 +143,9 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         g: DagreGraph, symbolMap: SymbolMap, flopsValues: number[]
     ): void {
         g.nodes().forEach(v => {
-            const node = g.node(v) as SDFGNode | ControlFlowBlock;
+            const node = g.node(v);
+            if (!node)
+                return;
             this.calcOpIntNode(node, symbolMap, flopsValues);
             if (node instanceof ConditionalBlock) {
                 for (const [_, branch] of node.branches) {
@@ -235,7 +238,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         this.renderer.drawAsync();
     }
 
-    private shadeElem(elem: SDFGElement, ctx: CanvasRenderingContext2D): void {
+    private shadeElem(elem: SDFGElement): void {
         const opint = elem.data?.opint as number | undefined;
 
         const mousepos = this.renderer.getMousePos();
@@ -258,19 +261,15 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         // Calculate the severity color.
         const color = getTempColorHslString(this.getSeverityValue(opint));
 
-        elem.shade(this.renderer, ctx, color);
+        elem.shade(color);
     }
 
-    protected shadeNode(
-        node: SDFGNode, ctx: CanvasRenderingContext2D, ..._args: any[]
-    ): void {
-        this.shadeElem(node, ctx);
+    protected shadeNode(node: SDFGNode, ..._args: any[]): void {
+        this.shadeElem(node);
     }
 
-    protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ..._args: any[]
-    ): void {
-        this.shadeElem(block, ctx);
+    protected shadeBlock(block: ControlFlowBlock, ..._args: any[]): void {
+        this.shadeElem(block);
     }
 
     public draw(): void {

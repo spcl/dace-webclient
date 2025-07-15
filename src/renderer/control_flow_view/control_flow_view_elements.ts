@@ -3,36 +3,46 @@
 import { Point2D } from '../../types';
 import { sdfgPropertyToString } from '../../utils/sdfg/display';
 import { SDFVSettings } from '../../utils/sdfv_settings';
-import { Renderable } from '../core/common/renderable';
 import { ptLineDistance } from '../core/common/renderer_utils';
+import {
+    HTMLCanvasRenderable,
+} from '../core/html_canvas/html_canvas_renderable';
 import { drawEllipse } from '../core/html_canvas/html_canvas_utils';
 import type { ControlFlowViewRenderer } from './control_flow_view_renderer';
 
 
 export type CFVElementClasses = 'block' | 'edge' | 'connector';
 
-export abstract class CFVElement extends Renderable {
+export abstract class CFVElement extends HTMLCanvasRenderable {
 
     protected _type: string = 'block';
     protected _label: string = '';
     protected _guid: string = '';
 
-    public constructor(data?: Record<string, unknown>) {
-        super(-1, data);
+    public constructor(
+        renderer: ControlFlowViewRenderer,
+        ctx: CanvasRenderingContext2D,
+        data?: Record<string, unknown>
+    ) {
+        super(renderer, ctx, -1, data);
+    }
+
+    public get renderer(): ControlFlowViewRenderer {
+        return this._renderer as ControlFlowViewRenderer;
     }
 
     public drawSummaryInfo(
-        _renderer: ControlFlowViewRenderer, _ctx: CanvasRenderingContext2D,
         _mousePos?: Point2D, _overrideTooFarForText?: boolean
     ): void {
         return;
     }
 
-    public shade(
-        _renderer: ControlFlowViewRenderer, _ctx: CanvasRenderingContext2D,
-        _color: string, _alpha: number
-    ): void {
+    public shade(_color: string, _alpha: number): void {
         return;
+    }
+
+    public minimapDraw(): void {
+        this.draw();
     }
 
     public get type(): string {
@@ -58,13 +68,15 @@ export class CFVDependencyEdge extends CFVElement {
     public points: Point2D[] = [];
 
     public constructor(
+        renderer: ControlFlowViewRenderer,
+        ctx: CanvasRenderingContext2D,
         label: string,
         public readonly memlet: Record<string, unknown>,
         public readonly src: CFVControlFlowBlock,
         public readonly dst: CFVControlFlowBlock,
         public readonly includeSubset: boolean = false
     ) {
-        super(memlet);
+        super(renderer, ctx, memlet);
         this._label = label;
     }
 
@@ -92,20 +104,17 @@ export class CFVDependencyEdge extends CFVElement {
         ctx.translate(-p2.x, -p2.y);
     }
 
-    protected _internalDraw(
-        renderer: ControlFlowViewRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void {
-        ctx.beginPath();
-        ctx.moveTo(this.points[0].x, this.points[0].y);
+    protected _internalDraw(mousepos?: Point2D): void {
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.points[0].x, this.points[0].y);
         for (let i = 1; i < this.points.length; i++)
-            ctx.lineTo(this.points[i].x, this.points[i].y);
-        ctx.fillStyle = ctx.strokeStyle = 'blue';
-        ctx.setLineDash([1, 0]);
-        ctx.stroke();
+            this.ctx.lineTo(this.points[i].x, this.points[i].y);
+        this.ctx.fillStyle = this.ctx.strokeStyle = 'blue';
+        this.ctx.setLineDash([1, 0]);
+        this.ctx.stroke();
 
         this.drawArrow(
-            ctx, this.points[this.points.length - 2],
+            this.ctx, this.points[this.points.length - 2],
             this.points[this.points.length - 1], 3
         );
 
@@ -118,9 +127,9 @@ export class CFVDependencyEdge extends CFVElement {
                     memletAttrs?.subset, SDFVSettings.settingsDict
                 );
                 const tooltipText = this.label + ' ' + subsetString;
-                renderer.showTooltip(mousepos.x, mousepos.y, tooltipText);
+                this.renderer.showTooltip(mousepos.x, mousepos.y, tooltipText);
             } else {
-                renderer.showTooltip(mousepos.x, mousepos.y, this.label);
+                this.renderer.showTooltip(mousepos.x, mousepos.y, this.label);
             }
         }
     }
@@ -178,22 +187,21 @@ export class CFVConnector extends CFVElement {
     public edges: CFVDependencyEdge[] = [];
 
     public constructor(
+        renderer: ControlFlowViewRenderer,
+        ctx: CanvasRenderingContext2D,
         public readonly dataName: string
     ) {
-        super();
+        super(renderer, ctx);
 
         this._label = dataName;
     }
 
-    protected _internalDraw(
-        _renderer: ControlFlowViewRenderer, ctx: CanvasRenderingContext2D,
-        _mousepos?: Point2D
-    ): void {
-        ctx.beginPath();
-        drawEllipse(ctx, this.x, this.y, this.width, this.height);
-        ctx.closePath();
-        ctx.fillStyle = this.color;
-        ctx.fill();
+    protected _internalDraw(_mousepos?: Point2D): void {
+        this.ctx.beginPath();
+        drawEllipse(this.ctx, this.x, this.y, this.width, this.height);
+        this.ctx.closePath();
+        this.ctx.fillStyle = this.color;
+        this.ctx.fill();
     }
 
 }
@@ -205,47 +213,46 @@ export class CFVControlFlowBlock extends CFVElement {
     public outConnectors: CFVConnector[] = [];
 
     public constructor(
+        renderer: ControlFlowViewRenderer,
+        ctx: CanvasRenderingContext2D,
         data: Record<string, unknown>,
         public readonly parent?: CFVControlFlowBlock
     ) {
-        super(data);
+        super(renderer, ctx, data);
     }
 
-    protected _internalDraw(
-        renderer: ControlFlowViewRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void {
-        ctx.strokeStyle = this.color;
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
+    protected _internalDraw(mousepos?: Point2D): void {
+        this.ctx.strokeStyle = this.color;
+        this.ctx.strokeRect(this.x, this.y, this.width, this.height);
 
         for (const icon of this.inConnectors)
-            icon.draw(renderer, ctx, mousepos);
+            icon.draw(mousepos);
         for (const ocon of this.outConnectors)
-            ocon.draw(renderer, ctx, mousepos);
+            ocon.draw(mousepos);
 
         if (this.selected) {
-            ctx.fillStyle = this.color;
-            const oldAlpha = ctx.globalAlpha;
-            ctx.globalAlpha = 0.2;
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.globalAlpha = oldAlpha;
+            this.ctx.fillStyle = this.color;
+            const oldAlpha = this.ctx.globalAlpha;
+            this.ctx.globalAlpha = 0.2;
+            this.ctx.fillRect(this.x, this.y, this.width, this.height);
+            this.ctx.globalAlpha = oldAlpha;
 
             for (const icon of this.inConnectors) {
                 for (const edge of icon.edges)
-                    edge.draw(renderer, ctx, mousepos);
+                    edge.draw(mousepos);
             }
             for (const ocon of this.outConnectors) {
                 for (const edge of ocon.edges)
-                    edge.draw(renderer, ctx, mousepos);
+                    edge.draw(mousepos);
             }
         }
 
         if (this.hovered) {
-            ctx.fillStyle = this.color;
-            const oldAlpha = ctx.globalAlpha;
-            ctx.globalAlpha = 0.1;
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.globalAlpha = oldAlpha;
+            this.ctx.fillStyle = this.color;
+            const oldAlpha = this.ctx.globalAlpha;
+            this.ctx.globalAlpha = 0.1;
+            this.ctx.fillRect(this.x, this.y, this.width, this.height);
+            this.ctx.globalAlpha = oldAlpha;
         }
     }
 
@@ -269,34 +276,32 @@ export class CFVSequence extends CFVControlFlowBlock {
     private _isRoot: boolean = false;
 
     public constructor(
+        renderer: ControlFlowViewRenderer, ctx: CanvasRenderingContext2D,
         data: Record<string, unknown>, parent?: CFVControlFlowBlock
     ) {
-        super(data, parent);
+        super(renderer, ctx, data, parent);
         if (parent === undefined) {
             this.collapsed = false;
             this._isRoot = true;
         }
     }
 
-    protected _internalDraw(
-        renderer: ControlFlowViewRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void {
+    protected _internalDraw(mousepos?: Point2D): void {
         if (!this._isRoot)
-            super.draw(renderer, ctx, mousepos);
+            super.draw(mousepos);
 
         if (this.collapsed) {
             const plusCenterY = this.y + this.height / 2;
             const plusCenterX = this.x + this.width / 2;
-            ctx.beginPath();
-            ctx.moveTo(plusCenterX, plusCenterY - 20);
-            ctx.lineTo(plusCenterX, plusCenterY + 20);
-            ctx.moveTo(plusCenterX - 20, plusCenterY);
-            ctx.lineTo(plusCenterX + 20, plusCenterY);
-            ctx.stroke();
+            this.ctx.beginPath();
+            this.ctx.moveTo(plusCenterX, plusCenterY - 20);
+            this.ctx.lineTo(plusCenterX, plusCenterY + 20);
+            this.ctx.moveTo(plusCenterX - 20, plusCenterY);
+            this.ctx.lineTo(plusCenterX + 20, plusCenterY);
+            this.ctx.stroke();
         } else {
             for (const child of this.children)
-                child.draw(renderer, ctx, mousepos);
+                child.draw(mousepos);
         }
     }
 
@@ -316,62 +321,61 @@ export class CFVLoop extends CFVSequence {
 
     protected readonly color: string = 'red';
 
-    protected _internalDraw(
-        renderer: ControlFlowViewRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void {
+    protected _internalDraw(mousepos?: Point2D): void {
         const color = this.data?.parallel ? 'green' : 'red';
-        ctx.strokeStyle = color;
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
+        this.ctx.strokeStyle = color;
+        this.ctx.strokeRect(this.x, this.y, this.width, this.height);
 
         for (const icon of this.inConnectors)
-            icon.draw(renderer, ctx, mousepos);
+            icon.draw(mousepos);
         for (const ocon of this.outConnectors)
-            ocon.draw(renderer, ctx, mousepos);
+            ocon.draw(mousepos);
 
         if (this.selected) {
-            ctx.fillStyle = color;
-            const oldAlpha = ctx.globalAlpha;
-            ctx.globalAlpha = 0.2;
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.globalAlpha = oldAlpha;
+            this.ctx.fillStyle = color;
+            const oldAlpha = this.ctx.globalAlpha;
+            this.ctx.globalAlpha = 0.2;
+            this.ctx.fillRect(this.x, this.y, this.width, this.height);
+            this.ctx.globalAlpha = oldAlpha;
 
             for (const icon of this.inConnectors) {
                 for (const edge of icon.edges)
-                    edge.draw(renderer, ctx, mousepos);
+                    edge.draw(mousepos);
             }
             for (const ocon of this.outConnectors) {
                 for (const edge of ocon.edges)
-                    edge.draw(renderer, ctx, mousepos);
+                    edge.draw(mousepos);
             }
         }
 
         if (this.hovered) {
-            ctx.fillStyle = color;
-            const oldAlpha = ctx.globalAlpha;
-            ctx.globalAlpha = 0.1;
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.globalAlpha = oldAlpha;
+            this.ctx.fillStyle = color;
+            const oldAlpha = this.ctx.globalAlpha;
+            this.ctx.globalAlpha = 0.1;
+            this.ctx.fillRect(this.x, this.y, this.width, this.height);
+            this.ctx.globalAlpha = oldAlpha;
         }
 
         if (this.collapsed) {
             const plusCenterY = this.y + this.height / 2;
             const plusCenterX = this.x + this.width / 2;
-            ctx.beginPath();
-            ctx.moveTo(plusCenterX, plusCenterY - 20);
-            ctx.lineTo(plusCenterX, plusCenterY + 20);
-            ctx.moveTo(plusCenterX - 20, plusCenterY);
-            ctx.lineTo(plusCenterX + 20, plusCenterY);
-            ctx.stroke();
+            this.ctx.beginPath();
+            this.ctx.moveTo(plusCenterX, plusCenterY - 20);
+            this.ctx.lineTo(plusCenterX, plusCenterY + 20);
+            this.ctx.moveTo(plusCenterX - 20, plusCenterY);
+            this.ctx.lineTo(plusCenterX + 20, plusCenterY);
+            this.ctx.stroke();
         } else {
             for (const child of this.children)
-                child.draw(renderer, ctx, mousepos);
+                child.draw(mousepos);
         }
 
         const rangesString = this.data?.ranges as string | undefined;
         if (rangesString !== undefined) {
-            ctx.fillStyle = 'black';
-            ctx.fillText(rangesString, this.x + this.width / 2, this.y + 10);
+            this.ctx.fillStyle = 'black';
+            this.ctx.fillText(
+                rangesString, this.x + this.width / 2, this.y + 10
+            );
         }
     }
 
@@ -384,23 +388,20 @@ export class CFVConditional extends CFVControlFlowBlock {
 
     protected collapsed: boolean = false;
 
-    protected _internalDraw(
-        renderer: ControlFlowViewRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void {
-        super.draw(renderer, ctx, mousepos);
+    protected _internalDraw(mousepos?: Point2D): void {
+        super.draw(mousepos);
         if (this.collapsed) {
             const plusCenterY = this.y + this.height / 2;
             const plusCenterX = this.x + this.width / 2;
-            ctx.beginPath();
-            ctx.moveTo(plusCenterX, plusCenterY - 20);
-            ctx.lineTo(plusCenterX, plusCenterY + 20);
-            ctx.moveTo(plusCenterX - 20, plusCenterY);
-            ctx.lineTo(plusCenterX + 20, plusCenterY);
-            ctx.stroke();
+            this.ctx.beginPath();
+            this.ctx.moveTo(plusCenterX, plusCenterY - 20);
+            this.ctx.lineTo(plusCenterX, plusCenterY + 20);
+            this.ctx.moveTo(plusCenterX - 20, plusCenterY);
+            this.ctx.lineTo(plusCenterX + 20, plusCenterY);
+            this.ctx.stroke();
         } else {
             for (const branch of this.branches)
-                branch[1].draw(renderer, ctx, mousepos);
+                branch[1].draw(mousepos);
         }
     }
 

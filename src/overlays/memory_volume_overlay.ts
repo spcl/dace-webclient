@@ -17,6 +17,7 @@ import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
 import { doForAllDagreGraphElements } from '../utils/sdfg/traversal';
 
+
 export class MemoryVolumeOverlay extends GenericSdfgOverlay {
 
     public static readonly type: OverlayType = OverlayType.EDGE;
@@ -163,10 +164,10 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         this.renderer.drawAsync();
     }
 
-    protected shadeEdge(edge: Edge, ctx: CanvasRenderingContext2D): void {
+    protected shadeEdge(edge: Edge): void {
         const volume = (edge.data?.volume ?? 0) as number;
         const color = getTempColorHslString(this.getSeverityValue(volume));
-        edge.shade(this.renderer, ctx, color);
+        edge.shade(color);
     }
 
     public draw(): void {

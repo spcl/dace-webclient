@@ -553,12 +553,12 @@ export class WebSDFV extends SDFV {
             );
             this.setRenderer(renderer);
             renderer.on('selection_changed', () => {
-                const selectedElements = renderer.selectedElements;
+                const selectedElements = renderer.selectedRenderables;
                 let element;
-                if (selectedElements.length === 0 && renderer.sdfg)
-                    element = new SDFG(renderer.sdfg);
-                else if (selectedElements.length === 1)
-                    element = selectedElements[0];
+                if (selectedElements.size === 0 && renderer.sdfg)
+                    element = new SDFG(renderer, renderer.ctx, renderer.sdfg);
+                else if (selectedElements.size === 1)
+                    element = Array.from(selectedElements)[0];
                 else
                     element = null;
 
@@ -694,16 +694,12 @@ export function findInGraphPredicate(
                 },
             });
             d.on('mouseenter', () => {
-                if (!result.highlighted) {
-                    result.highlighted = true;
+                if (!result.highlighted)
                     renderer.drawAsync();
-                }
             });
             d.on('mouseleave', () => {
-                if (result.highlighted) {
-                    result.highlighted = false;
+                if (result.highlighted)
                     renderer.drawAsync();
-                }
             });
             sidebar.append(d);
         }

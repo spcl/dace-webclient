@@ -61,7 +61,7 @@ export class ControlFlowViewRenderer extends HTMLCanvasRenderer {
     protected internalDraw(
         _dt?: number, _ctx?: CanvasRenderingContext2D
     ): void {
-        this.rootSequence?.draw(this, this.ctx, this.mousePos);
+        this.rootSequence?.draw(this.mousePos);
     }
 
     public doForIntersectedElements(

@@ -69,7 +69,7 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
         return value.toString() + ' ' + unit;
     }
 
-    private shadeElem(elem: SDFGElement, ctx: CanvasRenderingContext2D): void {
+    private shadeElem(elem: SDFGElement): void {
         const runtimeSummary = this.runtimeMap[getGraphElementUUID(elem)];
         if (runtimeSummary === undefined)
             return;
@@ -103,19 +103,19 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
         const micros = runtimeSummary[this.criterium];
         const color = getTempColorHslString(this.getSeverityValue(micros));
 
-        elem.shade(this.renderer, ctx, color);
+        elem.shade(color);
     }
 
     protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ..._args: any[]
+        block: ControlFlowBlock, ..._args: any[]
     ): void {
-        this.shadeElem(block, ctx);
+        this.shadeElem(block);
     }
 
     protected shadeNode(
-        node: SDFGNode, ctx: CanvasRenderingContext2D, ..._args: any[]
+        node: SDFGNode, ..._args: any[]
     ): void {
-        this.shadeElem(node, ctx);
+        this.shadeElem(node);
     }
 
     public draw(): void {

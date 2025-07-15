@@ -95,14 +95,8 @@ export class AccessTimelineRenderer extends HTMLCanvasRenderer {
         this.drawAsync();
     }
 
-    public internalDraw(
-        dt?: number, ctx?: CanvasRenderingContext2D
-    ): void {
-        this.chart?.draw(
-            this,
-            ctx ?? this.ctx,
-            this.mousePos
-        );
+    public internalDraw(dt?: number, ctx?: CanvasRenderingContext2D): void {
+        this.chart?.draw(this.mousePos);
     }
 
     public doForIntersectedElements(

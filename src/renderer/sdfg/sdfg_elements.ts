@@ -23,7 +23,6 @@ import {
     sdfgRangeElemToString,
 } from '../../utils/sdfg/display';
 import { SDFVColorThemeColor, SDFVSettings } from '../../utils/sdfv_settings';
-import { Renderable } from '../core/common/renderable';
 import type { DagreGraph, SDFGRenderer } from './sdfg_renderer';
 import { ptLineDistance } from '../core/common/renderer_utils';
 import {
@@ -35,6 +34,9 @@ import {
     TextHAlign,
     TextVAlign,
 } from '../core/html_canvas/html_canvas_utils';
+import {
+    HTMLCanvasRenderable,
+} from '../core/html_canvas/html_canvas_renderable';
 
 
 interface ElemDrawingOptions {
@@ -129,7 +131,7 @@ function drawSummarySymbol(
     ctx.fill();
 }
 
-export class SDFGElement extends Renderable {
+export class SDFGElement extends HTMLCanvasRenderable {
 
     public readonly COLLAPSIBLE: boolean = false;
 
@@ -151,6 +153,8 @@ export class SDFGElement extends Renderable {
     public outSummaryHasEffect: boolean = false;
 
     public constructor(
+        renderer: SDFGRenderer,
+        ctx: CanvasRenderingContext2D,
         data: Record<string, unknown> | undefined,
         id: number,
         public sdfg: JsonSDFG,
@@ -158,7 +162,11 @@ export class SDFGElement extends Renderable {
         public parentStateId?: number,
         public parentElem?: SDFGElement
     ) {
-        super(id, data);
+        super(renderer, ctx, id, data);
+    }
+
+    public get renderer(): SDFGRenderer {
+        return this._renderer as SDFGRenderer;
     }
 
     protected get defaultColorBG(): string {
@@ -173,10 +181,10 @@ export class SDFGElement extends Renderable {
         return SDFVSettings.get<string>('stateBorderColor');
     }
 
-    public strokeStyle(renderer?: SDFGRenderer): string {
-        if (!renderer || !(this.hovered || this.selected || this.highlighted))
+    public strokeStyle(): string {
+        if (!(this.hovered || this.selected || this.highlighted))
             return this.defaultColorBorder;
-        return super.strokeStyle(renderer);
+        return super.strokeStyle(this.renderer);
     }
 
     public get jsonData(): JsonSDFGElement | undefined {
@@ -209,17 +217,16 @@ export class SDFGElement extends Renderable {
     }
 
     protected _drawLabel(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, colorOverrideText?: SDFVColorThemeColor,
         overrideTopMargin?: number,
         overrideTooFarForText: boolean = false
     ): void {
         const topleft = this.topleft();
-        if (overrideTooFarForText || !tooFarForText(renderer)) {
-            ctx.fillStyle = colorOverrideText ?
+        if (overrideTooFarForText || !tooFarForText(this.renderer)) {
+            this.ctx.fillStyle = colorOverrideText ?
                 SDFVSettings.get<string>(colorOverrideText) :
                 this.defaultColorText;
-            ctx.fillText(
+            this.ctx.fillText(
                 this.label, topleft.x + SDFV.LABEL_MARGIN_H,
                 topleft.y + SDFV.LINEHEIGHT + (
                     overrideTopMargin ?? SDFV.LABEL_MARGIN_V
@@ -228,21 +235,19 @@ export class SDFGElement extends Renderable {
         }
     }
 
-    protected _drawExpandPlus(
-        ctx: CanvasRenderingContext2D, contentBox?: SimpleRect
-    ): void {
-        ctx.strokeStyle = this.defaultColorText;
+    protected _drawExpandPlus(contentBox?: SimpleRect): void {
+        this.ctx.strokeStyle = this.defaultColorText;
         const topleft = this.topleft();
         const centerX = contentBox ?
             contentBox.x + contentBox.w / 2 : topleft.x + this.width / 2;
         const centerY = contentBox ?
             contentBox.y + contentBox.h / 2 : topleft.y + this.height / 2;
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY - SDFV.LINEHEIGHT);
-        ctx.lineTo(centerX, centerY + SDFV.LINEHEIGHT);
-        ctx.moveTo(centerX - SDFV.LINEHEIGHT, centerY);
-        ctx.lineTo(centerX + SDFV.LINEHEIGHT, centerY);
-        ctx.stroke();
+        this.ctx.beginPath();
+        this.ctx.moveTo(centerX, centerY - SDFV.LINEHEIGHT);
+        this.ctx.lineTo(centerX, centerY + SDFV.LINEHEIGHT);
+        this.ctx.moveTo(centerX - SDFV.LINEHEIGHT, centerY);
+        this.ctx.lineTo(centerX + SDFV.LINEHEIGHT, centerY);
+        this.ctx.stroke();
     }
 
     protected _setDrawStyleProperties(ctx: CanvasRenderingContext2D): void {
@@ -252,29 +257,27 @@ export class SDFGElement extends Renderable {
     }
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, options?: ElemDrawingOptions
     ): void {
-        this._setDrawStyleProperties(ctx);
+        this._setDrawStyleProperties(this.ctx);
 
-        ctx.fillStyle = options?.colorBG ?
+        this.ctx.fillStyle = options?.colorBG ?
             SDFVSettings.get<string>(options.colorBG) : this.defaultColorBG;
 
         // If selected or hovered.
-        const ppp = renderer.canvasManager.pointsPerPixel;
-        ctx.strokeStyle = this.strokeStyle(renderer);
+        const ppp = this.renderer.canvasManager.pointsPerPixel;
+        this.ctx.strokeStyle = this.strokeStyle();
         let stroke = false;
-        if (!renderer.adaptiveHiding ||
+        if (!this.renderer.adaptiveHiding ||
             (ppp && ppp < SDFVSettings.get<number>('nodeLOD')))
             stroke = true;
 
-        this._drawShape(renderer, ctx, true, stroke);
+        this._drawShape(this.ctx, true, stroke);
 
         if (SDFVSettings.get<boolean>('showStateNames') &&
             options?.label !== false) {
             this._drawLabel(
-                renderer, ctx, mousepos, options?.colorText, options?.topMargin,
-                false
+                mousepos, options?.colorText, options?.topMargin, false
             );
         }
 
@@ -282,50 +285,38 @@ export class SDFGElement extends Renderable {
         // information.
         if (this.COLLAPSIBLE && this.attributes()?.is_collapsed) {
             if (options?.expandPlus !== false)
-                this._drawExpandPlus(ctx);
+                this._drawExpandPlus();
             if (options?.summary !== false) {
                 this.drawSummaryInfo(
-                    renderer, ctx, mousepos,
-                    options?.overrideTooFarForText ?? false
+                    mousepos, options?.overrideTooFarForText ?? false
                 );
             }
         }
     }
 
-    public draw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void {
-        this._internalDraw(renderer, ctx, mousepos);
+    public simpleDraw(_mousePos?: Point2D): void {
+        this._setDrawStyleProperties(this.ctx);
+        this.ctx.fillStyle = this.defaultColorBG;
+        this.ctx.strokeStyle = this.strokeStyle();
+        this._drawShape(this.ctx, true, false);
     }
 
-    public simpleDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        _mousePos?: Point2D
-    ): void {
-        this._setDrawStyleProperties(ctx);
-        ctx.fillStyle = this.defaultColorBG;
-        ctx.strokeStyle = this.strokeStyle(renderer);
-        this._drawShape(renderer, ctx, true, false);
-    }
-
-    public minimapDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
-    ): void {
-        this._setDrawStyleProperties(ctx);
-        ctx.fillStyle = this.defaultColorBG;
-        ctx.strokeStyle = this.strokeStyle(renderer);
-        this._drawShape(renderer, ctx, true, false, false);
+    public minimapDraw(): void {
+        if (this.minimapCxt) {
+            this._setDrawStyleProperties(this.minimapCxt);
+            this.minimapCxt.fillStyle = this.defaultColorBG;
+            this.minimapCxt.strokeStyle = this.strokeStyle();
+            this._drawShape(this.minimapCxt, true, false, false);
+        }
     }
 
     protected _drawShape(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        fill: boolean = true, stroke: boolean = true,
-        clampToViewport: boolean = true
+        ctx: CanvasRenderingContext2D, fill: boolean = true,
+        stroke: boolean = true, clampToViewport: boolean = true
     ): void {
         let clamped: SimpleRect;
         if (clampToViewport) {
-            clamped = this.getViewClampedBoundingBox(renderer);
+            clamped = this.getViewClampedBoundingBox();
         } else {
             const topleft = this.topleft();
             clamped = {
@@ -341,34 +332,29 @@ export class SDFGElement extends Renderable {
             ctx.strokeRect(clamped.x, clamped.y, clamped.w, clamped.h);
     }
 
-    public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.4
-    ): void {
-        const origAlpha = ctx.globalAlpha;
-        const origFillStyle = ctx.fillStyle;
-        ctx.fillStyle = color;
-        ctx.globalAlpha = alpha;
-        this._drawShape(renderer, ctx, true, false);
-        ctx.globalAlpha = origAlpha;
-        ctx.fillStyle = origFillStyle;
+    public shade(color: string, alpha: number = 0.4): void {
+        const origAlpha = this.ctx.globalAlpha;
+        const origFillStyle = this.ctx.fillStyle;
+        this.ctx.fillStyle = color;
+        this.ctx.globalAlpha = alpha;
+        this._drawShape(this.ctx, true, false);
+        this.ctx.globalAlpha = origAlpha;
+        this.ctx.fillStyle = origFillStyle;
     }
 
     public drawSummaryInfo(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D,
-        overrideTooFarForText: boolean = false
+        mousepos?: Point2D, overrideTooFarForText: boolean = false
     ): void {
         const topleft = this.topleft();
-        if (!tooFarForText(renderer) || overrideTooFarForText) {
+        if (!tooFarForText(this.renderer) || overrideTooFarForText) {
             if (this.attributes()?.maxFootprintBytes !== undefined) {
-                const oldFont = ctx.font;
+                const oldFont = this.ctx.font;
                 const fontSize = SDFV.DEFAULT_CANVAS_FONTSIZE * 0.8;
-                ctx.font = fontSize.toString() + 'px sans-serif';
+                this.ctx.font = fontSize.toString() + 'px sans-serif';
                 const footprintText = bytesToString(
                     this.attributes()!.maxFootprintBytes as number, true, 2
                 );
-                const measurements = ctx.measureText(footprintText);
+                const measurements = this.ctx.measureText(footprintText);
                 const txtY = (
                     (topleft.y + this.height +
                         measurements.fontBoundingBoxAscent) -
@@ -378,9 +364,9 @@ export class SDFGElement extends Renderable {
                     (topleft.x + this.width) -
                     (measurements.width + SDFV.LABEL_MARGIN_H)
                 );
-                ctx.fillStyle = this.defaultColorText;
-                ctx.fillText(footprintText, txtX, txtY);
-                ctx.font = oldFont;
+                this.ctx.fillStyle = this.defaultColorText;
+                this.ctx.fillText(footprintText, txtX, txtY);
+                this.ctx.font = oldFont;
             }
         }
     }
@@ -393,7 +379,7 @@ export class SDFGElement extends Renderable {
         if (!renderer.adaptiveHiding ||
             (ppp && ppp < SDFVSettings.get<number>('edgeLOD'))) {
             const topleft = this.topleft();
-            ctx.strokeStyle = this.strokeStyle(renderer);
+            ctx.strokeStyle = this.strokeStyle();
             ctx.fillStyle = ctx.strokeStyle;
 
             if (this.summarizeInEdges && this.inSummaryHasEffect) {
@@ -490,18 +476,18 @@ export class SDFGElement extends Renderable {
         }
     }
 
-    protected getViewClampedBoundingBox(renderer: SDFGRenderer): SimpleRect {
+    protected getViewClampedBoundingBox(): SimpleRect {
         const topleft = this.topleft();
         let clamped = {
-            x: Math.max(topleft.x, renderer.viewport.x),
-            y: Math.max(topleft.y, renderer.viewport.y),
+            x: Math.max(topleft.x, this.renderer.viewport.x),
+            y: Math.max(topleft.y, this.renderer.viewport.y),
             x2: Math.min(
                 topleft.x + this.width,
-                renderer.viewport.x + renderer.viewport.w
+                this.renderer.viewport.x + this.renderer.viewport.w
             ),
             y2: Math.min(
                 topleft.y + this.height,
-                renderer.viewport.y + renderer.viewport.h
+                this.renderer.viewport.y + this.renderer.viewport.h
             ),
             w: 0,
             h: 0,
@@ -509,7 +495,7 @@ export class SDFGElement extends Renderable {
 
         clamped.w = clamped.x2 - clamped.x;
         clamped.h = clamped.y2 - clamped.y;
-        if (!renderer.viewportOnly) {
+        if (!this.renderer.viewportOnly) {
             clamped = {
                 x: topleft.x,
                 y: topleft.y,
@@ -527,8 +513,8 @@ export class SDFGElement extends Renderable {
         };
     }
 
-    protected isBorderVisible(renderer: SDFGRenderer): boolean {
-        const clamped = this.getViewClampedBoundingBox(renderer);
+    protected isBorderVisible(): boolean {
+        const clamped = this.getViewClampedBoundingBox();
         return clamped.x === this.x || clamped.y === this.y ||
             clamped.x + clamped.w === this.x + this.width ||
             clamped.y + clamped.h === this.y + this.height;
@@ -540,8 +526,10 @@ export class SDFG extends SDFGElement {
 
     public sdfgDagreGraph?: DagreGraph;
 
-    public constructor(sdfg: JsonSDFG) {
-        super(sdfg, -1, sdfg);
+    public constructor(
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, sdfg: JsonSDFG
+    ) {
+        super(renderer, ctx, sdfg, -1, sdfg);
     }
 
     public get label(): string {
@@ -637,53 +625,52 @@ export class ConditionalBlock extends ControlFlowBlock {
     public branches: [JsonSDFGCodeBlock | null, ControlFlowRegion][] = [];
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, options?: ElemDrawingOptions
     ): void {
         const withLabel = options?.label === true || (
             SDFVSettings.get<boolean>('showStateNames') &&
-            !tooFarForText(renderer)
+            !tooFarForText(this.renderer)
         );
         const nOptions: ElemDrawingOptions = {};
         Object.assign(nOptions, options);
         nOptions.label = withLabel;
 
-        super._internalDraw(renderer, ctx, mousepos, nOptions);
+        super._internalDraw(mousepos, nOptions);
 
-        if (!tooFarForText(renderer)) {
+        if (!tooFarForText(this.renderer)) {
             const topleft = this.topleft();
-            ctx.fillStyle = this.defaultColorText;
+            this.ctx.fillStyle = this.defaultColorText;
             const labelHeight = 1.5 * SDFV.LINEHEIGHT;
-            ctx.beginPath();
-            ctx.moveTo(topleft.x, topleft.y + labelHeight);
-            ctx.lineTo(topleft.x + this.width, topleft.y + labelHeight);
-            ctx.stroke();
+            this.ctx.beginPath();
+            this.ctx.moveTo(topleft.x, topleft.y + labelHeight);
+            this.ctx.lineTo(topleft.x + this.width, topleft.y + labelHeight);
+            this.ctx.stroke();
 
-            const oldFont = ctx.font;
-            ctx.font = 'bold ' + oldFont;
+            const oldFont = this.ctx.font;
+            this.ctx.font = 'bold ' + oldFont;
 
             let nextX = topleft.x;
             const nextY = topleft.y + labelHeight;
             const condHeight = ConditionalBlock.CONDITION_SPACING - labelHeight;
             for (const [condition, region] of this.branches) {
-                ctx.beginPath();
-                ctx.moveTo(nextX, nextY);
-                ctx.lineTo(nextX, nextY + condHeight);
-                ctx.stroke();
+                this.ctx.beginPath();
+                this.ctx.moveTo(nextX, nextY);
+                this.ctx.lineTo(nextX, nextY + condHeight);
+                this.ctx.stroke();
 
                 const condTextY = nextY + condHeight / 2 + SDFV.LINEHEIGHT / 4;
                 const condText = condition?.string_data ?
                     'if ' + condition.string_data : 'else';
-                const condTextMetrics = ctx.measureText(condText);
+                const condTextMetrics = this.ctx.measureText(condText);
                 const initTextX = (
                     nextX + region.width / 2 - condTextMetrics.width / 2
                 );
-                ctx.fillText(condText, initTextX, condTextY);
+                this.ctx.fillText(condText, initTextX, condTextY);
 
                 nextX = nextX + region.width;
             }
 
-            ctx.font = oldFont;
+            this.ctx.font = oldFont;
         }
     }
 
@@ -722,20 +709,19 @@ export class LoopRegion extends ControlFlowRegion {
     }
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, options?: ElemDrawingOptions
     ): void {
-        super._internalDraw(renderer, ctx, mousepos, {
+        super._internalDraw(mousepos, {
             label: false,
             expandPlus: false,
         });
 
-        const oldFont = ctx.font;
+        const oldFont = this.ctx.font;
         const topleft = this.topleft();
         let topSpacing = options?.topMargin ?? SDFV.LABEL_MARGIN_V;
         let remainingHeight = this.height;
-        ctx.fillStyle = this.defaultColorText;
-        ctx.strokeStyle = this.defaultColorText;
+        this.ctx.fillStyle = this.defaultColorText;
+        this.ctx.strokeStyle = this.defaultColorText;
 
         // Draw the init statement if there is one.
         const initStatement =
@@ -743,25 +729,27 @@ export class LoopRegion extends ControlFlowRegion {
         if (initStatement?.string_data) {
             topSpacing += LoopRegion.INIT_SPACING;
             const initBottomLineY = topleft.y + LoopRegion.INIT_SPACING;
-            ctx.beginPath();
-            ctx.moveTo(topleft.x, initBottomLineY);
-            ctx.lineTo(topleft.x + this.width, initBottomLineY);
-            ctx.stroke();
+            this.ctx.beginPath();
+            this.ctx.moveTo(topleft.x, initBottomLineY);
+            this.ctx.lineTo(topleft.x + this.width, initBottomLineY);
+            this.ctx.stroke();
 
-            if (!tooFarForText(renderer)) {
-                ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+            if (!tooFarForText(this.renderer)) {
+                this.ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
                 const initTextY = (
                     (topleft.y + (LoopRegion.INIT_SPACING / 2)) +
                     (SDFV.LINEHEIGHT / 2)
                 );
-                const initTextMetrics = ctx.measureText(
+                const initTextMetrics = this.ctx.measureText(
                     initStatement.string_data
                 );
                 const initTextX = this.x - (initTextMetrics.width / 2);
-                ctx.fillText(initStatement.string_data, initTextX, initTextY);
+                this.ctx.fillText(
+                    initStatement.string_data, initTextX, initTextY
+                );
 
-                ctx.font = oldFont;
-                ctx.fillText(
+                this.ctx.font = oldFont;
+                this.ctx.fillText(
                     'init', topleft.x + SDFV.LABEL_MARGIN_H, initTextY
                 );
             }
@@ -782,14 +770,14 @@ export class LoopRegion extends ControlFlowRegion {
             condLineY = condTopY + LoopRegion.CONDITION_SPACING;
         }
         topSpacing += LoopRegion.CONDITION_SPACING;
-        ctx.beginPath();
-        ctx.moveTo(topleft.x, condLineY);
-        ctx.lineTo(topleft.x + this.width, condLineY);
-        ctx.stroke();
+        this.ctx.beginPath();
+        this.ctx.moveTo(topleft.x, condLineY);
+        this.ctx.lineTo(topleft.x + this.width, condLineY);
+        this.ctx.stroke();
 
 
-        if (!tooFarForText(renderer)) {
-            ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+        if (!tooFarForText(this.renderer)) {
+            this.ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
             const condStatement = this.attributes()?.loop_condition as
                 JsonSDFGCodeBlock | undefined;
             const condTextY = (
@@ -797,13 +785,15 @@ export class LoopRegion extends ControlFlowRegion {
                 (SDFV.LINEHEIGHT / 2)
             );
             if (condStatement?.string_data) {
-                const condTextMetrics = ctx.measureText(
+                const condTextMetrics = this.ctx.measureText(
                     condStatement.string_data
                 );
                 const condTextX = this.x - (condTextMetrics.width / 2);
-                ctx.fillText(condStatement.string_data, condTextX, condTextY);
-                ctx.font = oldFont;
-                ctx.fillText(
+                this.ctx.fillText(
+                    condStatement.string_data, condTextX, condTextY
+                );
+                this.ctx.font = oldFont;
+                this.ctx.fillText(
                     'while', topleft.x + SDFV.LABEL_MARGIN_H, condTextY
                 );
             }
@@ -817,27 +807,27 @@ export class LoopRegion extends ControlFlowRegion {
             const updateTopY = topleft.y + (
                 this.height - LoopRegion.UPDATE_SPACING
             );
-            ctx.beginPath();
-            ctx.moveTo(topleft.x, updateTopY);
-            ctx.lineTo(topleft.x + this.width, updateTopY);
-            ctx.stroke();
+            this.ctx.beginPath();
+            this.ctx.moveTo(topleft.x, updateTopY);
+            this.ctx.lineTo(topleft.x + this.width, updateTopY);
+            this.ctx.stroke();
 
 
-            if (!tooFarForText(renderer)) {
-                ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
+            if (!tooFarForText(this.renderer)) {
+                this.ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
                 const updateTextY = (
                     (updateTopY + (LoopRegion.UPDATE_SPACING / 2)) +
                     (SDFV.LINEHEIGHT / 2)
                 );
-                const updateTextMetrics = ctx.measureText(
+                const updateTextMetrics = this.ctx.measureText(
                     updateStatement.string_data
                 );
                 const updateTextX = this.x - (updateTextMetrics.width / 2);
-                ctx.fillText(
+                this.ctx.fillText(
                     updateStatement.string_data, updateTextX, updateTextY
                 );
-                ctx.font = oldFont;
-                ctx.fillText(
+                this.ctx.font = oldFont;
+                this.ctx.fillText(
                     'update', topleft.x + SDFV.LABEL_MARGIN_H,
                     updateTextY
                 );
@@ -850,8 +840,8 @@ export class LoopRegion extends ControlFlowRegion {
             w: this.width,
             h: remainingHeight,
         };
-        this._drawExpandPlus(ctx, contentBox);
-        this._drawLabel(renderer, ctx, mousepos, undefined, topSpacing);
+        this._drawExpandPlus(contentBox);
+        this._drawLabel(mousepos, undefined, topSpacing);
     }
 
     public textForFind(): string {
@@ -892,19 +882,18 @@ export class SDFGNode extends SDFGElement {
     }
 
     protected _drawLabel(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, colorOverrideText?: SDFVColorThemeColor,
         overrideTopMargin?: number,
         overrideTooFarForText?: boolean
     ): void {
         if (this.label && this.label !== '') {
             const topleft = this.topleft();
-            ctx.fillStyle = colorOverrideText ?
+            this.ctx.fillStyle = colorOverrideText ?
                 SDFVSettings.get<string>(colorOverrideText) :
                 this.defaultColorText;
-            const textw = ctx.measureText(this.label).width;
-            if (overrideTooFarForText || !tooFarForText(renderer)) {
-                ctx.fillText(
+            const textw = this.ctx.measureText(this.label).width;
+            if (overrideTooFarForText || !tooFarForText(this.renderer)) {
+                this.ctx.fillText(
                     this.label, this.x - textw / 2,
                     overrideTopMargin ? topleft.y + overrideTopMargin :
                         this.y + SDFV.LINEHEIGHT / 4
@@ -992,55 +981,50 @@ export abstract class Edge extends SDFGElement {
     }
 
     public debugDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         overrideDebugDrawEnabled: boolean = false
     ): void {
-        if (renderer.debugDraw || overrideDebugDrawEnabled) {
+        if (this.renderer.debugDraw || overrideDebugDrawEnabled) {
             // Print the center and bounding box in debug mode.
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, 1, 0, 2 * Math.PI, false);
-            ctx.fillStyle = 'red';
-            ctx.fill();
-            ctx.strokeStyle = 'red';
-            ctx.stroke();
-            ctx.strokeRect(
+            this.ctx.beginPath();
+            this.ctx.arc(this.x, this.y, 1, 0, 2 * Math.PI, false);
+            this.ctx.fillStyle = 'red';
+            this.ctx.fill();
+            this.ctx.strokeStyle = 'red';
+            this.ctx.stroke();
+            this.ctx.strokeRect(
                 this.x - (this.width / 2.0), this.y - (this.height / 2.0),
                 this.width, this.height
             );
 
             // Print the points
             for (const p of this.points)
-                ctx.strokeRect(p.x - 2, p.y - 2, 4, 4);
+                this.ctx.strokeRect(p.x - 2, p.y - 2, 4, 4);
         }
     }
 
-    public shade(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number = 0.4
-    ): void {
+    public shade(color: string, alpha: number = 0.4): void {
         // Save current style properties.
-        const origStrokeStyle = ctx.strokeStyle;
-        const origFillStyle = ctx.fillStyle;
-        const origLineWidth = ctx.lineWidth;
-        const origAlpha = ctx.globalAlpha;
+        const origStrokeStyle = this.ctx.strokeStyle;
+        const origFillStyle = this.ctx.fillStyle;
+        const origLineWidth = this.ctx.lineWidth;
+        const origAlpha = this.ctx.globalAlpha;
 
-        ctx.globalAlpha = alpha;
-        ctx.lineWidth = origLineWidth + 4;
-        ctx.fillStyle = color;
-        ctx.strokeStyle = color;
+        this.ctx.globalAlpha = alpha;
+        this.ctx.lineWidth = origLineWidth + 4;
+        this.ctx.fillStyle = color;
+        this.ctx.strokeStyle = color;
 
-        this._drawShape(renderer, ctx);
+        this._drawShape(this.ctx);
 
         // Restore previous stroke style, width, and opacity.
-        ctx.strokeStyle = origStrokeStyle;
-        ctx.fillStyle = origFillStyle;
-        ctx.lineWidth = origLineWidth;
-        ctx.globalAlpha = origAlpha;
+        this.ctx.strokeStyle = origStrokeStyle;
+        this.ctx.fillStyle = origFillStyle;
+        this.ctx.lineWidth = origLineWidth;
+        this.ctx.globalAlpha = origAlpha;
     }
 
     protected _drawShape(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        skipArrow: boolean = false
+        ctx: CanvasRenderingContext2D, skipArrow: boolean = false
     ): void {
         const oldLineCap = ctx.lineCap;
         ctx.lineCap = 'butt';
@@ -1052,40 +1036,36 @@ export abstract class Edge extends SDFGElement {
         if (this.points.length < 2 || skipArrow)
             return;
 
-        const ppp = renderer.canvasManager.pointsPerPixel;
-        if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.ARROW_LOD)) {
+        const ppp = this.renderer.canvasManager.pointsPerPixel;
+        if (!this.renderer.adaptiveHiding || (ppp && ppp < SDFV.ARROW_LOD)) {
             this.drawArrow(ctx, this.points[this.points.length - 2],
                 this.points[this.points.length - 1], 3);
         }
     }
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
-        this._setDrawStyleProperties(ctx);
-        ctx.strokeStyle = this.strokeStyle(renderer);
-        ctx.fillStyle = this.strokeStyle(renderer);
-        this._drawShape(renderer, ctx);
+        this._setDrawStyleProperties(this.ctx);
+        this.ctx.strokeStyle = this.strokeStyle();
+        this.ctx.fillStyle = this.strokeStyle();
+        this._drawShape(this.ctx);
     }
 
-    public simpleDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        _mousePos?: Point2D
-    ): void {
-        this._setDrawStyleProperties(ctx);
-        ctx.strokeStyle = this.strokeStyle(renderer);
-        ctx.fillStyle = this.strokeStyle(renderer);
-        this._drawShape(renderer, ctx);
+    public simpleDraw(_mousePos?: Point2D): void {
+        this._setDrawStyleProperties(this.ctx);
+        this.ctx.strokeStyle = this.strokeStyle();
+        this.ctx.fillStyle = this.strokeStyle();
+        this._drawShape(this.ctx);
     }
 
-    public minimapDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
-    ): void {
-        this._setDrawStyleProperties(ctx);
-        ctx.strokeStyle = this.strokeStyle(renderer);
-        ctx.fillStyle = this.strokeStyle(renderer);
-        this._drawShape(renderer, ctx);
+    public minimapDraw(): void {
+        if (this.minimapCxt) {
+            this._setDrawStyleProperties(this.minimapCxt);
+            this.minimapCxt.strokeStyle = this.strokeStyle();
+            this.minimapCxt.fillStyle = this.strokeStyle();
+            this._drawShape(this.minimapCxt);
+        }
     }
 
     public setLayout(): void {
@@ -1179,36 +1159,35 @@ export class Memlet extends Edge {
     }
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
-        this._setDrawStyleProperties(ctx);
+        this._setDrawStyleProperties(this.ctx);
 
-        ctx.fillStyle = ctx.strokeStyle = this.strokeStyle(renderer);
+        this.ctx.fillStyle = this.ctx.strokeStyle = this.strokeStyle();
 
         let skipArrow = false;
         const attr = this.attributes();
         if (attr?.data) {
             // CR edges have dashed lines
             if (attr.wcr)
-                ctx.setLineDash([3, 2]);
+                this.ctx.setLineDash([3, 2]);
             else
-                ctx.setLineDash([]);
+                this.ctx.setLineDash([]);
         } else {
             // Empty memlet, i.e., a dependency edge. Do not draw the arrowhead.
             skipArrow = true;
         }
 
-        this._drawShape(renderer, ctx, skipArrow);
+        this._drawShape(this.ctx, skipArrow);
 
-        ctx.setLineDash([]);
+        this.ctx.setLineDash([]);
 
         if (this.points.length >= 2 && this.selected &&
-            renderer.mouseMode === 'move') {
+            this.renderer.mouseMode === 'move') {
             // Show anchor points for moving
             let i;
             for (i = 1; i < this.points.length - 1; i++) {
-                ctx.strokeRect(
+                this.ctx.strokeRect(
                     this.points[i].x - 5, this.points[i].y - 5, 8, 8
                 );
             }
@@ -1217,7 +1196,7 @@ export class Memlet extends Edge {
         if (this.hovered && mousepos) {
             const attr = this.attributes();
             if (attr?.data) {
-                renderer.showTooltip(
+                this.renderer.showTooltip(
                     mousepos.x, mousepos.y, memletToHtml(attr), true
                 );
             }
@@ -1234,6 +1213,8 @@ export class InterstateEdge extends Edge {
 
     // Parent ID is the state ID, if relevant
     public constructor(
+        renderer: SDFGRenderer,
+        ctx: CanvasRenderingContext2D,
         data: Record<string, unknown>,
         id: number,
         sdfg: JsonSDFG,
@@ -1243,7 +1224,7 @@ export class InterstateEdge extends Edge {
         public readonly src?: string,
         public readonly dst?: string
     ) {
-        super(data, id, sdfg, cfg, parentId, parentElem);
+        super(renderer, ctx, data, id, sdfg, cfg, parentId, parentElem);
     }
 
     public createArrowLine(ctx: CanvasRenderingContext2D): void {
@@ -1306,34 +1287,33 @@ export class InterstateEdge extends Edge {
     }
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
-        this._setDrawStyleProperties(ctx);
+        this._setDrawStyleProperties(this.ctx);
 
-        let style = this.strokeStyle(renderer);
+        let style = this.strokeStyle();
 
         // Interstate edge
         if (style === SDFVSettings.get<string>('defaultTextColor'))
             style = SDFVSettings.get<string>('interstateEdgeColor');
-        ctx.fillStyle = ctx.strokeStyle = style;
+        this.ctx.fillStyle = this.ctx.strokeStyle = style;
 
-        const ppp = renderer.canvasManager.pointsPerPixel;
-        const drawArrow = !renderer.adaptiveHiding ||
+        const ppp = this.renderer.canvasManager.pointsPerPixel;
+        const drawArrow = !this.renderer.adaptiveHiding ||
             (ppp && ppp < SDFV.ARROW_LOD);
 
-        this._drawShape(renderer, ctx, !drawArrow);
+        this._drawShape(this.ctx, !drawArrow);
 
-        ctx.setLineDash([]);
+        this.ctx.setLineDash([]);
 
         if (this.points.length < 2)
             return;
 
         // Show anchor points for moving
-        if (this.selected && renderer.mouseMode === 'move') {
+        if (this.selected && this.renderer.mouseMode === 'move') {
             let i;
             for (i = 1; i < this.points.length - 1; i++) {
-                ctx.strokeRect(
+                this.ctx.strokeRect(
                     this.points[i].x - 5, this.points[i].y - 5, 8, 8
                 );
             }
@@ -1341,19 +1321,18 @@ export class InterstateEdge extends Edge {
 
 
         if (SDFVSettings.get<boolean>('alwaysOnISEdgeLabels'))
-            this._drawLabel(renderer, ctx);
+            this._drawLabel();
 
         if (this.hovered && mousepos)
-            renderer.showTooltip(mousepos.x, mousepos.y, this.label);
+            this.renderer.showTooltip(mousepos.x, mousepos.y, this.label);
     }
 
     protected _drawLabel(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D, _colorOverrideText?: SDFVColorThemeColor,
         _overrideTopMargin?: number, overrideTooFarForText?: boolean
     ): void {
-        const ppp = renderer.canvasManager.pointsPerPixel;
-        if (!overrideTooFarForText || (renderer.adaptiveHiding &&
+        const ppp = this.renderer.canvasManager.pointsPerPixel;
+        if (!overrideTooFarForText || (this.renderer.adaptiveHiding &&
             ppp > SDFVSettings.get<number>('scopeLOD')))
             return;
 
@@ -1374,12 +1353,12 @@ export class InterstateEdge extends Edge {
         if (labelLines.length < 1)
             return;
 
-        const oldFont = ctx.font;
-        ctx.font = '8px sans-serif';
+        const oldFont = this.ctx.font;
+        this.ctx.font = '8px sans-serif';
         const labelHs = [];
         const labelWs = [];
         for (const l of labelLines) {
-            const labelMetrics = ctx.measureText(l);
+            const labelMetrics = this.ctx.measureText(l);
 
             let labelWidth = Math.abs(labelMetrics.actualBoundingBoxLeft) +
                 Math.abs(labelMetrics.actualBoundingBoxRight);
@@ -1388,7 +1367,7 @@ export class InterstateEdge extends Edge {
 
             // In case of canvas2pdf context, that only has width and height
             // as TextMetrics properties
-            if ('pdf' in ctx && ctx.pdf) {
+            if ('pdf' in this.ctx && this.ctx.pdf) {
                 if (labelWidth !== labelMetrics.width)
                     labelWidth = labelMetrics.width;
                 const lMHeight = (
@@ -1425,7 +1404,7 @@ export class InterstateEdge extends Edge {
         const LABEL_PADDING = 3;
         const srcP = this.points[0];
         const srcNode = this.src !== undefined ?
-            renderer.graph?.node(this.src) : null;
+            this.renderer.graph?.node(this.src) : null;
         // Initial offsets are good for edges coming out of a node's top border.
         let offsetX = LABEL_PADDING;
         let offsetY = -LABEL_PADDING;
@@ -1462,21 +1441,19 @@ export class InterstateEdge extends Edge {
                 offsetY = labelH + LABEL_PADDING;
         }
 
-        ctx.fillStyle = SDFVSettings.get<string>('interstateEdgeColor');
+        this.ctx.fillStyle = SDFVSettings.get<string>('interstateEdgeColor');
         for (let i = 0; i < labelLines.length; i++) {
-            ctx.fillText(
+            this.ctx.fillText(
                 labelLines[i],
                 srcP.x + offsetX,
                 (srcP.y + offsetY) - (i * (labelHs[0] + SDFV.LINEHEIGHT))
             );
         }
-        ctx.font = oldFont;
+        this.ctx.font = oldFont;
     }
 
-    public drawLabel(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
-    ): void {
-        this._drawLabel(renderer, ctx);
+    public drawLabel(): void {
+        this._drawLabel();
     }
 
 }
@@ -1497,14 +1474,13 @@ export class Connector extends SDFGElement {
     }
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, options?: ElemDrawingOptions, edge?: Edge
     ): void {
-        this._setDrawStyleProperties(ctx);
+        this._setDrawStyleProperties(this.ctx);
 
         const topleft = this.topleft();
-        drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
-        ctx.strokeStyle = this.strokeStyle(renderer);
+        drawEllipse(this.ctx, topleft.x, topleft.y, this.width, this.height);
+        this.ctx.strokeStyle = this.strokeStyle();
         let fillColor;
 
         const name = this.data?.name as string | undefined;
@@ -1512,11 +1488,11 @@ export class Connector extends SDFGElement {
             if (name) {
                 if (this.data?.certainAccess) {
                     fillColor = this.getCssProperty(
-                        renderer, '--cf-connector-certain-color'
+                        this.renderer, '--cf-connector-certain-color'
                     );
                 } else {
                     fillColor = this.getCssProperty(
-                        renderer, '--cf-connector-uncertain-color'
+                        this.renderer, '--cf-connector-uncertain-color'
                     );
                 }
             }
@@ -1529,23 +1505,23 @@ export class Connector extends SDFGElement {
                 const cname = name.startsWith('IN_') ?
                     name.substring(3) : name.substring(4);
 
-                ctx.lineWidth = 0.4;
-                ctx.stroke();
-                ctx.lineWidth = 1.0;
+                this.ctx.lineWidth = 0.4;
+                this.ctx.stroke();
+                this.ctx.lineWidth = 1.0;
                 fillColor = this.getCssProperty(
-                    renderer, '--connector-scoped-color'
+                    this.renderer, '--connector-scoped-color'
                 );
                 this.customLabel = cname;
             } else if (!edge) {
-                ctx.stroke();
+                this.ctx.stroke();
                 fillColor = SDFVSettings.get<string>(
                     'errorNodeBackgroundColor'
                 );
                 this.customLabel = 'No edge connected';
             } else {
-                ctx.stroke();
+                this.ctx.stroke();
                 fillColor = this.getCssProperty(
-                    renderer, '--connector-unscoped-color'
+                    this.renderer, '--connector-unscoped-color'
                 );
                 this.customLabel = undefined;
             }
@@ -1553,18 +1529,21 @@ export class Connector extends SDFGElement {
 
 
         // PDFs do not support transparent fill colors
-        if ('pdf' in ctx && ctx.pdf)
+        if ('pdf' in this.ctx && this.ctx.pdf)
             fillColor = fillColor?.slice(0, 7);
 
         if (fillColor !== undefined)
-            ctx.fillStyle = fillColor;
+            this.ctx.fillStyle = fillColor;
 
         // PDFs do not support stroke and fill on the same object
-        if ('pdf' in ctx && ctx.pdf)
-            drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
-        ctx.fill();
+        if ('pdf' in this.ctx && this.ctx.pdf) {
+            drawEllipse(
+                this.ctx, topleft.x, topleft.y, this.width, this.height
+            );
+        }
+        this.ctx.fill();
 
-        if (this.strokeStyle(renderer) !== SDFVSettings.get<string>(
+        if (this.strokeStyle() !== SDFVSettings.get<string>(
             'defaultTextColor'
         )) {
             if (this.linkedElem && mousepos &&
@@ -1606,22 +1585,19 @@ export class Connector extends SDFGElement {
                     }
                 }
 
-                renderer.showTooltip(
+                this.renderer.showTooltip(
                     mousepos.x, mousepos.y, customTooltipHtml, true
                 );
             } else if (mousepos) {
-                renderer.showTooltip(
+                this.renderer.showTooltip(
                     mousepos.x, mousepos.y, this.label
                 );
             }
         }
     }
 
-    public draw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D, edge?: Edge
-    ): void {
-        this._internalDraw(renderer, ctx, mousepos, undefined, edge);
+    public draw(mousepos?: Point2D, edge?: Edge): void {
+        this._internalDraw(mousepos, undefined, edge);
     }
 
     public attributes(): Record<string, unknown> {
@@ -1677,66 +1653,65 @@ export class AccessNode extends SDFGNode {
     }
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
-        this._setDrawStyleProperties(ctx);
+        this._setDrawStyleProperties(this.ctx);
 
         const name = this.attributes()?.data as string | undefined;
         const nodedesc = this.getDesc();
         // Streams have dashed edges
         if (nodedesc?.type === 'Stream')
-            ctx.setLineDash([5, 3]);
+            this.ctx.setLineDash([5, 3]);
         else
-            ctx.setLineDash([]);
+            this.ctx.setLineDash([]);
 
         // Non-transient (external) data is thicker
         if (nodedesc?.attributes?.transient !== true)
-            ctx.lineWidth = 2.0;
+            this.ctx.lineWidth = 2.0;
 
         // Views are colored like connectors
         if (nodedesc?.type?.includes('View')) {
-            ctx.fillStyle = this.getCssProperty(
-                renderer, '--connector-unscoped-color'
+            this.ctx.fillStyle = this.getCssProperty(
+                this.renderer, '--connector-unscoped-color'
             );
         } else if (nodedesc?.type?.includes('Reference')) {
-            ctx.fillStyle = this.getCssProperty(
-                renderer, '--reference-background-color'
+            this.ctx.fillStyle = this.getCssProperty(
+                this.renderer, '--reference-background-color'
             );
         } else if (name && nodedesc &&
             this.sdfg.attributes?.constants_prop?.[name] !== undefined) {
-            ctx.fillStyle = this.getCssProperty(
-                renderer, '--connector-scoped-color'
+            this.ctx.fillStyle = this.getCssProperty(
+                this.renderer, '--connector-scoped-color'
             );
         } else if (nodedesc) {
-            ctx.fillStyle = this.defaultColorBG;
+            this.ctx.fillStyle = this.defaultColorBG;
         } else {
-            ctx.fillStyle = SDFVSettings.get<string>(
+            this.ctx.fillStyle = SDFVSettings.get<string>(
                 'errorNodeBackgroundColor'
             );
         }
-        ctx.strokeStyle = this.strokeStyle(renderer);
+        this.ctx.strokeStyle = this.strokeStyle();
 
-        this._drawShape(renderer, ctx, true, true);
+        this._drawShape(this.ctx, true, true);
 
         if (nodedesc) {
-            ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
+            this.ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
         } else {
-            ctx.fillStyle = SDFVSettings.get<string>(
+            this.ctx.fillStyle = SDFVSettings.get<string>(
                 'errorNodeForegroundColor'
             );
-            if (this.strokeStyle(renderer) !== SDFVSettings.get<string>(
+            if (this.strokeStyle() !== SDFVSettings.get<string>(
                 'defaultTextColor'
             )) {
                 if (this.hovered && mousepos) {
-                    renderer.showTooltip(
+                    this.renderer.showTooltip(
                         mousepos.x, mousepos.y, 'Undefined array'
                     );
                 }
             }
         }
 
-        this._drawLabel(renderer, ctx, mousepos);
+        this._drawLabel(mousepos);
     }
 
     public get label(): string {
@@ -1751,8 +1726,8 @@ export class AccessNode extends SDFGNode {
     }
 
     protected _drawShape(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        fill: boolean = true, stroke: boolean = true
+        ctx: CanvasRenderingContext2D, fill: boolean = true,
+        stroke: boolean = true
     ): void {
         const topleft = this.topleft();
         drawEllipse(ctx, topleft.x, topleft.y, this.width, this.height);
@@ -1795,7 +1770,7 @@ export class ScopeNode extends SDFGNode {
     };
 
     protected _drawShape(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        ctx: CanvasRenderingContext2D,
         fill: boolean = true, stroke: boolean = true
     ): void {
         // Consume scopes have dashed edges
@@ -1842,27 +1817,26 @@ export class ScopeNode extends SDFGNode {
     }
 
     protected _drawLabel(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         _mousepos?: Point2D, _colorOverrideText?: SDFVColorThemeColor,
         overrideTopMargin?: number, overrideTooFarForText?: boolean
     ): void {
         // If we are far away, don't show the text
-        if (tooFarForText(renderer) && !overrideTooFarForText)
+        if (tooFarForText(this.renderer) && !overrideTooFarForText)
             return;
 
-        ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
+        this.ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
 
         const topMargin = overrideTopMargin ?? 0;
         drawAdaptiveText(
-            ctx, renderer, this.getFarLabel(renderer),
-            this.getCloseLabel(renderer), this.x, this.y + topMargin,
+            this.ctx, this.renderer, this.getFarLabel(this.renderer),
+            this.getCloseLabel(this.renderer), this.x, this.y + topMargin,
             this.width, this.height,
             SDFVSettings.get<number>('scopeLOD')
         );
 
         if (SDFVSettings.get<boolean>('showMapSchedules')) {
             drawAdaptiveText(
-                ctx, renderer, '', this.getScheduleLabel(), this.x,
+                this.ctx, this.renderer, '', this.getScheduleLabel(), this.x,
                 this.y + topMargin, this.width, this.height,
                 SDFVSettings.get<number>('scopeLOD'),
                 SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
@@ -1876,17 +1850,16 @@ export class ScopeNode extends SDFGNode {
     }
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, options?: ElemDrawingOptions
     ): void {
-        this._setDrawStyleProperties(ctx);
+        this._setDrawStyleProperties(this.ctx);
 
-        ctx.strokeStyle = this.strokeStyle(renderer);
-        ctx.fillStyle = SDFVSettings.get<string>('nodeBackgroundColor');
-        this._drawShape(renderer, ctx, true, true);
+        this.ctx.strokeStyle = this.strokeStyle();
+        this.ctx.fillStyle = SDFVSettings.get<string>('nodeBackgroundColor');
+        this._drawShape(this.ctx, true, true);
 
         if (options?.label !== false)
-            this._drawLabel(renderer, ctx, mousepos);
+            this._drawLabel(mousepos);
     }
 
     private getScheduleLabel(): string {
@@ -2114,6 +2087,8 @@ export class Tasklet extends SDFGNode {
     private longestCodeLine?: string;
 
     public constructor(
+        renderer: SDFGRenderer,
+        ctx: CanvasRenderingContext2D,
         data: Record<string, unknown>,
         id: number,
         sdfg: JsonSDFG,
@@ -2121,7 +2096,7 @@ export class Tasklet extends SDFGNode {
         parentStateId?: number,
         parentElem?: SDFGElement
     ) {
-        super(data, id, sdfg, cfg, parentStateId, parentElem);
+        super(renderer, ctx, data, id, sdfg, cfg, parentStateId, parentElem);
         this.highlightCode();
     }
 
@@ -2205,15 +2180,13 @@ export class Tasklet extends SDFGNode {
         }
     }
 
-    private drawTaskletCode(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D
-    ): void {
+    private drawTaskletCode(): void {
         if (!this.longestCodeLine)
             return;
 
-        const oldfont = ctx.font;
-        ctx.font = '10px courier new';
-        const textmetrics = ctx.measureText(this.longestCodeLine);
+        const oldfont = this.ctx.font;
+        this.ctx.font = '10px courier new';
+        const textmetrics = this.ctx.measureText(this.longestCodeLine);
 
         // Fit font size to 80% height and width of tasklet
         const height = this.highlightedCode.length * SDFV.LINEHEIGHT * 1.05;
@@ -2224,7 +2197,7 @@ export class Tasklet extends SDFGNode {
         const fontSize = Math.min(10 / hr, 10 / wr);
         const textYOffset = fontSize / 4;
 
-        ctx.font = fontSize.toString() + 'px courier new';
+        this.ctx.font = fontSize.toString() + 'px courier new';
         const defaultColor = SDFVSettings.get<string>('defaultTextColor');
         // Set the start offset such that the middle row of the text is in
         // this.y
@@ -2237,75 +2210,76 @@ export class Tasklet extends SDFGNode {
             const lineY = startY + i * fontSize * 1.05;
             let tokenX = startX;
             for (const token of line) {
-                const ofont = ctx.font;
+                const ofont = this.ctx.font;
                 if (token.highlighted) {
-                    ctx.font = 'bold ' + fontSize.toString() + 'px courier new';
-                    ctx.fillStyle = this.getCssProperty(
-                        renderer, '--tasklet-highlighted-color'
+                    this.ctx.font = (
+                        'bold ' + fontSize.toString() + 'px courier new'
+                    );
+                    this.ctx.fillStyle = this.getCssProperty(
+                        this.renderer, '--tasklet-highlighted-color'
                     );
                 } else {
                     switch (token.type) {
                         case TaskletCodeTokenType.Input:
-                            ctx.fillStyle = this.getCssProperty(
-                                renderer, '--tasklet-input-color'
+                            this.ctx.fillStyle = this.getCssProperty(
+                                this.renderer, '--tasklet-input-color'
                             );
                             break;
                         case TaskletCodeTokenType.Output:
-                            ctx.fillStyle = this.getCssProperty(
-                                renderer, '--tasklet-output-color'
+                            this.ctx.fillStyle = this.getCssProperty(
+                                this.renderer, '--tasklet-output-color'
                             );
                             break;
                         case TaskletCodeTokenType.Symbol:
-                            ctx.font = 'bold ' + fontSize.toString() +
+                            this.ctx.font = 'bold ' + fontSize.toString() +
                                 'px courier new';
-                            ctx.fillStyle = this.getCssProperty(
-                                renderer, '--tasklet-symbol-color'
+                            this.ctx.fillStyle = this.getCssProperty(
+                                this.renderer, '--tasklet-symbol-color'
                             );
                             break;
                         case TaskletCodeTokenType.Number:
-                            ctx.fillStyle = this.getCssProperty(
-                                renderer, '--tasklet-number-color'
+                            this.ctx.fillStyle = this.getCssProperty(
+                                this.renderer, '--tasklet-number-color'
                             );
                             break;
                         default:
-                            ctx.fillStyle = defaultColor;
+                            this.ctx.fillStyle = defaultColor;
                             break;
                     }
                 }
 
-                ctx.fillText(token.token, tokenX, lineY);
-                const tokenWidth = ctx.measureText(token.token).width;
+                this.ctx.fillText(token.token, tokenX, lineY);
+                const tokenWidth = this.ctx.measureText(token.token).width;
                 tokenX += tokenWidth;
-                ctx.font = ofont;
+                this.ctx.font = ofont;
             }
             i++;
         }
 
-        ctx.font = oldfont;
+        this.ctx.font = oldfont;
     }
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
-        this._setDrawStyleProperties(ctx);
+        this._setDrawStyleProperties(this.ctx);
 
-        ctx.fillStyle = this.defaultColorBG;
-        ctx.strokeStyle = this.strokeStyle(renderer);
-        this._drawShape(renderer, ctx, true, true);
+        this.ctx.fillStyle = this.defaultColorBG;
+        this.ctx.strokeStyle = this.strokeStyle();
+        this._drawShape(this.ctx, true, true);
 
-        const ppp = renderer.canvasManager.pointsPerPixel;
-        if (!renderer.adaptiveHiding ||
+        const ppp = this.renderer.canvasManager.pointsPerPixel;
+        if (!this.renderer.adaptiveHiding ||
             ppp < SDFVSettings.get<number>('taskletLOD')) {
             // If we are close to the tasklet, show its contents
-            this.drawTaskletCode(renderer, ctx);
+            this.drawTaskletCode();
         } else {
-            this._drawLabel(renderer, ctx, mousepos);
+            this._drawLabel(mousepos);
         }
     }
 
     protected _drawShape(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        ctx: CanvasRenderingContext2D,
         fill: boolean = true, stroke: boolean = true
     ): void {
         const topleft = this.topleft();
@@ -2327,7 +2301,7 @@ export class Tasklet extends SDFGNode {
 export class Reduce extends SDFGNode {
 
     protected _drawShape(
-        _renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        ctx: CanvasRenderingContext2D,
         fill: boolean = true, stroke: boolean = true
     ): void {
         const topleft = this.topleft();
@@ -2355,17 +2329,16 @@ export class Reduce extends SDFGNode {
     }
 
     protected _drawLabel(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, colorOverrideText?: SDFVColorThemeColor,
         overrideTopMargin?: number, overrideTooFarForText?: boolean
     ): void {
-        if (overrideTooFarForText || !tooFarForText(renderer)) {
-            ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
+        if (overrideTooFarForText || !tooFarForText(this.renderer)) {
+            this.ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
             const farLabel = this.label.substring(
                 4, this.label.indexOf(',')
             );
             drawAdaptiveText(
-                ctx, renderer, farLabel,
+                this.ctx, this.renderer, farLabel,
                 this.label, this.x, this.y - this.height * 0.2,
                 this.width, this.height,
                 SDFVSettings.get<number>('scopeLOD')
@@ -2374,14 +2347,13 @@ export class Reduce extends SDFGNode {
     }
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, options?: ElemDrawingOptions
     ): void {
         const nOptions = {} as ElemDrawingOptions;
         if (options)
             Object.assign(nOptions, options);
         nOptions.label = true;
-        super._internalDraw(renderer, ctx, mousepos, nOptions);
+        super._internalDraw(mousepos, nOptions);
     }
 
 }
@@ -2391,7 +2363,7 @@ export class NestedSDFG extends SDFGNode {
     public readonly COLLAPSIBLE: boolean = true;
 
     protected _drawShape(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        ctx: CanvasRenderingContext2D,
         fill: boolean = true, stroke: boolean = true
     ): void {
         if (this.attributes()?.is_collapsed) {
@@ -2416,39 +2388,38 @@ export class NestedSDFG extends SDFGNode {
             }
         } else {
             // Draw a rectangle around the nested SDFG.
-            super._drawShape(renderer, ctx, fill, stroke);
+            super._drawShape(ctx, fill, stroke);
         }
     }
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
-        this._setDrawStyleProperties(ctx);
+        this._setDrawStyleProperties(this.ctx);
 
-        ctx.fillStyle = this.defaultColorBG;
-        ctx.strokeStyle = this.strokeStyle(renderer);
+        this.ctx.fillStyle = this.defaultColorBG;
+        this.ctx.strokeStyle = this.strokeStyle();
 
-        this._drawShape(renderer, ctx, true, true);
+        this._drawShape(this.ctx, true, true);
 
         if (this.attributes()?.is_collapsed) {
-            this._drawLabel(renderer, ctx, mousepos);
+            this._drawLabel(mousepos);
         } else {
             const nsdfg = this.attributes()?.sdfg as JsonSDFG | undefined;
             const ngraph = this.data?.graph as DagreGraph | undefined;
             if (nsdfg?.type !== 'SDFGShell' && ngraph) {
                 // Draw nested graph.
-                drawSDFG(renderer, ctx, ngraph, mousepos);
+                drawSDFG(this.renderer, this.ctx, ngraph, mousepos);
             } else {
                 // Expanded, but no SDFG present or loaded yet.
-                if (!tooFarForText(renderer)) {
+                if (!tooFarForText(this.renderer)) {
                     const errColor = SDFVSettings.get<string>(
                         'errorNodeBackgroundColor'
                     );
                     const label = 'No SDFG loaded';
-                    const textmetrics = ctx.measureText(label);
-                    ctx.fillStyle = errColor;
-                    ctx.fillText(
+                    const textmetrics = this.ctx.measureText(label);
+                    this.ctx.fillStyle = errColor;
+                    this.ctx.fillText(
                         label, this.x - textmetrics.width / 2.0,
                         this.y + SDFV.LINEHEIGHT / 4.0
                     );
@@ -2519,8 +2490,8 @@ export class ExternalNestedSDFG extends NestedSDFG {
 export class LibraryNode extends SDFGNode {
 
     protected _drawShape(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
-        fill: boolean = true, stroke: boolean = true
+        ctx: CanvasRenderingContext2D, fill: boolean = true,
+        stroke: boolean = true
     ): void {
         if (fill) {
             this._path(ctx);
@@ -2556,14 +2527,13 @@ export class LibraryNode extends SDFGNode {
     }
 
     protected _internalDraw(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
         mousepos?: Point2D, options?: ElemDrawingOptions
     ): void {
         const nOptions = {} as ElemDrawingOptions;
         if (options)
             Object.assign(nOptions, options);
         nOptions.label = true;
-        super._internalDraw(renderer, ctx, mousepos, nOptions);
+        super._internalDraw(mousepos, nOptions);
     }
 
 }
@@ -2670,16 +2640,16 @@ function batchedDrawEdges(
 
     for (const e of labelEdges) {
         if (e instanceof InterstateEdge)
-            e.drawLabel(renderer, ctx);
+            e.drawLabel();
     }
 
     for (const e of deferredEdges)
-        e.draw(renderer, ctx, mousepos);
+        e.draw(mousepos);
 
     if (renderer.debugDraw) {
         for (const e of graph.edges()) {
             const edge = graph.edge(e);
-            edge?.debugDraw(renderer, ctx);
+            edge?.debugDraw();
         }
     }
 }
@@ -2704,22 +2674,22 @@ function drawStateContents(
             const nodeppp = Math.sqrt(node.width * node.height) / ppp;
             if (renderer.adaptiveHiding &&
                 nodeppp < SDFVSettings.get<number>('nestedLOD')) {
-                node.simpleDraw(renderer, ctx, mousePos);
-                node.debugDraw(renderer, ctx);
+                node.simpleDraw(mousePos);
+                node.debugDraw();
                 continue;
             }
         } else {
             // Simple draw node
             if (renderer.adaptiveHiding &&
                 ppp > SDFVSettings.get<number>('nodeLOD')) {
-                node.simpleDraw(renderer, ctx, mousePos);
-                node.debugDraw(renderer, ctx);
+                node.simpleDraw(mousePos);
+                node.debugDraw();
                 continue;
             }
         }
 
-        node.draw(renderer, ctx, mousePos);
-        node.debugDraw(renderer, ctx);
+        node.draw(mousePos);
+        node.debugDraw();
 
         // Only draw connectors when close enough to see them
         if (!renderer.adaptiveHiding || ppp < SDFV.CONNECTOR_LOD) {
@@ -2740,8 +2710,8 @@ function drawStateContents(
                         edge = eobj;
                 });
 
-                c.draw(renderer, ctx, mousePos, edge);
-                c.debugDraw(renderer, ctx);
+                c.draw(mousePos, edge);
+                c.debugDraw();
             });
             node.outConnectors.forEach(c => {
                 if (visibleRect && !c.intersect(
@@ -2757,8 +2727,8 @@ function drawStateContents(
                         edge = eobj;
                 });
 
-                c.draw(renderer, ctx, mousePos, edge);
-                c.debugDraw(renderer, ctx);
+                c.draw(mousePos, edge);
+                c.debugDraw();
             });
         }
     }
@@ -2800,21 +2770,21 @@ function drawStateMachine(
         if (block instanceof SDFGNode) {
             if (renderer.adaptiveHiding &&
                 ppp > SDFVSettings.get<number>('nodeLOD')) {
-                block.simpleDraw(renderer, ctx, mousePos);
-                block.debugDraw(renderer, ctx);
+                block.simpleDraw(mousePos);
+                block.debugDraw();
                 continue;
             }
         } else {
             if (renderer.adaptiveHiding &&
                 blockppp < SDFVSettings.get<number>('nestedLOD')) {
-                block.simpleDraw(renderer, ctx, mousePos);
-                block.debugDraw(renderer, ctx);
+                block.simpleDraw(mousePos);
+                block.debugDraw();
                 continue;
             }
         }
 
-        block.draw(renderer, ctx, mousePos);
-        block.debugDraw(renderer, ctx);
+        block.draw(mousePos);
+        block.debugDraw();
 
         const ng = block.data?.graph as DagreGraph | undefined;
         if (!block.attributes()?.is_collapsed && ng) {
@@ -2828,7 +2798,7 @@ function drawStateMachine(
                 );
             } else if (block instanceof ConditionalBlock) {
                 for (const [_, region] of block.branches) {
-                    region.draw(renderer, ctx, mousePos);
+                    region.draw(mousePos);
                     const regG = region.data?.graph as DagreGraph | undefined;
                     if (!region.attributes()?.is_collapsed && regG) {
                         drawStateMachine(

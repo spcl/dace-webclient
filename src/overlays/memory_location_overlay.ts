@@ -17,6 +17,7 @@ import {
 import { KELLY_COLORS } from '../utils/utils';
 import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
 
+
 // Available data storage types in the SDFG.
 export enum StorageType {
     // Scope-default storage location
@@ -213,7 +214,7 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
         };
     }
 
-    protected shadeNode(node: AccessNode, ctx: CanvasRenderingContext2D): void {
+    protected shadeNode(node: AccessNode): void {
         const storageType = MemoryLocationOverlay.getStorageType(node);
         const mousepos = this.renderer.getMousePos();
         if (mousepos && node.intersect(mousepos.x, mousepos.y)) {
@@ -228,7 +229,7 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
 
         const color = STYPE_COLOR.get(storageType.type)?.toString(16);
         if (color)
-            node.shade(this.renderer, ctx, '#' + color);
+            node.shade('#' + color);
     }
 
     public draw(): void {

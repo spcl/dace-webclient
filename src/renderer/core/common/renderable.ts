@@ -8,11 +8,6 @@ export abstract class Renderable {
 
     public readonly COLLAPSIBLE: boolean = false;
 
-    // Indicate special drawing conditions based on interactions.
-    public selected: boolean = false;
-    public highlighted: boolean = false;
-    public hovered: boolean = false;
-
     // Layout information.
     public x: number = 0;
     public y: number = 0;
@@ -20,10 +15,27 @@ export abstract class Renderable {
     public height: number = 0;
 
     public constructor(
+        protected readonly _renderer: RendererBase,
         public id: number,
         public data?: Record<string, unknown>
     ) {
         this.setLayout();
+    }
+
+    public get renderer(): RendererBase {
+        return this._renderer;
+    }
+
+    public get selected(): boolean {
+        return this.renderer.selectedRenderables.has(this);
+    }
+
+    public get hovered(): boolean {
+        return this.renderer.hoveredRenderables.has(this);
+    }
+
+    public get highlighted(): boolean {
+        return this.renderer.highlightedRenderables.has(this);
     }
 
     public setLayout(): void {
@@ -38,53 +50,25 @@ export abstract class Renderable {
         }
     }
 
-    protected abstract _internalDraw(
-        renderer: RendererBase, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void;
+    protected abstract _internalDraw(mousepos?: Point2D): void;
 
     public abstract drawSummaryInfo(
-        renderer: RendererBase, ctx: CanvasRenderingContext2D,
         mousePos?: Point2D, overrideTooFarForText?: boolean
     ): void;
 
-    public draw(
-        renderer: RendererBase, ctx: CanvasRenderingContext2D,
-        mousePos?: Point2D
-    ): void {
-        this._internalDraw(renderer, ctx, mousePos);
+    public abstract minimapDraw(): void;
+
+    public draw(mousePos?: Point2D): void {
+        this._internalDraw(mousePos);
     }
 
-    public simpleDraw(
-        renderer: RendererBase, ctx: CanvasRenderingContext2D,
-        mousePos?: Point2D
-    ): void {
-        this.draw(renderer, ctx, mousePos);
+    public simpleDraw(mousePos?: Point2D): void {
+        this.draw(mousePos);
     }
 
-    public abstract shade(
-        renderer: RendererBase, ctx: CanvasRenderingContext2D, color: string,
-        alpha: number
-    ): void;
+    public abstract shade(color: string, alpha: number): void;
 
-    public debugDraw(
-        renderer: RendererBase, ctx: CanvasRenderingContext2D,
-        overrideDebugDrawEnabled: boolean = false
-    ): void {
-        if (renderer.debugDraw || overrideDebugDrawEnabled) {
-            // Print the center and bounding box in debug mode.
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, 1, 0, 2 * Math.PI, false);
-            ctx.fillStyle = 'red';
-            ctx.fill();
-            ctx.strokeStyle = 'red';
-            ctx.stroke();
-            ctx.strokeRect(
-                this.x - (this.width / 2.0), this.y - (this.height / 2.0),
-                this.width, this.height
-            );
-        }
-    }
+    public abstract debugDraw(overrideDebugDrawEnabled: boolean): void;
 
     public abstract get type(): string;
 

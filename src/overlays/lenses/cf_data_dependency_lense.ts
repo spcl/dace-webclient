@@ -55,6 +55,7 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
                     }
 
                     const connector = new Connector(
+                        this.renderer, this.renderer.ctx,
                         {
                             name: read,
                             access: (
@@ -82,6 +83,7 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
                     }
 
                     const connector = new Connector(
+                        this.renderer, this.renderer.ctx,
                         {
                             name: write,
                             access: (
@@ -180,9 +182,7 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
         this.renderer.drawAsync();
     }
 
-    protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ..._args: any[]
-    ): void {
+    protected shadeBlock(block: ControlFlowBlock, ..._args: any[]): void {
         // Only draw connectors when close enough to see them.
         const ppp = this.renderer.canvasManager.pointsPerPixel;
         if (!this.renderer.adaptiveHiding || ppp < SDFV.CONNECTOR_LOD) {
@@ -190,22 +190,18 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
             const connectors = this.connectorMap.get(block);
             if (connectors) {
                 for (const connector of connectors[0]) {
-                    connector.hovered = false;
-                    if (mPos && connector.intersect(mPos.x, mPos.y))
-                        connector.hovered = true;
-                        //if (ttCont)
-                        //    connector.tooltip(ttCont);
-                    connector.draw(this.renderer, ctx, mPos, undefined);
-                    connector.debugDraw(this.renderer, ctx);
+                    //connector.hovered = false;
+                    //if (mPos && connector.intersect(mPos.x, mPos.y))
+                    //    connector.hovered = true;
+                    connector.draw(mPos, undefined);
+                    connector.debugDraw();
                 }
                 for (const connector of connectors[1]) {
-                    connector.hovered = false;
-                    if (mPos && connector.intersect(mPos.x, mPos.y))
-                        connector.hovered = true;
-                        //if (ttCont)
-                        //    connector.tooltip(ttCont);
-                    connector.draw(this.renderer, ctx, mPos, undefined);
-                    connector.debugDraw(this.renderer, ctx);
+                    //connector.hovered = false;
+                    //if (mPos && connector.intersect(mPos.x, mPos.y))
+                    //    connector.hovered = true;
+                    connector.draw(mPos, undefined);
+                    connector.debugDraw();
                 }
             }
         }

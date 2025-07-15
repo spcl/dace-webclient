@@ -12,20 +12,25 @@ import { DataSubset, JsonSDFGDataDesc, Point2D } from '../../types';
 import { bytesToString, sdfgRangeElemToString } from '../../utils/sdfg/display';
 import { SDFVSettings } from '../../utils/sdfv_settings';
 import { KELLY_COLORS, median } from '../../utils/utils';
-import { Renderable } from '../core/common/renderable';
 import { ptLineDistance } from '../core/common/renderer_utils';
+import {
+    HTMLCanvasRenderable,
+} from '../core/html_canvas/html_canvas_renderable';
 import { AccessTimelineRenderer } from './access_timeline_renderer';
 
 
 export type TimelineViewElementClasses = 'container' | 'access' | 'axes';
 
-export abstract class TimelineViewElement extends Renderable {
+export abstract class TimelineViewElement extends HTMLCanvasRenderable {
 
     protected _guid: string = '';
     protected _type: string = 'TimelineViewElement';
 
-    public constructor() {
-        super(0, undefined);
+    public constructor(
+        renderer: AccessTimelineRenderer,
+        ctx: CanvasRenderingContext2D
+    ) {
+        super(renderer, ctx, 0, undefined);
     }
 
     public get guid(): string {
@@ -40,18 +45,22 @@ export abstract class TimelineViewElement extends Renderable {
         return this.type;
     }
 
-    public shade(
-        _renderer: AccessTimelineRenderer, _ctx: CanvasRenderingContext2D,
-        _color: string, _alpha: number
-    ): void {
+    public get renderer(): AccessTimelineRenderer {
+        return this._renderer as AccessTimelineRenderer;
+    }
+
+    public shade(_color: string, _alpha: number): void {
         return;
     }
 
     public drawSummaryInfo(
-        _renderer: AccessTimelineRenderer, _ctx: CanvasRenderingContext2D,
         _mousePos?: Point2D, _overrideTooFarForText?: boolean
     ): void {
         return;
+    }
+
+    public minimapDraw(): void {
+        this.draw();
     }
 
 }
@@ -116,10 +125,7 @@ function isInputOutput(
     return [isInput, isOutput];
 }
 
-type DrawCall = (
-    renderer: AccessTimelineRenderer, ctx: CanvasRenderingContext2D,
-    mousepos?: Point2D
-) => void;
+type DrawCall = (mousepos?: Point2D) => void;
 
 export class TimelineChart extends TimelineViewElement {
 
@@ -137,8 +143,6 @@ export class TimelineChart extends TimelineViewElement {
     public readonly scaleX: number;
     public readonly scaleY: number;
 
-    public readonly renderer: AccessTimelineRenderer;
-
     private medianReuse: number = Infinity;
     private medianRatio: number = 0.0;
 
@@ -150,9 +154,7 @@ export class TimelineChart extends TimelineViewElement {
         timeline: MemoryEvent[], rootScope: MemoryTimelineScope,
         renderer: AccessTimelineRenderer
     ) {
-        super();
-
-        this.renderer = renderer;
+        super(renderer, renderer.ctx);
 
         this.nEvents = 0;
         this.maxFootprint = 0;
@@ -202,9 +204,12 @@ export class TimelineChart extends TimelineViewElement {
         this.scaleX = targetWidth / this.nEvents;
         const blockLabelScale = Math.min(this.scaleY, this.scaleX);
 
-        this.xAxis = new ChartAxis('horizontal', 0, this.nEvents, this.scaleX);
+        this.xAxis = new ChartAxis(
+            renderer, renderer.ctx, 'horizontal', 0, this.nEvents, this.scaleX
+        );
         this.yAxis = new ChartAxis(
-            'vertical', 0, this.maxFootprint, this.scaleY
+            renderer, renderer.ctx, 'vertical', 0, this.maxFootprint,
+            this.scaleY
         );
 
         this.containers = [];
@@ -236,6 +241,7 @@ export class TimelineChart extends TimelineViewElement {
                         false,
                     ];
                     const allocatedElem = new AllocatedContainer(
+                        renderer, renderer.ctx,
                         label, blockLabelScale,
                         '#' + KELLY_COLORS[colorIdx].toString(16),
                         this, (event as AllocationEvent).conditional,
@@ -289,6 +295,7 @@ export class TimelineChart extends TimelineViewElement {
                 const accessEvent = event as DataAccessEvent;
                 const allocatedElem = elemMap.get(accessEvent.alloc_name)!;
                 const accessElem = new ContainerAccess(
+                    renderer, renderer.ctx,
                     accessEvent.mode, accessEvent.subset, time, this.scaleX,
                     allocatedElem, accessEvent.conditional
                 );
@@ -305,7 +312,7 @@ export class TimelineChart extends TimelineViewElement {
             allocElem.deallocatedAt = time;
         }
 
-        this.scopes = this.collectScopes(rootScope, 0);
+        this.scopes = this.collectScopes(renderer, rootScope, 0);
 
         this.height = this.yAxis.height;
         this.width = this.xAxis.width;
@@ -339,26 +346,25 @@ export class TimelineChart extends TimelineViewElement {
     }
 
     private collectScopes(
-        scope: MemoryTimelineScope, depth: number
+        renderer: AccessTimelineRenderer, scope: MemoryTimelineScope,
+        depth: number
     ): ScopeElement[] {
         const elements = [
             new ScopeElement(
+                renderer, renderer.ctx,
                 scope.label, depth, scope.start_time, scope.end_time, this
             ),
         ];
         for (const child of scope.children) {
-            for (const nElem of this.collectScopes(child, depth + 1))
+            for (const nElem of this.collectScopes(renderer, child, depth + 1))
                 elements.push(nElem);
         }
         return elements;
     }
 
-    public drawDeferred(
-        renderer: AccessTimelineRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void {
+    public drawDeferred(mousepos?: Point2D): void {
         for (const deferredCall of this.deferredDrawCalls)
-            deferredCall(renderer, ctx, mousepos);
+            deferredCall(mousepos);
         this.deferredDrawCalls.clear();
     }
 
@@ -366,64 +372,61 @@ export class TimelineChart extends TimelineViewElement {
         return [this.xAxis, this.yAxis];
     }
 
-    protected _internalDraw(
-        renderer: AccessTimelineRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void {
+    protected _internalDraw(mousepos?: Point2D): void {
         for (const elem of this.containers)
-            elem.draw(renderer, ctx, mousepos);
+            elem.draw(mousepos);
 
         // Batch access drawing.
         const deferredEdges = [];
-        ctx.beginPath();
-        ctx.setLineDash([1, 1]);
+        this.ctx.beginPath();
+        this.ctx.setLineDash([1, 1]);
         for (const access of this.readAccesses) {
             if (access.hovered) {
                 deferredEdges.push(access);
                 continue;
             }
-            ctx.moveTo(access.x, access.y);
-            ctx.lineTo(access.x, access.y + access.height);
+            this.ctx.moveTo(access.x, access.y);
+            this.ctx.lineTo(access.x, access.y + access.height);
         }
-        ctx.strokeStyle = 'blue';
-        ctx.fillStyle = 'blue';
-        ctx.stroke();
+        this.ctx.strokeStyle = 'blue';
+        this.ctx.fillStyle = 'blue';
+        this.ctx.stroke();
 
-        ctx.beginPath();
-        if ('pdf' in ctx && ctx.pdf)
-            ctx.setLineDash([1, 0]);
+        this.ctx.beginPath();
+        if ('pdf' in this.ctx && this.ctx.pdf)
+            this.ctx.setLineDash([1, 0]);
         else
-            ctx.setLineDash([]);
+            this.ctx.setLineDash([]);
         for (const access of this.writeAccesses) {
             if (access.hovered) {
                 deferredEdges.push(access);
                 continue;
             }
-            ctx.moveTo(access.x, access.y);
-            ctx.lineTo(access.x, access.y + access.height);
+            this.ctx.moveTo(access.x, access.y);
+            this.ctx.lineTo(access.x, access.y + access.height);
         }
-        ctx.strokeStyle = 'black';
-        ctx.fillStyle = 'black';
-        ctx.stroke();
+        this.ctx.strokeStyle = 'black';
+        this.ctx.fillStyle = 'black';
+        this.ctx.stroke();
 
         for (const deferred of deferredEdges)
-            deferred.draw(renderer, ctx, mousepos);
+            deferred.draw(mousepos);
 
-        this.drawDeferred(renderer, ctx, mousepos);
+        this.drawDeferred(mousepos);
 
-        this.xAxis.draw(renderer, ctx, mousepos);
-        this.yAxis.draw(renderer, ctx, mousepos);
+        this.xAxis.draw(mousepos);
+        this.yAxis.draw(mousepos);
 
         for (const scope of this.scopes)
-            scope.draw(renderer, ctx, mousepos);
+            scope.draw(mousepos);
 
-        ctx.fillStyle = 'black';
-        ctx.globalAlpha = 1.0;
-        ctx.fillText(
+        this.ctx.fillStyle = 'black';
+        this.ctx.globalAlpha = 1.0;
+        this.ctx.fillText(
             'Median reuse: ' + this.medianReuse.toString(),
             this.x + this.xAxis.width + 50, this.y
         );
-        ctx.fillText(
+        this.ctx.fillText(
             'Median use / allocation ratio: ' + this.medianRatio.toString(),
             this.x + this.xAxis.width + 50, this.y + 20
         );
@@ -436,12 +439,14 @@ export class ChartAxis extends TimelineViewElement {
     protected _type: string = 'ChartAxis';
 
     public constructor(
+        renderer: AccessTimelineRenderer,
+        ctx: CanvasRenderingContext2D,
         public readonly direction: 'vertical' | 'horizontal',
         public readonly min: number = 0,
         public readonly max: number = 100,
         public readonly tickSpacing: number = 1
     ) {
-        super();
+        super(renderer, ctx);
 
         const delta = this.max - this.min;
         const deltaPxs = delta * this.tickSpacing;
@@ -492,32 +497,30 @@ export class ChartAxis extends TimelineViewElement {
             return { x: this.x, y: this.y };
     }
 
-    protected _internalDraw(
-        _renderer: AccessTimelineRenderer, ctx: CanvasRenderingContext2D,
-        _mousepos?: Point2D
-    ): void {
-        ctx.beginPath();
-        if ('pdf' in ctx && ctx.pdf)
-            ctx.setLineDash([1, 0]);
+    protected _internalDraw(_mousepos?: Point2D): void {
+        this.ctx.beginPath();
+        if ('pdf' in this.ctx && this.ctx.pdf)
+            this.ctx.setLineDash([1, 0]);
         else
-            ctx.setLineDash([]);
-        ctx.moveTo(this.x, this.y);
+            this.ctx.setLineDash([]);
+        this.ctx.moveTo(this.x, this.y);
         if (this.direction === 'vertical') {
-            ctx.lineTo(this.x, -this.height);
-            ctx.strokeStyle = 'black';
-            ctx.fillStyle = 'black';
-            ctx.stroke();
+            this.ctx.lineTo(this.x, -this.height);
+            this.ctx.strokeStyle = 'black';
+            this.ctx.fillStyle = 'black';
+            this.ctx.stroke();
             this.drawArrow(
-                ctx, { x: this.x, y: this.y }, { x: this.x, y: -this.height },
-                3
+                this.ctx, { x: this.x, y: this.y },
+                { x: this.x, y: -this.height }, 3
             );
         } else {
-            ctx.lineTo(this.width, this.y);
-            ctx.strokeStyle = 'black';
-            ctx.fillStyle = 'black';
-            ctx.stroke();
+            this.ctx.lineTo(this.width, this.y);
+            this.ctx.strokeStyle = 'black';
+            this.ctx.fillStyle = 'black';
+            this.ctx.stroke();
             this.drawArrow(
-                ctx, { x: this.x, y: this.y }, { x: this.width, y: this.y }, 3
+                this.ctx, { x: this.x, y: this.y },
+                { x: this.width, y: this.y }, 3
             );
         }
     }
@@ -529,6 +532,8 @@ export class ContainerAccess extends TimelineViewElement {
     protected _type: string = 'ContainerAccess';
 
     public constructor(
+        renderer: AccessTimelineRenderer,
+        ctx: CanvasRenderingContext2D,
         public readonly mode: 'read' | 'write',
         public readonly subset: DataSubset,
         public readonly timestep: number,
@@ -536,7 +541,7 @@ export class ContainerAccess extends TimelineViewElement {
         public readonly container: AllocatedContainer,
         public readonly conditional: boolean
     ) {
-        super();
+        super(renderer, ctx);
 
         this.x = timestep * scaleX;
         this.width = 1 * scaleX;
@@ -598,34 +603,34 @@ export class ContainerAccess extends TimelineViewElement {
         }
     }
 
-    protected _internalDraw(
-        renderer: AccessTimelineRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void {
+    protected _internalDraw(mousepos?: Point2D): void {
         if (this.mode === 'read') {
-            ctx.beginPath();
-            ctx.setLineDash([1, 1]);
-            ctx.moveTo(this.x, this.y);
-            ctx.lineTo(this.x, this.y + this.height);
-            ctx.strokeStyle = this.hovered ? 'red' : 'blue';
-            ctx.fillStyle = 'blue';
-            ctx.stroke();
+            this.ctx.beginPath();
+            this.ctx.setLineDash([1, 1]);
+            this.ctx.moveTo(this.x, this.y);
+            this.ctx.lineTo(this.x, this.y + this.height);
+            this.ctx.strokeStyle = this.hovered ? 'red' : 'blue';
+            this.ctx.fillStyle = 'blue';
+            this.ctx.stroke();
         } else {
-            ctx.beginPath();
-            if ('pdf' in ctx && ctx.pdf)
-                ctx.setLineDash([1, 0]);
+            this.ctx.beginPath();
+            if ('pdf' in this.ctx && this.ctx.pdf)
+                this.ctx.setLineDash([1, 0]);
             else
-                ctx.setLineDash([]);
-            ctx.moveTo(this.x, this.y);
-            ctx.lineTo(this.x, this.y + this.height);
-            ctx.strokeStyle = this.hovered ? 'red' : 'black';
-            ctx.fillStyle = 'black';
-            ctx.stroke();
+                this.ctx.setLineDash([]);
+            this.ctx.moveTo(this.x, this.y);
+            this.ctx.lineTo(this.x, this.y + this.height);
+            this.ctx.strokeStyle = this.hovered ? 'red' : 'black';
+            this.ctx.fillStyle = 'black';
+            this.ctx.stroke();
         }
 
         if (this.hovered) {
-            if (mousepos)
-                renderer.showTooltip(mousepos.x, mousepos.y + 50, this.label);
+            if (mousepos) {
+                this.renderer.showTooltip(
+                    mousepos.x, mousepos.y + 50, this.label
+                );
+            }
         }
     }
 
@@ -653,6 +658,8 @@ export class AllocatedContainer extends TimelineViewElement {
     protected _type: string = 'AllocatedContainer';
 
     public constructor(
+        renderer: AccessTimelineRenderer,
+        ctx: CanvasRenderingContext2D,
         private readonly _label: string,
         private readonly labelScale: number,
         private readonly color: string,
@@ -663,7 +670,7 @@ export class AllocatedContainer extends TimelineViewElement {
         public readonly isInput: boolean,
         public readonly isOutput: boolean
     ) {
-        super();
+        super(renderer, ctx);
 
         const sdfg = chart.renderer.sdfgList.get(sdfgId);
         if (sdfg) {
@@ -750,27 +757,27 @@ export class AllocatedContainer extends TimelineViewElement {
         return ctx.createPattern(can, 'repeat');
     };
 
-    protected _internalDraw(
-        renderer: AccessTimelineRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void {
-        if (this.conditional)
-            ctx.fillStyle = this.createStripedPattern(8, 16, 1, this.color)!;
-        else
-            ctx.fillStyle = this.color;
+    protected _internalDraw(mousepos?: Point2D): void {
+        if (this.conditional) {
+            this.ctx.fillStyle = this.createStripedPattern(
+                8, 16, 1, this.color
+            )!;
+        } else {
+            this.ctx.fillStyle = this.color;
+        }
 
         let solidStartX = this.x;
         let solidEndX = this.x + this.width;
         if (!this.isInput && this.firstUseX !== undefined) {
-            ctx.globalAlpha = 0.3;
-            ctx.fillRect(
+            this.ctx.globalAlpha = 0.3;
+            this.ctx.fillRect(
                 this.x, this.y, this.firstUseX - this.x, this.height
             );
             solidStartX = this.firstUseX;
         }
         if (!this.isOutput && this.lastUseX !== undefined) {
-            ctx.globalAlpha = 0.3;
-            ctx.fillRect(
+            this.ctx.globalAlpha = 0.3;
+            this.ctx.fillRect(
                 this.lastUseX, this.y,
                 (this.x + this.width) - this.lastUseX, this.height
             );
@@ -779,22 +786,22 @@ export class AllocatedContainer extends TimelineViewElement {
         if (!this.isOutput && !this.isInput && this.lastUseX === undefined &&
             this.firstUseX === undefined
         )
-            ctx.globalAlpha = 0.3;
+            this.ctx.globalAlpha = 0.3;
         else
-            ctx.globalAlpha = 1.0;
-        ctx.fillRect(
+            this.ctx.globalAlpha = 1.0;
+        this.ctx.fillRect(
             solidStartX, this.y, solidEndX - solidStartX, this.height
         );
 
         if (this.hovered) {
             if (mousepos) {
-                renderer.showTooltip(
+                this.renderer.showTooltip(
                     mousepos.x, mousepos.y + 50, this.tooltipText
                 );
             }
-            this.chart.deferredDrawCalls.add((_dRenderer, dCtx, _dMousepos) => {
-                dCtx.strokeStyle = 'black';
-                dCtx.strokeRect(this.x, this.y, this.width, this.height);
+            this.chart.deferredDrawCalls.add((_dMousepos) => {
+                this.ctx.strokeStyle = 'black';
+                this.ctx.strokeRect(this.x, this.y, this.width, this.height);
             });
         }
     }
@@ -840,10 +847,12 @@ export class ScopeElement extends TimelineViewElement {
     protected _type: string = 'ScopeElement';
 
     public constructor(
+        renderer: AccessTimelineRenderer,
+        ctx: CanvasRenderingContext2D,
         private readonly _label: string,
         depth: number, start: number, end: number, chart: TimelineChart
     ) {
-        super();
+        super(renderer, ctx);
 
         this.height = 100;
         this.y = (depth + 1) * this.height;
@@ -859,23 +868,23 @@ export class ScopeElement extends TimelineViewElement {
         return this._label;
     }
 
-    protected _internalDraw(
-        renderer: AccessTimelineRenderer, ctx: CanvasRenderingContext2D,
-        mousepos?: Point2D
-    ): void {
+    protected _internalDraw(mousepos?: Point2D): void {
         if (this.label.startsWith('Loop'))
-            ctx.fillStyle = 'red';
+            this.ctx.fillStyle = 'red';
         else if (this.label.startsWith('Conditional'))
-            ctx.fillStyle = 'blue';
+            this.ctx.fillStyle = 'blue';
         else if (this.label.startsWith('Parallel'))
-            ctx.fillStyle = 'green';
+            this.ctx.fillStyle = 'green';
         else
-            ctx.fillStyle = 'gray';
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+            this.ctx.fillStyle = 'gray';
+        this.ctx.fillRect(this.x, this.y, this.width, this.height);
 
         if (this.hovered) {
-            if (mousepos)
-                renderer.showTooltip(mousepos.x, mousepos.y + 50, this.label);
+            if (mousepos) {
+                this.renderer.showTooltip(
+                    mousepos.x, mousepos.y + 50, this.label
+                );
+            }
         }
     }
 

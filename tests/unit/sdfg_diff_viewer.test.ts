@@ -1,5 +1,6 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
+import { JSDOM } from 'jsdom';
 import path from 'path';
 import fs from 'fs';
 import {
@@ -9,8 +10,9 @@ import {
 import { setCollapseStateRecursive } from '../../src/utils/sdfg/sdfg_utils';
 import { JsonSDFG } from '../../src/types';
 import { SDFG } from '../../src/renderer/sdfg/sdfg_elements';
-import { SDFGDiffViewer } from '../../src/sdfg_diff_viewer';
+import { SDFGDiffViewer, WebSDFGDiffViewer } from '../../src/sdfg_diff_viewer';
 import { layoutSDFG } from '../../src/layout/layout';
+import { SDFGRenderer } from '../../src';
 
 
 function _loadSDFG(name: string): JsonSDFG {
@@ -24,18 +26,52 @@ function _loadSDFG(name: string): JsonSDFG {
 }
 
 function testDiffTiledGemm(): void {
+    const dom = new JSDOM();
+    global.document = dom.window.document;
+
+    document.body.innerHTML = `
+<div id="diff-contents-A"></div>
+<div id="diff-contents-B"></div>
+    `;
+
+    const leftContainer = document.getElementById('diff-contents-A');
+    const rightContainer = document.getElementById('diff-contents-B');
+    if (!leftContainer || !rightContainer)
+        throw Error('Failed to find diff renderer containers');
+
+    const viewer = new WebSDFGDiffViewer();
+    const leftRenderer = new SDFGRenderer(
+        leftContainer, viewer, null, null, false, null,
+        undefined, [
+            'settings',
+            'zoom_to_fit_all',
+            'zoom_to_fit_width',
+            'collapse',
+            'expand',
+        ]
+    );
+    const rightRenderer = new SDFGRenderer(
+        rightContainer, viewer, null, null, false, null,
+        undefined, [
+            'zoom_to_fit_all',
+            'zoom_to_fit_width',
+            'collapse',
+            'expand',
+        ]
+    );
+
     const sdfgAjson = _loadSDFG('gemm_expanded_pure');
     const sdfgBjson = _loadSDFG('gemm_expanded_pure_tiled');
 
     setCollapseStateRecursive(sdfgAjson, false);
     setCollapseStateRecursive(sdfgBjson, false);
 
-    const graphA = layoutSDFG(sdfgAjson);
-    const graphB = layoutSDFG(sdfgBjson);
+    const graphA = layoutSDFG(leftRenderer, sdfgAjson, leftRenderer.ctx);
+    const graphB = layoutSDFG(rightRenderer, sdfgBjson, rightRenderer.ctx);
 
-    const sdfgA = new SDFG(sdfgAjson);
+    const sdfgA = new SDFG(leftRenderer, leftRenderer.ctx, sdfgAjson);
     sdfgA.sdfgDagreGraph = graphA;
-    const sdfgB = new SDFG(sdfgBjson);
+    const sdfgB = new SDFG(rightRenderer, rightRenderer.ctx, sdfgBjson);
     sdfgB.sdfgDagreGraph = graphB;
 
     const diff = SDFGDiffViewer.diff(sdfgA, sdfgB);

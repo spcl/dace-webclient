@@ -73,7 +73,9 @@ export class DepthOverlay extends GenericSdfgOverlay {
         g: DagreGraph, symbolMap: SymbolMap, depthValues: number[]
     ): void {
         g.nodes().forEach(v => {
-            const node = g.node(v) as SDFGNode | ControlFlowBlock;
+            const node = g.node(v);
+            if (!node)
+                return;
             this.calcDepthNode(node, symbolMap, depthValues);
             if (node instanceof ConditionalBlock) {
                 for (const [_, branch] of node.branches) {
@@ -166,7 +168,7 @@ export class DepthOverlay extends GenericSdfgOverlay {
         this.renderer.drawAsync();
     }
 
-    private shadeElem(elem: SDFGElement, ctx: CanvasRenderingContext2D): void {
+    private shadeElem(elem: SDFGElement): void {
         const depth = elem.data?.depth as number | undefined;
         const depthString = elem.data?.depth_string as string | undefined;
 
@@ -191,7 +193,7 @@ export class DepthOverlay extends GenericSdfgOverlay {
             // node's Depth, that means that there's an unresolved symbol. Shade
             // the node grey to indicate that.
             if (depthString !== undefined) {
-                elem.shade(this.renderer, ctx, 'gray');
+                elem.shade('gray');
                 return;
             } else {
                 return;
@@ -205,19 +207,15 @@ export class DepthOverlay extends GenericSdfgOverlay {
         // Calculate the severity color.
         const color = getTempColorHslString(this.getSeverityValue(depth));
 
-        elem.shade(this.renderer, ctx, color);
+        elem.shade(color);
     }
 
-    protected shadeNode(
-        node: SDFGNode, ctx: CanvasRenderingContext2D, ..._args: any[]
-    ): void {
-        this.shadeElem(node, ctx);
+    protected shadeNode(node: SDFGNode, ..._args: any[]): void {
+        this.shadeElem(node);
     }
 
-    protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ..._args: any[]
-    ): void {
-        this.shadeElem(block, ctx);
+    protected shadeBlock(block: ControlFlowBlock, ..._args: any[]): void {
+        this.shadeElem(block);
     }
 
     public draw(): void {

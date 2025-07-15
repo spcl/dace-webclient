@@ -276,34 +276,34 @@ export class CanvasManager {
     }
 
     // Sets the view to the square around the input rectangle
-    public setView(rect: DOMRect, animate: boolean = false): void {
+    public setView(rect: SimpleRect, animate: boolean = false): void {
         const canvasW = this.canvas.width;
         const canvasH = this.canvas.height;
         if (canvasW === 0 || canvasH === 0)
             return;
 
         let scale = 1, tx = 0, ty = 0;
-        if (rect.width > rect.height) {
-            scale = canvasW / rect.width;
+        if (rect.w > rect.h) {
+            scale = canvasW / rect.w;
             tx = -rect.x;
-            ty = -rect.y - (rect.height / 2) + (canvasH / scale / 2);
+            ty = -rect.y - (rect.h / 2) + (canvasH / scale / 2);
 
             // Now other dimension does not fit, scale it as well
-            if (rect.height * scale > canvasH) {
-                scale = canvasH / rect.height;
-                tx = -rect.x - (rect.width / 2) + (canvasW / scale / 2);
+            if (rect.h * scale > canvasH) {
+                scale = canvasH / rect.h;
+                tx = -rect.x - (rect.w / 2) + (canvasW / scale / 2);
                 ty = -rect.y;
             }
         } else {
-            scale = canvasH / rect.height;
-            tx = -rect.x - (rect.width / 2) + (canvasW / scale / 2);
+            scale = canvasH / rect.h;
+            tx = -rect.x - (rect.w / 2) + (canvasW / scale / 2);
             ty = -rect.y;
 
             // Now other dimension does not fit, scale it as well
-            if (rect.width * scale > canvasW) {
-                scale = canvasW / rect.width;
+            if (rect.w * scale > canvasW) {
+                scale = canvasW / rect.w;
                 tx = -rect.x;
-                ty = -rect.y - (rect.height / 2) + (canvasH / scale / 2);
+                ty = -rect.y - (rect.h / 2) + (canvasH / scale / 2);
             }
         }
 

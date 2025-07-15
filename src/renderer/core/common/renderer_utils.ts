@@ -1,7 +1,8 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { Point2D } from '../../../types';
+import { Point2D, SimpleRect } from '../../../types';
 import { Renderable } from './renderable';
+
 
 // Returns the distance from point p to line defined by two points
 // (line1, line2)
@@ -23,7 +24,7 @@ export function ptLineDistance(
  */
 export function boundingBox(
     elements: Renderable[], padding: number = 0
-): DOMRect {
+): SimpleRect {
     const bb: {
         x1: number | null,
         x2: number | null,
@@ -52,12 +53,12 @@ export function boundingBox(
             bb.y2 = y2;
     });
 
-    const retBB = new DOMRect(
-        (bb.x1 ?? 0) - padding,
-        (bb.y1 ?? 0) - padding,
-        ((bb.x2 ?? 0) - (bb.x1 ?? 0)) + 2 * padding,
-        ((bb.y2 ?? 0) - (bb.y1 ?? 0)) + 2 * padding
-    );
+    const retBB = {
+        x: (bb.x1 ?? 0) - padding,
+        y: (bb.y1 ?? 0) - padding,
+        w: ((bb.x2 ?? 0) - (bb.x1 ?? 0)) + 2 * padding,
+        h: ((bb.y2 ?? 0) - (bb.y1 ?? 0)) + 2 * padding,
+    };
 
     return retBB;
 }

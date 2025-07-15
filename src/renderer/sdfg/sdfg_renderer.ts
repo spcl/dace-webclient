@@ -134,7 +134,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     public readonly overlayManager: OverlayManager;
 
     protected _graph?: DagreGraph;
-    protected graphBoundingBox?: DOMRect;
+    protected graphBoundingBox?: SimpleRect;
 
     protected toolbar?: JQuery;
     protected mouseFollowElement?: JQuery;
@@ -157,7 +157,6 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     private ctrlKeySelection: boolean = false;
     private shiftKeyMovement: boolean = false;
     private lastDraggedElement?: SDFGElement;
-    private hoveredElementsCache = new Set<SDFGElement>();
     private dragStartRealPos?: Point2D;
     private dragStartEdgePt?: number;
 
@@ -166,9 +165,6 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     protected allMemletTressSDFG: Set<JsonSDFGMultiConnectorEdge>[] = [];
     protected allMemletTrees: Set<Edge>[] = [];
     protected stateParentList: SDFGElement[] = [];
-
-    // Selection related fields.
-    protected _selectedElements: SDFGElement[] = [];
 
     protected _sdfg?: JsonSDFG;
 
@@ -213,7 +209,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             }
 
             if (this.cutoutBtn) {
-                if (this.selectedElements.length > 0)
+                if (this.selectedRenderables.size > 0)
                     this.cutoutBtn.show();
                 else
                     this.cutoutBtn.hide();
@@ -865,9 +861,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
     protected _drawMinimapContents(): void {
         for (const nd of this.graph?.nodes() ?? [])
-            this.graph!.node(nd)?.minimapDraw(this, this.minimapCtx!);
+            this.graph!.node(nd)?.minimapDraw();
         for (const e of this.graph?.edges() ?? [])
-            this.graph!.edge(e)?.minimapDraw(this, this.minimapCtx!);
+            this.graph!.edge(e)?.minimapDraw();
     }
 
     protected internalDraw(dt?: number, ctx?: CanvasRenderingContext2D): void {
@@ -895,9 +891,13 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         return {
             x: this.graphBoundingBox?.x ?? 0,
             y: this.graphBoundingBox?.y ?? 0,
-            w: this.graphBoundingBox?.width ?? 0,
-            h: this.graphBoundingBox?.height ?? 0,
+            w: this.graphBoundingBox?.w ?? 0,
+            h: this.graphBoundingBox?.h ?? 0,
         };
+    }
+
+    public get selectedRenderables(): ReadonlySet<SDFGElement> {
+        return this._selectedRenderables as Set<SDFGElement>;
     }
 
     // ==================
@@ -914,8 +914,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             this.resetMemletTrees();
 
             // Update info box
-            if (this.selectedElements.length === 1) {
-                const uuid = getGraphElementUUID(this.selectedElements[0]);
+            if (this.selectedRenderables.size === 1) {
+                const elem = Array.from(this.selectedRenderables)[0];
+                const uuid = getGraphElementUUID(elem);
                 if (this.graph) {
                     this.sdfvInstance.linkedUI.showElementInfo(
                         findGraphElementByUUID(this.cfgList, uuid), this
@@ -963,7 +964,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             }
 
             this._graph = layoutSDFG(
-                this.sdfg, this.ctx, this.cfgList, this.stateParentList,
+                this, this.sdfg, this.ctx, this.cfgList, this.stateParentList,
                 !SDFVSettings.get<boolean>('showAccessNodes')
             );
 
@@ -1283,7 +1284,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             blocks[cfgId].add(cfgNode.id);
         }
 
-        for (const elem of this.selectedElements) {
+        for (const elem of this.selectedRenderables) {
             // Ignore edges and connectors
             if (elem instanceof Edge || elem instanceof Connector)
                 continue;
@@ -1354,11 +1355,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     public deselect(): void {
-        const multiSelectionChanged = this.selectedElements.length > 1;
-        this.selectedElements.forEach((el) => {
-            el.selected = false;
-        });
-        this._selectedElements = [];
+        const multiSelectionChanged = this.selectedRenderables.size > 1;
+        this.clearSelected();
         this.emit('selection_changed', multiSelectionChanged);
     }
 
@@ -2097,9 +2095,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     private isLocalViewViable(): boolean {
-        if (this.selectedElements.length > 0) {
-            if (this.selectedElements.length === 1 &&
-                this.selectedElements[0] instanceof State)
+        if (this.selectedRenderables.size > 0) {
+            if (this.selectedRenderables.size === 1 &&
+                Array.from(this.selectedRenderables)[0] instanceof State)
                 return true;
 
             // Multiple elements are selected. The local view is only a viable
@@ -2107,7 +2105,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             // state is selected alongside other elements, all elements must be
             // inside that state.
             let parentStateId = undefined;
-            for (const elem of this.selectedElements) {
+            for (const elem of this.selectedRenderables) {
                 if (elem instanceof State) {
                     if (parentStateId === undefined)
                         parentStateId = elem.id;
@@ -2262,26 +2260,43 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
     private recomputeHoveredElements(
         elements: Record<SDFGElementGroup, DagreGraphElementInfo[]>
-    ): void {
+    ): boolean {
         if (!this.mousePos)
-            return;
+            return false;
 
-        // Add newly hovered elements under the mouse cursor to the cache.
-        // The cache then contains hovered elements of the previous frame that
-        // are highlighted and the newly hovered elements of the current frame
-        // that need to be highlighted.
+        // Clear the previously hovered elements and add newly hovered elements
+        // under the mouse cursor.
+        const prevHovered = new Set(this.hoveredRenderables);
+        this.clearHovered();
         for (const elInfo of Object.entries(elements)) {
             const elemTypeArray = elInfo[1];
             for (const elemType of elemTypeArray) {
                 const hoveredElem = elemType.obj;
                 if (hoveredElem !== undefined)
-                    this.hoveredElementsCache.add(hoveredElem);
+                    this.hoverRenderable(hoveredElem);
             }
         }
 
-        // New cache for the next frame, which only contains the
-        // hovered/highlighted elements of the current frame.
-        const newCache = new Set<SDFGElement>();
+        // Local change boolean, for each visible element checked. Prevents
+        // recomputations if nothing changed.
+        let hoverChanged = false;
+        if (this.hoveredRenderables.size !== prevHovered.size) {
+            hoverChanged = true;
+        } else {
+            for (const el of this.hoveredRenderables) {
+                if (!prevHovered.has(el)) {
+                    hoverChanged = true;
+                    break;
+                }
+            }
+        }
+
+        if (!hoverChanged)
+            return false;
+
+        // Recompute any elements that need to be highlighted based on the
+        // current hovered elements.
+        this.clearHighlighted();
 
         // Only do highlighting re-computation if view is close enough to
         // actually see the highlights. Done by points-per-pixel metric using
@@ -2291,132 +2306,46 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         // large graphs.
         const ppp = this.canvasManager.pointsPerPixel;
         if (ppp < SDFVSettings.get<number>('nodeLOD')) {
-            // Global change boolean. Determines if repaint necessary.
-            let highlightChanged = false;
-
-            // Mark hovered and highlighted elements.
-            for (const obj of this.hoveredElementsCache) {
-                const intersected = obj.intersect(
-                    this.mousePos.x, this.mousePos.y, 0, 0
-                );
-
-                // Local change boolean, for each visible element
-                // checked. Prevents recursion if nothing changed.
-                let hoverChanged = false;
-
-                // Change hover status
-                if (intersected && !obj.hovered) {
-                    obj.hovered = true;
-                    highlightChanged = true;
-                    hoverChanged = true;
-                } else if (!intersected && obj.hovered) {
-                    obj.hovered = false;
-                    highlightChanged = true;
-                    hoverChanged = true;
-                }
-
-                // If element is hovered in the current frame then
-                // remember it for the next frame.
-                if (obj.hovered)
-                    newCache.add(obj);
-
-                // Highlight all edges of the memlet tree
+            // Mark highlighted elements as a result of hovered elements.
+            for (const obj of this.hoveredRenderables) {
                 if (obj instanceof Edge && obj.parentStateId !== undefined) {
-                    if (obj.hovered && hoverChanged) {
-                        const tree = this.getNestedMemletTree(obj);
-                        tree.forEach(te => {
-                            if (te !== obj)
-                                te.highlighted = true;
-                        });
-                    } else if (!obj.hovered && hoverChanged) {
-                        const tree = this.getNestedMemletTree(obj);
-                        tree.forEach(te => {
-                            if (te !== obj)
-                                te.highlighted = false;
-                        });
-                    }
-                }
-
-                // Highlight all access nodes with the same name in the
-                // same nested sdfg.
-                if (obj instanceof AccessNode) {
-                    if (obj.hovered && hoverChanged) {
-                        traverseSDFGScopes(
-                            this.cfgList[obj.sdfg.cfg_list_id].graph!,
-                            node => {
-                                // If node is a state, then visit
-                                // sub-scope.
-                                if (node instanceof State)
-                                    return true;
-                                const nData = node.jsonData;
-                                const oNData = obj.jsonData;
-                                if (node instanceof AccessNode && nData &&
-                                    oNData && 'label' in nData &&
-                                    'label' in oNData &&
-                                    nData.label === oNData.label)
-                                    node.highlighted = true;
-                                // No need to visit sub-scope
-                                return false;
-                            }
-                        );
-                    } else if (!obj.hovered && hoverChanged) {
-                        traverseSDFGScopes(
-                            this.cfgList[obj.sdfg.cfg_list_id].graph!,
-                            node => {
-                                // If node is a state, then visit
-                                // sub-scope.
-                                if (node instanceof State)
-                                    return true;
-                                const nData = node.jsonData;
-                                const oNData = obj.jsonData;
-                                if (node instanceof AccessNode && nData &&
-                                    oNData && 'label' in nData &&
-                                    'label' in oNData &&
-                                    nData.label === oNData.label)
-                                    node.highlighted = false;
-                                // No need to visit sub-scope
-                                return false;
-                            }
-                        );
-                    }
-                }
-
-                if (obj instanceof Connector) {
+                    // Highlight all edges of the memlet tree
+                    const tree = this.getNestedMemletTree(obj);
+                    tree.forEach(te => {
+                        if (te !== obj)
+                            this.highlightRenderable(te);
+                    });
+                } else if (obj instanceof AccessNode) {
+                    // Highlight all access nodes with the same name in the
+                    // same sdfg / nested SDFG.
+                    traverseSDFGScopes(
+                        this.cfgList[obj.sdfg.cfg_list_id].graph!,
+                        node => {
+                            // If node is a state, then visit
+                            // sub-scope.
+                            if (node instanceof State)
+                                return true;
+                            const nData = node.jsonData;
+                            const oNData = obj.jsonData;
+                            if (node instanceof AccessNode && nData &&
+                                oNData && 'label' in nData &&
+                                'label' in oNData &&
+                                nData.label === oNData.label)
+                                this.highlightRenderable(node);
+                            // No need to visit sub-scope
+                            return false;
+                        }
+                    );
+                } else if (obj instanceof Connector) {
                     // Highlight the incoming/outgoing Edge
                     const parentNode = obj.linkedElem;
-                    if (obj.hovered &&
-                        (hoverChanged || (!parentNode?.hovered))) {
+                    if (!(parentNode?.hovered)) {
                         const state = obj.linkedElem?.parentElem;
                         if (state && state instanceof State) {
                             const stateJson = state.jsonData;
                             const stateGraph = state.graph;
                             stateJson?.edges.forEach(
                                 (edge, id) => {
-                                    if (edge.src_connector ===
-                                        obj.data?.name ||
-                                        edge.dst_connector ===
-                                        obj.data?.name) {
-                                        const gedge = stateGraph?.edge({
-                                            v: edge.src,
-                                            w: edge.dst,
-                                            name: id.toString(),
-                                        });
-                                        if (gedge)
-                                            gedge.highlighted = true;
-                                    }
-                                }
-                            );
-                        }
-                    }
-                    if (!obj.hovered && hoverChanged) {
-                        // Prevent de-highlighting of edge if parent is
-                        // already hovered (to show all edges).
-                        if (parentNode && !parentNode.hovered) {
-                            const state = obj.linkedElem?.parentElem;
-                            if (state && state instanceof State) {
-                                const stateJson = state.jsonData;
-                                const stateGraph = state.graph;
-                                stateJson?.edges.forEach((edge, id) => {
                                     if (edge.src_connector === obj.data?.name ||
                                         edge.dst_connector === obj.data?.name) {
                                         const gedge = stateGraph?.edge({
@@ -2425,94 +2354,69 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                                             name: id.toString(),
                                         });
                                         if (gedge)
-                                            gedge.highlighted = false;
+                                            this.highlightRenderable(gedge);
                                     }
-                                });
-                            }
+                                }
+                            );
+                        }
+
+                        // If the connector is on a nested SDFG, highlight
+                        // the corresponding access node inside the nested
+                        // sdfg.
+                        if (parentNode instanceof NestedSDFG &&
+                            parentNode.graph) {
+                            traverseSDFGScopes(
+                                parentNode.graph, node => {
+                                    if (node instanceof ControlFlowRegion ||
+                                        node instanceof State)
+                                        return true;
+
+                                    if (node instanceof AccessNode &&
+                                        node.jsonData &&
+                                        'label' in node.jsonData &&
+                                        node.jsonData.label === obj.label)
+                                        this.highlightRenderable(node);
+                                    return false;
+                                }
+                            );
                         }
                     }
 
-
                     // Highlight all access nodes with the same name as
                     // the hovered connector in the nested sdfg.
-                    if (obj.hovered && hoverChanged) {
-                        if ((obj.parentElem instanceof State ||
-                             obj.parentElem instanceof ControlFlowRegion) &&
-                            obj.parentElem.graph
-                        ) {
-                            traverseSDFGScopes(obj.parentElem.graph, node => {
-                                // If node is a state, then visit
-                                // sub-scope.
-                                if (node instanceof State ||
-                                    node instanceof ControlFlowRegion)
-                                    return true;
+                    if ((obj.parentElem instanceof State ||
+                        obj.parentElem instanceof ControlFlowRegion) &&
+                        obj.parentElem.graph
+                    ) {
+                        traverseSDFGScopes(obj.parentElem.graph, node => {
+                            // If node is a state, then visit
+                            // sub-scope.
+                            if (node instanceof State ||
+                                node instanceof ControlFlowRegion)
+                                return true;
 
-                                const nData = node.jsonData;
-                                if (node instanceof AccessNode && nData &&
-                                    'label' in nData &&
-                                    nData.label === obj.label)
-                                    node.highlighted = true;
-                                // No need to visit sub-scope
-                                return false;
-                            });
-                        }
-                    } else if (!obj.hovered && hoverChanged) {
-                        if ((obj.parentElem instanceof State ||
-                             obj.parentElem instanceof ControlFlowRegion) &&
-                            obj.parentElem.graph
-                        ) {
-                            traverseSDFGScopes(obj.parentElem.graph, node => {
-                                // If node is a state, then visit
-                                // sub-scope.
-                                if (node instanceof State ||
-                                    node instanceof ControlFlowRegion)
-                                    return true;
-
-                                const nData = node.jsonData;
-                                if (node instanceof AccessNode && nData &&
-                                    'label' in nData &&
-                                    nData.label === obj.label)
-                                    node.highlighted = false;
-                                // No need to visit sub-scope
-                                return false;
-                            });
-                        }
+                            const nData = node.jsonData;
+                            if (node instanceof AccessNode && nData &&
+                                'label' in nData &&
+                                nData.label === obj.label)
+                                this.highlightRenderable(node);
+                            // No need to visit sub-scope
+                            return false;
+                        });
                     }
 
                     // Similarly, highlight any identifiers in a
                     // connector's tasklet, if applicable.
-                    if (obj.hovered && hoverChanged) {
-                        if (obj.linkedElem && obj.linkedElem instanceof
-                            Tasklet) {
-                            if (obj.connectorType === 'in') {
-                                for (const token of
-                                    obj.linkedElem.inputTokens) {
-                                    if (token.token === obj.data?.name)
-                                        token.highlighted = true;
-                                }
-                            } else {
-                                for (const token of
-                                    obj.linkedElem.outputTokens) {
-                                    if (token.token === obj.data?.name)
-                                        token.highlighted = true;
-                                }
+                    if (obj.linkedElem && obj.linkedElem instanceof Tasklet) {
+                        if (obj.connectorType === 'in') {
+                            for (const token of obj.linkedElem.inputTokens) {
+                                if (token.token === obj.data?.name)
+                                    token.highlighted = true;
                             }
-                        }
-                    } else if (!obj.hovered && hoverChanged) {
-                        if (obj.linkedElem && obj.linkedElem instanceof
-                            Tasklet) {
-                            if (obj.connectorType === 'in') {
-                                for (const token of
-                                    obj.linkedElem.inputTokens) {
-                                    if (token.token === obj.data?.name)
-                                        token.highlighted = false;
-                                }
-                            } else {
-                                for (const token of
-                                    obj.linkedElem.outputTokens) {
-                                    if (token.token === obj.data?.name)
-                                        token.highlighted = false;
-                                }
+                        } else {
+                            for (const token of obj.linkedElem.outputTokens) {
+                                if (token.token === obj.data?.name)
+                                    token.highlighted = true;
                             }
                         }
                     }
@@ -2520,10 +2424,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
                 // Make all edges of a node visible and remove the edge
                 // summary symbol.
-                if (obj.hovered && hoverChanged &&
-                    obj instanceof SDFGNode &&
-                    (obj.inSummaryHasEffect ||
-                        obj.outSummaryHasEffect)) {
+                if (obj instanceof SDFGNode &&
+                    (obj.inSummaryHasEffect || obj.outSummaryHasEffect)) {
                     // Setting these to false will cause the summary
                     // symbol not to be drawn in renderer_elements.ts
                     obj.summarizeInEdges = false;
@@ -2542,41 +2444,16 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                                         name: id.toString(),
                                     });
                                     if (gedge)
-                                        gedge.highlighted = true;
+                                        this.highlightRenderable(gedge);
                                 }
                             }
                         );
                     }
-                } else if (!obj.hovered && hoverChanged) {
-                    obj.summarizeInEdges = true;
-                    obj.summarizeOutEdges = true;
-                    const state = obj.parentElem;
-                    if (state && state instanceof State) {
-                        const stateJson = state.jsonData;
-                        const stateGraph = state.graph;
-                        stateJson?.edges.forEach((edge, id) => {
-                            if (edge.src === obj.id.toString() ||
-                                edge.dst === obj.id.toString()) {
-                                const gedge = stateGraph?.edge({
-                                    v: edge.src,
-                                    w: edge.dst,
-                                    name: id.toString(),
-                                });
-                                if (gedge)
-                                    gedge.highlighted = false;
-                            }
-                        });
-                    }
                 }
             }
-
-            if (highlightChanged)
-                this.drawAsync();
         }
 
-        // Set the cache for the next frame to only contain
-        // the currently hovered/highlighted elements.
-        this.hoveredElementsCache = newCache;
+        return true;
     }
 
     public getNestedMemletTree(edge: Edge): Set<Edge> {
@@ -2712,10 +2589,12 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                     );
                     this.dragStartRealPos = { x: realCoord.x, y: realCoord.y };
                     let elemsToMove = [this.lastDraggedElement];
-                    if (this.selectedElements.includes(
+                    if (this.selectedRenderables.has(
                         this.lastDraggedElement
-                    ) && this.selectedElements.length > 1) {
-                        elemsToMove = this.selectedElements.filter(
+                    ) && this.selectedRenderables.size > 1) {
+                        elemsToMove = Array.from(
+                            this.selectedRenderables
+                        ).filter(
                             el => {
                                 // Do not move connectors (individually)
                                 if (el instanceof Connector)
@@ -2725,7 +2604,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                                 // Do not move element individually if it is
                                 // moved together with a nested SDFG
                                 const nsdfgParent = this.stateParentList[cfgId];
-                                if (this.selectedElements.includes(nsdfgParent))
+                                if (this.selectedRenderables.has(nsdfgParent))
                                     return false;
 
                                 // Do not move element individually if it is
@@ -2735,7 +2614,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                                         el.parentStateId!.toString()
                                     );
                                 if (stateParent &&
-                                    this.selectedElements.includes(stateParent))
+                                    this.selectedRenderables.has(stateParent))
                                     return false;
 
                                 // Otherwise move individually
@@ -2817,7 +2696,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             if (event.buttons & 1 || event.buttons & 4)
                 return true; // Don't stop propagation
 
-            this.recomputeHoveredElements(mouseElements.elements);
+            if (this.recomputeHoveredElements(mouseElements.elements))
+                this.drawAsync();
             return false;
         }
     }
@@ -2879,24 +2759,17 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 );
                 if (event.shiftKey && !this.ctrlKeySelection) {
                     elementsInSelection.forEach((el) => {
-                        if (!this.selectedElements.includes(el))
-                            this.selectedElements.push(el);
+                        this.selectRenderable(el);
                     });
                 } else if (event.ctrlKey && !this.ctrlKeySelection) {
                     elementsInSelection.forEach((el) => {
-                        if (this.selectedElements.includes(el)) {
-                            this._selectedElements =
-                                this.selectedElements.filter((val) => {
-                                    val.selected = false;
-                                    return val !== el;
-                                });
-                        }
+                        this.deselectRenderable(el);
                     });
                 } else {
-                    this.selectedElements.forEach((el) => {
-                        el.selected = false;
+                    this.clearSelected();
+                    elementsInSelection.forEach((el) => {
+                        this.selectRenderable(el);
                     });
-                    this._selectedElements = elementsInSelection;
                 }
                 this.boxSelectionRect = undefined;
                 dirty = true;
@@ -2974,15 +2847,10 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 if (event.ctrlKey) {
                     // Ctrl + click on an object, add it, or remove it from
                     // the selection if it was previously in it.
-                    if (this.selectedElements.includes(fgElement)) {
-                        fgElement.selected = false;
-                        this._selectedElements =
-                            this.selectedElements.filter((el) => {
-                                return el !== fgElement;
-                            });
-                    } else {
-                        this.selectedElements.push(fgElement);
-                    }
+                    if (this.selectedRenderables.has(fgElement))
+                        this.deselectRenderable(fgElement);
+                    else
+                        this.selectRenderable(fgElement);
 
                     // Indicate that the multi-selection changed.
                     multiSelectionChanged = true;
@@ -2992,13 +2860,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                     // Clicked an element, select it and nothing else.
                     // If there was a multi-selection prior to this,
                     // indicate that it changed.
-                    if (this.selectedElements.length > 1)
+                    if (this.selectedRenderables.size > 1)
                         multiSelectionChanged = true;
 
-                    this.selectedElements.forEach((el) => {
-                        el.selected = false;
-                    });
-                    this._selectedElements = [fgElement];
+                    this.clearSelected();
+                    this.selectRenderable(fgElement);
                     selectionChanged = true;
                 }
             } else {
@@ -3006,23 +2872,17 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
                 // If there was a multi-selection prior to this, indicate
                 // that it changed.
-                if (this.selectedElements.length > 0)
+                if (this.selectedRenderables.size > 0)
                     selectionChanged = true;
-                if (this.selectedElements.length > 1)
+                if (this.selectedRenderables.size > 1)
                     multiSelectionChanged = true;
 
-                this.selectedElements.forEach((el) => {
-                    el.selected = false;
-                });
-                this._selectedElements = [];
+                this.clearSelected();
             }
             dirty = true;
         }
 
         if (selectionChanged) {
-            this.selectedElements.forEach((el) => {
-                el.selected = true;
-            });
             dirty = true;
             this.emit('selection_changed', multiSelectionChanged);
         }
@@ -3068,8 +2928,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             if (fgElem)
                 elementsToReset = [fgElem];
 
-            if (fgElem && this.selectedElements.includes(fgElem))
-                elementsToReset = this.selectedElements;
+            if (fgElem && this.selectedRenderables.has(fgElem))
+                elementsToReset = Array.from(this.selectedRenderables);
 
             let elementMoved = false;
             let relayoutNecessary = false;
@@ -3170,10 +3030,6 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
     public get sdfg(): JsonSDFG  | undefined {
         return this._sdfg;
-    }
-
-    public get selectedElements(): SDFGElement[] {
-        return this._selectedElements;
     }
 
     public get cfgList(): CFGListType {

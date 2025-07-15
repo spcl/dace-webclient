@@ -84,7 +84,9 @@ export class ControlFlowView {
         for (const data in inputs) {
             const dependency = inputs[data];
             if (dependency[1].length > 0) {
-                const connector = new CFVConnector(data);
+                const connector = new CFVConnector(
+                    this.renderer, this.renderer.ctx, data
+                );
                 for (const depId of dependency[1]) {
                     const identifier = block.guid + '_' + depId;
                     const existingEdge = this.depEdgeMap.get(identifier);
@@ -97,6 +99,7 @@ export class ControlFlowView {
                         else if (src === block)
                             selfDependencies.add(data);
                         const depEdge = new CFVDependencyEdge(
+                            this.renderer, this.renderer.ctx,
                             data, dependency[0], src, block
                         );
                         this.depEdgeMap.set(identifier, depEdge);
@@ -113,7 +116,9 @@ export class ControlFlowView {
         for (const data in outputs) {
             const dependency = outputs[data];
             if (dependency[1].length > 0) {
-                const connector = new CFVConnector(data);
+                const connector = new CFVConnector(
+                    this.renderer, this.renderer.ctx, data
+                );
                 for (const depId of dependency[1]) {
                     const identifier = depId + '_' + block.guid;
                     const existingEdge = this.depEdgeMap.get(identifier);
@@ -130,6 +135,7 @@ export class ControlFlowView {
                                 continue;
                         }
                         const depEdge = new CFVDependencyEdge(
+                            this.renderer, this.renderer.ctx,
                             data, dependency[0], block, dst
                         );
                         this.depEdgeMap.set(identifier, depEdge);
@@ -155,7 +161,9 @@ export class ControlFlowView {
         for (const data in inputs) {
             const dependency = inputs[data];
             if (dependency[1].length > 0) {
-                const connector = new CFVConnector(data);
+                const connector = new CFVConnector(
+                    this.renderer, this.renderer.ctx, data
+                );
 
                 for (const depId of dependency[1]) {
                     const oBlock = this.elementMap.get(depId);
@@ -164,6 +172,7 @@ export class ControlFlowView {
                     else if (oBlock === block)
                         selfDependencies.add(data);
                     const depEdge = new CFVDependencyEdge(
+                        this.renderer, this.renderer.ctx,
                         data, dependency[0], oBlock, block
                     );
                     connector.edges.push(depEdge);
@@ -178,7 +187,9 @@ export class ControlFlowView {
         for (const data in outputs) {
             const dependency = outputs[data];
             if (dependency[1].length > 0) {
-                const connector = new CFVConnector(data);
+                const connector = new CFVConnector(
+                    this.renderer, this.renderer.ctx, data
+                );
 
                 for (const depId of dependency[1]) {
                     const dst = this.elementMap.get(depId);
@@ -191,7 +202,8 @@ export class ControlFlowView {
                             continue;
                     }
                     const depEdge = new CFVDependencyEdge(
-                        data, dependency[0], block, dst
+                        this.renderer, this.renderer.ctx, data, dependency[0],
+                        block, dst
                     );
                     connector.edges.push(depEdge);
                 }
@@ -217,16 +229,21 @@ export class ControlFlowView {
         sequence: Record<string, unknown>, parent?: CFVControlFlowBlock
     ): CFVSequence {
         const result = (sequence.type === 'Loop' ?
-            new CFVLoop(sequence, parent) :
-            new CFVSequence(sequence, parent));
+            new CFVLoop(this.renderer, this.renderer.ctx, sequence, parent) :
+            new CFVSequence(this.renderer, this.renderer.ctx, sequence, parent)
+        );
         const children = sequence.children as Record<string, unknown>[];
         for (const block of children) {
             if (block.type === 'BasicBlock') {
-                const basicBlock = new CFVBasicBlock(block, result);
+                const basicBlock = new CFVBasicBlock(
+                    this.renderer, this.renderer.ctx, block, result
+                );
                 result.children.push(basicBlock);
                 this.elementMap.set(basicBlock.guid, basicBlock);
             } else if (block.type === 'Conditional') {
-                const conditional = new CFVConditional(block, result);
+                const conditional = new CFVConditional(
+                    this.renderer, this.renderer.ctx, block, result
+                );
                 this.elementMap.set(conditional.guid, conditional);
                 const branches =
                     block.branches as [string, Record<string, unknown>][];

@@ -17,6 +17,7 @@ import { getTempColorHslString } from '../utils/utils';
 import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
 import { doForAllDagreGraphElements } from '../utils/sdfg/traversal';
 
+
 export class StaticFlopsOverlay extends GenericSdfgOverlay {
 
     public static readonly type: OverlayType = OverlayType.NODE;
@@ -74,7 +75,9 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         g: DagreGraph, symbolMap: SymbolMap, flopsValue: number[]
     ): void {
         g.nodes().forEach(v => {
-            const node = g.node(v) as SDFGNode | ControlFlowBlock;
+            const node = g.node(v);
+            if (!node)
+                return;
             this.calcFlopsForNode(node, symbolMap, flopsValue);
             if (node instanceof ConditionalBlock) {
                 for (const [_, branch] of node.branches) {
@@ -167,9 +170,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         this.renderer.drawAsync();
     }
 
-    private shadeElem(
-        elem: SDFGElement, ctx: CanvasRenderingContext2D
-    ): void {
+    private shadeElem(elem: SDFGElement): void {
         const flops = elem.data?.flops as number | undefined;
         const flopsString = elem.data?.flops_string as string | undefined;
 
@@ -195,7 +196,7 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
             // node's FLOPS, that means that there's an unresolved symbol. Shade
             // the node grey to indicate that.
             if (flopsString !== undefined) {
-                elem.shade(this.renderer, ctx, 'gray');
+                elem.shade('gray');
                 return;
             } else {
                 return;
@@ -209,19 +210,15 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         // Calculate the severity color.
         const color = getTempColorHslString(this.getSeverityValue(flops));
 
-        elem.shade(this.renderer, ctx, color);
+        elem.shade(color);
     }
 
-    protected shadeNode(
-        node: SDFGNode, ctx: CanvasRenderingContext2D, ..._args: any[]
-    ): void {
-        this.shadeElem(node, ctx);
+    protected shadeNode(node: SDFGNode, ..._args: any[]): void {
+        this.shadeElem(node);
     }
 
-    protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ..._args: any[]
-    ): void {
-        this.shadeElem(block, ctx);
+    protected shadeBlock(block: ControlFlowBlock, ..._args: any[]): void {
+        this.shadeElem(block);
     }
 
     public draw(): void {

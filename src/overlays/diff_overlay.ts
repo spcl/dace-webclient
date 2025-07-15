@@ -32,43 +32,31 @@ export class DiffOverlay extends GenericSdfgOverlay {
         this.renderer.drawAsync();
     }
 
-    public shadeElem(
-        elem: SDFGElement, ctx: CanvasRenderingContext2D
-    ): void {
-        if (this.diffMap?.addedKeys.has(elem.guid)) {
-            elem.shade(
-                this.renderer, ctx,
-                SDFVSettings.get<string>('diffAddedColor'), 1
-            );
-        } else if (this.diffMap?.removedKeys.has(elem.guid)) {
-            elem.shade(
-                this.renderer, ctx,
-                SDFVSettings.get<string>('diffRemovedColor'), 1
-            );
-        } else if (this.diffMap?.changedKeys.has(elem.guid)) {
-            elem.shade(
-                this.renderer, ctx,
-                SDFVSettings.get<string>('diffChangedColor'), 1
-            );
-        }
+    public shadeElem(elem: SDFGElement): void {
+        if (this.diffMap?.addedKeys.has(elem.guid))
+            elem.shade(SDFVSettings.get<string>('diffAddedColor'), 1);
+        else if (this.diffMap?.removedKeys.has(elem.guid))
+            elem.shade(SDFVSettings.get<string>('diffRemovedColor'), 1);
+        else if (this.diffMap?.changedKeys.has(elem.guid))
+            elem.shade(SDFVSettings.get<string>('diffChangedColor'), 1);
     }
 
     protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ..._args: any[]
+        block: ControlFlowBlock, ..._args: any[]
     ): void {
-        this.shadeElem(block, ctx);
+        this.shadeElem(block);
     }
 
     protected shadeNode(
-        node: SDFGNode, ctx: CanvasRenderingContext2D, ..._args: any[]
+        node: SDFGNode, ..._args: any[]
     ): void {
-        this.shadeElem(node, ctx);
+        this.shadeElem(node);
     }
 
     protected shadeEdge(
-        edge: Edge, ctx: CanvasRenderingContext2D, ..._args: any[]
+        edge: Edge, ..._args: any[]
     ): void {
-        this.shadeElem(edge, ctx);
+        this.shadeElem(edge);
     }
 
     public draw(): void {

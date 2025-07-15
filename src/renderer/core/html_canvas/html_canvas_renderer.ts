@@ -584,12 +584,12 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
     }
 
     public moveViewTo(x: number, y: number): void {
-        const targetRect = new DOMRect(
-            x - (this.viewport.w / 2),
-            y - (this.viewport.h / 2),
-            this.viewport.w,
-            this.viewport.h
-        );
+        const targetRect = {
+            x: x - (this.viewport.w / 2),
+            y: y - (this.viewport.h / 2),
+            w: this.viewport.w,
+            h: this.viewport.h,
+        };
         this.canvasManager.setView(targetRect, true);
         this.drawAsync();
     }
@@ -607,10 +607,7 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
         contentsBB.y -= absPadding;
         contentsBB.w += 2 * absPadding;
         contentsBB.h += 2 * absPadding;
-        const bb = new DOMRect(
-            contentsBB.x, contentsBB.y, contentsBB.w, contentsBB.h
-        );
-        this.canvasManager.setView(bb, animate);
+        this.canvasManager.setView(contentsBB, animate);
 
         if (redraw)
             this.drawAsync();
@@ -626,11 +623,7 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
         contentsBB.y = this.viewport.y - padding;
         contentsBB.h = this.viewport.h + 2 * padding;
 
-        const viewBB = new DOMRect(
-            contentsBB.x, contentsBB.y, contentsBB.w, contentsBB.h
-        );
-
-        this.canvasManager.setView(viewBB, animate);
+        this.canvasManager.setView(contentsBB, animate);
 
         if (redraw)
             this.drawAsync();

@@ -226,7 +226,7 @@ export abstract class SDFGDiffViewer implements ISDFV {
                 d.on('mouseenter', () => {
                     for (const entry of res) {
                         if (!entry[0].highlighted) {
-                            entry[0].highlighted = true;
+                            entry[0].renderer.highlightRenderable(entry[0]);
                             entry[1].drawAsync();
                         }
                     }
@@ -234,7 +234,7 @@ export abstract class SDFGDiffViewer implements ISDFV {
                 d.on('mouseleave', () => {
                     for (const entry of res) {
                         if (entry[0].highlighted) {
-                            entry[0].highlighted = false;
+                            entry[0].renderer.highlightRenderable(entry[0]);
                             entry[1].drawAsync();
                         }
                     }
@@ -367,12 +367,12 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         viewer.initUI();
 
         const rendererSelectionChange = (renderer: SDFGRenderer) => {
-            const selectedElements = renderer.selectedElements;
+            const selectedElements = renderer.selectedRenderables;
             let element;
-            if (selectedElements.length === 0 && renderer.sdfg)
-                element = new SDFG(renderer.sdfg);
-            else if (selectedElements.length === 1)
-                element = selectedElements[0];
+            if (selectedElements.size === 0 && renderer.sdfg)
+                element = new SDFG(renderer, renderer.ctx, renderer.sdfg);
+            else if (selectedElements.size === 1)
+                element = Array.from(selectedElements)[0];
             else
                 element = null;
 
@@ -436,9 +436,9 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             });
         }
 
-        const lSDFG = new SDFG(graphA);
+        const lSDFG = new SDFG(leftRenderer, leftRenderer.ctx, graphA);
         lSDFG.sdfgDagreGraph = leftRenderer.graph ?? undefined;
-        const rSDFG = new SDFG(graphB);
+        const rSDFG = new SDFG(rightRenderer, rightRenderer.ctx, graphB);
         rSDFG.sdfgDagreGraph = rightRenderer.graph ?? undefined;
 
         const onDiffCreated = (diff: DiffMap) => {

@@ -42,22 +42,15 @@ export class GenericSdfgOverlay {
         this.heatmapHistBuckets = [];
     }
 
-    protected shadeBlock(
-        _block: ControlFlowBlock, _ctx: CanvasRenderingContext2D,
-        ..._args: any[]
-    ): void {
+    protected shadeBlock(_block: ControlFlowBlock, ..._args: any[]): void {
         return;
     }
 
-    protected shadeNode(
-        _node: SDFGNode, _ctx: CanvasRenderingContext2D, ..._args: any[]
-    ): void {
+    protected shadeNode(_node: SDFGNode, ..._args: any[]): void {
         return;
     }
 
-    protected shadeEdge(
-        _edge: Edge, _ctx: CanvasRenderingContext2D, ..._args: any[]
-    ): void {
+    protected shadeEdge(_edge: Edge, ..._args: any[]): void {
         return;
     }
 

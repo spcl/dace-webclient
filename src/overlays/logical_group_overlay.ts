@@ -13,6 +13,7 @@ import {
 import { OverlayType } from '../types';
 import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
 
+
 export interface LogicalGroup {
     name: string;
     color: string;
@@ -35,15 +36,13 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         this.renderer.drawAsync();
     }
 
-    private shadeElem(
-        elem: SDFGElement, ctx: CanvasRenderingContext2D, ...args: any[]
-    ): void {
+    private shadeElem(elem: SDFGElement, ...args: any[]): void {
         const groups = args[0] as LogicalGroup[];
         const allGroups: LogicalGroup[] = [];
         if (elem instanceof State) {
             groups.forEach(group => {
                 if (group.states.includes(elem.id)) {
-                    elem.shade(this.renderer, ctx, group.color, 0.3);
+                    elem.shade(group.color, 0.3);
                     allGroups.push(group);
                 }
             });
@@ -51,7 +50,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
             groups.forEach(group => {
                 group.nodes.forEach(n => {
                     if (n[0] === elem.parentStateId && n[1] === elem.id) {
-                        elem.shade(this.renderer, ctx, group.color, 0.3);
+                        elem.shade(group.color, 0.3);
                         allGroups.push(group);
                     }
                 });
@@ -70,22 +69,16 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         }
     }
 
-    protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ...args: any[]
-    ): void {
-        this.shadeElem(block, ctx, args);
+    protected shadeBlock(block: ControlFlowBlock, ...args: any[]): void {
+        this.shadeElem(block, args);
     }
 
-    protected shadeNode(
-        node: SDFGNode, ctx: CanvasRenderingContext2D, ...args: any[]
-    ): void {
-        this.shadeElem(node, ctx, args);
+    protected shadeNode(node: SDFGNode, ...args: any[]): void {
+        this.shadeElem(node, args);
     }
 
-    protected shadeEdge(
-        edge: Edge, ctx: CanvasRenderingContext2D, ...args: any[]
-    ): void {
-        this.shadeElem(edge, ctx, args);
+    protected shadeEdge(edge: Edge, ...args: any[]): void {
+        this.shadeElem(edge, args);
     }
 
     public draw(): void {
