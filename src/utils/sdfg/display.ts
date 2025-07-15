@@ -76,9 +76,8 @@ export function sdfgConsumeElemToString(
 
 function dictionaryToString(dict: unknown): string {
     return htmlSanitize`
-<pre class="code"><code>
-    ${JSON.stringify(dict, undefined, 4)}
-</code></pre><div class="clearfix"></div>
+<pre class="code"><code>${JSON.stringify(dict, undefined, 4)}</code></pre>
+<div class="clearfix"></div>
     `;
 }
 

@@ -10,7 +10,6 @@ import type {
 import { SDFVSettings } from '../../../utils/sdfv_settings';
 import { RendererBase } from '../common/renderer_base';
 import { Renderable } from '../common/renderable';
-import { htmlSanitize } from '../../../utils/sanitization';
 import { boundingBox } from '../common/renderer_utils';
 
 
@@ -208,6 +207,7 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
     public showTooltip(
         x: number, y: number, text: string, html: boolean = false
     ): void {
+        console.log(x, y, text, html);
         /*
         this.hideTooltip();
         if (html) {
