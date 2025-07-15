@@ -2727,8 +2727,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             if (event.buttons & 1 || event.buttons & 4)
                 return true; // Don't stop propagation
 
-            if (this.recomputeHoveredElements(mouseElements.elements))
-                this.drawAsync();
+            this.recomputeHoveredElements(mouseElements.elements);
 
             if (mouseElements.foregroundConnector)
                 mouseElements.foregroundConnector.showTooltip();
@@ -2736,6 +2735,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 mouseElements.foregroundElement.showTooltip();
             else
                 this.hideTooltip();
+
+            this.drawAsync();
 
             return false;
         }

@@ -224,22 +224,28 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
     }
 
     public showTooltip(
-        x: number, y: number, text: string, html: boolean = false
+        x: number, y: number, text: string, html: boolean = false,
+        correctOffscrenen: boolean = true
     ): void {
         if (html)
             this.tooltipText.html(text);
         else
             this.tooltipText.text(text);
+        this.tooltipContainer.show();
         const bcr = this.tooltipContainer[0].getBoundingClientRect();
-        const containerBcr = this.container[0].getBoundingClientRect();
         this.tooltipContainer.css(
             'left', (x - bcr.width / 2).toString() + 'px'
         );
+        const topOffset = 8;
+        let yPos = y - (bcr.height + topOffset);
+        if (yPos < 0 && correctOffscrenen) {
+            // If the tooltip would be off-screen, move it to the oposite side
+            // of the y coordinate.
+            yPos = y + topOffset;
+        }
         this.tooltipContainer.css(
-            'top',
-            (((y + containerBcr.y) - (bcr.height / 2)) - 8).toString() + 'px'
+            'top', yPos.toString() + 'px'
         );
-        this.tooltipContainer.show();
     }
 
     public hideTooltip(): void {
