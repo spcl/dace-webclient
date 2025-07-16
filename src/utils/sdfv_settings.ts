@@ -69,7 +69,7 @@ const AVAILABLE_THEMES: Record<string, Record<SDFVColorThemeColor, string>> = {
 };
 
 interface SDFVSettingsEvent {
-    'setting_changed': (setting: SDFVSetting) =>  void,
+    'setting_changed': (setting: SDFVSetting, key: SDFVSettingKey) =>  void,
 }
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
@@ -144,7 +144,7 @@ export class SDFVSettings extends EventEmitter {
                 if (setting.externalEvent === false)
                     this.internalHandler(key, setting);
                 else
-                    this.emit('setting_changed', setting);
+                    this.emit('setting_changed', setting, key);
             },
         }).appendTo(inputContainer);
         for (const choice of setting.choices) {
@@ -194,7 +194,7 @@ export class SDFVSettings extends EventEmitter {
                 if (setting.externalEvent === false)
                     this.internalHandler(key, setting);
                 else
-                    this.emit('setting_changed', setting);
+                    this.emit('setting_changed', setting, key);
             },
         }).appendTo(inputContainer);
         const resetBtn = $('<span>', {
@@ -219,7 +219,7 @@ export class SDFVSettings extends EventEmitter {
             if (setting.externalEvent === false)
                 this.internalHandler(key, setting);
             else
-                this.emit('setting_changed', setting);
+                this.emit('setting_changed', setting, key);
         });
     }
 
@@ -286,7 +286,7 @@ export class SDFVSettings extends EventEmitter {
                 if (setting.externalEvent === false)
                     this.internalHandler(key, setting);
                 else
-                    this.emit('setting_changed', setting);
+                    this.emit('setting_changed', setting, key);
             }
         });
         numberInput.on('change', () => {
@@ -307,7 +307,7 @@ export class SDFVSettings extends EventEmitter {
                 if (setting.externalEvent === false)
                     this.internalHandler(key, setting);
                 else
-                    this.emit('setting_changed', setting);
+                    this.emit('setting_changed', setting, key);
             }
         });
         resetBtn.on('click', () => {
@@ -317,7 +317,7 @@ export class SDFVSettings extends EventEmitter {
             if (setting.externalEvent === false)
                 this.internalHandler(key, setting);
             else
-                this.emit('setting_changed', setting);
+                this.emit('setting_changed', setting, key);
         });
     }
 
@@ -361,7 +361,7 @@ export class SDFVSettings extends EventEmitter {
                 if (setting.externalEvent === false)
                     this.internalHandler(key, setting);
                 else
-                    this.emit('setting_changed', setting);
+                    this.emit('setting_changed', setting, key);
             },
         }).appendTo(checkContainer);
         $('<label>', {
@@ -513,7 +513,7 @@ export class SDFVSettings extends EventEmitter {
             colorInput.val(colorVal);
         }
         // Make the event externally visible so the renderer redraws.
-        this.emit('setting_changed', setting);
+        this.emit('setting_changed', setting, key);
     }
 
     private internalHandler(key: SDFVSettingKey, setting: SDFVSetting): void {

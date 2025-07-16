@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright (c) Philipp Schaad and rendure authors. All rights reserved.
 
 import type { Point2D, SimpleRect } from '../../../types';
 import type { HTMLCanvasRenderer } from './html_canvas_renderer';

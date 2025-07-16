@@ -1,6 +1,10 @@
-// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright (c) Philipp Schaad and rendure authors. All rights reserved.
 
-import { SDFV } from '../../../sdfv';
+import {
+    DEFAULT_CANVAS_FONTSIZE,
+    DEFAULT_FAR_FONT_MULTIPLIER,
+    DEFAULT_MAX_FONTSIZE,
+} from '../../../constants';
 import type { Point2D } from '../../../types';
 import type { HTMLCanvasRenderer } from './html_canvas_renderer';
 
@@ -146,9 +150,9 @@ export function drawAdaptiveText(
     ctx: CanvasRenderingContext2D, renderer: HTMLCanvasRenderer,
     farText: string, closeText: string,
     x: number, y: number, w: number, h: number,
-    pppThresh: number, maxFontSize: number = SDFV.DEFAULT_MAX_FONTSIZE,
+    pppThresh: number, maxFontSize: number = DEFAULT_MAX_FONTSIZE,
     closeFontMultiplier: number = 1.0,
-    farFontMultiplier: number = SDFV.DEFAULT_FAR_FONT_MULTIPLIER,
+    farFontMultiplier: number = DEFAULT_FAR_FONT_MULTIPLIER,
     bold: boolean = false,
     valign: TextVAlign = TextVAlign.MIDDLE,
     halign: TextHAlign = TextHAlign.CENTER,
@@ -163,7 +167,7 @@ export function drawAdaptiveText(
     const label = isFar ? farText : closeText;
 
     let fontSize = Math.min(
-        SDFV.DEFAULT_CANVAS_FONTSIZE * closeFontMultiplier, maxFontSize
+        DEFAULT_CANVAS_FONTSIZE * closeFontMultiplier, maxFontSize
     );
     if (isFar)
         fontSize = Math.min(ppp * farFontMultiplier, maxFontSize);

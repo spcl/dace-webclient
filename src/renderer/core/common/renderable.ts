@@ -1,6 +1,6 @@
-// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright (c) Philipp Schaad and rendure authors. All rights reserved.
 
-import { Point2D } from '../../../types';
+import type { Point2D } from '../../../types';
 import { RendererBase } from './renderer_base';
 
 

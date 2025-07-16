@@ -1,11 +1,12 @@
-// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright (c) Philipp Schaad and rendure authors. All rights reserved.
 
-import EventEmitter from 'events';
-import { SimpleRect } from '../../../types';
+import { EventEmitter } from 'events';
+import type { SimpleRect } from '../../../types';
 import type { Renderable } from './renderable';
 
 
-// Some global functions and variables which are only accessible within VSCode:
+// Declare `vscode` to avoid TypeScript errors. If this variable is actually
+// defined, the module is running inside VSCode.
 declare const vscode: any;
 
 export abstract class RendererBase extends EventEmitter {

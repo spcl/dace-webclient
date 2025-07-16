@@ -221,7 +221,14 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             this.drawAsync();
         });
 
-        SDFVSettings.getInstance().on('setting_changed', (setting) => {
+        SDFVSettings.getInstance().on('setting_changed', (setting, key) => {
+            if (key === 'adaptiveContentHiding') {
+                const nval = SDFVSettings.get<boolean>(key);
+                this._adaptiveHiding = this._desiredAdaptiveHiding = nval;
+                this.drawAsync();
+                return;
+            }
+
             if (setting.relayout) {
                 this.layout().then(() => {
                     this.drawAsync();

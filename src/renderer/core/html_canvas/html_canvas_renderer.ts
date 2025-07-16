@@ -1,13 +1,9 @@
-// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright (c) Philipp Schaad and rendure authors. All rights reserved.
 
 import $ from 'jquery';
 
 import { CanvasManager } from './canvas_manager';
-import type {
-    Point2D,
-    SimpleRect,
-} from '../../../types';
-import { SDFVSettings } from '../../../utils/sdfv_settings';
+import type { Point2D, SimpleRect } from '../../../types';
 import { RendererBase } from '../common/renderer_base';
 import { Renderable } from '../common/renderable';
 import { boundingBox } from '../common/renderer_utils';
@@ -89,6 +85,9 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
     // Determine whether content should adaptively be hidden when zooming out.
     // Controlled by the settings.
     protected _adaptiveHiding: boolean = true;
+    protected _desiredAdaptiveHiding: boolean = true;
+    // Determine whether to bind the viewport to the content bounding box.
+    protected _bindToViewport: boolean = true;
 
     public constructor(
         protected container: JQuery,
@@ -97,9 +96,16 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
         ) | null = null,
         protected initialUserTransform: DOMMatrix | null = null,
         protected backgroundColor: string | null = null,
-        debugDraw = false
+        debugDraw = false,
+        viewportOnly: boolean = true,
+        adaptiveHiding: boolean = true,
+        bindToViewport: boolean = true
     ) {
         super(debugDraw);
+
+        this._viewportOnly = viewportOnly;
+        this._adaptiveHiding = this._desiredAdaptiveHiding = adaptiveHiding;
+        this._bindToViewport = bindToViewport;
 
         // Initialize the DOM.
         this.canvas = document.createElement('canvas');
@@ -399,9 +405,7 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
     protected abstract registerMouseHandlers(): void;
 
     public drawAsync(ctx?: CanvasRenderingContext2D): void {
-        this._adaptiveHiding = SDFVSettings.get<boolean>(
-            'adaptiveContentHiding'
-        );
+        this._adaptiveHiding = this._desiredAdaptiveHiding;
         this.clearCssPropertyCache();
         this.canvasManager.drawAsync(ctx);
     }
@@ -550,9 +554,7 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
         const oldAdaptiveHiding = this._adaptiveHiding;
         if (!saveAll) {
             this._viewportOnly = true;
-            this._adaptiveHiding = SDFVSettings.get<boolean>(
-                'adaptiveContentHiding'
-            );
+            this._adaptiveHiding = this._desiredAdaptiveHiding;
         } else {
             this._viewportOnly = false;
             this._adaptiveHiding = false;
@@ -667,7 +669,7 @@ export abstract class HTMLCanvasRenderer extends RendererBase {
      * @returns    Corrected movement clamped to the content bounding box.
      */
     public checkPanMovementInBounds(movX: number, movY: number) {
-        if (!SDFVSettings.get<boolean>('bindToViewport')) {
+        if (!this._bindToViewport) {
             return {
                 x: movX,
                 y: movY,
