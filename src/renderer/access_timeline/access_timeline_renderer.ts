@@ -1,12 +1,14 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
+    HTMLCanvasRenderer,
+} from 'rendure/src/renderer/core/html_canvas/html_canvas_renderer';
+import {
     InputOutputMap,
     MemoryEvent,
     MemoryTimelineScope,
 } from '../../access_timeline_view';
 import { JsonSDFG, SimpleRect } from '../../types';
-import { HTMLCanvasRenderer } from '../core/html_canvas/html_canvas_renderer';
 import {
     AllocatedContainer,
     ContainerAccess,

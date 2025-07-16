@@ -1,6 +1,9 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import {
+    HTMLCanvasRenderable,
+} from 'rendure/src/renderer/core/html_canvas/html_canvas_renderable';
+import {
     AllocationEvent,
     DataAccessEvent,
     DeallocationEvent,
@@ -12,11 +15,10 @@ import { DataSubset, JsonSDFGDataDesc, Point2D } from '../../types';
 import { bytesToString, sdfgRangeElemToString } from '../../utils/sdfg/display';
 import { SDFVSettings } from '../../utils/sdfv_settings';
 import { KELLY_COLORS, median } from '../../utils/utils';
-import { ptLineDistance } from '../core/common/renderer_utils';
-import {
-    HTMLCanvasRenderable,
-} from '../core/html_canvas/html_canvas_renderable';
 import { AccessTimelineRenderer } from './access_timeline_renderer';
+import {
+    ptLineDistance,
+} from 'rendure/src/renderer/core/common/renderer_utils';
 
 
 export type TimelineViewElementClasses = 'container' | 'access' | 'axes';

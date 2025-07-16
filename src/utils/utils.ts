@@ -3,9 +3,7 @@
 import { rgb2hex } from '@pixi/utils';
 import $ from 'jquery';
 import { Point2D } from '../types';
-import type { RendererBase } from '../renderer/core/common/renderer_base';
 
-declare const SDFGRenderer: RendererBase;
 
 // From: https://eleanormaclure.files.wordpress.com/2011/03/colour-coding.pdf,
 // Via: https://stackoverflow.com/a/4382138/3547036
@@ -184,23 +182,8 @@ function tempColor(badness: number): [number, number, number] {
     // the 'badness' to that interval (inverted, since green=120 hue and
     // red=0 hue).
     const maxHue = 120;
-    let saturation = 1.0;
-    let lightness = 0.75;
-    try {
-        const rSaturation = parseFloat(
-            SDFGRenderer.getCssProperty('--overlay-color-saturation')
-        );
-        if (!Number.isNaN(rSaturation))
-            saturation = rSaturation;
-
-        const rLightness = parseFloat(
-            SDFGRenderer.getCssProperty('--overlay-color-lightness')
-        );
-        if (!Number.isNaN(rLightness))
-            lightness = rLightness;
-    } catch (_ignored) {
-        // Ignored.
-    }
+    const saturation = 1.0;
+    const lightness = 0.75;
     return [(1 - badness) * maxHue, saturation, lightness];
 }
 

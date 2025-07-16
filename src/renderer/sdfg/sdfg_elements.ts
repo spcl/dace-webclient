@@ -24,7 +24,12 @@ import {
 } from '../../utils/sdfg/display';
 import { SDFVColorThemeColor, SDFVSettings } from '../../utils/sdfv_settings';
 import type { DagreGraph, SDFGRenderer } from './sdfg_renderer';
-import { ptLineDistance } from '../core/common/renderer_utils';
+import {
+    HTMLCanvasRenderable,
+} from 'rendure/src/renderer/core/html_canvas/html_canvas_renderable';
+import {
+    ptLineDistance,
+} from 'rendure/src/renderer/core/common/renderer_utils';
 import {
     drawAdaptiveText,
     drawEllipse,
@@ -33,10 +38,7 @@ import {
     drawTrapezoid,
     TextHAlign,
     TextVAlign,
-} from '../core/html_canvas/html_canvas_utils';
-import {
-    HTMLCanvasRenderable,
-} from '../core/html_canvas/html_canvas_renderable';
+} from 'rendure/src/renderer/core/html_canvas/html_canvas_utils';
 
 
 interface ElemDrawingOptions {

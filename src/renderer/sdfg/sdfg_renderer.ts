@@ -72,9 +72,11 @@ import {
     SDFVSettingValT,
 } from '../../utils/sdfv_settings';
 import { intersectRect, showErrorModal } from '../../utils/utils';
-import { HTMLCanvasRenderer } from '../core/html_canvas/html_canvas_renderer';
-import { boundingBox } from '../core/common/renderer_utils';
 import { RendererUIFeature } from './sdfg_renderer_toolbar';
+import {
+    HTMLCanvasRenderer,
+} from 'rendure/src/renderer/core/html_canvas/html_canvas_renderer';
+import { boundingBox } from 'rendure/src/renderer/core/common/renderer_utils';
 
 
 type MouseModeT = 'pan' | 'move' | 'select' | 'add';

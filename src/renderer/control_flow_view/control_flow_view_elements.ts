@@ -1,14 +1,18 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
+import {
+    ptLineDistance,
+} from 'rendure/src/renderer/core/common/renderer_utils';
 import { Point2D } from '../../types';
 import { sdfgPropertyToString } from '../../utils/sdfg/display';
 import { SDFVSettings } from '../../utils/sdfv_settings';
-import { ptLineDistance } from '../core/common/renderer_utils';
+import type { ControlFlowViewRenderer } from './control_flow_view_renderer';
 import {
     HTMLCanvasRenderable,
-} from '../core/html_canvas/html_canvas_renderable';
-import { drawEllipse } from '../core/html_canvas/html_canvas_utils';
-import type { ControlFlowViewRenderer } from './control_flow_view_renderer';
+} from 'rendure/src/renderer/core/html_canvas/html_canvas_renderable';
+import {
+    drawEllipse,
+} from 'rendure/src/renderer/core/html_canvas/html_canvas_utils';
 
 
 export type CFVElementClasses = 'block' | 'edge' | 'connector';

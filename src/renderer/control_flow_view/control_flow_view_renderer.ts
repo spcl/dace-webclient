@@ -5,7 +5,9 @@ import {
     layoutSequence,
 } from '../../layout/control_flow_view_layout';
 import { SimpleRect } from '../../types';
-import { HTMLCanvasRenderer } from '../core/html_canvas/html_canvas_renderer';
+import {
+    HTMLCanvasRenderer,
+} from 'rendure/src/renderer/core/html_canvas/html_canvas_renderer';
 import {
     CFVConditional,
     CFVControlFlowBlock,
