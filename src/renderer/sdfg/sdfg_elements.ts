@@ -1,9 +1,6 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { editor } from 'monaco-editor';
-import {
-    TokenizationRegistry,
-} from 'monaco-editor/esm/vs/editor/common/languages';
 import { SDFV } from '../../sdfv';
 import {
     DataSubset,
@@ -2094,7 +2091,7 @@ export class Tasklet extends SDFGNode {
         parentElem?: SDFGElement
     ) {
         super(renderer, ctx, data, id, sdfg, cfg, parentStateId, parentElem);
-        void this.highlightCode();
+        this.highlightCode();
     }
 
     public textForFind(): string {
@@ -2105,7 +2102,7 @@ export class Tasklet extends SDFGNode {
         return this.label + ' ' + code;
     }
 
-    public async highlightCode(): Promise<void> {
+    public highlightCode(): void {
         this.inputTokens.clear();
         this.outputTokens.clear();
         this.highlightedCode = [];
@@ -2134,10 +2131,6 @@ export class Tasklet extends SDFGNode {
 
             const highlightedLine: TaskletCodeToken[] = [];
             try {
-                // Ensure the tokenization registry is initialized before using
-                // it in tokenization (it needs to construct a web worker
-                // first).
-                await TokenizationRegistry.getOrCreate(lang);
                 const tokens = editor.tokenize(line, lang)[0];
                 if (tokens.length < 2) {
                     highlightedLine.push({

@@ -6,6 +6,7 @@ import 'bootstrap';
 
 import '../scss/sdfv.scss';
 
+import { editor } from 'monaco-editor';
 import { EventEmitter } from 'events';
 import { mean, median } from 'mathjs';
 import { LViewRenderer } from './local_view/lview_renderer';
@@ -220,6 +221,19 @@ export class WebSDFV extends SDFV {
     public init(): void {
         if (this._initialized)
             return;
+
+        // This is called here to initialize the monaco editor web workers for
+        // tokenization. There is no way to avait this creation, which leads to
+        // code not being correctly highlighted in tasklets for the first time
+        // an SDFG is loaded. Initializing this here ensures that by the time
+        // the user loads an SDFG, the web workers are already created and
+        // highlighting works.
+        const _tokens = editor.tokenize('a = 0', 'python')[0];
+        // Read something from tokens to ensure the call is not optimized away.
+        if (_tokens.length < 2)
+            console.log('Initializing Monaco');
+        else
+            console.log('Monaco already initialized');
 
         this.registerEventListeners();
         this.UI.init();
