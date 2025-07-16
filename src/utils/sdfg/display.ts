@@ -11,47 +11,40 @@ import {
     JsonSDFGTypeclass,
     SDFGRange,
 } from '../../types';
-import {
-    SDFVSettingKey,
-    SDFVSettings,
-    SDFVSettingValT,
-} from '../sdfv_settings';
+import { SDFVSettings } from '../sdfv_settings';
 import { htmlSanitize } from '../sanitization';
 
 
 /**
  * Convert an SDFG range element to a string.
  * @param range    Range element to convert.
- * @param settings Current view settings.
  * @returns        String representation of `range`.
  */
-export function sdfgRangeElemToString(
-    range: SDFGRange, settings?: Record<SDFVSettingKey, SDFVSettingValT>
-): string {
+export function sdfgRangeElemToString(range: SDFGRange): string {
     let preview = '';
     const step = parseInt(range.step);
     const tile = parseInt(range.tile);
     if (range.start === range.end && step === 1 && tile === 1) {
-        preview += sdfgPropertyToString(range.start, settings);
+        preview += sdfgPropertyToString(range.start);
     } else {
-        if (settings?.inclusiveRanges) {
-            preview += sdfgPropertyToString(range.start, settings) + '..' +
-                sdfgPropertyToString(range.end, settings);
+        if (SDFVSettings.get<boolean>('inclusiveRanges')) {
+            preview += sdfgPropertyToString(range.start) + '..' +
+                sdfgPropertyToString(range.end);
         } else {
-            let endp1 = sdfgPropertyToString(range.end, settings) + ' + 1';
+            let endp1 = sdfgPropertyToString(range.end) + ' + 1';
             try {
                 endp1 = simplify(endp1).toString();
             } catch (_e) {}
-            preview += sdfgPropertyToString(range.start, settings) + ':' +
+            preview += sdfgPropertyToString(range.start) + ':' +
                 endp1;
         }
 
         if (step !== 1) {
-            preview += ':' + sdfgPropertyToString(range.step, settings);
+            preview += ':' + sdfgPropertyToString(range.step);
             if (tile !== 1)
-                preview += ':' + sdfgPropertyToString(range.tile, settings);
+                preview += ':' + sdfgPropertyToString(range.tile);
         } else if (tile !== 1) {
-            preview += '::' + sdfgPropertyToString(range.tile, settings);
+            preview += '::' + sdfgPropertyToString(range.tile);
         }
     }
     return preview;
@@ -60,14 +53,11 @@ export function sdfgRangeElemToString(
 /**
  * Convert an SDFG consume element to a string.
  * @param numPEs   Number of PEs.
- * @param settings Current view settings.
  * @returns        String representation of `numPEs`.
  */
-export function sdfgConsumeElemToString(
-    numPEs: number, settings?: Record<SDFVSettingKey, SDFVSettingValT>
-): string {
+export function sdfgConsumeElemToString(numPEs: number): string {
     let result = '0';
-    if (settings?.inclusiveRanges)
+    if (SDFVSettings.get<boolean>('inclusiveRanges'))
         result += '..' + (numPEs - 1).toString();
     else
         result += ':' + numPEs.toString();
@@ -84,12 +74,9 @@ function dictionaryToString(dict: unknown): string {
 /**
  * Convert SDFG properties to their string representation.
  * @param prop      SDFG property.
- * @param settings  Current view settings.
  * @returns         A string representation of the property `prop`.
  */
-export function sdfgPropertyToString(
-    prop: unknown, settings?: Record<SDFVSettingKey, SDFVSettingValT>
-): string {
+export function sdfgPropertyToString(prop: unknown): string {
     if (prop === null || prop === undefined)
         return '';
     if (typeof prop === 'boolean') {
@@ -108,7 +95,7 @@ export function sdfgPropertyToString(
                 const indices = (prop as DataSubset).indices;
                 let preview = '[';
                 for (const index of indices ?? [])
-                    preview += sdfgPropertyToString(index, settings) + ', ';
+                    preview += sdfgPropertyToString(index) + ', ';
                 return preview.slice(0, -2) + ']';
             }
             case 'Range':
@@ -117,7 +104,7 @@ export function sdfgPropertyToString(
                 const ranges = (prop as DataSubset).ranges;
                 let preview = '[';
                 for (const range of ranges ?? [])
-                    preview += sdfgRangeElemToString(range, settings) + ', ';
+                    preview += sdfgRangeElemToString(range) + ', ';
                 return preview.slice(0, -2) + ']';
             }
             case 'SubsetUnion':
@@ -125,10 +112,10 @@ export function sdfgPropertyToString(
             {
                 const subsList = (prop as DataSubset).subset_list ?? [];
                 if (subsList.length < 2)
-                    return sdfgPropertyToString(subsList[0], settings);
+                    return sdfgPropertyToString(subsList[0]);
                 let preview = '{';
                 for (const subs of subsList)
-                    preview += sdfgPropertyToString(subs, settings) + '\n';
+                    preview += sdfgPropertyToString(subs) + '\n';
                 return preview + '}';
             }
             case 'LogicalGroup':
@@ -172,7 +159,7 @@ export function sdfgPropertyToString(
         for (const subsProp of prop as unknown[]) {
             if (!first)
                 result += ', ';
-            result += sdfgPropertyToString(subsProp, settings);
+            result += sdfgPropertyToString(subsProp);
             first = false;
         }
         return result + ' ]';
@@ -189,40 +176,33 @@ export function sdfgPropertyToString(
 export function memletToHtml(
     memletAttributes: JsonSDFGMemletAttributes
 ): string {
-    const dsettings = SDFVSettings.settingsDict;
-
     let htmlStr = memletAttributes.data ?? '';
-    htmlStr += sdfgPropertyToString(memletAttributes.subset, dsettings);
+    htmlStr += sdfgPropertyToString(memletAttributes.subset);
 
     if (memletAttributes.other_subset) {
         // TODO: Obtain other data name, if possible
         if (memletAttributes.is_data_src) {
             htmlStr += ' -> ' + sdfgPropertyToString(
-                memletAttributes.other_subset, dsettings
+                memletAttributes.other_subset
             );
         } else {
             htmlStr = sdfgPropertyToString(
-                memletAttributes.other_subset, dsettings
+                memletAttributes.other_subset
             ) + ' -> ' + htmlStr;
         }
     }
 
     if (memletAttributes.wcr) {
         htmlStr += '<br /><b>CR: ' + sdfgPropertyToString(
-            memletAttributes.wcr, dsettings
+            memletAttributes.wcr
         ) + '</b>';
     }
 
     let numAccesses = null;
-    if (memletAttributes.volume) {
-        numAccesses = sdfgPropertyToString(
-            memletAttributes.volume, dsettings
-        );
-    } else {
-        numAccesses = sdfgPropertyToString(
-            memletAttributes.num_accesses, dsettings
-        );
-    }
+    if (memletAttributes.volume)
+        numAccesses = sdfgPropertyToString(memletAttributes.volume);
+    else
+        numAccesses = sdfgPropertyToString(memletAttributes.num_accesses);
 
     if (memletAttributes.dynamic) {
         if (numAccesses === '0' || numAccesses === '-1') {

@@ -12,7 +12,6 @@ import {
 import { WebSDFV } from './sdfv';
 import { sdfgPropertyToString } from './utils/sdfg/display';
 import type { DagreGraph, SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
-import { SDFVSettings } from './utils/sdfv_settings';
 import { JsonSDFG, JsonSDFGDataDesc } from './types';
 
 
@@ -259,9 +258,7 @@ export class SDFVWebUI implements ISDFVUserInterface {
                         html: attr[0] + ':&nbsp;&nbsp;',
                     }));
                     contents.append($('<span>', {
-                        html: sdfgPropertyToString(
-                            attr[1], SDFVSettings.settingsDict
-                        ),
+                        html: sdfgPropertyToString(attr[1]),
                     }));
                     contents.append($('<br>'));
                     break;
@@ -285,9 +282,7 @@ export class SDFVWebUI implements ISDFVUserInterface {
                         html: attr[0] + ':&nbsp;&nbsp;',
                     }));
                     contents.append($('<span>', {
-                        html: sdfgPropertyToString(
-                            attr[1], SDFVSettings.settingsDict
-                        ),
+                        html: sdfgPropertyToString(attr[1]),
                     }));
                     contents.append($('<br>'));
                 }
@@ -322,9 +317,7 @@ export class SDFVWebUI implements ISDFVUserInterface {
                                 html: attr[0] + ':&nbsp;&nbsp;',
                             }));
                             contents.append($('<span>', {
-                                html: sdfgPropertyToString(
-                                    attr[1], SDFVSettings.settingsDict
-                                ),
+                                html: sdfgPropertyToString(attr[1]),
                             }));
                             contents.append($('<br>'));
                             break;
@@ -356,9 +349,7 @@ export class SDFVWebUI implements ISDFVUserInterface {
                     html: desc + ':&nbsp;&nbsp;',
                 }));
                 contents.append($('<span>', {
-                    html: sdfgPropertyToString(
-                        descriptors[desc], SDFVSettings.settingsDict
-                    ),
+                    html: sdfgPropertyToString(descriptors[desc]),
                 }));
                 contents.append($('<br>'));
             }

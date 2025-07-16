@@ -13,7 +13,6 @@ import {
 } from '../../access_timeline_view';
 import { DataSubset, JsonSDFGDataDesc, Point2D } from '../../types';
 import { bytesToString, sdfgRangeElemToString } from '../../utils/sdfg/display';
-import { SDFVSettings } from '../../utils/sdfv_settings';
 import { KELLY_COLORS, median } from '../../utils/utils';
 import { AccessTimelineRenderer } from './access_timeline_renderer';
 import {
@@ -555,11 +554,8 @@ export class ContainerAccess extends TimelineViewElement {
 
     public get label(): string {
         let label = '[';
-        for (const range of this.subset.ranges ?? []) {
-            label += sdfgRangeElemToString(
-                range, SDFVSettings.settingsDict
-            ) + ', ';
-        }
+        for (const range of this.subset.ranges ?? [])
+            label += sdfgRangeElemToString(range) + ', ';
         return label.slice(0, -2) + ']';
     }
 

@@ -545,11 +545,8 @@ export class SDFVSettings extends EventEmitter {
     }
 
     public static get settingsDict(
-    ): Record<SDFVSettingKey, SDFVSettingValT> {
-        const roSettings = {} as Record<SDFVSettingKey, SDFVSettingValT>;
-        for (const [k, v] of SDFVSettings.getInstance()._settingsDict)
-            roSettings[k] = v;
-        return roSettings;
+    ): ReadonlyMap<SDFVSettingKey, SDFVSettingValT> {
+        return SDFVSettings.getInstance()._settingsDict;
     }
 
     /* eslint-disable-next-line

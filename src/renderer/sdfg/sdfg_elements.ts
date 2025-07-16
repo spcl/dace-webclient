@@ -1556,9 +1556,7 @@ export class Connector extends SDFGElement {
             const access = this.data?.access as
                 Record<string, unknown> | undefined;
             if (access) {
-                customTooltipHtml += sdfgPropertyToString(
-                    access.subset, SDFVSettings.settingsDict
-                );
+                customTooltipHtml += sdfgPropertyToString(access.subset);
 
                 if (access.volume !== undefined) {
                     let numAccesses = (access.volume ?? '0') as string;
@@ -1581,8 +1579,7 @@ export class Connector extends SDFGElement {
             if (certainAccess) {
                 if (access?.subset !== certainAccess.subset) {
                     const certainHtml = sdfgPropertyToString(
-                        certainAccess.subset,
-                        SDFVSettings.settingsDict
+                        certainAccess.subset
                     );
                     customTooltipHtml += '<p>Certain:<p>';
                     customTooltipHtml += certainHtml;
@@ -1910,18 +1907,13 @@ export class ScopeNode extends SDFGNode {
         }
 
         if (this instanceof ConsumeEntry || this instanceof ConsumeExit) {
-            result += sdfgConsumeElemToString(
-                (attrs?.num_pes ?? 1) as number, SDFVSettings.settingsDict
-            );
+            result += sdfgConsumeElemToString((attrs?.num_pes ?? 1) as number);
         } else {
             const params = attrs?.params as string[] | undefined;
             const range = attrs?.range as DataSubset | undefined;
             for (let i = 0; i < (params?.length ?? 0); ++i) {
-                if (range?.ranges?.[i] !== undefined) {
-                    result += sdfgRangeElemToString(
-                        range.ranges[i], SDFVSettings.settingsDict
-                    ) + ', ';
-                }
+                if (range?.ranges?.[i] !== undefined)
+                    result += sdfgRangeElemToString(range.ranges[i]) + ', ';
             }
             // Remove trailing comma
             result = result.substring(0, result.length - 2);
@@ -1964,18 +1956,15 @@ export class ScopeNode extends SDFGNode {
         result += '[';
         if (this instanceof ConsumeEntry || this instanceof ConsumeExit) {
             result += attrs.pe_index as string + '=' + sdfgConsumeElemToString(
-                (attrs.num_pes ?? 1) as number, SDFVSettings.settingsDict
+                (attrs.num_pes ?? 1) as number
             );
         } else {
             const params = attrs.params as string[] | undefined;
             const range = attrs.range as DataSubset | undefined;
             for (let i = 0; i < (params?.length ?? 0); ++i) {
                 result += params![i] + '=';
-                if (range?.ranges?.[i] !== undefined) {
-                    result += sdfgRangeElemToString(
-                        range.ranges[i], SDFVSettings.settingsDict
-                    ) + ', ';
-                }
+                if (range?.ranges?.[i] !== undefined)
+                    result += sdfgRangeElemToString(range.ranges[i]) + ', ';
             }
             // Remove trailing comma
             result = result.substring(0, result.length - 2);

@@ -244,6 +244,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
             if (setting.redraw !== false && !setting.relayout)
                 this.drawAsync();
+
+            this.emit('settings_changed', SDFVSettings.settingsDict);
         });
 
         this.initUI();

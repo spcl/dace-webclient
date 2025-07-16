@@ -5,7 +5,6 @@ import {
 } from 'rendure/src/renderer/core/common/renderer_utils';
 import { Point2D } from '../../types';
 import { sdfgPropertyToString } from '../../utils/sdfg/display';
-import { SDFVSettings } from '../../utils/sdfv_settings';
 import type { ControlFlowViewRenderer } from './control_flow_view_renderer';
 import {
     HTMLCanvasRenderable,
@@ -127,9 +126,7 @@ export class CFVDependencyEdge extends CFVElement {
                 const memletAttrs = (
                     this.memlet.attributes
                 ) as Record<string, unknown> | undefined;
-                const subsetString = sdfgPropertyToString(
-                    memletAttrs?.subset, SDFVSettings.settingsDict
-                );
+                const subsetString = sdfgPropertyToString(memletAttrs?.subset);
                 const tooltipText = this.label + ' ' + subsetString;
                 this.renderer.showTooltip(mousepos.x, mousepos.y, tooltipText);
             } else {
