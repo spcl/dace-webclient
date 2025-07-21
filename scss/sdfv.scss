@@ -8,12 +8,8 @@
 $material-symbols-font-path: "~material-symbols/";
 @import "~material-symbols";
 
-@import "./color_schemes/default_blue";
-
 .sdfv {
   @import "~bootstrap/scss/bootstrap";
-
-  @import "./html_canvas_renderer";
 }
 
 html.sdfv {
@@ -64,11 +60,6 @@ body.sdfv {
     user-select: none;
   }
 
-  #header-container {
-    padding-top: 0.3rem;
-    padding-bottom: 0.3rem;
-  }
-
   #advsearch {
     min-width: 300px;
     min-height: 200px;
@@ -84,6 +75,11 @@ body.sdfv {
     height: 90%;
     border: 1px solid;
     overflow: hidden;
+
+    .rendure-canvas {
+      width: 100%;
+      height: 100%;
+    }
   }
 
   #diff-container {
@@ -103,15 +99,11 @@ body.sdfv {
     #diff-contents-A {
       border-right: 1px solid;
     }
-  }
 
-  #minimap {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 180px;
-    height: 180px;
-    border: 1px solid black;
+    .rendure-canvas {
+      width: 100%;
+      height: 100%;
+    }
   }
 
   @keyframes animateright {
@@ -189,35 +181,6 @@ body.sdfv {
 
   }
 
-  .sdfvtooltip {
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    font-size: 1rem;
-    font-family: "Segoe UI", Arial, sans-serif;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    position: absolute;
-    display: none;
-  }
-
-  .sdfvtooltip--connector {
-    background: #f0fdffee;
-    color: black;
-    border: 1px solid black;
-  }
-
-  .sdfvtooltip--interstate-edge {
-    background: #0000aabb;
-  }
-
-  .sdfvtooltip--error {
-    background: #aa0000bb;
-  }
-
   .context_menu_option {
     font-size: 1rem;
     font-family: "Segoe UI", Arial, sans-serif;
@@ -241,34 +204,8 @@ body.sdfv {
     cursor: pointer;
     color: rgba(20, 20, 20, 1.0);
 
-    &.removed {
-      background-color: $sdfv-diff-removed-color;
-
-      &:hover {
-        background-color: darken($sdfv-diff-removed-color, 5%);
-      }
-    }
-
-    &.added {
-      background-color: $sdfv-diff-added-color;
-
-      &:hover {
-        background-color: darken($sdfv-diff-added-color, 5%);
-      }
-    }
-
-    &.changed {
-      background-color: $sdfv-diff-changed-color;
-
-      &:hover {
-        background-color: darken($sdfv-diff-changed-color, 5%);
-      }
-    }
-
-    &.nodiff {
-      &:hover {
-        background-color: rgba(0, 0, 0, 0.1);
-      }
+    &:hover {
+      filter: brightness(0.90);
     }
   }
 
@@ -346,27 +283,8 @@ body.sdfv {
   }
 
   .sdfv_canvas {
-    --loop-border-color: #3d3d3d;
-    --conditional-border-color: #3d3d3d;
-    --control-flow-region-border-color: #3d3d3d;
-    --connector-scoped-color: #c1dfe690;
-    --connector-unscoped-color: #f0fdff;
     --cf-connector-certain-color: #00882b;
     --cf-connector-uncertain-color: #afddbe;
-    --reference-background-color: #ffdede;
-    --color-default: #000000;
-    --color-hovered: #008000;
-    --color-highlighted: #ffa500;
-    --color-selected: #ff1010;
-    --color-selected-hovered: #fa8072;
-    --color-selected-highlighted: #ff8c00;
-    --color-minimap-viewport: #ff7a00;
-
-    --tasklet-input-color: #000000;
-    --tasklet-output-color: #000000;
-    --tasklet-symbol-color: #ff1010;
-    --tasklet-number-color: #000000;
-    --tasklet-highlighted-color: #008000;
 
     --overlay-color-lightness: 0.5;
     --overlay-color-saturation: 1;
@@ -443,21 +361,5 @@ body.sdfv {
     margin-left: calc(-1 * var(--bs-accordion-body-padding-x)) !important;
     margin-right: calc(-1 * var(--bs-accordion-body-padding-x)) !important;
     opacity: 0.1 !important;
-  }
-
-  .sdfv-tooltip {
-    position: absolute;
-    color: white;
-    background: #333;
-    font-weight: bold;
-    padding: 0.2rem 0.4rem;
-    font-size: 0.9rem;
-    border-radius: 0.2rem;
-    user-select: none;
-
-    .sdfv-tooltip-text {
-      color: white;
-      font-weight: bold;
-    }
   }
 }

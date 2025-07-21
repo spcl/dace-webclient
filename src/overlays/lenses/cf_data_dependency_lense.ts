@@ -56,7 +56,7 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
 
                     const connector = new Connector(
                         this.renderer, this.renderer.ctx,
-                        {
+                        this.renderer.minimapCtx, {
                             name: read,
                             access: (
                                 attrs.possible_reads as Record<string, unknown>
@@ -84,7 +84,7 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
 
                     const connector = new Connector(
                         this.renderer, this.renderer.ctx,
-                        {
+                        this.renderer.minimapCtx, {
                             name: write,
                             access: (
                                 attrs.possible_writes as Record<string, unknown>

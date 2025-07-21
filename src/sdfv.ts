@@ -569,12 +569,16 @@ export class WebSDFV extends SDFV {
             renderer.on('selection_changed', () => {
                 const selectedElements = renderer.selectedRenderables;
                 let element;
-                if (selectedElements.size === 0 && renderer.sdfg)
-                    element = new SDFG(renderer, renderer.ctx, renderer.sdfg);
-                else if (selectedElements.size === 1)
+                if (selectedElements.size === 0 && renderer.sdfg) {
+                    element = new SDFG(
+                        renderer, renderer.ctx, renderer.minimapCtx,
+                        renderer.sdfg
+                    );
+                } else if (selectedElements.size === 1) {
                     element = Array.from(selectedElements)[0];
-                else
+                } else {
                     element = null;
+                }
 
                 if (element !== null) {
                     SDFVWebUI.getInstance().showElementInfo(element, renderer);

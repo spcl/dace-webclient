@@ -4,7 +4,7 @@ import { Rectangle } from '@pixi/math';
 import $ from 'jquery';
 import { max, median, min } from 'mathjs';
 import { Graphics, InteractionEvent, Text } from 'pixi.js';
-import { getTempColorHEX, KELLY_COLORS } from '../../utils/utils';
+import { getTempColorHEX } from '../../utils/utils';
 import { Graph } from '../graph/graph';
 import { LViewRenderer } from '../lview_renderer';
 import { AccessPatternOverlay } from '../overlays/access_pattern_overlay';
@@ -16,6 +16,7 @@ import { DataDimension } from './dimensions';
 import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from './element';
 import { MapNode } from './map_node';
 import { Node } from './node';
+import { KELLY_COLORS } from 'rendure/src/utils/colors';
 
 const INTERNAL_PADDING = 30;
 const TILE_SIZE = 10;

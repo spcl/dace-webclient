@@ -43,7 +43,7 @@ import {
     calculateBoundingBox,
     calculateEdgeBoundingBox,
 } from '../utils/bounding_box';
-import { deepCopy, intersectRect } from '../utils/utils';
+import { deepCopy } from '../utils/utils';
 import {
     CFDataDependencyLense,
 } from '../overlays/lenses/cf_data_dependency_lense';
@@ -52,6 +52,9 @@ import type {
     DagreGraph,
     SDFGRenderer,
 } from '../renderer/sdfg/sdfg_renderer';
+import {
+    findLineStartRectIntersection,
+} from 'rendure/src/renderer/core/common/renderer_utils';
 
 interface ICFGBlockInfo {
     label?: string,
@@ -272,6 +275,7 @@ interface IHiddenNode {
  * @param hiddenNodes       Dictionary of hidden nodes.
  * @param drawnNodes        Set of nodes that are not hidden, i.e., are drawn.
  * @param ctx               Canvas rendering context, if available.
+ * @param minimapCtx        Canvas rendering context for the minimap.
  * @param cfgList           The global control flow graph list.
  * @param stateParentList   List of parent-pointing states.
  * @param omitAccessNodes   Whether or not to omit access nodes.
@@ -279,8 +283,9 @@ interface IHiddenNode {
 function layoutDFNode(
     renderer: SDFGRenderer, node: JsonSDFGNode, state: State, graph: DagreGraph,
     hiddenNodes: Map<string, IHiddenNode>, drawnNodes: Set<string>,
-    ctx: CanvasRenderingContext2D, cfgList?: CFGListType,
-    stateParentList?: any[], omitAccessNodes: boolean = false
+    ctx: CanvasRenderingContext2D, minimapCtx?: CanvasRenderingContext2D,
+    cfgList?: CFGListType, stateParentList?: any[],
+    omitAccessNodes: boolean = false
 ): void {
     node.attributes ??= {};
     node.attributes.layout ??= {};
@@ -325,10 +330,12 @@ function layoutDFNode(
                 node.attributes.is_collapsed) {
                 // Noop.
             } else {
-                const nsdfg = new SDFG(renderer, ctx, node.attributes.sdfg);
+                const nsdfg = new SDFG(
+                    renderer, ctx, minimapCtx, node.attributes.sdfg
+                );
                 nestedGraph = layoutControlFlowRegion(
-                    renderer, node.attributes.sdfg, nsdfg, ctx, cfgList,
-                    stateParentList, omitAccessNodes
+                    renderer, node.attributes.sdfg, nsdfg, ctx, minimapCtx,
+                    cfgList, stateParentList, omitAccessNodes
                 );
                 const sdfgInfo = calculateBoundingBox(nestedGraph);
                 node.attributes.layout.width =
@@ -347,8 +354,8 @@ function layoutDFNode(
 
     // Dynamically create node type.
     const obj = new SDFGElements[node.type](
-        renderer, ctx, { node: node, graph: nestedGraph }, node.id, state.sdfg,
-        state.cfg, state.id, state
+        renderer, ctx, minimapCtx, { node: node, graph: nestedGraph }, node.id,
+        state.sdfg, state.cfg, state.id, state
     );
 
     // If it's a nested SDFG, we need to record the node as all of its
@@ -371,8 +378,8 @@ function layoutDFNode(
         conns = Object.keys(node.attributes.layout.in_connectors ?? {});
     for (const cname of conns) {
         const conn = new Connector(
-            renderer, ctx, { name: cname }, i, state.sdfg, state.cfg, node.id,
-            obj
+            renderer, ctx, minimapCtx, { name: cname }, i, state.sdfg,
+            state.cfg, node.id, obj
         );
         conn.connectorType = 'in';
         conn.linkedElem = obj;
@@ -388,8 +395,8 @@ function layoutDFNode(
         conns = Object.keys(node.attributes.layout.out_connectors ?? {});
     for (const cname of conns) {
         const conn = new Connector(
-            renderer, ctx, { name: cname }, i, state.sdfg, state.cfg, node.id,
-            obj
+            renderer, ctx, minimapCtx, { name: cname }, i, state.sdfg,
+            state.cfg, node.id, obj
         );
         conn.connectorType = 'out';
         conn.linkedElem = obj;
@@ -412,7 +419,7 @@ function layoutDFNode(
             const node = jsonState.nodes[nodeid];
             layoutDFNode(
                 renderer, node, state, graph, hiddenNodes, drawnNodes, ctx,
-                cfgList, stateParentList, omitAccessNodes
+                minimapCtx, cfgList, stateParentList, omitAccessNodes
             );
         });
     }
@@ -422,6 +429,7 @@ function layoutDFNode(
  * Lay out an SDFG State.
  * @param state             State to lay out.
  * @param ctx               Renderer context if available.
+ * @param minimapCtx        Renderer context for the minimap.
  * @param cfgList           Global index of control flow graphs.
  * @param stateParentList   Parent pointing state list.
  * @param omitAccessNodes   Whether or not to draw access nodes.
@@ -429,8 +437,8 @@ function layoutDFNode(
  */
 function layoutSDFGState(
     renderer: SDFGRenderer, state: State, ctx: CanvasRenderingContext2D,
-    cfgList?: CFGListType, stateParentList?: any[],
-    omitAccessNodes: boolean = false
+    minimapCtx?: CanvasRenderingContext2D, cfgList?: CFGListType,
+    stateParentList?: any[], omitAccessNodes: boolean = false
 ): DagreGraph {
     const stateJson = state.jsonData;
     if (!stateJson)
@@ -464,8 +472,8 @@ function layoutSDFGState(
     topLevelNodes.forEach(nodeid => {
         const node = stateJson.nodes[nodeid];
         layoutDFNode(
-            renderer, node, state, g, hiddenNodes, drawnNodes, ctx, cfgList,
-            stateParentList, omitAccessNodes
+            renderer, node, state, g, hiddenNodes, drawnNodes, ctx, minimapCtx,
+            cfgList, stateParentList, omitAccessNodes
         );
     });
 
@@ -513,8 +521,8 @@ function layoutSDFGState(
             return;
 
         const e = new Memlet(
-            renderer, ctx, redirEdge.attributes.data, id, state.sdfg, state.cfg,
-            state.id, state
+            renderer, ctx, minimapCtx, redirEdge.attributes.data, id,
+            state.sdfg, state.cfg, state.id, state
         );
         redirEdge.attributes.data.edge = e;
         e.srcConnector = redirEdge.src_connector;
@@ -566,7 +574,7 @@ function layoutSDFGState(
                 // Add redirected shortcut edge to graph.
                 const edgeId = stateJson.edges.length - 1;
                 const newShortCutEdge = new Memlet(
-                    renderer, ctx, deepCopy(
+                    renderer, ctx, minimapCtx, deepCopy(
                         redirectedEdge.attributes.data as
                         Record<string, unknown>
                     ), edgeId, state.sdfg, state.cfg, stateJson.id
@@ -811,10 +819,22 @@ function layoutSDFGState(
         }
 
         const n = gedge.points.length - 1;
-        if (srcConn !== null)
-            gedge.points[0] = intersectRect(srcConn, gedge.points[n]);
-        if (dstConn !== null)
-            gedge.points[n] = intersectRect(dstConn, gedge.points[0]);
+        if (srcConn !== null) {
+            const connRect = {
+                x: srcConn.x, y: srcConn.y, w: srcConn.width, h: srcConn.height,
+            };
+            gedge.points[0] = findLineStartRectIntersection(
+                connRect, gedge.points[n]
+            );
+        }
+        if (dstConn !== null) {
+            const connRect = {
+                x: dstConn.x, y: dstConn.y, w: dstConn.width, h: dstConn.height,
+            };
+            gedge.points[n] = findLineStartRectIntersection(
+                connRect, gedge.points[0]
+            );
+        }
 
         if (gedge.points.length === 3 &&
             gedge.points[0].x === gedge.points[n].x)
@@ -841,17 +861,19 @@ function layoutSDFGState(
 /**
  * Lay out a conditional block.
  * @param condBlock         Conditional block to lay out (JSON)
- * @param condBlockElem
- * @param ctx
- * @param cfgList
- * @param stateParentList
- * @param omitAccessNodes
- * @returns
+ * @param condBlockElem     Conditional block element to lay out.
+ * @param ctx               Renderer context.
+ * @param minimapCtx        Renderer context for the minimap.
+ * @param cfgList           Global index of control flow graphs.
+ * @param stateParentList   List of parent-pointing states.
+ * @param omitAccessNodes   Whether or not to omit access nodes.
+ * @returns                 Layout graph for the conditional block.
  */
 function layoutConditionalBlock(
     renderer: SDFGRenderer, condBlockElem: ConditionalBlock,
-    ctx: CanvasRenderingContext2D, cfgList?: CFGListType,
-    stateParentList?: any[], omitAccessNodes: boolean = false
+    ctx: CanvasRenderingContext2D, minimapCtx?: CanvasRenderingContext2D,
+    cfgList?: CFGListType, stateParentList?: any[],
+    omitAccessNodes: boolean = false
 ): DagreGraph {
     const BLOCK_MARGIN = 3 * SDFV.LINEHEIGHT;
     const sdfg = condBlockElem.sdfg;
@@ -875,8 +897,8 @@ function layoutConditionalBlock(
             height: 0,
         };
         const blockEl = new ControlFlowRegion(
-            renderer, ctx, { layout: { width: 0, height: 0 } }, block.id, sdfg,
-            undefined, undefined, condBlockElem
+            renderer, ctx, minimapCtx, { layout: { width: 0, height: 0 } },
+            block.id, sdfg, undefined, undefined, condBlockElem
         );
         g.setNode(block.id.toString(), blockEl);
         blockEl.data!.block = block;
@@ -890,8 +912,8 @@ function layoutConditionalBlock(
             blockInfo.height = SDFV.LINEHEIGHT;
         } else {
             const blockGraph = layoutControlFlowRegion(
-                renderer, block, blockEl, ctx, cfgList, stateParentList,
-                omitAccessNodes
+                renderer, block, blockEl, ctx, minimapCtx, cfgList,
+                stateParentList, omitAccessNodes
             );
             const bb = calculateBoundingBox(blockGraph);
             blockInfo.width = bb.width;
@@ -948,8 +970,8 @@ function layoutConditionalBlock(
 function layoutControlFlowRegion(
     renderer: SDFGRenderer, cfg: JsonSDFGControlFlowRegion,
     cfgElem: ControlFlowRegion | SDFG, ctx: CanvasRenderingContext2D,
-    cfgList?: CFGListType, stateParentList?: any[],
-    omitAccessNodes: boolean = false
+    minimapCtx?: CanvasRenderingContext2D, cfgList?: CFGListType,
+    stateParentList?: any[], omitAccessNodes: boolean = false
 ): DagreGraph {
     const BLOCK_MARGIN = 3 * SDFV.LINEHEIGHT;
     const sdfg = cfgElem.sdfg;
@@ -970,8 +992,8 @@ function layoutControlFlowRegion(
         };
 
         const blockElem = new SDFGElements[block.type](
-            renderer, ctx, { layout: { width: 0, height: 0 } }, block.id, sdfg,
-            cfg, undefined, cfgElem
+            renderer, ctx, minimapCtx, { layout: { width: 0, height: 0 } },
+            block.id, sdfg, cfg, undefined, cfgElem
         );
         if (block.type === SDFGElementType.SDFGState.toString())
             blockElem.data!.state = block;
@@ -1043,7 +1065,7 @@ function layoutControlFlowRegion(
             if (blockElem instanceof ControlFlowRegion) {
                 blockGraph = layoutControlFlowRegion(
                     renderer, block as JsonSDFGControlFlowRegion, blockElem,
-                    ctx, cfgList, stateParentList, omitAccessNodes
+                    ctx, minimapCtx, cfgList, stateParentList, omitAccessNodes
                 );
 
                 const bb = calculateBoundingBox(blockGraph);
@@ -1051,8 +1073,8 @@ function layoutControlFlowRegion(
                 blockInfo.height = bb.height;
             } else if (blockElem instanceof State) {
                 blockGraph = layoutSDFGState(
-                    renderer, blockElem, ctx, cfgList, stateParentList,
-                    omitAccessNodes
+                    renderer, blockElem, ctx, minimapCtx, cfgList,
+                    stateParentList, omitAccessNodes
                 );
 
                 const bb = calculateBoundingBox(blockGraph);
@@ -1060,8 +1082,8 @@ function layoutControlFlowRegion(
                 blockInfo.height = bb.height;
             } else if (blockElem instanceof ConditionalBlock) {
                 blockGraph = layoutConditionalBlock(
-                    renderer, blockElem, ctx, cfgList, stateParentList,
-                    omitAccessNodes
+                    renderer, blockElem, ctx, minimapCtx, cfgList,
+                    stateParentList, omitAccessNodes
                 );
 
                 for (const [cond, region] of blockElem.branches) {
@@ -1106,7 +1128,7 @@ function layoutControlFlowRegion(
     for (let id = 0; id < cfg.edges.length; id++) {
         const edge = cfg.edges[id];
         g.setEdge(edge.src, edge.dst, new InterstateEdge(
-            renderer, ctx,
+            renderer, ctx, minimapCtx,
             (edge.attributes?.data ?? {}) as Record<string, unknown>,
             id, sdfg, cfg, cfgElem.id, cfgElem,
             edge.src, edge.dst
@@ -1215,11 +1237,12 @@ function layoutControlFlowRegion(
 
 export function layoutSDFG(
     renderer: SDFGRenderer, sdfg: JsonSDFG, ctx: CanvasRenderingContext2D,
-    cfgList?: CFGListType, stateParentList?: SDFGElement[],
-    omitAccessNodes: boolean = false
+    minimapCtx?: CanvasRenderingContext2D, cfgList?: CFGListType,
+    stateParentList?: SDFGElement[], omitAccessNodes: boolean = false
 ): DagreGraph {
-    const sdfgElem = new SDFG(renderer, ctx, sdfg);
+    const sdfgElem = new SDFG(renderer, ctx, minimapCtx, sdfg);
     return layoutControlFlowRegion(
-        renderer, sdfg, sdfgElem, ctx, cfgList, stateParentList, omitAccessNodes
+        renderer, sdfg, sdfgElem, ctx, minimapCtx, cfgList, stateParentList,
+        omitAccessNodes
     );
 }

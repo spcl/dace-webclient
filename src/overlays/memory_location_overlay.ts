@@ -14,8 +14,8 @@ import {
     JsonSDFGState,
     OverlayType,
 } from '../types';
-import { KELLY_COLORS } from '../utils/utils';
 import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
+import { KELLY_COLORS } from 'rendure/src/utils/colors';
 
 
 // Available data storage types in the SDFG.
@@ -218,12 +218,12 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
         const storageType = MemoryLocationOverlay.getStorageType(node);
         const mousepos = this.renderer.getMousePos();
         if (mousepos && node.intersect(mousepos.x, mousepos.y)) {
-            this.renderer.showTooltip(
-                mousepos.x, mousepos.y,
+            this.renderer.showTooltipAtMouse(
                 'Location: ' + (storageType.originalType ? (
                     storageType.originalType.toString() + ' &rarr; ' +
                     storageType.type
-                ) : storageType.type)
+                ) : storageType.type),
+                true
             );
         }
 

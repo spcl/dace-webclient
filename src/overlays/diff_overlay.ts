@@ -34,11 +34,11 @@ export class DiffOverlay extends GenericSdfgOverlay {
 
     public shadeElem(elem: SDFGElement): void {
         if (this.diffMap?.addedKeys.has(elem.guid))
-            elem.shade(SDFVSettings.get<string>('diffAddedColor'), 1);
+            elem.shade(SDFVSettings.get<string>('diffAddedColor'), 0.5);
         else if (this.diffMap?.removedKeys.has(elem.guid))
-            elem.shade(SDFVSettings.get<string>('diffRemovedColor'), 1);
+            elem.shade(SDFVSettings.get<string>('diffRemovedColor'), 0.5);
         else if (this.diffMap?.changedKeys.has(elem.guid))
-            elem.shade(SDFVSettings.get<string>('diffChangedColor'), 1);
+            elem.shade(SDFVSettings.get<string>('diffChangedColor'), 0.5);
     }
 
     protected shadeBlock(

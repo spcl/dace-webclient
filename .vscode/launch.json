@@ -17,51 +17,6 @@
             }
         },
         {
-            "type": "chrome",
-            "request": "launch",
-            "name": "Launch Access Statistics",
-            "url": "http://localhost:3000/access_stats.html",
-            "sourceMaps": true,
-            "webRoot": "${workspaceFolder}",
-            "preLaunchTask": "npm: serve",
-            "sourceMapPathOverrides": {
-                "meteor://💻app/*": "${workspaceFolder}/*",
-                "webpack://@spcl/sdfv/./~/*": "${workspaceFolder}/node_modules/*",
-                "webpack://@spcl/sdfv/*": "${workspaceFolder}/*",
-                "webpack://?:*/*": "${workspaceFolder}/*"
-            }
-        },
-        {
-            "type": "chrome",
-            "request": "launch",
-            "name": "Launch Access timeline",
-            "url": "http://localhost:3000/access_timeline.html",
-            "sourceMaps": true,
-            "webRoot": "${workspaceFolder}",
-            "preLaunchTask": "npm: serve",
-            "sourceMapPathOverrides": {
-                "meteor://💻app/*": "${workspaceFolder}/*",
-                "webpack://@spcl/sdfv/./~/*": "${workspaceFolder}/node_modules/*",
-                "webpack://@spcl/sdfv/*": "${workspaceFolder}/*",
-                "webpack://?:*/*": "${workspaceFolder}/*"
-            }
-        },
-        {
-            "type": "chrome",
-            "request": "launch",
-            "name": "Launch CF + DF view",
-            "url": "http://localhost:3000/cf_df_view.html",
-            "sourceMaps": true,
-            "webRoot": "${workspaceFolder}",
-            "preLaunchTask": "npm: serve",
-            "sourceMapPathOverrides": {
-                "meteor://💻app/*": "${workspaceFolder}/*",
-                "webpack://@spcl/sdfv/./~/*": "${workspaceFolder}/node_modules/*",
-                "webpack://@spcl/sdfv/*": "${workspaceFolder}/*",
-                "webpack://?:*/*": "${workspaceFolder}/*"
-            }
-        },
-        {
             "type": "node",
             "request": "launch",
             "name": "Jest: current file",
@@ -69,9 +24,9 @@
             "args": ["${fileBasenameNoExtension}", "--config", "jest.config.ts"],
             "console": "integratedTerminal",
             "windows": {
-              "program": "${workspaceFolder}/node_modules/jest/bin/jest"
+                "program": "${workspaceFolder}/node_modules/jest/bin/jest"
             }
-          }
+        }
     ],
     "compounds": []
 }

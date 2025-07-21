@@ -39,6 +39,7 @@ import {
     TextHAlign,
     TextVAlign,
 } from 'rendure/src/renderer/core/html_canvas/html_canvas_utils';
+import { shadeHexColor } from 'rendure/src/utils/colors';
 
 
 interface ElemDrawingOptions {
@@ -157,6 +158,7 @@ export class SDFGElement extends HTMLCanvasRenderable {
     public constructor(
         renderer: SDFGRenderer,
         ctx: CanvasRenderingContext2D,
+        minimapCtx: CanvasRenderingContext2D | undefined,
         data: Record<string, unknown> | undefined,
         id: number,
         public sdfg: JsonSDFG,
@@ -164,7 +166,7 @@ export class SDFGElement extends HTMLCanvasRenderable {
         public parentStateId?: number,
         public parentElem?: SDFGElement
     ) {
-        super(renderer, ctx, id, data);
+        super(renderer, ctx, minimapCtx, id, data);
     }
 
     public get renderer(): SDFGRenderer {
@@ -184,9 +186,25 @@ export class SDFGElement extends HTMLCanvasRenderable {
     }
 
     public strokeStyle(): string {
-        if (!(this.hovered || this.selected || this.highlighted))
-            return this.defaultColorBorder;
-        return super.strokeStyle(this.renderer);
+        if (this.selected) {
+            if (this.hovered) {
+                return shadeHexColor(
+                    SDFVSettings.get<string>('selectedColor'), 20
+                );
+            } else if (this.highlighted) {
+                return shadeHexColor(
+                    SDFVSettings.get<string>('selectedColor'), -20
+                );
+            } else {
+                return SDFVSettings.get<string>('selectedColor');
+            }
+        } else {
+            if (this.hovered)
+                return SDFVSettings.get<string>('hoveredColor');
+            else if (this.highlighted)
+                return SDFVSettings.get<string>('highlightedColor');
+        }
+        return this.defaultColorBorder;
     }
 
     public get jsonData(): JsonSDFGElement | undefined {
@@ -533,9 +551,10 @@ export class SDFG extends SDFGElement {
     public sdfgDagreGraph?: DagreGraph;
 
     public constructor(
-        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D, sdfg: JsonSDFG
+        renderer: SDFGRenderer, ctx: CanvasRenderingContext2D,
+        minimapCtx: CanvasRenderingContext2D | undefined, sdfg: JsonSDFG
     ) {
-        super(renderer, ctx, sdfg, -1, sdfg);
+        super(renderer, ctx, minimapCtx, sdfg, -1, sdfg);
     }
 
     public get label(): string {
@@ -1218,6 +1237,7 @@ export class InterstateEdge extends Edge {
     public constructor(
         renderer: SDFGRenderer,
         ctx: CanvasRenderingContext2D,
+        minimapCtx: CanvasRenderingContext2D | undefined,
         data: Record<string, unknown>,
         id: number,
         sdfg: JsonSDFG,
@@ -1227,7 +1247,10 @@ export class InterstateEdge extends Edge {
         public readonly src?: string,
         public readonly dst?: string
     ) {
-        super(renderer, ctx, data, id, sdfg, cfg, parentId, parentElem);
+        super(
+            renderer, ctx, minimapCtx, data, id, sdfg, cfg, parentId,
+            parentElem
+        );
     }
 
     public createArrowLine(ctx: CanvasRenderingContext2D): void {
@@ -1478,6 +1501,18 @@ export class Connector extends SDFGElement {
         return SDFVSettings.get<string>('nodeBorderColor');
     }
 
+    public get defaultColorBG(): string {
+        const name = this.data?.name as string | undefined;
+        const scopeConnector = (
+            name?.startsWith('IN_') === true ||
+            name?.startsWith('OUT_') === true
+        );
+        if (scopeConnector)
+            return SDFVSettings.get<string>('scopedConnectorColor');
+        else
+            return SDFVSettings.get<string>('unscopedConnectorColor');
+    }
+
     protected _internalDraw(
         mousepos?: Point2D, options?: ElemDrawingOptions, edge?: Edge
     ): void {
@@ -1486,7 +1521,7 @@ export class Connector extends SDFGElement {
         const topleft = this.topleft();
         drawEllipse(this.ctx, topleft.x, topleft.y, this.width, this.height);
         this.ctx.strokeStyle = this.strokeStyle();
-        let fillColor;
+        let fillColor = this.defaultColorBG;
 
         const name = this.data?.name as string | undefined;
         if (this.linkedElem && this.linkedElem instanceof ControlFlowBlock) {
@@ -1507,16 +1542,12 @@ export class Connector extends SDFGElement {
                 name?.startsWith('OUT_') === true
             );
             if (scopeConnector) {
-                const cname = name.startsWith('IN_') ?
-                    name.substring(3) : name.substring(4);
-
                 this.ctx.lineWidth = 0.4;
                 this.ctx.stroke();
                 this.ctx.lineWidth = 1.0;
-                fillColor = this.getCssProperty(
-                    this.renderer, '--connector-scoped-color'
-                );
-                this.customLabel = cname;
+
+                this.customLabel = name.startsWith('IN_') ?
+                    name.substring(3) : name.substring(4);
             } else if (!edge) {
                 this.ctx.stroke();
                 fillColor = SDFVSettings.get<string>(
@@ -1525,9 +1556,6 @@ export class Connector extends SDFGElement {
                 this.customLabel = 'No edge connected';
             } else {
                 this.ctx.stroke();
-                fillColor = this.getCssProperty(
-                    this.renderer, '--connector-unscoped-color'
-                );
                 this.customLabel = undefined;
             }
         }
@@ -1535,10 +1563,9 @@ export class Connector extends SDFGElement {
 
         // PDFs do not support transparent fill colors
         if ('pdf' in this.ctx && this.ctx.pdf)
-            fillColor = fillColor?.slice(0, 7);
+            fillColor = fillColor.slice(0, 7);
 
-        if (fillColor !== undefined)
-            this.ctx.fillStyle = fillColor;
+        this.ctx.fillStyle = fillColor;
 
         // PDFs do not support stroke and fill on the same object
         if ('pdf' in this.ctx && this.ctx.pdf) {
@@ -1667,17 +1694,17 @@ export class AccessNode extends SDFGNode {
 
         // Views are colored like connectors
         if (nodedesc?.type?.includes('View')) {
-            this.ctx.fillStyle = this.getCssProperty(
-                this.renderer, '--connector-unscoped-color'
+            this.ctx.fillStyle = SDFVSettings.get<string>(
+                'unscopedConnectorColor'
             );
         } else if (nodedesc?.type?.includes('Reference')) {
-            this.ctx.fillStyle = this.getCssProperty(
-                this.renderer, '--reference-background-color'
+            this.ctx.fillStyle = SDFVSettings.get<string>(
+                'referenceBackgroundColor'
             );
         } else if (name && nodedesc &&
             this.sdfg.attributes?.constants_prop?.[name] !== undefined) {
-            this.ctx.fillStyle = this.getCssProperty(
-                this.renderer, '--connector-scoped-color'
+            this.ctx.fillStyle = SDFVSettings.get<string>(
+                'scopedConnectorColor'
             );
         } else if (nodedesc) {
             this.ctx.fillStyle = this.defaultColorBG;
@@ -2074,6 +2101,7 @@ export class Tasklet extends SDFGNode {
     public constructor(
         renderer: SDFGRenderer,
         ctx: CanvasRenderingContext2D,
+        minimapCtx: CanvasRenderingContext2D | undefined,
         data: Record<string, unknown>,
         id: number,
         sdfg: JsonSDFG,
@@ -2081,7 +2109,10 @@ export class Tasklet extends SDFGNode {
         parentStateId?: number,
         parentElem?: SDFGElement
     ) {
-        super(renderer, ctx, data, id, sdfg, cfg, parentStateId, parentElem);
+        super(
+            renderer, ctx, minimapCtx, data, id, sdfg, cfg, parentStateId,
+            parentElem
+        );
         this.highlightCode();
     }
 
@@ -2200,31 +2231,31 @@ export class Tasklet extends SDFGNode {
                     this.ctx.font = (
                         'bold ' + fontSize.toString() + 'px courier new'
                     );
-                    this.ctx.fillStyle = this.getCssProperty(
-                        this.renderer, '--tasklet-highlighted-color'
+                    this.ctx.fillStyle = SDFVSettings.get<string>(
+                        'taskletHighlightedColor'
                     );
                 } else {
                     switch (token.type) {
                         case TaskletCodeTokenType.Input:
-                            this.ctx.fillStyle = this.getCssProperty(
-                                this.renderer, '--tasklet-input-color'
+                            this.ctx.fillStyle = SDFVSettings.get<string>(
+                                'taskletInputColor'
                             );
                             break;
                         case TaskletCodeTokenType.Output:
-                            this.ctx.fillStyle = this.getCssProperty(
-                                this.renderer, '--tasklet-output-color'
+                            this.ctx.fillStyle = SDFVSettings.get<string>(
+                                'taskletOutputColor'
                             );
                             break;
                         case TaskletCodeTokenType.Symbol:
                             this.ctx.font = 'bold ' + fontSize.toString() +
                                 'px courier new';
-                            this.ctx.fillStyle = this.getCssProperty(
-                                this.renderer, '--tasklet-symbol-color'
+                            this.ctx.fillStyle = SDFVSettings.get<string>(
+                                'taskletSymbolColor'
                             );
                             break;
                         case TaskletCodeTokenType.Number:
-                            this.ctx.fillStyle = this.getCssProperty(
-                                this.renderer, '--tasklet-number-color'
+                            this.ctx.fillStyle = SDFVSettings.get<string>(
+                                'taskletNumberColor'
                             );
                             break;
                         default:

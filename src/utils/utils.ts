@@ -1,36 +1,14 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { rgb2hex } from '@pixi/utils';
 import $ from 'jquery';
-import { Point2D } from '../types';
+import {
+    hex2hexnum,
+    hsl2rgb,
+    hsl2string,
+    rgb2hex,
+    tempColor,
+} from 'rendure/src/utils/colors';
 
-
-// From: https://eleanormaclure.files.wordpress.com/2011/03/colour-coding.pdf,
-// Via: https://stackoverflow.com/a/4382138/3547036
-export const KELLY_COLORS = [
-    0xFFB300, // Vivid Yellow
-    0x803E75, // Strong Purple
-    0xFF6800, // Vivid Orange
-    0xA6BDD7, // Very Light Blue
-    0xC10020, // Vivid Red
-    0xCEA262, // Grayish Yellow
-    0x817066, // Medium Gray
-
-    // The following don't work well for people with defective color vision.
-    0x007D34, // Vivid Green
-    0xF6768E, // Strong Purplish Pink
-    0x00538A, // Strong Blue
-    0xFF7A5C, // Strong Yellowish Pink
-    0x53377A, // Strong Violet
-    0xFF8E00, // Vivid Orange Yellow
-    0xB32851, // Strong Purplish Red
-    0xF4C800, // Vivid Greenish Yellow
-    0x7F180D, // Strong Reddish Brown
-    0x93AA00, // Vivid Yellowish Green
-    0x593315, // Deep Yellowish Brown
-    0xF13A13, // Vivid Reddish Orange
-    0x232C16, // Dark Olive Green
-];
 
 /**
  * A general purpose equality check for objects.
@@ -107,95 +85,13 @@ export function assignIfNotExists<T, E>(
     return obj as T & E;
 }
 
-// This function was taken from the now deprecated dagrejs library, see:
-// https://github.com/dagrejs/dagre/blob/c8bb4a1b891fc50071e6fac7bd84658d31eb9d8a/lib/util.js#L96
-/*
- * Finds where a line starting at point ({x, y}) would intersect a rectangle
- * ({x, y, width, height}) if it were pointing at the rectangle's center.
- */
-export function intersectRect(
-    rect: { x: number, y: number, height: number, width: number },
-    point: Point2D
-): Point2D {
-    const x = rect.x;
-    const y = rect.y;
-
-    // Rectangle intersection algorithm from:
-    // http://math.stackexchange.com/questions/108113/find-edge-between-two-boxes
-    const dx = point.x - x;
-    const dy = point.y - y;
-    let w = rect.width / 2;
-    let h = rect.height / 2;
-
-    if (!dx && !dy) {
-        throw new Error(
-            'Not possible to find intersection inside of the rectangle'
-        );
-    }
-
-    let sx, sy;
-    if (Math.abs(dy) * w > Math.abs(dx) * h) {
-        // Intersection is top or bottom of rect.
-        if (dy < 0)
-            h = -h;
-        sx = h * dx / dy;
-        sy = h;
-    } else {
-        // Intersection is left or right of rect.
-        if (dx < 0)
-            w = -w;
-        sx = w;
-        sy = w * dy / dx;
-    }
-
-    return {
-        x: x + sx,
-        y: y + sy,
-    };
-}
-
-/**
- * Convert an HSL color to RGB.
- * @param h Hue.
- * @param s Saturation.
- * @param l Lightness.
- * @returns RGB value array.
- */
-export function hsl2rgb(h: number, s: number, l: number): number[] {
-    const a = s * Math.min(l, 1 - l);
-    const f = (n: number, k = (n + h / 30) % 12): number => {
-        return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-    };
-    return [f(0), f(8), f(4)];
-}
-
-function tempColor(badness: number): [number, number, number] {
-    if (Number.isNaN(badness))
-        badness = 0;
-
-    if (badness < 0)
-        badness = 0;
-    else if (badness > 1)
-        badness = 1;
-
-    // The hue of the green-red spectrum must lie between 0 and 120, so we map
-    // the 'badness' to that interval (inverted, since green=120 hue and
-    // red=0 hue).
-    const maxHue = 120;
-    const saturation = 1.0;
-    const lightness = 0.75;
-    return [(1 - badness) * maxHue, saturation, lightness];
-}
-
 /**
  * Get the color on a green-red temperature scale based on a fractional value.
  * @param val Value between 0 and 1, 0 = green, .5 = yellow, 1 = red
  * @returns   HSL color string
  */
 export function getTempColorHslString(badness: number): string {
-    const col = tempColor(badness);
-    return 'hsl(' + col[0].toString() + ',' + (col[1] * 100).toString() + '%,' +
-        (col[2] * 100).toString() + '%)';
+    return hsl2string(tempColor(badness));
 }
 
 /**
@@ -204,7 +100,10 @@ export function getTempColorHslString(badness: number): string {
  * @returns   Hex color number
  */
 export function getTempColorHEX(badness: number): number {
-    return rgb2hex(hsl2rgb(...tempColor(badness)));
+    const rval = hex2hexnum(rgb2hex(hsl2rgb(...tempColor(badness))));
+    if (rval === null)
+        return 0x000000; // Default to black if conversion fails
+    return rval;
 }
 
 /**

@@ -69,9 +69,13 @@ function testDiffTiledGemm(): void {
     const graphA = layoutSDFG(leftRenderer, sdfgAjson, leftRenderer.ctx);
     const graphB = layoutSDFG(rightRenderer, sdfgBjson, rightRenderer.ctx);
 
-    const sdfgA = new SDFG(leftRenderer, leftRenderer.ctx, sdfgAjson);
+    const sdfgA = new SDFG(
+        leftRenderer, leftRenderer.ctx, leftRenderer.minimapCtx, sdfgAjson
+    );
     sdfgA.sdfgDagreGraph = graphA;
-    const sdfgB = new SDFG(rightRenderer, rightRenderer.ctx, sdfgBjson);
+    const sdfgB = new SDFG(
+        rightRenderer, rightRenderer.ctx, rightRenderer.ctx, sdfgBjson
+    );
     sdfgB.sdfgDagreGraph = graphB;
 
     const diff = SDFGDiffViewer.diff(sdfgA, sdfgB);

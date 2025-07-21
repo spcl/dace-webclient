@@ -74,9 +74,6 @@ const mainConfig = {
     name: 'main',
     entry: {
         sdfv: './src/sdfv.ts',
-        access_stats: './src/access_statistics_view.ts',
-        access_timeline: './src/access_timeline_view.ts',
-        control_flow_view: './src/control_flow_view.ts',
     },
     ...coreConfig,
 };

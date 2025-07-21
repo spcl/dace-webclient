@@ -71,12 +71,17 @@ import {
     SDFVSettings,
     SDFVSettingValT,
 } from '../../utils/sdfv_settings';
-import { intersectRect, showErrorModal } from '../../utils/utils';
+import { showErrorModal } from '../../utils/utils';
 import { RendererUIFeature } from './sdfg_renderer_toolbar';
 import {
+    HTML_CANVAS_RENDERER_DEFAULT_OPTIONS,
     HTMLCanvasRenderer,
+    HTMLCanvasRendererOptionKey,
 } from 'rendure/src/renderer/core/html_canvas/html_canvas_renderer';
-import { boundingBox } from 'rendure/src/renderer/core/common/renderer_utils';
+import {
+    boundingBox,
+    findLineStartRectIntersection,
+} from 'rendure/src/renderer/core/common/renderer_utils';
 
 
 type MouseModeT = 'pan' | 'move' | 'select' | 'add';
@@ -184,9 +189,22 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         protected modeButtons?: ModeButtons,
         protected enableMaskUI?: RendererUIFeature[]
     ) {
+        const options = HTML_CANVAS_RENDERER_DEFAULT_OPTIONS;
+        for (const key of Object.keys(options)) {
+            if (key in SDFVSettings.settingsDict) {
+                const nVal = SDFVSettings.get(key as SDFVSettingKey);
+                if (nVal !== null) {
+                    options[
+                        key as HTMLCanvasRendererOptionKey
+                    ] = nVal as boolean;
+                }
+            }
+        }
+        options.debugDrawing = debugDraw;
+
         super(
             $(container), extMouseHandler, initialUserTransform,
-            backgroundColor, debugDraw
+            backgroundColor, options
         );
 
         this.overlayManager = new OverlayManager(this);
@@ -224,11 +242,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         });
 
         SDFVSettings.getInstance().on('setting_changed', (setting, key) => {
-            if (key === 'adaptiveContentHiding') {
-                const nval = SDFVSettings.get<boolean>(key);
-                this._adaptiveHiding = this._desiredAdaptiveHiding = nval;
-                this.drawAsync();
-                return;
+            if (key in Object.keys(HTML_CANVAS_RENDERER_DEFAULT_OPTIONS)) {
+                const rOptKey = key as HTMLCanvasRendererOptionKey;
+                const nVal = SDFVSettings.get(key);
+                if (nVal !== null)
+                    this._desiredOptions[rOptKey] = nVal as boolean;
             }
 
             if (setting.relayout) {
@@ -988,7 +1006,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             }
 
             this._graph = layoutSDFG(
-                this, this.sdfg, this.ctx, this.cfgList, this.stateParentList,
+                this, this.sdfg, this.ctx, this.minimapCtx, this.cfgList,
+                this.stateParentList,
                 !SDFVSettings.get<boolean>('showAccessNodes')
             );
 
@@ -1404,19 +1423,6 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         const centerY = canvasRect.height / 2;
         this.canvasManager.scale(scaleFactor, centerX, centerY);
         this.drawAsync();
-    }
-
-    public showTooltipAtMouse(text: string, html?: boolean): void {
-        let tooltipX;
-        let tooltipY;
-        if (this.realMousePos) {
-            tooltipX = this.realMousePos.x;
-            tooltipY = this.realMousePos.y;
-        } else {
-            tooltipX = this.canvas.width / 2;
-            tooltipY = this.canvas.height / 2;
-        }
-        super.showTooltip(tooltipX, tooltipY, text, html);
     }
 
     // ====================
@@ -2064,7 +2070,12 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             if (edge.srcConnector !== undefined) {
                 for (const conn of el.outConnectors) {
                     if (conn.data?.name === edge.srcConnector) {
-                        points[0] = intersectRect(conn, points[1]);
+                        const connRect = {
+                            x: conn.x, y: conn.y, w: conn.width, h: conn.height,
+                        };
+                        points[0] = findLineStartRectIntersection(
+                            connRect, points[1]
+                        );
                         moved = true;
                         break;
                     }
@@ -2084,7 +2095,15 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                         for (const conn of dstEl.inConnectors) {
                             const dstName = conn.data?.name;
                             if (dstName === edge.dstConnector) {
-                                points[n] = intersectRect(conn, points[n - 1]);
+                                const connRect = {
+                                    x: conn.x,
+                                    y: conn.y,
+                                    w: conn.width,
+                                    h: conn.height,
+                                };
+                                points[n] = findLineStartRectIntersection(
+                                    connRect, points[n - 1]
+                                );
                                 break;
                             }
                         }
@@ -2100,7 +2119,12 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             if (edge.dstConnector !== undefined) {
                 for (const conn of el.inConnectors) {
                     if (conn.data?.name === edge.dstConnector) {
-                        points[n] = intersectRect(conn, points[n - 1]);
+                        const connRect = {
+                            x: conn.x, y: conn.y, w: conn.width, h: conn.height,
+                        };
+                        points[n] = findLineStartRectIntersection(
+                            connRect, points[n - 1]
+                        );
                         moved = true;
                         break;
                     }
@@ -2120,7 +2144,15 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                         for (const conn of srcEl.outConnectors) {
                             const srcName = conn.data?.name;
                             if (srcName === edge.srcConnector) {
-                                points[0] = intersectRect(conn, points[1]);
+                                const connRect = {
+                                    x: conn.x,
+                                    y: conn.y,
+                                    w: conn.width,
+                                    h: conn.height,
+                                };
+                                points[0] = findLineStartRectIntersection(
+                                    connRect, points[1]
+                                );
                                 break;
                             }
                         }
@@ -2510,37 +2542,20 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     // = Event handlers =
     // ==================
 
-    private onMouseDown(event: MouseEvent): boolean {
-        this.dragStart = event;
-        if (!this.mousePos)
-            return true;
-        return false;
-    }
-
-    private onTouchStart(event: TouchEvent): boolean {
-        this.dragStart = event;
-        if (!this.mousePos)
-            return true;
-        return false;
-    }
-
-    private onMouseUp(_event: MouseEvent): boolean {
-        this.dragStart = undefined;
+    protected onMouseUp(_event: MouseEvent): boolean {
         this.lastDraggedElement = undefined;
-        return false;
+        return super.onMouseUp(_event);
     }
 
-    private onTouchEnd(event: TouchEvent): boolean {
-        if (event.touches.length === 0) {
-            this.dragStart = undefined;
+    protected onTouchEnd(event: TouchEvent): boolean {
+        if (event.touches.length === 0)
             this.lastDraggedElement = undefined;
-        } else {
-            this.dragStart = event;
-        }
-        return false;
+        return super.onTouchEnd(event);
     }
 
-    private onTouchMove(event: TouchEvent): boolean {
+    protected onTouchMove(event: TouchEvent): boolean {
+        super.onTouchMove(event);
+
         if (!this.graph || !this.dragStart ||
             !(this.dragStart instanceof TouchEvent))
             return true;
@@ -2606,7 +2621,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         return false;
     }
 
-    private onMouseMove(event: MouseEvent): boolean {
+    protected onMouseMove(event: MouseEvent): boolean {
         if (!this.graph)
             return true;
 
@@ -2703,33 +2718,13 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 return true;
             } else {
                 // Mouse move in panning mode
-                // Check if mouse panning is in bounds (near graph)
-                // and restrict/correct it.
-                const correctedMovement = this.checkPanMovementInBounds(
-                    event.movementX, event.movementY
-                );
-
-                this.canvasManager.translate(
-                    correctedMovement.x, correctedMovement.y
-                );
-
-                this.drawAsync();
+                this.panOnMouseMove(event);
                 return true;
             }
         } else if (this.dragStart && event.buttons & 4) {
-            // Pan the view with the middle mouse button
+            // Pan the view with the middle mouse button.
             this.dragging = true;
-            // Check if mouse panning is in bounds (near graph)
-            // and restrict/correct it.
-            const correctedMovement = this.checkPanMovementInBounds(
-                event.movementX, event.movementY
-            );
-
-            this.canvasManager.translate(
-                correctedMovement.x, correctedMovement.y
-            );
-
-            this.drawAsync();
+            this.panOnMouseMove(event);
             this.emit('element_focus_changed', false);
             return true;
         } else {
@@ -2753,40 +2748,15 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         }
     }
 
-    private onWheel(event: WheelEvent): boolean {
-        const useScrollNav = SDFVSettings.get<boolean>(
-            'useVerticalScrollNavigation'
-        );
-
-        if (useScrollNav && !event.ctrlKey || !useScrollNav && event.ctrlKey) {
-            // If vertical scroll navigation is turned on, use this to
-            // move the viewport up and down. If the control key is held
-            // down while scrolling, treat it as a typical zoom operation.
-            const movX = 0;
-            const movY = -event.deltaY;
-
-            // Check if scroll is in bounds (near graph)
-            // and restrict/correct it.
-            const correctedMovement = this.checkPanMovementInBounds(movX, movY);
-
-            this.canvasManager.translate(
-                correctedMovement.x, correctedMovement.y
-            );
-        } else {
-            // Get physical x,y coordinates (rather than canvas coordinates).
-            const br = this.canvas.getBoundingClientRect();
-            const x = event.clientX - br.x;
-            const y = event.clientY - br.y;
-            this.canvasManager.scale(event.deltaY > 0 ? 0.9 : 1.1, x, y);
-        }
-
-        this.drawAsync();
+    protected onWheel(event: WheelEvent): boolean {
+        super.onWheel(event);
         this.emit('element_focus_changed', false);
-
         return false;
     }
 
-    private onClick(event: MouseEvent): boolean {
+    protected onClick(event: MouseEvent): boolean {
+        super.onClick(event);
+
         if (!this.graph || !this.sdfg || !this.mousePos)
             return true;
 
@@ -2946,7 +2916,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         return false;
     }
 
-    private onDblClick(_event: MouseEvent): boolean {
+    protected onDblClick(_event: MouseEvent): boolean {
+        super.onDblClick(_event);
+
         if (!this.graph || !this.mousePos)
             return true;
 
@@ -2965,7 +2937,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         return false;
     }
 
-    private onContextMenu(event: MouseEvent): boolean {
+    protected onContextMenu(event: MouseEvent): boolean {
         if (!this.graph || !this.mousePos)
             return true;
 

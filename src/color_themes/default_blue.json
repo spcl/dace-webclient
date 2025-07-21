@@ -2,6 +2,9 @@
     "defaultTextColor": "#000000",
     "nodeBackgroundColor": "#ffffff",
     "nodeBorderColor": "#333333",
+    "scopedConnectorColor": "#c1dfe6",
+    "unscopedConnectorColor": "#f0fdff",
+    "referenceBackgroundColor": "#ffdede",
     "stateBackgroundColor": "#deebf7",
     "stateBorderColor": "#deebf7",
     "breakBlockColor": "#ffc79a",
@@ -13,7 +16,15 @@
     "interstateEdgeColor": "#86add9",
     "errorNodeBackgroundColor": "#ff1010",
     "errorNodeForegroundColor": "#ffffff",
-    "diffAddedColor": "#5dba4c80",
-    "diffChangedColor": "#ffcc5480",
-    "diffRemovedColor": "#ff6d4580"
+    "diffAddedColor": "#5dba4c",
+    "diffChangedColor": "#ffcc54",
+    "diffRemovedColor": "#ff6d45",
+    "taskletInputColor": "#000000",
+    "taskletOutputColor": "#000000",
+    "taskletSymbolColor": "#ff1010",
+    "taskletNumberColor": "#000000",
+    "taskletHighlightedColor": "#008000",
+    "selectedColor": "#cc3030",
+    "highlightedColor": "#ffa500",
+    "hoveredColor": "#008000"
 }

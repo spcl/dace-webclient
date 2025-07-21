@@ -30,6 +30,7 @@ import { CacheLineOverlay } from './overlays/cache_line_overlay';
 import { PhysicalMovementOverlay } from './overlays/physical_movement_overlay';
 import { ReuseDistanceOverlay } from './overlays/reuse_distance_overlay';
 import { SDFGRenderer } from '../renderer/sdfg/sdfg_renderer';
+import { SDFVSettings } from '../utils/sdfv_settings';
 
 export class LViewRenderer {
 
@@ -66,9 +67,7 @@ export class LViewRenderer {
         this.initLocalViewSidebar();
 
         const containerRect = this.container.getBoundingClientRect();
-        const bgColorString = this.sdfgRenderer?.getCssProperty(
-            '--state-background-color'
-        ) ?? '#ffffff';
+        const bgColorString = SDFVSettings.get<string>('stateBackgroundColor');
         this.pixiApp = new Application({
             width: containerRect.width - 10,
             height: containerRect.height - 10,

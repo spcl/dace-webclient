@@ -21,6 +21,7 @@ import {
     State,
 } from './renderer/sdfg/sdfg_elements';
 import { DagreGraph, SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
+import { SDFVSettings } from './utils/sdfv_settings';
 
 type ChangeState = 'nodiff' | 'changed' | 'added' | 'removed';
 
@@ -369,12 +370,15 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         const rendererSelectionChange = (renderer: SDFGRenderer) => {
             const selectedElements = renderer.selectedRenderables;
             let element;
-            if (selectedElements.size === 0 && renderer.sdfg)
-                element = new SDFG(renderer, renderer.ctx, renderer.sdfg);
-            else if (selectedElements.size === 1)
+            if (selectedElements.size === 0 && renderer.sdfg) {
+                element = new SDFG(
+                    renderer, renderer.ctx, renderer.minimapCtx, renderer.sdfg
+                );
+            } else if (selectedElements.size === 1) {
                 element = Array.from(selectedElements)[0];
-            else
+            } else {
                 element = null;
+            }
 
             if (element !== null) {
                 viewer.UI.showElementInfo(element, renderer);
@@ -436,9 +440,13 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             });
         }
 
-        const lSDFG = new SDFG(leftRenderer, leftRenderer.ctx, graphA);
+        const lSDFG = new SDFG(
+            leftRenderer, leftRenderer.ctx, leftRenderer.minimapCtx, graphA
+        );
         lSDFG.sdfgDagreGraph = leftRenderer.graph ?? undefined;
-        const rSDFG = new SDFG(rightRenderer, rightRenderer.ctx, graphB);
+        const rSDFG = new SDFG(
+            rightRenderer, rightRenderer.ctx, rightRenderer.minimapCtx, graphB
+        );
         rSDFG.sdfgDagreGraph = rightRenderer.graph ?? undefined;
 
         const onDiffCreated = (diff: DiffMap) => {
@@ -674,9 +682,25 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             if (left && !left.guid && right && !right.guid)
                 return;
 
+            const changeStatColor = (entry: localGraphDiffStackEntry) => {
+                switch (entry.changeStatus) {
+                    case 'added':
+                        return SDFVSettings.get<string>('diffAddedColor');
+                    case 'removed':
+                        return SDFVSettings.get<string>('diffRemovedColor');
+                    case 'changed':
+                        return SDFVSettings.get<string>('diffChangedColor');
+                    default:
+                        return '#cccccc';
+                }
+            };
+
             if (left && right) {
                 const row = $('<div>', {
-                    class: `row diff-outline-entry ${left.changeStatus}`,
+                    class: 'row diff-outline-entry',
+                    css: {
+                        'background-color': changeStatColor(left) + '80',
+                    },
                     click: () => {
                         this.leftRenderer!.zoomToFit(left.zoomToNodes());
                         this.rightRenderer!.zoomToFit(right.zoomToNodes());
@@ -692,7 +716,10 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
                 }).appendTo(row);
             } else if (left) {
                 const row = $('<div>', {
-                    class: `row diff-outline-entry ${left.changeStatus}`,
+                    class: 'row diff-outline-entry',
+                    css: {
+                        'background-color': changeStatColor(left) + '80',
+                    },
                     click: () => {
                         this.leftRenderer!.zoomToFit(left.zoomToNodes());
                     },
@@ -706,7 +733,10 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
                 }).appendTo(row);
             } else if (right) {
                 const row = $('<div>', {
-                    class: `row diff-outline-entry ${right.changeStatus}`,
+                    class: 'row diff-outline-entry',
+                    css: {
+                        'background-color': changeStatColor(right) + '80',
+                    },
                     click: () => {
                         this.rightRenderer!.zoomToFit(right.zoomToNodes());
                     },

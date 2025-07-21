@@ -219,6 +219,21 @@
                         "type": "color",
                         "default": "#333333"
                     },
+                    "scopedConnectorColor": {
+                        "label": "Scoped connector color",
+                        "type": "color",
+                        "default": "#c1dfe6"
+                    },
+                    "unscopedConnectorColor": {
+                        "label": "Unscoped connector color",
+                        "type": "color",
+                        "default": "#f0fdff"
+                    },
+                    "referenceBackgroundColor": {
+                        "label": "Reference background",
+                        "type": "color",
+                        "default": "#ffdede"
+                    },
                     "stateBackgroundColor": {
                         "label": "State background",
                         "type": "color",
@@ -277,17 +292,57 @@
                     "diffAddedColor": {
                         "label": "Added elements in a diff",
                         "type": "color",
-                        "default": "#5dba4c80"
+                        "default": "#5dba4c"
                     },
                     "diffChangedColor": {
                         "label": "Changed elements in a diff",
                         "type": "color",
-                        "default": "#ffcc5480"
+                        "default": "#ffcc54"
                     },
                     "diffRemovedColor": {
                         "label": "Removed elements in a diff",
                         "type": "color",
-                        "default": "#ff6d4580"
+                        "default": "#ff6d45"
+                    },
+                    "taskletInputColor": {
+                        "label": "Tasklet input tokens",
+                        "type": "color",
+                        "default": "#000000"
+                    },
+                    "taskletOutputColor": {
+                        "label": "Tasklet output tokens",
+                        "type": "color",
+                        "default": "#000000"
+                    },
+                    "taskletSymbolColor": {
+                        "label": "Tasklet symbol tokens",
+                        "type": "color",
+                        "default": "#ff1010"
+                    },
+                    "taskletNumberColor": {
+                        "label": "Tasklet number tokens",
+                        "type": "color",
+                        "default": "#000000"
+                    },
+                    "taskletHighlightedColor": {
+                        "label": "Tasklet highlighted tokens",
+                        "type": "color",
+                        "default": "#008000"
+                    },
+                    "selectedColor": {
+                        "label": "Selected elements",
+                        "type": "color",
+                        "default": "#cc3030"
+                    },
+                    "highlightedColor": {
+                        "label": "Highlighted elements",
+                        "type": "color",
+                        "default": "#ffa500"
+                    },
+                    "hoveredColor": {
+                        "label": "Hovered elements",
+                        "type": "color",
+                        "default": "#008000"
                     }
                 }
             }
