@@ -26,10 +26,7 @@ import {
 } from '../../local_view/lview_parser';
 import { LViewRenderer } from '../../local_view/lview_renderer';
 import { OverlayManager } from '../../overlay_manager';
-import { GenericSdfgOverlay } from '../../overlays/common/generic_sdfg_overlay';
 import { LogicalGroupOverlay } from '../../overlays/logical_group_overlay';
-import { MemoryLocationOverlay } from '../../overlays/memory_location_overlay';
-import { MemoryVolumeOverlay } from '../../overlays/memory_volume_overlay';
 import { ISDFV, SDFV, WebSDFV } from '../../sdfv';
 import {
     JsonSDFG,
@@ -42,7 +39,6 @@ import {
     SimpleRect,
 } from '../../types';
 import { updateEdgeBoundingBox } from '../../utils/bounding_box';
-import { cfgToDotGraph } from '../../utils/sdfg/dotgraph';
 import {
     checkCompatSave,
     parseSDFG,
@@ -72,7 +68,7 @@ import {
     SDFVSettingValT,
 } from '../../utils/sdfv_settings';
 import { showErrorModal } from '../../utils/utils';
-import { RendererUIFeature } from './sdfg_renderer_toolbar';
+import { SDFGRendererUI, SDFGRendererUIFeature } from './sdfg_renderer_ui';
 import {
     HTML_CANVAS_RENDERER_DEFAULT_OPTIONS,
     HTMLCanvasRenderer,
@@ -143,26 +139,18 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     protected _graph?: DagreGraph;
     protected graphBoundingBox?: SimpleRect;
 
-    protected toolbar?: JQuery;
-    protected mouseFollowElement?: JQuery;
-    protected mouseFollowSVGs?: Record<string, string>;
-    protected cutoutBtn?: JQuery;
-    protected localViewBtn?: JQuery;
-    protected panModeBtn?: JQuery<HTMLButtonElement>;
-    protected moveModeBtn?: JQuery<HTMLButtonElement>;
-    protected selectModeBtn?: JQuery<HTMLButtonElement>;
-    protected addModeButtons: JQuery<HTMLButtonElement>[] = [];
-    protected addElementType?: SDFGElementType;
-    protected addModeLib?: string;
-    private modeBtnSelectedBGColor: string = '#CCCCCC';
-
+    protected _mouseFollowElement?: JQuery;
+    protected _mouseFollowSVGs?: Record<string, string>;
+    protected _addElementType?: SDFGElementType;
+    protected _addModeLib?: string;
     protected _mouseMode: MouseModeT = 'pan';
+
     protected boxSelectionRect?: SimpleRect;
     private addElementPosition?: Point2D;
-    private addEdgeStart?: SDFGElement;
-    private addEdgeStartConnector?: Connector;
-    private ctrlKeySelection: boolean = false;
-    private shiftKeyMovement: boolean = false;
+    private _addEdgeStart?: SDFGElement;
+    private _addEdgeStartConnector?: Connector;
+    private _ctrlKeySelection: boolean = false;
+    private _shiftKeyMovement: boolean = false;
     private lastDraggedElement?: SDFGElement;
     private dragStartRealPos?: Point2D;
     private dragStartEdgePt?: number;
@@ -186,8 +174,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         initialUserTransform: DOMMatrix | null = null,
         debugDraw = false,
         backgroundColor: string | null = null,
-        protected modeButtons?: ModeButtons,
-        protected enableMaskUI?: RendererUIFeature[]
+        modeButtons?: ModeButtons,
+        enableMaskUI?: Partial<Record<SDFGRendererUIFeature, boolean>>
     ) {
         const options = HTML_CANVAS_RENDERER_DEFAULT_OPTIONS;
         for (const key of Object.keys(options)) {
@@ -223,18 +211,18 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             this.emit('graph_edited');
         });
         this.on('selection_changed', () => {
-            if (this.localViewBtn) {
+            if (this.ui?.localViewBtn) {
                 if (this.isLocalViewViable())
-                    this.localViewBtn.show();
+                    this.ui.localViewBtn.show();
                 else
-                    this.localViewBtn.hide();
+                    this.ui.localViewBtn.hide();
             }
 
-            if (this.cutoutBtn) {
+            if (this.ui?.cutoutBtn) {
                 if (this.selectedRenderables.size > 0)
-                    this.cutoutBtn.show();
+                    this.ui.cutoutBtn.show();
                 else
-                    this.cutoutBtn.hide();
+                    this.ui.cutoutBtn.hide();
             }
         });
         this.on('graph_edited', () => {
@@ -257,8 +245,13 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 });
             }
 
-            if (setting.redrawUI)
-                this.initUI();
+            if (setting.redrawUI) {
+                this.ui?.destroy();
+                const rendererUI = new SDFGRendererUI(
+                    this.container, this, modeButtons, enableMaskUI
+                );
+                this.initUI(rendererUI);
+            }
 
             if (setting.redraw !== false && !setting.relayout)
                 this.drawAsync();
@@ -266,7 +259,10 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             this.emit('settings_changed', SDFVSettings.settingsDict);
         });
 
-        this.initUI();
+        const rendererUI = new SDFGRendererUI(
+            this.container, this, modeButtons, enableMaskUI
+        );
+        this.initUI(rendererUI);
 
         if (initialUserTransform === null)
             this.zoomToFitContents();
@@ -284,7 +280,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
     public destroy(): void {
         super.destroy();
-        this.mouseFollowElement?.remove();
+        this._mouseFollowElement?.remove();
     }
 
     protected registerMouseHandlers(): void {
@@ -304,519 +300,25 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         );
     }
 
-    protected initUI(): void {
-        if (!this.enableMaskUI || this.enableMaskUI.includes('minimap')) {
-            if (SDFVSettings.get<boolean>('minimap'))
-                this.enableMinimap();
-            else
-                this.disableMinimap();
-        } else {
-            this.disableMinimap();
-        }
+    protected initUI(ui?: SDFGRendererUI): void {
+        this._ui = ui;
 
-        if (SDFVSettings.get<boolean>('toolbar')) {
-            // If the toolbar is already present, don't do anything.
-            if (this.toolbar)
-                return;
-
-            // Construct the toolbar.
-            this.toolbar = $('<div>', {
-                class: 'button-bar',
-                css: {
-                    position: 'absolute',
-                    top: '10px',
-                    left: '10px',
-                },
-            });
-            this.container.append(this.toolbar);
-
-            // Construct menu.
-            if (!this.enableMaskUI || this.enableMaskUI.includes('menu')) {
-                const menuDropdown = $('<div>', {
-                    class: 'dropdown',
-                });
-                $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">menu</i>',
-                    title: 'Menu',
-                    'data-bs-toggle': 'dropdown',
-                }).appendTo(menuDropdown);
-                const menu = $('<ul>', {
-                    class: 'dropdown-menu',
-                }).appendTo(menuDropdown);
-                $('<div>', {
-                    class: 'btn-group',
-                }).appendTo(this.toolbar).append(menuDropdown);
-
-                $('<li>').appendTo(menu).append($('<span>', {
-                    class: 'dropdown-item',
-                    text: 'Save SDFG',
-                    click: () => {
-                        this.saveSDFG();
-                    },
-                }));
-                $('<li>').appendTo(menu).append($('<span>', {
-                    class: 'dropdown-item',
-                    text: 'Save view as PNG',
-                    click: () => {
-                        const filename = this.getSDFGName() + '.png';
-                        this.saveCanvasAsPng(filename);
-                    },
-                }));
-                if (this.canSaveToPDF) {
-                    $('<li>').appendTo(menu).append($('<span>', {
-                        class: 'dropdown-item',
-                        text: 'Save view as PDF',
-                        click: () => {
-                            const filename = this.getSDFGName() + '.pdf';
-                            this.saveAsPDF(filename, false);
-                        },
-                    }));
-                    $('<li>').appendTo(menu).append($('<span>', {
-                        class: 'dropdown-item',
-                        text: 'Save SDFG as PDF',
-                        click: () => {
-                            const filename = this.getSDFGName() + '.pdf';
-                            this.saveAsPDF(filename, true);
-                        },
-                    }));
-                }
-                $('<li>').appendTo(menu).append($('<span>', {
-                    class: 'dropdown-item',
-                    text: 'Export top-level CFG as DOT graph',
-                    click: () => {
-                        if (!this.sdfg)
-                            return;
-                        const filename = this.getSDFGName() + '.dot';
-                        this.save(
-                            filename,
-                            'data:text/plain;charset=utf-8,' +
-                            encodeURIComponent(cfgToDotGraph(this.sdfg))
-                        );
-                    },
-                }));
-
-                $('<li>').appendTo(menu).append($('<hr>', {
-                    class: 'dropdown-divider',
-                }));
-
-                $('<li>').appendTo(menu).append($('<span>', {
-                    class: 'dropdown-item',
-                    text: 'Reset positions',
-                    click: () => {
-                        this.resetElementPositions();
-                    },
-                }));
-            }
-
-            // SDFV Options.
-            if (!this.enableMaskUI || this.enableMaskUI.includes('settings')) {
-                $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">settings</i>',
-                    title: 'Settings',
-                    click: () => {
-                        SDFVSettings.getInstance().show();
-                    },
-                }).appendTo(this.toolbar);
-            }
-
-            // Overlays menu.
-            if ((!this.enableMaskUI ||
-                this.enableMaskUI.includes('overlays_menu')) &&
-                !this.inVSCode) {
-                const overlayDropdown = $('<div>', {
-                    class: 'dropdown',
-                });
-                $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">' +
-                        'saved_search</i>',
-                    title: 'Overlays',
-                    'data-bs-toggle': 'dropdown',
-                    'data-bs-auto-close': 'outside',
-                }).appendTo(overlayDropdown);
-                const overlayMenu = $('<ul>', {
-                    class: 'dropdown-menu',
-                    css: {
-                        'min-width': '200px',
-                    },
-                }).appendTo(overlayDropdown);
-                $('<div>', {
-                    class: 'btn-group',
-                }).appendTo(this.toolbar).append(overlayDropdown);
-
-                const addOverlayToMenu = (
-                    txt: string, ol: typeof GenericSdfgOverlay,
-                    defaultState: boolean
-                ) => {
-                    const olItem = $('<li>', {
-                        css: {
-                            'padding-left': '.7rem',
-                        },
-                    }).appendTo(overlayMenu);
-                    const olContainer = $('<div>', {
-                        class: 'form-check form-switch',
-                    }).appendTo(olItem);
-                    const olInput = $('<input>', {
-                        class: 'form-check-input',
-                        type: 'checkbox',
-                        checked: defaultState,
-                        change: () => {
-                            if (olInput.prop('checked'))
-                                this.overlayManager.registerOverlay(ol);
-                            else
-                                this.overlayManager.deregisterOverlay(ol);
-                        },
-                    }).appendTo(olContainer);
-                    $('<label>', {
-                        class: 'form-check-label',
-                        text: txt,
-                    }).appendTo(olContainer);
-                };
-
-                // Register overlays that are turned on by default.
-                addOverlayToMenu('Logical groups', LogicalGroupOverlay, true);
-
-                // Add overlays that are turned off by default.
-                addOverlayToMenu(
-                    'Storage locations', MemoryLocationOverlay, false
-                );
-                addOverlayToMenu(
-                    'Logical data movement volume', MemoryVolumeOverlay, false
-                );
-            }
-
-            const zoomButtonGroup = $('<div>', {
-                class: 'btn-group',
-                role: 'group',
-            }).appendTo(this.toolbar);
-            if (!this.enableMaskUI ||
-                this.enableMaskUI.includes('zoom_to_fit_all')) {
-                // Zoom to fit.
-                $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">fit_screen</i>',
-                    title: 'Zoom to fit SDFG',
-                    click: () => {
-                        this.zoomToFitContents();
-                    },
-                }).appendTo(zoomButtonGroup);
-            }
-            if (!this.enableMaskUI ||
-                this.enableMaskUI.includes('zoom_to_fit_width')) {
-                $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">fit_width</i>',
-                    title: 'Zoom to fit width',
-                    click: () => {
-                        this.zoomToFitWidth();
-                    },
-                }).appendTo(zoomButtonGroup);
-            }
-
-            const collapseButtonGroup = $('<div>', {
-                class: 'btn-group',
-                role: 'group',
-            }).appendTo(this.toolbar);
-            if (!this.enableMaskUI ||
-                this.enableMaskUI.includes('collapse')) {
-                // Collapse all.
-                $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">' +
-                        'unfold_less</i>',
-                    title: 'Collapse next level (Shift+click to collapse all)',
-                    click: (e: MouseEvent) => {
-                        if (e.shiftKey)
-                            this.collapseAll();
-                        else
-                            this.collapseNextLevel();
-                    },
-                }).appendTo(collapseButtonGroup);
-            }
-
-            if (!this.enableMaskUI ||
-                this.enableMaskUI.includes('expand')) {
-                // Expand all.
-                $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">' +
-                        'unfold_more</i>',
-                    title: 'Expand next level (Shift+click to expand all)',
-                    click: (e: MouseEvent) => {
-                        if (e.shiftKey)
-                            this.expandAll();
-                        else
-                            this.expandNextLevel();
-                    },
-                }).appendTo(collapseButtonGroup);
-            }
-
-            if (!this.enableMaskUI ||
-                this.enableMaskUI.includes('zoom_in_out')) {
-                const zoomInOutContainer = $('<div>', {
-                    class: 'zoom-in-out-container btn-group-vertical',
-                    role: 'group',
-                    css: {
-                        position: 'absolute',
-                        bottom: '10px', // Position at the bottom
-                        right: '10px',  // Position at the right
-                        display: 'flex',
-                        flexDirection: 'column',
-                    },
-                }).appendTo(this.container);
-                // Add Zoom In Button
-                $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">add</i>',
-                    title: 'Zoom In',
-                    click: (e: MouseEvent) => {
-                        this.zoomIn(e);
-                    },
-                }).appendTo(zoomInOutContainer);
-                // Add Zoom Out Button
-                $('<button>', {
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    html: '<i class="material-symbols-outlined">remove</i>',
-                    title: 'Zoom Out',
-                    click: (e:MouseEvent) => {
-                        this.zoomOut(e);
-                    },
-                }).appendTo(zoomInOutContainer);
-            }
-
-            if (this.modeButtons?.pan || this.modeButtons?.move ||
-                this.modeButtons?.select || this.modeButtons?.addBtns) {
-                // If we get the "external" mode buttons we are in vscode and do
-                // not need to create them.
-                this.panModeBtn = this.modeButtons.pan;
-                this.moveModeBtn = this.modeButtons.move;
-                this.selectModeBtn = this.modeButtons.select;
-                this.addModeButtons = this.modeButtons.addBtns;
-                if (!this.enableMaskUI ||
-                    this.enableMaskUI.includes('add_mode')) {
-                    for (const addBtn of this.addModeButtons) {
-                        const addBtnType = addBtn.attr(
-                            'type'
-                        ) as SDFGElementType;
-                        if (addBtnType === SDFGElementType.LibraryNode) {
-                            addBtn.on('click', () => {
-                                const libNodeCallback = () => {
-                                    this._mouseMode = 'add';
-                                    this.addElementType =
-                                        SDFGElementType.LibraryNode;
-                                    this.addEdgeStart = undefined;
-                                    this.addEdgeStartConnector = undefined;
-                                    this.updateToggleButtons();
-                                };
-                                this.emit('query_libnode', libNodeCallback);
-                            });
-                        } else {
-                            addBtn.on('click', () => {
-                                this._mouseMode = 'add';
-                                this.addElementType = addBtnType;
-                                this.addModeLib = undefined;
-                                this.addEdgeStart = undefined;
-                                this.addEdgeStartConnector = undefined;
-                                this.updateToggleButtons();
-                            });
-                        }
-                    }
-                }
-                this.modeBtnSelectedBGColor = '#22A4FE';
-            } else {
-                // Mode buttons are empty in standalone SDFV.
-                this.addModeButtons = [];
-
-                const modeButtonGroup = $('<div>', {
-                    class: 'btn-group',
-                    role: 'group',
-                }).appendTo(this.toolbar);
-
-                // Enter pan mode.
-                if (!this.enableMaskUI ||
-                    this.enableMaskUI.includes('pan_mode')) {
-                    this.panModeBtn = $('<button>', {
-                        class: 'btn btn-secondary btn-sm btn-material selected',
-                        html: '<i class="material-symbols-outlined">' +
-                            'pan_tool</i>',
-                        title: 'Pan mode',
-                    }).appendTo(modeButtonGroup) as JQuery<HTMLButtonElement>;
-                }
-
-                // Enter move mode.
-                if (!this.enableMaskUI ||
-                    this.enableMaskUI.includes('move_mode')) {
-                    this.moveModeBtn = $('<button>', {
-                        class: 'btn btn-secondary btn-sm btn-material',
-                        html: '<i class="material-symbols-outlined">' +
-                            'open_with</i>',
-                        title: 'Object moving mode',
-                    }).appendTo(modeButtonGroup) as JQuery<HTMLButtonElement>;
-                }
-
-                // Enter box select mode.
-                if (!this.enableMaskUI ||
-                    this.enableMaskUI.includes('box_select_mode')) {
-                    this.selectModeBtn = $('<button>', {
-                        class: 'btn btn-secondary btn-sm btn-material',
-                        html: '<i class="material-symbols-outlined">select</i>',
-                        title: 'Select mode',
-                    }).appendTo(modeButtonGroup) as JQuery<HTMLButtonElement>;
-                }
-            }
-
-            // Enter pan mode
-            if (this.panModeBtn) {
-                if (!this.enableMaskUI ||
-                    this.enableMaskUI.includes('pan_mode')) {
-                    this.panModeBtn.prop('disabled', false);
-                    this.panModeBtn.on('click', () => {
-                        this._mouseMode = 'pan';
-                        this.addElementType = undefined;
-                        this.addModeLib = undefined;
-                        this.addEdgeStart = undefined;
-                        this.addEdgeStartConnector = undefined;
-                        this.updateToggleButtons();
-                    });
-                } else {
-                    this.panModeBtn.prop('disabled', true);
-                }
-            }
-
-            // Enter object moving mode
-            if (this.moveModeBtn) {
-                if (!this.enableMaskUI ||
-                    this.enableMaskUI.includes('move_mode')) {
-                    this.moveModeBtn.prop('disabled', false);
-                    this.moveModeBtn.on('click', (e): void => {
-                        // shift_click is false if shift key has been released
-                        // and undefined if it has been a normal mouse click.
-                        if (this.shiftKeyMovement && !e.shiftKey)
-                            this._mouseMode = 'pan';
-                        else
-                            this._mouseMode = 'move';
-                        this.addElementType = undefined;
-                        this.addModeLib = undefined;
-                        this.addEdgeStart = undefined;
-                        this.addEdgeStartConnector = undefined;
-                        this.shiftKeyMovement = e.shiftKey;
-                        this.updateToggleButtons();
-                    });
-                } else {
-                    this.moveModeBtn.prop('disabled', true);
-                }
-            }
-
-            // Enter box selection mode
-            if (this.selectModeBtn) {
-                if (!this.enableMaskUI ||
-                    this.enableMaskUI.includes('box_select_mode')) {
-                    this.selectModeBtn.prop('disabled', false);
-                    this.selectModeBtn.on('click', (e): void => {
-                        // ctrl_click is false if ctrl key has been released and
-                        // undefined if it has been a normal mouse click
-                        if (this.ctrlKeySelection && !e.ctrlKey)
-                            this._mouseMode = 'pan';
-                        else
-                            this._mouseMode = 'select';
-                        this.addElementType = undefined;
-                        this.addModeLib = undefined;
-                        this.addEdgeStart = undefined;
-                        this.addEdgeStartConnector = undefined;
-                        this.ctrlKeySelection = e.ctrlKey;
-                        this.updateToggleButtons();
-                    });
-                } else {
-                    this.selectModeBtn.prop('disabled', true);
-                }
-            }
-
-            // React to ctrl and shift key presses
-            // TODO
-            /*
-            document.addEventListener('keydown', (e) => this.onKeyEvent(e));
-            document.addEventListener('keyup', (e) => this.onKeyEvent(e));
-            document.addEventListener('visibilitychange', () => {
-                this.clear_key_events();
-            });
-            */
-
-            // Filter graph to selection (visual cutout).
-            if (!this.enableMaskUI ||
-                this.enableMaskUI.includes('cutout_selection')) {
-                this.cutoutBtn = $('<button>', {
-                    id: 'cutout-button',
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    css: {
-                        'display': 'none',
-                    },
-                    html: '<i class="material-symbols-outlined">' +
-                        'content_cut</i>',
-                    title: 'Filter selection (cutout)',
-                    click: () => {
-                        void this.cutoutSelection();
-                    },
-                }).appendTo(this.toolbar);
-            }
-
-            // Transition to local view with selection.
-            if (!this.enableMaskUI ||
-                this.enableMaskUI.includes('local_view')) {
-                this.localViewBtn = $('<button>', {
-                    id: 'local-view-button',
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    css: {
-                        'display': 'none',
-                    },
-                    html: '<i class="material-symbols-outlined">memory</i>',
-                    title: 'Inspect access patterns (local view)',
-                    click: () => {
-                        void this.localViewSelection();
-                    },
-                }).appendTo(this.toolbar);
-            }
-
-            // Exit previewing mode.
-            if (this.inVSCode) {
-                const exitPreviewBtn = $('<button>', {
-                    id: 'exit-preview-button',
-                    class: 'btn btn-secondary btn-sm btn-material',
-                    css: {
-                        'display': 'none',
-                    },
-                    html: '<i class="material-symbols-outlined">close</i>',
-                    title: 'Exit preview',
-                    click: () => {
-                        exitPreviewBtn.hide();
-                        this.emit('exit_preview');
-                    },
-                }).appendTo(this.toolbar);
-            }
-        } else {
-            if (this.toolbar) {
-                this.toolbar.remove();
-                this.toolbar = undefined;
-            }
-        }
-
-        this.mouseFollowSVGs = {};
-        this.mouseFollowSVGs.MapEntry =
+        this._mouseFollowSVGs = {};
+        this._mouseFollowSVGs.MapEntry =
             `<svg width="8rem" height="2rem" viewBox="0 0 800 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <line x1="10" x2="190" y1="190" y2="10"/>
                 <line x1="190" x2="600" y1="10" y2="10"/>
                 <line x1="600" x2="790" y1="10" y2="190"/>
                 <line x1="790" x2="10" y1="190" y2="190"/>
             </svg>`;
-        this.mouseFollowSVGs.ConsumeEntry =
+        this._mouseFollowSVGs.ConsumeEntry =
             `<svg width="8rem" height="2rem" viewBox="0 0 800 200" stroke="black" stroke-width="10" stroke-dasharray="60,25" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <line x1="10"x2="190" y1="190" y2="10"/>
                 <line x1="190" x2="600" y1="10" y2="10"/>
                 <line x1="600" x2="790" y1="10" y2="190"/>
                 <line x1="790" x2="10" y1="190" y2="190"/>
             </svg>`;
-        this.mouseFollowSVGs.Tasklet =
+        this._mouseFollowSVGs.Tasklet =
             `<svg width="2.6rem" height="1.3rem" viewBox="0 0 400 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <line x1="10" x2="70" y1="130" y2="190"/>
                 <line x1="70" x2="330" y1="190" y2="190"/>
@@ -827,7 +329,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 <line x1="70" x2="10" y1="10" y2="70"/>
                 <line x1="10" x2="10" y1="70" y2="130"/>
             </svg>`;
-        this.mouseFollowSVGs.NestedSDFG =
+        this._mouseFollowSVGs.NestedSDFG =
             `<svg width="2.6rem" height="1.3rem" viewBox="0 0 400 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <line x1="40" x2="80" y1="120" y2="160"/>
                 <line x1="80" x2="320" y1="160" y2="160"/>
@@ -847,7 +349,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 <line x1="70" x2="10" y1="10" y2="70"/>
                 <line x1="10" x2="10" y1="70" y2="130"/>
             </svg>`;
-        this.mouseFollowSVGs.LibraryNode =
+        this._mouseFollowSVGs.LibraryNode =
             `<svg width="2.6rem" height="1.3rem" viewBox="0 0 400 200" stroke="white" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <line x1="10" x2="10" y1="10" y2="190"/>
                 <line x1="10" x2="390" y1="190" y2="190"/>
@@ -857,23 +359,23 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 <line x1="345" x2="345" y1="10" y2="55"/>
                 <line x1="345" x2="390" y1="55" y2="55"/>
             </svg>`;
-        this.mouseFollowSVGs.AccessNode =
+        this._mouseFollowSVGs.AccessNode =
             `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="100" cy="100" r="90" fill="none"/>
             </svg>`;
-        this.mouseFollowSVGs.Stream =
+        this._mouseFollowSVGs.Stream =
             `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="100" cy="100" r="90" fill="none" stroke-dasharray="60,25"/>
             </svg>`;
-        this.mouseFollowSVGs.SDFGState =
+        this._mouseFollowSVGs.SDFGState =
             `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="black" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <rect x="20" y="20" width="160" height="160" style="fill:#deebf7;" />
             </svg>`;
-        this.mouseFollowSVGs.Connector =
+        this._mouseFollowSVGs.Connector =
             `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="white" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="100" cy="100" r="40" fill="none"/>
             </svg>`;
-        this.mouseFollowSVGs.Edge =
+        this._mouseFollowSVGs.Edge =
             `<svg width="1.3rem" height="1.3rem" viewBox="0 0 200 200" stroke="white" stroke-width="10" version="1.1" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <marker id="arrowhead" markerWidth="10" markerHeight="7"  refX="0" refY="3.5" orient="auto">
@@ -883,7 +385,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 <line x1="20" y1="20" x2="180" y2="180" marker-end="url(#arrowhead)" />
             </svg>`;
 
-        this.mouseFollowElement = $('<div>', {
+        this._mouseFollowElement = $('<div>', {
             class: 'add-svgs-container',
         }).appendTo(this.container);
 
@@ -1403,28 +905,6 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         this.emit('selection_changed', multiSelectionChanged);
     }
 
-    public zoomIn(event?: MouseEvent): void {
-        // Calculate the scale factor based on the shift key
-        const scaleFactor = event?.shiftKey ? Math.pow(1.1, 5) : 1.1;
-        // Calculate the center of the canvas.
-        const canvasRect = this.canvas.getBoundingClientRect();
-        const centerX = canvasRect.width / 2;
-        const centerY = canvasRect.height / 2;
-        this.canvasManager.scale(scaleFactor, centerX, centerY);
-        this.drawAsync();
-    }
-
-    public zoomOut(event?: MouseEvent): void {
-        // Calculate the scale factor based on the shift key.
-        const scaleFactor = event?.shiftKey ? Math.pow(0.9, 5) : 0.9;
-        // Calculate the center of the canvas
-        const canvasRect = this.canvas.getBoundingClientRect();
-        const centerX = canvasRect.width / 2;
-        const centerY = canvasRect.height / 2;
-        this.canvasManager.scale(scaleFactor, centerX, centerY);
-        this.drawAsync();
-    }
-
     // ====================
     // = Internal Methods =
     // ====================
@@ -1446,107 +926,6 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         }).catch(() => {
             console.error('Error while laying out SDFG');
         });
-    }
-
-    private onModeButtonClick(e: JQuery.Event): void {
-        if (this.ctrlKeySelection && !e.ctrlKey)
-            this._mouseMode = 'pan';
-        else
-            this._mouseMode = 'select';
-        this.addElementType = undefined;
-        this.addModeLib = undefined;
-        this.addEdgeStart = undefined;
-        this.addEdgeStartConnector = undefined;
-        this.ctrlKeySelection = e.ctrlKey ?? false;
-        this.updateToggleButtons();
-    }
-
-    // Updates buttons based on cursor mode
-    private updateToggleButtons(): void {
-        // First clear out of all modes, then jump in to the correct mode.
-        this.canvas.style.cursor = 'default';
-        this.hideInteractionInfo();
-
-        if (this.panModeBtn)
-            this.panModeBtn.removeClass('selected');
-
-        if (this.moveModeBtn)
-            this.moveModeBtn.removeClass('selected');
-
-        if (this.selectModeBtn)
-            this.selectModeBtn.removeClass('selected');
-
-        this.mouseFollowElement?.html('');
-
-        for (const addBtn of this.addModeButtons) {
-            const btnType = addBtn.attr('type') as SDFGElementType;
-            if (btnType === this.addElementType) {
-                addBtn.addClass('selected');
-                const svgHtml = this.mouseFollowSVGs?.[btnType];
-                if (svgHtml)
-                    this.mouseFollowElement?.html(svgHtml);
-            } else {
-                addBtn.removeClass('selected');
-            }
-        }
-
-        switch (this._mouseMode) {
-            case 'move':
-                if (this.moveModeBtn)
-                    this.moveModeBtn.addClass('selected');
-                this.showInteractionInfo(
-                    'Middle Mouse: Pan view<br/>Right Click: Reset position',
-                    true
-                );
-                break;
-            case 'select':
-                if (this.selectModeBtn)
-                    this.selectModeBtn.addClass('selected');
-                if (this.ctrlKeySelection) {
-                    this.showInteractionInfo('Middle Mouse: Pan view');
-                } else {
-                    this.showInteractionInfo(
-                        'Shift: Add to selection<br/>' +
-                        'Ctrl: Remove from selection<br/>' +
-                        'Middle Mouse: Pan view',
-                        true
-                    );
-                }
-                break;
-            case 'add':
-                if (this.addElementType?.toString() === 'Edge') {
-                    if (this.addEdgeStart) {
-                        this.showInteractionInfo(
-                            'Left Click: Select second element (to)<br/>' +
-                            'Middle Mouse: Pan view<br/>' +
-                            'Right Click / Esc: Abort',
-                            true
-                        );
-                    } else {
-                        this.showInteractionInfo(
-                            'Left Click: Select first element (from)<br/>' +
-                            'Middle Mouse: Pan view<br/>' +
-                            'Right Click / Esc: Abort',
-                            true
-                        );
-                    }
-                } else {
-                    this.showInteractionInfo(
-                        'Left Click: Place element<br>' +
-                        'Ctrl + Left Click: Place and stay in Add ' +
-                        'Mode<br/>' +
-                        'Middle Mouse: Pan view<br/>' +
-                        'Right Click / Esc: Abort',
-                        true
-                    );
-                }
-                break;
-            case 'pan':
-            default:
-                if (this.panModeBtn)
-                    this.panModeBtn.addClass('selected');
-                break;
-        }
     }
 
     public getSDFGName(): string {
@@ -2638,7 +2017,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             event.buttons & 1) {
             this.dragging = true;
 
-            if (this._mouseMode === 'move') {
+            if (this.mouseMode === 'move') {
                 if (this.lastDraggedElement) {
                     this.canvas.style.cursor = 'grabbing';
                     const realCoord = this.getMouseEventRealCoords(
@@ -2701,7 +2080,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                     }
                     return true;
                 }
-            } else if (this._mouseMode === 'select') {
+            } else if (this.mouseMode === 'select') {
                 const coords = this.getMouseEventRealCoords(this.dragStart);
                 const minX = Math.min(coords.x, this.mousePos.x);
                 const minY = Math.min(coords.y, this.mousePos.y);
@@ -2797,7 +2176,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 multiSelectionChanged = true;
             }
 
-            if (this._mouseMode === 'move')
+            if (this.mouseMode === 'move')
                 this.emit('element_position_changed', 'manual_move');
         } else {
             const elements = this.findElementsUnderCursor(
@@ -2806,16 +2185,16 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             const fgElement = elements.foregroundElement;
             const fgConnector = elements.foregroundConnector;
 
-            if (this._mouseMode === 'add') {
+            if (this.mouseMode === 'add') {
                 if (checkValidAddPosition(
                     this.addElementType!, fgElement, this.addModeLib
                 )) {
                     if (this.addElementType === SDFGElementType.Edge) {
-                        if (this.addEdgeStart) {
-                            const start = this.addEdgeStart;
-                            this.addEdgeStart = undefined;
+                        if (this._addEdgeStart) {
+                            const start = this._addEdgeStart;
+                            this._addEdgeStart = undefined;
                             const startCName = (
-                                this.addEdgeStartConnector?.data?.name
+                                this._addEdgeStartConnector?.data?.name
                             ) as string | undefined;
                             const fgConnectorName = (
                                 fgConnector?.data?.name
@@ -2830,9 +2209,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                                 fgConnectorName
                             );
                         } else {
-                            this.addEdgeStart = fgElement;
-                            this.addEdgeStartConnector = fgConnector;
-                            this.updateToggleButtons();
+                            this._addEdgeStart = fgElement;
+                            this._addEdgeStartConnector = fgConnector;
+                            this.ui?.updateToggleButtons();
                         }
                     } else if (this.addElementType ===
                         SDFGElementType.LibraryNode) {
@@ -2856,10 +2235,10 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
                     if (!event.ctrlKey && !(
                         this.addElementType === SDFGElementType.Edge &&
-                        this.addEdgeStart
+                        this._addEdgeStart
                     )) {
                         // Cancel add mode.
-                        this.panModeBtn?.trigger('click', event);
+                        this.ui?.panModeBtn?.trigger('click', event);
                     }
                 }
             }
@@ -2946,7 +2325,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         );
         const fgElem = elements.foregroundElement;
 
-        if (this._mouseMode === 'move') {
+        if (this.mouseMode === 'move') {
             let elementsToReset: SDFGElement[] = [];
             if (fgElem)
                 elementsToReset = [fgElem];
@@ -3025,10 +2404,10 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
             if (elementMoved)
                 this.emit('element_position_changed', 'manual_move');
-        } else if (this._mouseMode === 'add') {
+        } else if (this.mouseMode === 'add') {
             // Cancel add mode
-            this.panModeBtn?.trigger('click', event);
-        } else if (this._mouseMode === 'pan') {
+            this.ui?.panModeBtn?.trigger('click', event);
+        } else if (this.mouseMode === 'pan') {
             // Shift + Rightclick to toggle expand/collapse
             if (event.shiftKey)
                 this.toggleElementCollapse(fgElem);
@@ -3043,8 +2422,72 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     // = Getter / Setter =
     // ===================
 
-    public get mouseMode(): string {
+    public get ui(): SDFGRendererUI | undefined {
+        return this._ui as SDFGRendererUI | undefined;
+    }
+
+    public get mouseFollowElement(): JQuery | undefined {
+        return this._mouseFollowElement;
+    }
+
+    public get mouseFollowSVGs(): Record<SDFGElementType, string> | undefined {
+        return this._mouseFollowSVGs;
+    }
+
+    public get addElementType(): SDFGElementType | undefined {
+        return this._addElementType;
+    }
+
+    public set addElementType(type: SDFGElementType | undefined) {
+        this._addElementType = type;
+    }
+
+    public get addModeLib(): string | undefined {
+        return this._addModeLib;
+    }
+
+    public set addModeLib(lib: string | undefined) {
+        this._addModeLib = lib;
+    }
+
+    public get addEdgeStart(): SDFGElement | undefined {
+        return this._addEdgeStart;
+    }
+
+    public set addEdgeStart(elem: SDFGElement | undefined) {
+        this._addEdgeStart = elem;
+    }
+
+    public get addEdgeStartConnector(): Connector | undefined {
+        return this._addEdgeStartConnector;
+    }
+
+    public set addEdgeStartConnector(connector: Connector | undefined) {
+        this._addEdgeStartConnector = connector;
+    }
+
+    public get mouseMode(): MouseModeT {
         return this._mouseMode;
+    }
+
+    public set mouseMode(mode: MouseModeT) {
+        this._mouseMode = mode;
+    }
+
+    public get ctrlKeySelection(): boolean {
+        return this._ctrlKeySelection;
+    }
+
+    public set ctrlKeySelection(value: boolean) {
+        this._ctrlKeySelection = value;
+    }
+
+    public get shiftKeyMovement(): boolean {
+        return this._shiftKeyMovement;
+    }
+
+    public set shiftKeyMovement(value: boolean) {
+        this._shiftKeyMovement = value;
     }
 
     public get graph(): DagreGraph | undefined {

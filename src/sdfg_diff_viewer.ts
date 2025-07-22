@@ -341,22 +341,22 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         const viewer = new WebSDFGDiffViewer();
         const leftRenderer = new SDFGRenderer(
             leftContainer, viewer, null, null, false, null,
-            undefined, [
-                'settings',
-                'zoom_to_fit_all',
-                'zoom_to_fit_width',
-                'collapse',
-                'expand',
-            ]
+            undefined, {
+                settings: true,
+                zoomToFit: true,
+                zoomToFitWidth: true,
+                collapse: true,
+                expand: true,
+            }
         );
         const rightRenderer = new SDFGRenderer(
             rightContainer, viewer, null, null, false, null,
-            undefined, [
-                'zoom_to_fit_all',
-                'zoom_to_fit_width',
-                'collapse',
-                'expand',
-            ]
+            undefined, {
+                zoomToFit: true,
+                zoomToFitWidth: true,
+                collapse: true,
+                expand: true,
+            }
         );
         viewer.leftRenderer = leftRenderer;
         viewer.rightRenderer = rightRenderer;
