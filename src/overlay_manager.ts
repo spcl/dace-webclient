@@ -5,14 +5,8 @@ import type {
     GenericSdfgOverlay,
 } from './overlays/common/generic_sdfg_overlay';
 import { createElement } from './utils/utils';
-import {
-    Point2D,
-    SDFGElementGroup,
-    SDFGElementInfo,
-    SymbolMap,
-} from './types';
+import { SymbolMap } from './types';
 import type { SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
-import { SDFGElement } from './renderer/sdfg/sdfg_elements';
 
 
 type SymDefinitionDialogT = HTMLDivElement & {
@@ -135,8 +129,10 @@ export class SymbolResolver {
                 case 'SymbolNode':
                     {
                         const symnode = node as SymbolNode;
-                        if (symnode.name && symnode.name in mapping &&
-                            mapping[symnode.name] === undefined &&
+                        if (symnode.name &&
+                            ((symnode.name in mapping &&
+                                mapping[symnode.name] === undefined) ||
+                            !(symnode.name in mapping)) &&
                             !this.symbolsToDefine.includes(symnode.name)) {
                             // This is an undefined symbol.
                             // Ask for it to be defined.
@@ -289,7 +285,10 @@ export class OverlayManager {
 
     public deregisterOverlay(type: typeof GenericSdfgOverlay): void {
         this._overlays = this.overlays.filter(overlay => {
-            return !(overlay instanceof type);
+            const deregister = overlay instanceof type;
+            if (deregister)
+                overlay.destroy();
+            return !deregister;
         });
         this.renderer.drawAsync();
     }
@@ -341,27 +340,6 @@ export class OverlayManager {
         this.overlays.forEach(overlay => {
             overlay.refresh();
         });
-    }
-
-    public on_mouse_event(
-        type: string,
-        ev: MouseEvent,
-        mousepos: Point2D,
-        elements: Record<SDFGElementGroup, SDFGElementInfo[]>,
-        foreground_elem: SDFGElement | null,
-        ends_drag: boolean
-    ): boolean {
-        /*
-        let dirty = false;
-        this.overlays.forEach(overlay => {
-            dirty = dirty || overlay.on_mouse_event(
-                type, ev, mousepos, elements,
-                foreground_elem, ends_drag
-            );
-        });
-        return dirty;
-        */
-        return false;
     }
 
     public get heatmapScalingMethod(): string {

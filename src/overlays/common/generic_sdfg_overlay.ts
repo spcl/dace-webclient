@@ -54,6 +54,10 @@ export class GenericSdfgOverlay {
         return;
     }
 
+    public destroy(): void {
+        return;
+    }
+
     protected shadeGraph(
         graph: DagreGraph, ppp: number, ctx: CanvasRenderingContext2D,
         vRect: SimpleRect, predicate: (elem: SDFGElement) => boolean,

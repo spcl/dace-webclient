@@ -7,6 +7,7 @@ import type {
 import {
     ConditionalBlock,
     ControlFlowBlock,
+    Edge,
     NestedSDFG,
     SDFGNode,
 } from '../renderer/sdfg/sdfg_elements';
@@ -27,8 +28,18 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
 
+        this.renderer.on(
+            'selection_changed', this.onSelectionChanged.bind(this)
+        );
+
         this.renderer.emit(
             'backend_data_requested', 'avg_parallelism', 'AvgParallelismOverlay'
+        );
+    }
+
+    public destroy(): void {
+        this.renderer.off(
+            'selection_changed', this.onSelectionChanged.bind(this)
         );
     }
 
@@ -236,29 +247,22 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
         this.shadeSDFG();
     }
 
-    /*
-    public on_mouse_event(
-        type: string,
-        _ev: Event,
-        _mousepos: Point2D,
-        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
-        foreground_elem: SDFGElement | null,
-        ends_drag: boolean
-    ): boolean {
-        if (type === 'click' && !ends_drag) {
-            if (foreground_elem && !(foreground_elem instanceof Edge)) {
-                if (foreground_elem.data.avg_parallelism === undefined) {
-                    const avg_parallelism_string = this.avgParallelismMap[
-                        getGraphElementUUID(foreground_elem)
+    protected onSelectionChanged(_multiSelectionChanged: boolean): void {
+        if (this.renderer.selectedRenderables.size === 1) {
+            const fgElem = Array.from(this.renderer.selectedRenderables)[0];
+            if (!(fgElem instanceof Edge)) {
+                if (fgElem.jsonData?.avg_parallelism === undefined) {
+                    const avgParaString = this.avgParallelismMap[
+                        getGraphElementUUID(fgElem)
                     ];
-                    if (avg_parallelism_string) {
+                    if (avgParaString) {
                         this.symbolResolver.parseExpression(
-                            avg_parallelism_string,
-                            this.symbolResolver.get_symbol_value_map(),
+                            avgParaString,
+                            this.symbolResolver.symbolValueMap,
                             true,
                             () => {
                                 this.clearCachedAvgParallelismValues();
-                                const graph = this.renderer.get_graph();
+                                const graph = this.renderer.graph;
                                 if (graph)
                                     this.recalculateAvgParallelismValues(graph);
                             }
@@ -267,8 +271,6 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
                 }
             }
         }
-        return false;
     }
-    */
 
 }

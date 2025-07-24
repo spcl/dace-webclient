@@ -7,6 +7,7 @@ import type {
 import {
     ConditionalBlock,
     ControlFlowBlock,
+    Edge,
     NestedSDFG,
     SDFGElement,
     SDFGNode,
@@ -28,8 +29,18 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
 
+        this.renderer.on(
+            'selection_changed', this.onSelectionChanged.bind(this)
+        );
+
         this.renderer.emit(
             'backend_data_requested', 'flops', 'StaticFlopsOverlay'
+        );
+    }
+
+    public destroy(): void {
+        this.renderer.off(
+            'selection_changed', this.onSelectionChanged.bind(this)
         );
     }
 
@@ -227,29 +238,22 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
         });
     }
 
-    /*
-    public on_mouse_event(
-        type: string,
-        _ev: Event,
-        _mousepos: Point2D,
-        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
-        foreground_elem: SDFGElement | null,
-        ends_drag: boolean
-    ): boolean {
-        if (type === 'click' && !ends_drag) {
-            if (foreground_elem && !(foreground_elem instanceof Edge)) {
-                if (foreground_elem.data.flops === undefined) {
-                    const flops_string = this.flopsMap[
-                        getGraphElementUUID(foreground_elem)
+    protected onSelectionChanged(_multiSelectionChanged: boolean): void {
+        if (this.renderer.selectedRenderables.size === 1) {
+            const fgElem = Array.from(this.renderer.selectedRenderables)[0];
+            if (!(fgElem instanceof Edge)) {
+                if (fgElem.jsonData?.flops === undefined) {
+                    const flopsString = this.flopsMap[
+                        getGraphElementUUID(fgElem)
                     ];
-                    if (flops_string) {
+                    if (flopsString) {
                         this.symbolResolver.parseExpression(
-                            flops_string,
-                            this.symbolResolver.get_symbol_value_map(),
+                            flopsString,
+                            this.symbolResolver.symbolValueMap,
                             true,
                             () => {
                                 this.clearCachedFlopsValues();
-                                const graph = this.renderer.get_graph();
+                                const graph = this.renderer.graph;
                                 if (graph)
                                     this.recalculateFlopsValues(graph);
                             }
@@ -258,8 +262,6 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
                 }
             }
         }
-        return false;
     }
-    */
 
 }

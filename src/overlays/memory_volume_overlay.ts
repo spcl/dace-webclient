@@ -26,7 +26,17 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
 
+        this.renderer.on(
+            'selection_changed', this.onSelectionChanged.bind(this)
+        );
+
         this.refresh();
+    }
+
+    public destroy(): void {
+        this.renderer.off(
+            'selection_changed', this.onSelectionChanged.bind(this)
+        );
     }
 
     public clearCachedVolumeValues(): void {
@@ -177,25 +187,19 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
         });
     }
 
-    /*
-    public on_mouse_event(
-        type: string,
-        _ev: MouseEvent,
-        _mousepos: Point2D,
-        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
-        foreground_elem: SDFGElement | null,
-        ends_drag: boolean
-    ): boolean {
-        if (type === 'click' && !ends_drag) {
-            if (foreground_elem && foreground_elem instanceof Edge) {
-                if (foreground_elem.data.volume === undefined) {
-                    if (foreground_elem.data.attributes.volume) {
+    protected onSelectionChanged(_multiSelectionChanged: boolean): void {
+        if (this.renderer.selectedRenderables.size === 1) {
+            const fgElem = Array.from(this.renderer.selectedRenderables)[0];
+            if (fgElem instanceof Edge) {
+                if (fgElem.jsonData?.volume === undefined) {
+                    const attrs = fgElem.attributes();
+                    if (attrs?.volume) {
                         this.symbolResolver.parseExpression(
-                            foreground_elem.data.attributes.volume,
-                            this.symbolResolver.get_symbol_value_map(),
+                            attrs.volume as string,
+                            this.symbolResolver.symbolValueMap,
                             true,
                             () => {
-                                const graph = this.renderer.get_graph();
+                                const graph = this.renderer.graph;
                                 if (graph) {
                                     this.clearCachedVolumeValues();
                                     this.recalculateVolumeValues(graph);
@@ -206,8 +210,6 @@ export class MemoryVolumeOverlay extends GenericSdfgOverlay {
                 }
             }
         }
-        return false;
     }
-    */
 
 }

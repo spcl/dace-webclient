@@ -7,6 +7,7 @@ import type {
 import {
     ConditionalBlock,
     ControlFlowBlock,
+    Edge,
     NestedSDFG,
     SDFGElement,
     SDFGNode,
@@ -29,9 +30,19 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
 
+        this.renderer.on(
+            'selection_changed', this.onSelectionChanged.bind(this)
+        );
+
         this.renderer.emit(
             'backend_data_requested', 'op_in',
             'SimulatedOperationalIntensityOverlay'
+        );
+    }
+
+    public destroy(): void {
+        this.renderer.off(
+            'selection_changed', this.onSelectionChanged.bind(this)
         );
     }
 
@@ -226,29 +237,22 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
         this.shadeSDFG();
     }
 
-    /*
-    public on_mouse_event(
-        type: string,
-        _ev: Event,
-        _mousepos: Point2D,
-        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
-        foreground_elem: SDFGElement | null,
-        ends_drag: boolean
-    ): boolean {
-        if (type === 'click' && !ends_drag) {
-            if (foreground_elem && !(foreground_elem instanceof Edge)) {
-                if (foreground_elem.data.op_in === undefined) {
-                    const op_in_string = this.opIntMap[
-                        getGraphElementUUID(foreground_elem)
+    protected onSelectionChanged(_multiSelectionChanged: boolean): void {
+        if (this.renderer.selectedRenderables.size === 1) {
+            const fgElem = Array.from(this.renderer.selectedRenderables)[0];
+            if (!(fgElem instanceof Edge)) {
+                if (fgElem.jsonData?.op_in === undefined) {
+                    const opIntString = this.opIntMap[
+                        getGraphElementUUID(fgElem)
                     ];
-                    if (op_in_string) {
+                    if (opIntString) {
                         this.symbolResolver.parseExpression(
-                            op_in_string,
-                            this.symbolResolver.get_symbol_value_map(),
+                            opIntString,
+                            this.symbolResolver.symbolValueMap,
                             true,
                             () => {
                                 this.clearCachedOpIntValues();
-                                const graph = this.renderer.get_graph();
+                                const graph = this.renderer.graph;
                                 if (graph)
                                     this.recalcculateOpIntValues(graph);
                             }
@@ -257,8 +261,6 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
                 }
             }
         }
-        return false;
     }
-    */
 
 }

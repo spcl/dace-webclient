@@ -270,10 +270,17 @@ export class SDFGElement extends HTMLCanvasRenderable {
         this.ctx.stroke();
     }
 
+    protected _ctxResetLineDash(ctx: CanvasRenderingContext2D): void {
+        if ('pdf' in ctx && ctx.pdf)
+            ctx.setLineDash([1, 0]);
+        else
+            ctx.setLineDash([]);
+    }
+
     protected _setDrawStyleProperties(ctx: CanvasRenderingContext2D): void {
         ctx.lineWidth = 1.0;
         ctx.globalAlpha = 1.0;
-        ctx.setLineDash([]);
+        this._ctxResetLineDash(ctx);
     }
 
     protected _internalDraw(
@@ -1197,7 +1204,7 @@ export class Memlet extends Edge {
             if (attr.wcr)
                 this.ctx.setLineDash([3, 2]);
             else
-                this.ctx.setLineDash([]);
+                this._ctxResetLineDash(this.ctx);
         } else {
             // Empty memlet, i.e., a dependency edge. Do not draw the arrowhead.
             skipArrow = true;
@@ -1205,7 +1212,7 @@ export class Memlet extends Edge {
 
         this._drawShape(this.ctx, skipArrow);
 
-        this.ctx.setLineDash([]);
+        this._ctxResetLineDash(this.ctx);
 
         if (this.points.length >= 2 && this.selected &&
             this.renderer.mouseMode === 'move') {
@@ -1330,7 +1337,7 @@ export class InterstateEdge extends Edge {
 
         this._drawShape(this.ctx, !drawArrow);
 
-        this.ctx.setLineDash([]);
+        this._ctxResetLineDash(this.ctx);
 
         if (this.points.length < 2)
             return;
@@ -1686,7 +1693,7 @@ export class AccessNode extends SDFGNode {
         if (nodedesc?.type === 'Stream')
             this.ctx.setLineDash([5, 3]);
         else
-            this.ctx.setLineDash([]);
+            this._ctxResetLineDash(this.ctx);
 
         // Non-transient (external) data is thicker
         if (nodedesc?.attributes?.transient !== true)
@@ -1797,7 +1804,7 @@ export class ScopeNode extends SDFGNode {
         if (this.type.startsWith('Consume'))
             ctx.setLineDash([5, 3]);
         else
-            ctx.setLineDash([]);
+            this._ctxResetLineDash(ctx);
         if (this.attributes()?.is_collapsed) {
             drawHexagon(ctx, this.x, this.y, this.width, this.height, {
                 x: 0,
@@ -2637,7 +2644,10 @@ function batchedDrawEdges(
         edge.createArrowLine(ctx);
     }
     ctx.lineWidth = 1.0;
-    ctx.setLineDash([]);
+    if ('pdf' in ctx && ctx.pdf)
+        ctx.setLineDash([1, 0]);
+    else
+        ctx.setLineDash([]);
     ctx.fillStyle = ctx.strokeStyle = SDFVSettings.get<string>(color);
     ctx.stroke();
 

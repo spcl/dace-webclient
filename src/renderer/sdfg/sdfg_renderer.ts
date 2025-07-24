@@ -389,7 +389,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             class: 'add-svgs-container',
         }).appendTo(this.container);
 
-        //this.updateToggleButtons();
+        this.ui?.updateToggleButtons();
     }
 
     protected _drawMinimapContents(): void {
@@ -397,6 +397,22 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             this.graph!.node(nd)?.minimapDraw();
         for (const e of this.graph?.edges() ?? [])
             this.graph!.edge(e)?.minimapDraw();
+    }
+
+    protected setTemporaryContext(ctx: CanvasRenderingContext2D): void {
+        if (!this.graph || !this.sdfg)
+            return;
+        doForAllDagreGraphElements((_group, _info, elem) => {
+            elem.setTemporaryContext(ctx);
+        }, this.graph, this.sdfg);
+    }
+
+    protected restoreContext(): void {
+        if (!this.graph || !this.sdfg)
+            return;
+        doForAllDagreGraphElements((_group, _info, elem) => {
+            elem.restoreContext();
+        }, this.graph, this.sdfg);
     }
 
     protected internalDraw(dt?: number, ctx?: CanvasRenderingContext2D): void {

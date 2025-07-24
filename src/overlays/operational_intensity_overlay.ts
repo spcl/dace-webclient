@@ -7,6 +7,7 @@ import type {
 import {
     ConditionalBlock,
     ControlFlowBlock,
+    Edge,
     NestedSDFG,
     SDFGElement,
     SDFGNode,
@@ -29,8 +30,18 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
     public constructor(renderer: SDFGRenderer) {
         super(renderer);
 
+        this.renderer.on(
+            'selection_changed', this.onSelectionChanged.bind(this)
+        );
+
         this.renderer.emit(
             'backend_data_requested', 'flops', 'OperationalIntensityOverlay'
+        );
+    }
+
+    public destroy(): void {
+        this.renderer.off(
+            'selection_changed', this.onSelectionChanged.bind(this)
         );
     }
 
@@ -276,29 +287,22 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         this.shadeSDFG();
     }
 
-    /*
-    public on_mouse_event(
-        type: string,
-        _ev: Event,
-        _mousepos: Point2D,
-        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
-        foreground_elem: SDFGElement | null,
-        ends_drag: boolean
-    ): boolean {
-        if (type === 'click' && !ends_drag) {
-            if (foreground_elem && !(foreground_elem instanceof Edge)) {
-                if (foreground_elem.data.flops === undefined) {
-                    const flops_string = this.flopsMap[
-                        getGraphElementUUID(foreground_elem)
+    protected onSelectionChanged(_multiSelectionChanged: boolean): void {
+        if (this.renderer.selectedRenderables.size === 1) {
+            const fgElem = Array.from(this.renderer.selectedRenderables)[0];
+            if (!(fgElem instanceof Edge)) {
+                if (fgElem.jsonData?.flops === undefined) {
+                    const flopsString = this.flopsMap[
+                        getGraphElementUUID(fgElem)
                     ];
-                    if (flops_string) {
+                    if (flopsString) {
                         this.symbolResolver.parseExpression(
-                            flops_string,
-                            this.symbolResolver.get_symbol_value_map(),
+                            flopsString,
+                            this.symbolResolver.symbolValueMap,
                             true,
                             () => {
                                 this.clearCachedValues();
-                                const graph = this.renderer.get_graph();
+                                const graph = this.renderer.graph;
                                 if (graph)
                                     this.recalculateOpIntValues(graph);
                             }
@@ -307,8 +311,6 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
                 }
             }
         }
-        return false;
     }
-    */
 
 }
