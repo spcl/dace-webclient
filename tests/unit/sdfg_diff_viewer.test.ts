@@ -42,22 +42,25 @@ function testDiffTiledGemm(): void {
     const viewer = new WebSDFGDiffViewer();
     const leftRenderer = new SDFGRenderer(
         leftContainer, viewer, null, null, false, null,
-        undefined, [
-            'settings',
-            'zoom_to_fit_all',
-            'zoom_to_fit_width',
-            'collapse',
-            'expand',
-        ]
+        undefined, {
+            settings: true,
+            zoomBtns: true,
+            zoomToFit: true,
+            zoomToFitWidth: true,
+            collapse: true,
+            expand: true,
+        }
     );
     const rightRenderer = new SDFGRenderer(
         rightContainer, viewer, null, null, false, null,
-        undefined, [
-            'zoom_to_fit_all',
-            'zoom_to_fit_width',
-            'collapse',
-            'expand',
-        ]
+        undefined, {
+            settings: false,
+            zoomBtns: true,
+            zoomToFit: true,
+            zoomToFitWidth: true,
+            collapse: true,
+            expand: true,
+        }
     );
 
     const sdfgAjson = _loadSDFG('gemm_expanded_pure');
