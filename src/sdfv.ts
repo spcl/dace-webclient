@@ -214,7 +214,7 @@ export class WebSDFV extends SDFV {
     private currentSDFGFile?: File;
     private modeButtons?: ModeButtons;
 
-    public get inittialized(): boolean {
+    public get initialized(): boolean {
         return this._initialized;
     }
 
@@ -223,7 +223,7 @@ export class WebSDFV extends SDFV {
             return;
 
         // This is called here to initialize the monaco editor web workers for
-        // tokenization. There is no way to avait this creation, which leads to
+        // tokenization. There is no way to await this creation, which leads to
         // code not being correctly highlighted in tasklets for the first time
         // an SDFG is loaded. Initializing this here ensures that by the time
         // the user loads an SDFG, the web workers are already created and

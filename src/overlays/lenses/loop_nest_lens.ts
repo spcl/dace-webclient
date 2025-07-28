@@ -42,10 +42,10 @@ interface ConditionalEntry extends ControlFlowEntry {
     branches: ControlFlowEntry[][];
 }
 
-export class LoopNestLense extends GenericSdfgOverlay {
+export class LoopNestLens extends GenericSdfgOverlay {
 
     public static readonly type: OverlayType = OverlayType.LENSE;
-    public readonly olClass: typeof GenericSdfgOverlay = LoopNestLense;
+    public readonly olClass: typeof GenericSdfgOverlay = LoopNestLens;
 
     private static readonly LANE_OFFSET_X = -40;
     private static readonly LOOP_ENTRY_HEIGHT = 10;
@@ -241,8 +241,8 @@ export class LoopNestLense extends GenericSdfgOverlay {
         }
 
         let contentHeight = 0;
-        const offsX = -LoopNestLense.LOOP_ENTRY_WIDTH;
-        let offsY = LoopNestLense.LOOP_ENTRY_HEIGHT;
+        const offsX = -LoopNestLens.LOOP_ENTRY_WIDTH;
+        let offsY = LoopNestLens.LOOP_ENTRY_HEIGHT;
         for (const child of loop.children) {
             if (Object.hasOwn(child, 'nExecs')) {
                 const childLoop = child as LoopEntry;
@@ -258,7 +258,7 @@ export class LoopNestLense extends GenericSdfgOverlay {
         }
 
         loop.height = Math.max(
-            minHeight, contentHeight + LoopNestLense.LOOP_ENTRY_HEIGHT
+            minHeight, contentHeight + LoopNestLens.LOOP_ENTRY_HEIGHT
         );
     }
 
@@ -270,7 +270,7 @@ export class LoopNestLense extends GenericSdfgOverlay {
         for (const entry of this.loops) {
             if (Object.hasOwn(entry, 'nExecs')) {
                 this.layoutLoop(
-                    entry as LoopEntry, 0 + LoopNestLense.LANE_OFFSET_X
+                    entry as LoopEntry, 0 + LoopNestLens.LANE_OFFSET_X
                 );
             } else {
                 this.layoutConditional(entry as ConditionalEntry);
@@ -287,13 +287,13 @@ export class LoopNestLense extends GenericSdfgOverlay {
             ctx.fillStyle = SDFVSettings.get<string>('interstateEdgeColor');
         }
         ctx.fillRect(
-            loop.position.x, loop.position.y, LoopNestLense.LOOP_ENTRY_WIDTH,
+            loop.position.x, loop.position.y, LoopNestLens.LOOP_ENTRY_WIDTH,
             loop.height
         );
 
         ctx.strokeStyle = SDFVSettings.get<string>('defaultTextColor');
         ctx.strokeRect(
-            loop.position.x, loop.position.y, LoopNestLense.LOOP_ENTRY_WIDTH,
+            loop.position.x, loop.position.y, LoopNestLens.LOOP_ENTRY_WIDTH,
             loop.height
         );
 

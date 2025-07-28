@@ -2428,9 +2428,8 @@ export class NestedSDFG extends SDFGNode {
         if (this.attributes()?.is_collapsed) {
             this._drawLabel(mousepos);
         } else {
-            const nsdfg = this.attributes()?.sdfg as JsonSDFG | undefined;
             const ngraph = this.data?.graph as DagreGraph | undefined;
-            if (nsdfg?.type !== 'SDFGShell' && ngraph) {
+            if (ngraph) {
                 // Draw nested graph.
                 drawSDFG(this.renderer, this.ctx, ngraph, mousepos);
             } else {
@@ -2439,7 +2438,11 @@ export class NestedSDFG extends SDFGNode {
                     const errColor = SDFVSettings.get<string>(
                         'errorNodeBackgroundColor'
                     );
-                    const label = 'No SDFG loaded';
+                    let label = 'No SDFG loaded';
+                    const extPath =
+                        this.attributes()?.ext_sdfg_path as string | undefined;
+                    if (extPath)
+                        label += '\n(' + extPath + ')';
                     const textmetrics = this.ctx.measureText(label);
                     this.ctx.fillStyle = errColor;
                     this.ctx.fillText(

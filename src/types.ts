@@ -94,6 +94,7 @@ export interface JsonSDFGNode extends JsonSDFGElement {
         is_collapsed?: boolean,
         data?: string;
         sdfg?: JsonSDFG;
+        ext_sdfg_path?: string;
         layout?: Record<string, unknown>;
     };
     id: number;
@@ -185,7 +186,7 @@ export interface Size2D {
 export type SimpleRect = Point2D & Size2D;
 
 export type SDFGElementGroup = (
-    'states' | 'nodes' | 'edges' | 'isedges' | 'connectors' |
+    'states' | 'nodes' | 'edges' | 'interstateEdges' | 'connectors' |
     'controlFlowRegions' | 'controlFlowBlocks'
 );
 

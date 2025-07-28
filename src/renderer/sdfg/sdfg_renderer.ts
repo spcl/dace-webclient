@@ -1596,13 +1596,13 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     // The output is a dictionary of lists of dictionaries. The top-level keys
     // are:
     // states, controlFlowRegions, controlFlowBlocks, nodes, connectors, edges,
-    // isedges (interstate edges).
+    // interstateEdges.
     // For example:
     // {
     //  'states': [{sdfg: sdfg_name, state: 1}, ...],
     //  'nodes': [{sdfg: sdfg_name, state: 1, node: 5}, ...],
     //  'edges': [],
-    //  'isedges': [],
+    //  'interstateEdges': [],
     //  'connectors': [],
     //  'controlFlowRegions': [],
     //  'controlFlowBlocks': [],
@@ -1615,7 +1615,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             nodes: [],
             connectors: [],
             edges: [],
-            isedges: [],
+            interstateEdges: [],
             controlFlowRegions: [],
             controlFlowBlocks: [],
         };
@@ -1641,7 +1641,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         const states = elements.states;
         const nodes = elements.nodes;
         const edges = elements.edges;
-        const interstateEdges = elements.isedges;
+        const interstateEdges = elements.interstateEdges;
         const connectors = elements.connectors;
         const cfRegions = elements.controlFlowRegions;
         const cfBlocks = elements.controlFlowBlocks;

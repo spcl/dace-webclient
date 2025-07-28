@@ -127,7 +127,7 @@ export function readOrDecompress(
 }
 
 /**
- * Recursively parse an SDFG from it's string representation.
+ * Recursively parse an SDFG from its string representation.
  * @param sdfgJson          SDFG string.
  * @param skipAutocollapse  Avoid automatically collapsing nested regions.
  * @returns                 Parsed SDFG.

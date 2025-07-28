@@ -16,10 +16,10 @@ import { SDFV } from '../../sdfv';
 import { JsonSDFG, OverlayType } from '../../types';
 import { GenericSdfgOverlay } from '../common/generic_sdfg_overlay';
 
-export class CFDataDependencyLense extends GenericSdfgOverlay {
+export class CFDataDependencyLens extends GenericSdfgOverlay {
 
     public static readonly type: OverlayType = OverlayType.NODE;
-    public readonly olClass: typeof GenericSdfgOverlay = CFDataDependencyLense;
+    public readonly olClass: typeof GenericSdfgOverlay = CFDataDependencyLens;
 
     public static readonly CONNECTOR_SPACING: number = 15;
     public static readonly CONNECTOR_WIDTH: number = 8;
@@ -106,25 +106,25 @@ export class CFDataDependencyLense extends GenericSdfgOverlay {
         let i = 0;
         const baseInY = block.y - block.height / 2;
         const baseInX = (block.x - (block.width / 2)) + (
-            CFDataDependencyLense.CONNECTOR_SPACING / 2
+            CFDataDependencyLens.CONNECTOR_SPACING / 2
         );
         const baseOutX = baseInX;
         const baseOutY = baseInY + block.height;
         for (const connector of readConnectors) {
-            connector.x = baseInX + i * CFDataDependencyLense.CONNECTOR_SPACING;
+            connector.x = baseInX + i * CFDataDependencyLens.CONNECTOR_SPACING;
             connector.y = baseInY;
-            connector.width = CFDataDependencyLense.CONNECTOR_WIDTH;
-            connector.height = CFDataDependencyLense.CONNECTOR_HEIGHT;
+            connector.width = CFDataDependencyLens.CONNECTOR_WIDTH;
+            connector.height = CFDataDependencyLens.CONNECTOR_HEIGHT;
             i++;
         }
         i = 0;
         for (const connector of writeConnectors) {
             connector.x = baseOutX + (
-                i * CFDataDependencyLense.CONNECTOR_SPACING
+                i * CFDataDependencyLens.CONNECTOR_SPACING
             );
             connector.y = baseOutY;
-            connector.width = CFDataDependencyLense.CONNECTOR_WIDTH;
-            connector.height = CFDataDependencyLense.CONNECTOR_HEIGHT;
+            connector.width = CFDataDependencyLens.CONNECTOR_WIDTH;
+            connector.height = CFDataDependencyLens.CONNECTOR_HEIGHT;
             i++;
         }
     }

@@ -217,7 +217,7 @@ export function doForAllJsonSDFGElements(
 
         // Selected inter-state edges
         rCFG.edges.forEach((isedge: JsonSDFGEdge, isEdgeId: number) => {
-            func('isedges', {
+            func('interstateEdges', {
                 sdfg: rSDFG,
                 graph: rCFG,
                 id: isEdgeId,
@@ -427,7 +427,7 @@ export function doForAllDagreGraphElements(
         for (const isEdgeId of rGraph.edges()) {
             const isEdge = rGraph.edge(isEdgeId) as InterstateEdge;
             func(
-                'isedges',
+                'interstateEdges',
                 {
                     sdfg: rSDFG,
                     graph: rGraph,
@@ -586,7 +586,7 @@ export function doForIntersectedDagreGraphElements(
             const isedge = rGraph.edge(isEdgeId) as InterstateEdge;
             if (isedge.intersect(x, y, w, h)) {
                 func(
-                    'isedges',
+                    'interstateEdges',
                     {
                         sdfg: rSDFG,
                         graph: rGraph,

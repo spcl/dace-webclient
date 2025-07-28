@@ -45,8 +45,8 @@ import {
 } from '../utils/bounding_box';
 import { deepCopy } from '../utils/utils';
 import {
-    CFDataDependencyLense,
-} from '../overlays/lenses/cf_data_dependency_lense';
+    CFDataDependencyLens,
+} from '../overlays/lenses/cf_data_dependency_lens';
 import type {
     CFGListType,
     DagreGraph,
@@ -198,9 +198,7 @@ function calculateDFNodeSize(
         case SDFGElementType.AccessNode.toString():
             label = node.label;
             if (SDFVSettings.get<boolean>('showDataDescriptorSizes')) {
-                const nodedesc = sdfg.attributes?._arrays[label] as {
-                    attributes?: { shape?: string },
-                } | undefined;
+                const nodedesc = sdfg.attributes?._arrays[label];
                 if (nodedesc?.attributes?.shape) {
                     label = ' ' + sdfgPropertyToString(
                         nodedesc.attributes.shape
@@ -324,8 +322,7 @@ function layoutDFNode(
     // Recursively lay out nested SDFGs.
     if (node.type === SDFGElementType.NestedSDFG.toString() ||
         node.type === SDFGElementType.ExternalNestedSDFG.toString()) {
-        if (node.attributes.sdfg &&
-            node.attributes.sdfg.type !== 'SDFGShell') {
+        if (node.attributes.sdfg) {
             if ('is_collapsed' in node.attributes &&
                 node.attributes.is_collapsed) {
                 // Noop.
@@ -344,7 +341,9 @@ function layoutDFNode(
                     sdfgInfo.height + 2 * SDFV.LINEHEIGHT;
             }
         } else {
-            const emptyNSDFGLabel = 'No SDFG loaded';
+            let emptyNSDFGLabel = 'No SDFG loaded';
+            if (node.attributes.ext_sdfg_path)
+                emptyNSDFGLabel += '\n(' + node.attributes.ext_sdfg_path + ')';
             const textMetrics = ctx.measureText(emptyNSDFGLabel);
             node.attributes.layout.width =
                 textMetrics.width + 2 * SDFV.LINEHEIGHT;
@@ -591,6 +590,11 @@ function layoutSDFGState(
         }
     });
 
+    // Forced type reinterpretation because dagre.js' types are not quite
+    // correct. Dagre's graphlib.Graph claims to not return undefined for
+    // nodes or edges, but it can - we thus override the type using DagreGraph.
+    // These types are consequently reported as incompatible here. This can
+    // safely be ignored by casting to unknown first, forcing reinterpretation.
     dagre.layout(g as unknown as dagre.graphlib.Graph);
 
     // Layout connectors and nested SDFGs.
@@ -977,7 +981,7 @@ function layoutControlFlowRegion(
     const sdfg = cfgElem.sdfg;
 
     // Layout the state machine as a dagre graph.
-    const g = new dagre.graphlib.Graph() as unknown as DagreGraph;
+    const g = new dagre.graphlib.Graph() as DagreGraph;
     g.setGraph({});
     g.setDefaultEdgeLabel(() => {
         return {};
@@ -1007,14 +1011,14 @@ function layoutControlFlowRegion(
             const nc = Object.keys(block.attributes.possible_reads).length;
             minWidth = Math.max(
                 minWidth,
-                nc * CFDataDependencyLense.CONNECTOR_SPACING
+                nc * CFDataDependencyLens.CONNECTOR_SPACING
             );
         }
         if (block.attributes?.possible_writes) {
             const nc = Object.keys(block.attributes.possible_writes).length;
             minWidth = Math.max(
                 minWidth,
-                nc * CFDataDependencyLense.CONNECTOR_SPACING
+                nc * CFDataDependencyLens.CONNECTOR_SPACING
             );
         }
         if (block.attributes?.is_collapsed) {

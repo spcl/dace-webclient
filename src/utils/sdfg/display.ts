@@ -130,8 +130,13 @@ export function sdfgPropertyToString(prop: unknown): string {
             case 'Structure':
             case 'View':
             case 'ContainerView':
+            case 'StructureView':
             case 'ArrayView':
             case 'ContainerArray':
+            case 'Reference':
+            case 'ArrayReference':
+            case 'StructureReference':
+            case 'ContainerArrayReference':
                 return dictionaryToString(prop);
         }
     } else if (Object.hasOwn(prop, 'language')) {
