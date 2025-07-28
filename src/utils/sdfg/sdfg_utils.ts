@@ -1,6 +1,5 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import type { CFGListType } from '../../renderer/renderer';
 import {
     ControlFlowRegion,
     Edge,
@@ -8,25 +7,37 @@ import {
     SDFGElementType,
     SDFGNode,
     State,
-} from '../../renderer/renderer_elements';
+} from '../../renderer/sdfg/sdfg_elements';
+import type {
+    CFGListType,
+} from '../../renderer/sdfg/sdfg_renderer';
 import {
     JsonSDFGBlock,
+    JsonSDFGConditionalBlock,
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
     JsonSDFGNode,
     JsonSDFGState,
+    Point2D,
 } from '../../types';
 
+
+/**
+ * Given a scope entry node, finds and returns the corresponding exit node.
+ * @param nodes     State nodes in which the scope node is contained.
+ * @param entryNode Scope entry node.
+ * @returns         Exit node corresponding to `entryNode`.
+ */
 export function findExitForEntry(
     nodes: JsonSDFGNode[], entryNode: JsonSDFGNode
-): JsonSDFGNode | null {
+): JsonSDFGNode | undefined {
     for (const n of nodes) {
         if (n.type.endsWith('Exit') && n.scope_entry &&
             parseInt(n.scope_entry) === entryNode.id)
             return n;
     }
     console.warn('Did not find corresponding exit');
-    return null;
+    return undefined;
 }
 
 /**
@@ -42,72 +53,67 @@ export function findExitForEntry(
  *
  * @returns             String containing the UUID
  */
-export function getGraphElementUUID(element: SDFGElement | null): string {
-    const undefined_val = -1;
-    const cfgId = (
-        element instanceof ControlFlowRegion ?
-            element.data.block.cfg_list_id :
-            element?.cfg?.cfg_list_id
-    ) ?? undefined_val;
+export function getGraphElementUUID(element?: SDFGElement): string {
+    const undefinedVal = '-1';
+    let cfgId = undefinedVal;
+    if (element instanceof ControlFlowRegion)
+        cfgId = element.jsonData?.cfg_list_id.toString() ?? undefinedVal;
+    else
+        cfgId = element?.cfg?.cfg_list_id.toString() ?? undefinedVal;
     if (element instanceof State) {
         return (
             cfgId + '/' +
-            element.id + '/' +
-            undefined_val + '/' +
-            undefined_val
+            element.id.toString() + '/' +
+            undefinedVal + '/' +
+            undefinedVal
         );
     } else if (element instanceof SDFGNode) {
         return (
             cfgId + '/' +
-            element.parent_id + '/' +
-            element.id + '/' +
-            undefined_val
+            (element.parentStateId?.toString() ?? undefinedVal) + '/' +
+            element.id.toString() + '/' +
+            undefinedVal
         );
     } else if (element instanceof Edge) {
-        let parent_id = undefined_val;
-        if (element.parent_id !== null && element.parent_id !== undefined)
-            parent_id = element.parent_id;
+        let parentId = undefinedVal;
+        if (element.parentStateId !== undefined)
+            parentId = element.parentStateId.toString();
         return (
             cfgId + '/' +
-            parent_id + '/' +
-            undefined_val + '/' +
-            element.id
+            parentId + '/' +
+            undefinedVal + '/' +
+            element.id.toString()
         );
     }
-    return (
-        cfgId + '/' +
-        undefined_val + '/' +
-        undefined_val + '/' +
-        undefined_val
-    );
+    return cfgId + '/' + undefinedVal + '/' + undefinedVal + '/' + undefinedVal;
 }
 
 
-export function check_and_redirect_edge(
-    edge: JsonSDFGEdge, drawn_nodes: Set<string>, sdfg_state: JsonSDFGState
-): JsonSDFGEdge | null {
+export function checkAndRedirectEdge<T extends JsonSDFGEdge>(
+    edge: T, drawnNodes: Set<string>, sdfgState: JsonSDFGState
+): T | undefined {
     // If destination is not drawn, no need to draw the edge
-    if (!drawn_nodes.has(edge.dst))
-        return null;
+    if (!drawnNodes.has(edge.dst))
+        return undefined;
     // If both source and destination are in the graph, draw edge as-is
-    if (drawn_nodes.has(edge.src))
+    if (drawnNodes.has(edge.src))
         return edge;
 
     // If immediate scope parent node is in the graph, redirect
-    const scope_src = sdfg_state.nodes[parseInt(edge.src)].scope_entry;
-    if (!scope_src || !drawn_nodes.has(scope_src))
-        return null;
+    const scopeSrc = sdfgState.nodes[parseInt(edge.src)].scope_entry;
+    if (!scopeSrc || !drawnNodes.has(scopeSrc))
+        return undefined;
 
     // Clone edge for redirection, change source to parent
-    const new_edge = Object.assign({}, edge);
-    new_edge.src = scope_src;
+    const newEdge = Object.assign({}, edge);
+    newEdge.src = scopeSrc;
 
-    return new_edge;
+    return newEdge;
 }
 
 export function findGraphElementByUUID(
     cfgList: CFGListType, uuid: string
-): SDFGElement | null {
+): SDFGElement | undefined {
     const uuidParts = uuid.split('/');
 
     const cfgId = uuidParts[0];
@@ -116,7 +122,7 @@ export function findGraphElementByUUID(
     const edgeId = uuidParts[3];
 
     if (!(cfgId in cfgList))
-        return null;
+        return undefined;
 
     const cfgListItem = cfgList[cfgId];
     const graph = cfgListItem.graph;
@@ -126,12 +132,15 @@ export function findGraphElementByUUID(
             state = graph.node(stateId);
 
         let element = null;
-        if (nodeId !== '-1' && state !== null && state.data.graph !== null)
-            element = state.data.graph.node(nodeId); // SDFG Dataflow graph node
-        else if (edgeId !== '-1' && state !== null && state.data.graph !== null)
-            element = state.data.graph.edge(edgeId); // Memlet
-        else if (edgeId !== '-1' && state === null)
-            element = graph.edge(edgeId as any); // Interstate edge
+        if (nodeId !== '-1' && state?.graph) {
+            // Dataflow graph node.
+            element = state.graph.node(nodeId);
+        } else if (edgeId !== '-1' && state?.graph) {
+            // Memlet.
+            element = state.graph.edge(edgeId);
+        } else if (edgeId !== '-1' && state === null) {
+            element = graph.edge(edgeId);
+        }
 
         if (element)
             return element;
@@ -142,29 +151,31 @@ export function findGraphElementByUUID(
     return cfgListItem.nsdfgNode;
 }
 
+interface IElemPosition {
+    points: Point2D[];
+    dx?: number;
+    dy?: number;
+    scopeDx?: number;
+    scopeDy?: number;
+}
+
 /**
  * Initializes positioning information on the given element.
  *
- * @param {SDFGElement} elem    The element to be initialized
- * @returns                     Initially created positioning information
+ * @param elem The element to be initialized
+ * @returns    Initially created positioning information
  */
-export function initialize_positioning_info(elem: any): any {
-    let position;
-    if (elem instanceof Edge || elem.type === 'MultiConnectorEdge') {
-        let points = undefined;
-        if (elem.points)
-            points = Array(elem.points.length);
-
-        position = {
-            points: points ? points : [],
-            scope_dx: 0,
-            scope_dy: 0,
-        };
-
-        for (let i = 0; elem.points && i < elem.points.length; i++)
-            position.points[i] = { dx: 0, dy: 0 };
-    } else {
-        position = { dx: 0, dy: 0, scope_dx: 0, scope_dy: 0 };
+export function initializePositioningInfo(elem: SDFGElement): IElemPosition {
+    const position: IElemPosition = {
+        points: [],
+        dx: 0,
+        dy: 0,
+        scopeDx: 0,
+        scopeDy: 0,
+    };
+    if (elem instanceof Edge) {
+        for (const _ignored of elem.points)
+            position.points.push({ x: 0, y: 0 });
     }
 
     setPositioningInfo(elem, position);
@@ -176,15 +187,13 @@ export function initialize_positioning_info(elem: any): any {
  * Sets the positioning information on a given element. Replaces old
  * positioning information.
  *
- * @param {SDFGElement} elem    The element that receives new positioning info
- * @param {*} position          The positioning information
+ * @param elem     The element that receives new positioning info
+ * @param position The positioning information
  */
 export function setPositioningInfo(
-    elem: any, position: any
+    elem: SDFGElement, position: IElemPosition
 ): void {
-    let attr = elem?.attributes() ?? elem?.attributes?.data?.attributes;
-    if (!attr)
-        attr = elem?.attributes;
+    const attr = elem.attributes();
     if (attr)
         attr.position = position;
 }
@@ -192,44 +201,46 @@ export function setPositioningInfo(
 /**
  * Finds the positioning information of the given element
  *
- * @param {SDFGElement} elem    The element that contains the information
- * @returns                     Position information, undefined if not present
+ * @param elem The element that contains the information
+ * @returns    Position information, undefined if not present
  */
-export function getPositioningInfo(elem: any): any {
-    let attr = elem?.attributes() ?? elem?.attributes?.data?.attributes;
-    if (!attr)
-        attr = elem?.attributes;
-    return attr?.position;
+export function getPositioningInfo(
+    elem: SDFGElement
+): IElemPosition | undefined {
+    return elem.attributes()?.position as IElemPosition | undefined;
 }
 
 /**
  * Deletes the positioning information of the given element
  *
- * @param {SDFGElement} elem    The element that contains the information
+ * @param elem The element that contains the information
  */
-export function deletePositioningInfo(elem: any): void {
-    let attr = elem?.attributes() ?? elem?.attributes?.data?.attributes;
-    if (!attr)
-        attr = elem?.attributes;
-    if (attr)
-        delete attr.position;
+export function deletePositioningInfo(elem: SDFGElement): void {
+    delete elem.attributes()?.position;
 }
 
-
+/**
+ * Find the root CFG or SDFG for a given CFG tree.
+ * @param cfgs      List of all control flow graph ids.
+ * @param cfgTree   Control flow graph tree.
+ * @param cfgList   Control flow graph list.
+ * @param sdfgsOnly Whether or not to only look for SDFGs.
+ * @returns         The root CFG or SDFG ID or null if not found.
+ */
 export function findRootCFG(
-    cfgs: Iterable<number>, cfgTree: { [key: number]: number },
+    cfgs: Iterable<number>, cfgTree: Record<number, number>,
     cfgList: CFGListType,
     sdfgsOnly: boolean = false
 ): number | null {
-    const makeCFGPath = (cfg: number, path: Array<number>) => {
+    const makeCFGPath = (cfg: number, path: number[]) => {
         path.push(cfg);
         if (cfg in cfgTree)
             makeCFGPath(cfgTree[cfg], path);
     };
 
-    let commonCFGs: Array<number> | null = null;
+    let commonCFGs: number[] | null = null;
     for (const sid of cfgs) {
-        const path: Array<number> = [];
+        const path: number[] = [];
         makeCFGPath(sid, path);
 
         if (commonCFGs === null) {
@@ -245,8 +256,7 @@ export function findRootCFG(
     // If only looking for SDFGs, only return the first one that is of type
     // SDFG.
     if (commonCFGs && commonCFGs.length > 0) {
-        for (let i = 0; i < commonCFGs.length; i++) {
-            const cfgId = commonCFGs[i];
+        for (const cfgId of commonCFGs) {
             const cfg = cfgList[cfgId].jsonObj;
             if (sdfgsOnly) {
                 if (cfg.type === 'SDFG')
@@ -264,10 +274,10 @@ export function findRootCFG(
 // In-place delete of SDFG state nodes.
 export function deleteSDFGNodes(
     cfg: JsonSDFGControlFlowRegion, stateId: number, nodeIds: number[],
-    delete_others = false
+    deleteOthers = false
 ): void {
     const block = cfg.nodes[stateId];
-    if (block.type !== SDFGElementType.SDFGState) {
+    if (block.type !== SDFGElementType.SDFGState.toString()) {
         console.warn(
             'Trying to delete an SDFG node, but parent element',
             block, 'is not of type SDFGState'
@@ -277,10 +287,10 @@ export function deleteSDFGNodes(
 
     const state: JsonSDFGState = block as JsonSDFGState;
     nodeIds.sort((a, b) => (a - b));
-    const mapping: { [key: string]: string } = { '-1': '-1' };
+    const mapping: Record<string, string> = { '-1': '-1' };
     state.nodes.forEach((n: JsonSDFGNode) => mapping[n.id] = '-1');
-    let predicate: CallableFunction;
-    if (delete_others)
+    let predicate: (ind: number) => boolean;
+    if (deleteOthers)
         predicate = (ind: number) => nodeIds.includes(ind);
     else
         predicate = (ind: number) => !nodeIds.includes(ind);
@@ -295,28 +305,28 @@ export function deleteSDFGNodes(
         mapping[n.id] = index.toString();
         n.id = index;
     });
-    state.edges.forEach((e: JsonSDFGEdge) => {
+    state.edges.forEach(e => {
         e.src = mapping[e.src];
         e.dst = mapping[e.dst];
     });
 
     // Remap scope dictionaries.
-    state.nodes.forEach((n: JsonSDFGNode) => {
-        if (n.scope_entry !== null)
+    state.nodes.forEach(n => {
+        if (n.scope_entry !== undefined)
             n.scope_entry = mapping[n.scope_entry];
-        if (n.scope_exit !== null)
+        if (n.scope_exit !== undefined)
             n.scope_exit = mapping[n.scope_exit];
     });
-    const new_scope_dict: any = {};
-    for (const sdkey of Object.keys(state.scope_dict)) {
-        const old_scope = state.scope_dict[sdkey];
-        const new_scope = old_scope.filter((v: any) => mapping[v] !== '-1').map(
-            (v: any) => mapping[v]
-        );
+    const newScopeDict: Record<string, number[]> = {};
+    for (const sdkey of Object.keys(state.scope_dict ?? {})) {
+        const oldScope = state.scope_dict?.[sdkey] ?? [];
+        const newScope = oldScope.filter(
+            v => mapping[v.toString()] !== '-1'
+        ).map(v => parseInt(mapping[v.toString()]));
         if ((sdkey === '-1') || (sdkey in mapping && mapping[sdkey] !== '-1'))
-            new_scope_dict[mapping[sdkey]] = new_scope;
+            newScopeDict[mapping[sdkey]] = newScope;
     }
-    state.scope_dict = new_scope_dict;
+    state.scope_dict = newScopeDict;
 }
 
 export function deleteCFGBlocks(
@@ -324,7 +334,7 @@ export function deleteCFGBlocks(
     deleteOthers: boolean = false
 ): void {
     blockIds.sort((a, b) => (a - b));
-    let predicate: CallableFunction;
+    let predicate: (ind: number) => boolean;
     if (deleteOthers)
         predicate = (ind: number) => blockIds.includes(ind);
     else
@@ -336,7 +346,7 @@ export function deleteCFGBlocks(
     ));
 
     // Remap node and edge indices.
-    const mapping: { [key: string]: string } = {};
+    const mapping: Record<string, string> = {};
     cfg.nodes.forEach((n: JsonSDFGBlock, index: number) => {
         mapping[n.id] = index.toString();
         n.id = index;
@@ -345,9 +355,46 @@ export function deleteCFGBlocks(
         e.src = mapping[e.src];
         e.dst = mapping[e.dst];
     });
-    if (mapping[cfg.start_block] === '-1' ||
-        mapping[cfg.start_block] === undefined)
+    if (mapping[cfg.start_block] === '-1')
         cfg.start_block = 0;
     else
         cfg.start_block = parseInt(mapping[cfg.start_block]);
+}
+
+/**
+ * Recursively set the collapsed state of SDFG elements.
+ * @param cfg           Control flow graph in which to set the collapsed state.
+ * @param collapseState Collapsed state to set.
+ */
+export function setCollapseStateRecursive(
+    cfg: JsonSDFGBlock, collapseState: boolean
+): void {
+    if (Object.hasOwn(cfg, 'branches')) {
+        for (const branch of (cfg as JsonSDFGConditionalBlock).branches) {
+            if (branch[1].attributes)
+                branch[1].attributes.is_collapsed = collapseState;
+            setCollapseStateRecursive(branch[1], collapseState);
+        }
+    } else if (cfg.type === 'SDFGState') {
+        for (const node of (cfg as JsonSDFGState).nodes) {
+            if (node.type === 'NestedSDFG') {
+                if (node.attributes)
+                    node.attributes.is_collapsed = collapseState;
+                if (node.attributes?.sdfg) {
+                    setCollapseStateRecursive(
+                        node.attributes.sdfg, collapseState
+                    );
+                }
+            } else if (node.type.endsWith('Entry')) {
+                if (node.attributes)
+                    node.attributes.is_collapsed = collapseState;
+            }
+        }
+    } else if (Object.hasOwn(cfg, 'nodes')) {
+        for (const node of (cfg as JsonSDFGControlFlowRegion).nodes) {
+            if (node.attributes)
+                node.attributes.is_collapsed = collapseState;
+            setCollapseStateRecursive(node, collapseState);
+        }
+    }
 }

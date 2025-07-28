@@ -1,13 +1,40 @@
 {
+    "globalSettings": {
+        "categories": {
+            "test": {},
+            "view": {}
+        }
+    },
     "viewerSettings": {
         "categories": {
             "view": {
                 "label": "View",
                 "settings": {
+                    "colorTheme": {
+                        "label": "Color theme",
+                        "type": "select",
+                        "default": "DefaultBlue",
+                        "choices": [
+                            {
+                                "label": "Default blue",
+                                "value": "DefaultBlue"
+                            },
+                            {
+                                "label": "Default green",
+                                "value": "DefaultGreen"
+                            }
+                        ],
+                        "externalEvent": false
+                    },
                     "curvedEdges": {
                         "label": "Draw curved edges (turn this off if you are experiencing performance issues)",
                         "type": "boolean",
                         "default": true
+                    },
+                    "loadGraphsCollapsed": {
+                        "label": "Start off newly loaded programs in a collapsed state",
+                        "type": "boolean",
+                        "default": false
                     },
                     "toolbar": {
                         "label": "Show toolbar",
@@ -171,6 +198,331 @@
                         "type": "boolean",
                         "default": false,
                         "relayout": true
+                    }
+                }
+            },
+            "customizeColorTheme": {
+                "label": "Customize Color Theme",
+                "settings": {
+                    "defaultTextColor": {
+                        "label": "Default text",
+                        "type": "color",
+                        "default": "#000000"
+                    },
+                    "nodeBackgroundColor": {
+                        "label": "Default node background",
+                        "type": "color",
+                        "default": "#ffffff"
+                    },
+                    "nodeBorderColor": {
+                        "label": "Default node border",
+                        "type": "color",
+                        "default": "#333333"
+                    },
+                    "scopedConnectorColor": {
+                        "label": "Scoped connector color",
+                        "type": "color",
+                        "default": "#c1dfe6"
+                    },
+                    "unscopedConnectorColor": {
+                        "label": "Unscoped connector color",
+                        "type": "color",
+                        "default": "#f0fdff"
+                    },
+                    "referenceBackgroundColor": {
+                        "label": "Reference background",
+                        "type": "color",
+                        "default": "#ffdede"
+                    },
+                    "stateBackgroundColor": {
+                        "label": "State background",
+                        "type": "color",
+                        "default": "#deebf7"
+                    },
+                    "stateBorderColor": {
+                        "label": "State border",
+                        "type": "color",
+                        "default": "#deebf7"
+                    },
+                    "breakBlockColor": {
+                        "label": "Break block",
+                        "type": "color",
+                        "default": "#ffc79a"
+                    },
+                    "continueBlockColor": {
+                        "label": "Continue block",
+                        "type": "color",
+                        "default": "#94ffa2"
+                    },
+                    "returnBlockColor": {
+                        "label": "Return block",
+                        "type": "color",
+                        "default": "#ff7d7d"
+                    },
+                    "conditionalColor": {
+                        "label": "Conditional block",
+                        "type": "color",
+                        "default": "#bec080"
+                    },
+                    "controlFlowRegionColor": {
+                        "label": "Control flow region",
+                        "type": "color",
+                        "default": "#ffffff"
+                    },
+                    "loopColor": {
+                        "label": "Loop region",
+                        "type": "color",
+                        "default": "#fafafa"
+                    },
+                    "interstateEdgeColor": {
+                        "label": "Interstate edge color",
+                        "type": "color",
+                        "default": "#86add9"
+                    },
+                    "errorNodeBackgroundColor": {
+                        "label": "Background for nodes with errors",
+                        "type": "color",
+                        "default": "#ff1010"
+                    },
+                    "errorNodeForegroundColor": {
+                        "label": "Text for nodes with errors",
+                        "type": "color",
+                        "default": "#ffffff"
+                    },
+                    "diffAddedColor": {
+                        "label": "Added elements in a diff",
+                        "type": "color",
+                        "default": "#5dba4c"
+                    },
+                    "diffChangedColor": {
+                        "label": "Changed elements in a diff",
+                        "type": "color",
+                        "default": "#ffcc54"
+                    },
+                    "diffRemovedColor": {
+                        "label": "Removed elements in a diff",
+                        "type": "color",
+                        "default": "#ff6d45"
+                    },
+                    "taskletInputColor": {
+                        "label": "Tasklet input tokens",
+                        "type": "color",
+                        "default": "#000000"
+                    },
+                    "taskletOutputColor": {
+                        "label": "Tasklet output tokens",
+                        "type": "color",
+                        "default": "#000000"
+                    },
+                    "taskletSymbolColor": {
+                        "label": "Tasklet symbol tokens",
+                        "type": "color",
+                        "default": "#ff1010"
+                    },
+                    "taskletNumberColor": {
+                        "label": "Tasklet number tokens",
+                        "type": "color",
+                        "default": "#000000"
+                    },
+                    "taskletHighlightedColor": {
+                        "label": "Tasklet highlighted tokens",
+                        "type": "color",
+                        "default": "#008000"
+                    },
+                    "selectedColor": {
+                        "label": "Selected elements",
+                        "type": "color",
+                        "default": "#cc3030"
+                    },
+                    "highlightedColor": {
+                        "label": "Highlighted elements",
+                        "type": "color",
+                        "default": "#ffa500"
+                    },
+                    "hoveredColor": {
+                        "label": "Hovered elements",
+                        "type": "color",
+                        "default": "#008000"
+                    }
+                }
+            }
+        }
+    },
+    "timelineSettings": {
+        "categories": {
+            "view": {
+                "label": "View",
+                "settings": {
+                    "toolbar": {
+                        "label": "Show toolbar",
+                        "type": "boolean",
+                        "default": true,
+                        "hidden": true
+                    },
+                    "minimap": {
+                        "label": "Show minimap",
+                        "type": "boolean",
+                        "default": true,
+                        "redrawUI": true
+                    }
+                }
+            },
+            "mouse": {
+                "label": "Navigation",
+                "settings": {
+                    "useVerticalScrollNavigation": {
+                        "label": "Use vertical scroll navigation (binds zoom to Ctrl + scroll)",
+                        "type": "boolean",
+                        "default": false
+                    },
+                    "bindToViewport": {
+                        "label": "Restrict panning to ensure the graph is always visible",
+                        "type": "boolean",
+                        "default": true
+                    }
+                }
+            },
+            "performance": {
+                "label": "Performance",
+                "settings": {
+                    "adaptiveContentHiding": {
+                        "label": "Adaptively hide content when zooming out (Warning: turning this off can cause performance issues on large graphs)",
+                        "type": "boolean",
+                        "default": true,
+                        "toggleDisabled": [
+                            ["performance.taskletLOD", false],
+                            ["performance.scopeLOD", false],
+                            ["performance.edgeLOD", false],
+                            ["performance.nodeLOD", false],
+                            ["performance.textLOD", false],
+                            ["performance.nestedLOD", false]
+                        ]
+                    },
+                    "taskletLOD": {
+                        "label": "Zoom threshold for drawing tasklet contents",
+                        "type": "range",
+                        "default": 0.35,
+                        "minimum": 0.0,
+                        "maximum": 5.0,
+                        "step": 0.01,
+                        "relayout": false
+                    },
+                    "scopeLOD": {
+                        "label": "Zoom threshold for drawing simple versions of scopes",
+                        "type": "range",
+                        "default": 0.75,
+                        "minimum": 0.0,
+                        "maximum": 5.0,
+                        "step": 0.01,
+                        "relayout": false
+                    },
+                    "edgeLOD": {
+                        "label": "Zoom threshold for drawing memlets and control flow edges",
+                        "type": "range",
+                        "default": 5.0,
+                        "minimum": 0.0,
+                        "maximum": 10.0,
+                        "step": 0.1,
+                        "relayout": false
+                    },
+                    "nodeLOD": {
+                        "label": "Zoom threshold for drawing node shapes and labels",
+                        "type": "range",
+                        "default": 5.0,
+                        "minimum": 0.0,
+                        "maximum": 10.0,
+                        "step": 0.1,
+                        "relayout": false
+                    },
+                    "textLOD": {
+                        "label": "Zoom threshold for drawing node text",
+                        "type": "range",
+                        "default": 1.5,
+                        "minimum": 0.0,
+                        "maximum": 10.0,
+                        "step": 0.1,
+                        "relayout": false
+                    },
+                    "nestedLOD": {
+                        "label": "Zoom threshold for drawing contents of control flow blocks (including states) and nested SDFGs",
+                        "type": "range",
+                        "default": 100,
+                        "minimum": 0,
+                        "maximum": 1000,
+                        "step": 1,
+                        "relayout": false
+                    },
+                    "summarizeLargeNumbersOfEdges": {
+                        "id": "summarizeLargeNumbersOfEdges",
+                        "label": "Hide and summarize edges for nodes with more than 10 incoming or outgoing edges",
+                        "type": "boolean",
+                        "default": false,
+                        "relayout": true
+                    }
+                }
+            },
+            "customizeColorTheme": {
+                "label": "Customize Color Theme",
+                "settings": {
+                    "defaultTextColor": {
+                        "label": "Default text",
+                        "type": "color",
+                        "default": "#000000"
+                    },
+                    "nodeBackgroundColor": {
+                        "label": "Default node background",
+                        "type": "color",
+                        "default": "#ffffff"
+                    },
+                    "stateBackgroundColor": {
+                        "label": "State background",
+                        "type": "color",
+                        "default": "#deebf7"
+                    },
+                    "breakBlockColor": {
+                        "label": "Break block",
+                        "type": "color",
+                        "default": "#ffc79a"
+                    },
+                    "continueBlockColor": {
+                        "label": "Continue block",
+                        "type": "color",
+                        "default": "#94ffa2"
+                    },
+                    "returnBlockColor": {
+                        "label": "Return block",
+                        "type": "color",
+                        "default": "#ff7d7d"
+                    },
+                    "conditionalColor": {
+                        "label": "Conditional block",
+                        "type": "color",
+                        "default": "#bec080"
+                    },
+                    "controlFlowRegionColor": {
+                        "label": "Control flow region",
+                        "type": "color",
+                        "default": "#ffffff"
+                    },
+                    "loopColor": {
+                        "label": "Loop region",
+                        "type": "color",
+                        "default": "#fafafa"
+                    },
+                    "interstateEdgeColor": {
+                        "label": "Interstate edge color",
+                        "type": "color",
+                        "default": "#86add9"
+                    },
+                    "errorNodeBackgroundColor": {
+                        "label": "Background for nodes with errors",
+                        "type": "color",
+                        "default": "#ff1010"
+                    },
+                    "errorNodeForegroundColor": {
+                        "label": "Text for nodes with errors",
+                        "type": "color",
+                        "default": "#ffffff"
                     }
                 }
             }

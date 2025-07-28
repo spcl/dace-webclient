@@ -1,6 +1,7 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { getTempColorHslString } from '../../../src';
+import { getTempColorHslString } from '../../../src/utils/utils';
+
 
 function testTempColor(): void {
     expect(getTempColorHslString(1.0)).toBe('hsl(0,100%,75%)');

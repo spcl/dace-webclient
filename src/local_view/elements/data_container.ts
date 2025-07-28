@@ -1,14 +1,11 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { StorageType } from '../../overlays/memory_location_overlay';
 import { DataDimension } from './dimensions';
 
-export class AccessMap<T> extends Map<DataContainer, [AccessMode, T][]> {
-
-    constructor() {
-        super();
-    }
-
+export class AccessMap extends Map<DataContainer, [
+    AccessMode, (number | undefined)[]
+][]> {
 }
 
 export enum AccessMode {
@@ -17,11 +14,11 @@ export enum AccessMode {
     ReadWrite,
 }
 
-export type DataAccess<T> = {
+export interface DataAccess<T> {
     dataContainer: DataContainer,
     accessMode: AccessMode,
     index: T,
-};
+}
 export type SymbolicDataAccess = DataAccess<string[]>;
 export type ConcreteDataAccess = DataAccess<(number | undefined)[]>;
 

@@ -1,48 +1,112 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-export type SymbolMap = {
-    [symbol: string]: number | undefined,
-};
+export type SymbolMap = Record<string, number | undefined>;
 
 export enum OverlayType {
     NODE,
     EDGE,
     BOTH,
+    LENSE,
 };
 
-export type InvalidSDFGError = {
-    message: string | undefined,
-    sdfg_id: number | undefined,
-    state_id: number | undefined,
-    node_id: number | undefined,
-    edge_id: number | undefined,
-    isedge_id: number | undefined,
+export interface InvalidSDFGError {
+    message?: string;
+    sdfg_id?: number;
+    state_id?: number;
+    node_id?: number;
+    edge_id?: number;
+    isedge_id?: number;
 };
 
-export interface JsonSDFGElement {
-    attributes?: any,
+export interface JsonSDFGDataDesc extends Record<string, unknown> {
+    type?: string;
+    attributes?: Record<string, unknown> & {
+        dtype?: string;
+        name?: string;
+        shape?: string[];
+        strides?: string[];
+        offset?: string;
+        total_size?: number;
+        storage?: string;
+        transient?: boolean;
+        members?: [string, JsonSDFGDataDesc][];
+    };
+}
+
+export interface JsonSDFGSerializedAtom extends Record<string, unknown> {
+    type?: string;
+}
+
+export interface SDFGRange extends JsonSDFGSerializedAtom {
+    start: string;
+    end: string;
+    step: string;
+    tile: string;
+}
+
+export interface DataSubset extends JsonSDFGSerializedAtom {
+    type: string;
+    ranges?: SDFGRange[];
+    indices?: SDFGRange[];
+    subset_list?: DataSubset[];
+}
+
+export interface JsonSDFGMemletAttributes {
+    data?: string;
+    subset?: DataSubset;
+    other_subset?: DataSubset;
+    is_data_src?: boolean;
+    wcr?: string;
+    volume?: string;
+    num_accesses?: number;
+    dynamic?: boolean;
+    shortcut?: unknown;
+}
+
+export interface JsonSDFGElement extends JsonSDFGSerializedAtom {
+    attributes?: Record<string, unknown>;
     type: string,
 }
 
 export interface JsonSDFGEdge extends JsonSDFGElement {
-    dst: string,
-    dst_connector: string | null,
-    src: string,
-    src_connector: string | null,
-    height: number,
-    width: number,
-    x?: number,
-    y?: number,
+    dst: string;
+    dst_connector?: string;
+    src: string;
+    src_connector?: string;
+    height: number;
+    width: number;
+    x?: number;
+    y?: number;
+}
+
+export interface JsonSDFGMultiConnectorEdge extends JsonSDFGEdge {
+    attributes?: {
+        data?: {
+            edge?: unknown,
+            volume?: number,
+            attributes?: JsonSDFGMemletAttributes,
+        },
+    };
 }
 
 export interface JsonSDFGNode extends JsonSDFGElement {
-    id: number,
-    label: string,
-    scope_entry: string | null,
-    scope_exit: string | null,
+    attributes?: Record<string, unknown> & {
+        is_collapsed?: boolean,
+        data?: string;
+        sdfg?: JsonSDFG;
+        ext_sdfg_path?: string;
+        layout?: Record<string, unknown>;
+    };
+    id: number;
+    label: string;
+    scope_entry?: string;
+    scope_exit?: string;
 }
 
 export interface JsonSDFGBlock extends JsonSDFGElement {
+    attributes?: Record<string, unknown> & {
+        is_collapsed?: boolean,
+    };
     collapsed?: boolean,
     edges?: JsonSDFGEdge[],
     nodes?: (JsonSDFGBlock | JsonSDFGNode)[],
@@ -50,13 +114,26 @@ export interface JsonSDFGBlock extends JsonSDFGElement {
     label: string,
 }
 
-type CodeBlock = {
-    string_data: string,
-    language: string,
+export interface JsonSDFGCodeBlock {
+    string_data?: string | null;
+    language?: string;
 };
 
+export interface JsonSDFGSymExpr {
+    approx?: string;
+    main?: string;
+}
+
+export interface JsonSDFGTypeclass extends JsonSDFGSerializedAtom {
+    arguments?: unknown[];
+    dtype?: string | JsonSDFGTypeclass;
+    returntype?: string | JsonSDFGTypeclass;
+    elements?: string;
+    name?: string;
+}
+
 export interface JsonSDFGConditionalBlock extends JsonSDFGBlock {
-    branches: ([CodeBlock | null, JsonSDFGControlFlowRegion])[];
+    branches: ([JsonSDFGCodeBlock | null, JsonSDFGControlFlowRegion])[];
 }
 
 export interface JsonSDFGControlFlowRegion extends JsonSDFGBlock {
@@ -67,32 +144,57 @@ export interface JsonSDFGControlFlowRegion extends JsonSDFGBlock {
 }
 
 export interface JsonSDFGState extends JsonSDFGBlock {
-    scope_dict: any,
+    scope_dict?: Record<string, number[] | undefined>,
     nodes: JsonSDFGNode[],
-    edges: JsonSDFGEdge[],
+    edges: JsonSDFGMultiConnectorEdge[],
 }
 
 export interface JsonSDFG extends JsonSDFGControlFlowRegion {
-    error: InvalidSDFGError | undefined,
+    attributes?: Record<string, unknown> & {
+        _arrays: Record<string, JsonSDFGDataDesc>,
+        constants_prop?: Record<string, [JsonSDFGDataDesc, (number | string)]>,
+        symbols?: Record<string, unknown>,
+    };
+    dace_version?: string;
+    error: InvalidSDFGError | undefined;
 }
 
-export type ModeButtons = {
-    pan: HTMLElement | null,
-    move: HTMLElement | null,
-    select: HTMLElement | null,
-    add_btns: HTMLElement[],
+export interface JsonSDFGLogicalGroup extends JsonSDFGSerializedAtom {
+    name?: string;
+    color?: string;
+}
+
+export interface ModeButtons {
+    pan?: JQuery<HTMLButtonElement>;
+    move?: JQuery<HTMLButtonElement>;
+    select?: JQuery<HTMLButtonElement>;
+    addBtns: JQuery<HTMLButtonElement>[];
 };
 
 export type SDFVTooltipFunc = (container: HTMLElement) => void;
 
-export type Point2D = {
-    x: number,
-    y: number,
-};
+export interface Point2D {
+    x: number;
+    y: number;
+}
 
-export type Size2D = {
-    w: number,
-    h: number,
-};
+export interface Size2D {
+    w: number;
+    h: number;
+}
 
 export type SimpleRect = Point2D & Size2D;
+
+export type SDFGElementGroup = (
+    'states' | 'nodes' | 'edges' | 'interstateEdges' | 'connectors' |
+    'controlFlowRegions' | 'controlFlowBlocks'
+);
+
+export interface SDFGElementInfo {
+    sdfg: JsonSDFG,
+    id: number,
+    cfgId: number,
+    stateId: number,
+    connector?: number,
+    conntype?: string,
+}

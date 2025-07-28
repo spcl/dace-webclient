@@ -1,19 +1,18 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import type {
-    GraphElementInfo,
-    SDFGElementGroup,
     SDFGRenderer,
-} from '../renderer/renderer';
+} from '../renderer/sdfg/sdfg_renderer';
 import {
     SDFGNode,
     SDFGElement,
     Edge,
     ControlFlowBlock,
-} from '../renderer/renderer_elements';
+} from '../renderer/sdfg/sdfg_elements';
 import { DiffMap } from '../sdfg_diff_viewer';
-import { OverlayType, Point2D } from '../types';
-import { GenericSdfgOverlay } from './generic_sdfg_overlay';
+import { OverlayType } from '../types';
+import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
+import { SDFVSettings } from '../utils/sdfv_settings';
 
 export class DiffOverlay extends GenericSdfgOverlay {
 
@@ -30,58 +29,38 @@ export class DiffOverlay extends GenericSdfgOverlay {
     }
 
     public refresh(): void {
-        this.renderer.draw_async();
+        this.renderer.drawAsync();
     }
 
-    public shadeElem(
-        elem: SDFGElement, ctx: CanvasRenderingContext2D
-    ): void {
-        if (this.diffMap?.addedKeys.has(elem.guid())) {
-            elem.shade(this.renderer, ctx, this.renderer.getCssProperty(
-                '--color-diff-added'
-            ), 1);
-        } else if (this.diffMap?.removedKeys.has(elem.guid())) {
-            elem.shade(this.renderer, ctx, this.renderer.getCssProperty(
-                '--color-diff-removed'
-            ), 1);
-        } else if (this.diffMap?.changedKeys.has(elem.guid())) {
-            elem.shade(this.renderer, ctx, this.renderer.getCssProperty(
-                '--color-diff-changed'
-            ), 1);
-        }
+    public shadeElem(elem: SDFGElement): void {
+        if (this.diffMap?.addedKeys.has(elem.guid))
+            elem.shade(SDFVSettings.get<string>('diffAddedColor'), 0.5);
+        else if (this.diffMap?.removedKeys.has(elem.guid))
+            elem.shade(SDFVSettings.get<string>('diffRemovedColor'), 0.5);
+        else if (this.diffMap?.changedKeys.has(elem.guid))
+            elem.shade(SDFVSettings.get<string>('diffChangedColor'), 0.5);
     }
 
     protected shadeBlock(
-        block: ControlFlowBlock, ctx: CanvasRenderingContext2D, ...args: any[]
+        block: ControlFlowBlock, ..._args: any[]
     ): void {
-        this.shadeElem(block, ctx);
+        this.shadeElem(block);
     }
 
     protected shadeNode(
-        node: SDFGNode, ctx: CanvasRenderingContext2D, ...args: any[]
+        node: SDFGNode, ..._args: any[]
     ): void {
-        this.shadeElem(node, ctx);
+        this.shadeElem(node);
     }
 
     protected shadeEdge(
-        edge: Edge, ctx: CanvasRenderingContext2D, ...args: any[]
+        edge: Edge, ..._args: any[]
     ): void {
-        this.shadeElem(edge, ctx);
+        this.shadeElem(edge);
     }
 
     public draw(): void {
         this.shadeSDFG();
-    }
-
-    public on_mouse_event(
-        _type: string,
-        _ev: MouseEvent,
-        _mousepos: Point2D,
-        _elements: Record<SDFGElementGroup, GraphElementInfo[]>,
-        _foreground_elem: SDFGElement | null,
-        _ends_drag: boolean
-    ): boolean {
-        return false;
     }
 
 }

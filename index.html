@@ -1,4 +1,4 @@
-<!-- Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved. -->
+<!-- Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved. -->
 
 <!DOCTYPE html>
 <html lang="en" class="sdfv">
@@ -53,6 +53,16 @@
                     disabled="disabled"
                     onclick="document.getElementById('instrumentation-report-file-input').click();">
                     Load Instrumentation Report
+                </button>
+            </div>
+            <div class="col-auto">
+                <input type="file" accept=".json" id="memory-footprint-file-input"
+                       style="display: none;">
+                <button id="load-memory-footprint-file-btn"
+                    class="btn btn-sm btn-light"
+                    disabled="disabled"
+                    onclick="document.getElementById('memory-footprint-file-input').click();">
+                    Load Memory Footprint File
                 </button>
             </div>
             <div class="col-auto" id="diff-view-btn-container">
@@ -122,7 +132,9 @@ return false;
                 </div>
             </div>
             <div class="col-auto d-flex align-items-center">
-                <div id="task-info-field">
+                <div id="activity-indicator">
+                </div>
+                <div id="activity-info-field">
                 </div>
             </div>
         </div>

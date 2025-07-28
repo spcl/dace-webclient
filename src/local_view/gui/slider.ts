@@ -1,7 +1,8 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Graphics, Text } from 'pixi.js';
 import { GUIComponent } from './gui_component';
+import { Point2D } from '../../types';
 
 const SLIDER_PADDING: number = 30;
 
@@ -65,7 +66,10 @@ export class Slider extends GUIComponent {
             }
         });
 
-        this.pommel.on('pointermove', (event) => {
+        this.pommel.on('pointermove', (event: {
+            data: { getLocalPosition: (arg0: any) => Point2D },
+            stopPropagation: () => void,
+        }) => {
             if (this.dragging) {
                 let targetX = event.data.getLocalPosition(this).x;
                 if (targetX > this.maxPommelX)

@@ -1,9 +1,14 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import path from 'path';
 import fs from 'fs';
-import { checkCompatLoad, JsonSDFG, parse_sdfg } from '../../../../src';
+import { JsonSDFG } from '../../../../src/types';
+import {
+    checkCompatLoad,
+    parseSDFG,
+} from '../../../../src/utils/sdfg/json_serializer';
 import { cfgToDotGraph } from '../../../../src/utils/sdfg/dotgraph';
+
 
 function _loadSDFG(name: string): JsonSDFG {
     const file = path.join(
@@ -12,7 +17,7 @@ function _loadSDFG(name: string): JsonSDFG {
     const contents = fs.readFileSync(file, {
         encoding: 'utf-8',
     });
-    return checkCompatLoad(parse_sdfg(contents));
+    return checkCompatLoad(parseSDFG(contents));
 }
 
 function testWhileDoToDot(): void {

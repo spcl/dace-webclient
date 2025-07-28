@@ -8,8 +8,6 @@
 $material-symbols-font-path: "~material-symbols/";
 @import "~material-symbols";
 
-@import "./color_schemes/default";
-
 .sdfv {
   @import "~bootstrap/scss/bootstrap";
 }
@@ -26,6 +24,18 @@ body.sdfv {
 }
 
 .sdfv {
+
+  #header-container {
+    padding: .5rem;
+  }
+
+  .add-svgs-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    user-select: none;
+    pointer-events: none;
+  }
 
   // Loading animation
   .loader {
@@ -54,11 +64,6 @@ body.sdfv {
     user-select: none;
   }
 
-  #header-container {
-    padding-top: 0.3rem;
-    padding-bottom: 0.3rem;
-  }
-
   #advsearch {
     min-width: 300px;
     min-height: 200px;
@@ -74,6 +79,11 @@ body.sdfv {
     height: 90%;
     border: 1px solid;
     overflow: hidden;
+
+    .rendure-canvas {
+      width: 100%;
+      height: 100%;
+    }
   }
 
   #diff-container {
@@ -93,15 +103,11 @@ body.sdfv {
     #diff-contents-A {
       border-right: 1px solid;
     }
-  }
 
-  #minimap {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 180px;
-    height: 180px;
-    border: 1px solid black;
+    .rendure-canvas {
+      width: 100%;
+      height: 100%;
+    }
   }
 
   @keyframes animateright {
@@ -179,50 +185,6 @@ body.sdfv {
 
   }
 
-  .sdfvtooltip {
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    font-size: 1rem;
-    font-family: "Segoe UI", Arial, sans-serif;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    position: absolute;
-    display: none;
-  }
-
-  .sdfvtooltip--connector {
-    background: #f0fdffee;
-    color: black;
-    border: 1px solid black;
-  }
-
-  .sdfvtooltip--interstate-edge {
-    background: #0000aabb;
-  }
-
-  .sdfvtooltip--error {
-    background: #aa0000bb;
-  }
-
-  .invalid_popup {
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    font-size: 1rem;
-    font-family: "Segoe UI", Arial, sans-serif;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    position: absolute;
-    display: none;
-  }
-
   .context_menu_option {
     font-size: 1rem;
     font-family: "Segoe UI", Arial, sans-serif;
@@ -246,34 +208,8 @@ body.sdfv {
     cursor: pointer;
     color: rgba(20, 20, 20, 1.0);
 
-    &.removed {
-      background-color: $sdfv-diff-removed;
-
-      &:hover {
-        background-color: darken($sdfv-diff-removed, 5%);
-      }
-    }
-
-    &.added {
-      background-color: $sdfv-diff-added;
-
-      &:hover {
-        background-color: darken($sdfv-diff-added, 5%);
-      }
-    }
-
-    &.changed {
-      background-color: $sdfv-diff-changed;
-
-      &:hover {
-        background-color: darken($sdfv-diff-changed, 5%);
-      }
-    }
-
-    &.nodiff {
-      &:hover {
-        background-color: rgba(0, 0, 0, 0.1);
-      }
+    &:hover {
+      filter: brightness(0.90);
     }
   }
 
@@ -350,47 +286,9 @@ body.sdfv {
     border-color: rgba(255, 0, 0, 1);
   }
 
-  .sdfg_canvas {
-    --node-background-color: #ffffff;
-    --node-foreground-color: #000000;
-    --node-missing-foreground-color: #ffffff;
-    --node-missing-background-color: #ff1010;
-    --state-background-color: #deebf7;
-    --state-foreground-color: #000000;
-    --continue-block-background-color: #94ffa2;
-    --break-block-background-color: #ffc79a;
-    --return-block-background-color: #ff7d7d;
-    --loop-background-color: #ffffff;
-    --loop-background-simple-color: #eeeeee;
-    --loop-foreground-color: #000000;
-    --loop-border-color: #3d3d3d;
-    --conditional-background-color: #ffffff;
-    --conditional-background-simple-color: #bec080;
-    --conditional-foreground-color: #000000;
-    --conditional-border-color: #3d3d3d;
-    --control-flow-region-background-color: #ffffff;
-    --control-flow-region-background-simple-color: #eeeeee;
-    --control-flow-region-foreground-color: #000000;
-    --control-flow-region-border-color: #3d3d3d;
-    --interstate-edge-color: #86add9;
-    --connector-scoped-color: #c1dfe690;
-    --connector-unscoped-color: #f0fdff;
-    --nested-sdfg-background-color: #ffffff;
-    --nested-sdfg-foreground-color: #000000;
-    --reference-background-color: #ffdede;
-    --color-default: #000000;
-    --color-hovered: #008000;
-    --color-highlighted: #ffa500;
-    --color-selected: #ff1010;
-    --color-selected-hovered: #fa8072;
-    --color-selected-highlighted: #ff8c00;
-    --color-minimap-viewport: #ff7a00;
-
-    --tasklet-input-color: #000000;
-    --tasklet-output-color: #000000;
-    --tasklet-symbol-color: #ff1010;
-    --tasklet-number-color: #000000;
-    --tasklet-highlighted-color: #008000;
+  .sdfv_canvas {
+    --cf-connector-certain-color: #00882b;
+    --cf-connector-uncertain-color: #afddbe;
 
     --overlay-color-lightness: 0.5;
     --overlay-color-saturation: 1;
@@ -408,10 +306,6 @@ body.sdfv {
     --local-view-edge-overlay-width: 10;
     --local-view-edge-overlay-arrowhead-length: 30;
     --local-view-edge-overlay-fontsize: 20;
-
-    --color-diff-added: #{$sdfv-diff-added};
-    --color-diff-removed: #{$sdfv-diff-removed};
-    --color-diff-changed: #{$sdfv-diff-changed};
   }
 
   #access-pattern-button-box .button {
@@ -472,5 +366,4 @@ body.sdfv {
     margin-right: calc(-1 * var(--bs-accordion-body-padding-x)) !important;
     opacity: 0.1 !important;
   }
-
 }

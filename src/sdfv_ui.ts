@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import $ from 'jquery';
 import {
@@ -8,13 +8,15 @@ import {
     NestedSDFG,
     SDFG,
     SDFGElement,
-} from './renderer/renderer_elements';
-import type { DagreGraph, SDFGRenderer } from './renderer/renderer';
+} from './renderer/sdfg/sdfg_elements';
 import { WebSDFV } from './sdfv';
-import { sdfg_property_to_string } from './utils/sdfg/display';
+import { sdfgPropertyToString } from './utils/sdfg/display';
+import type { DagreGraph, SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
+import { JsonSDFG, JsonSDFGDataDesc } from './types';
+
 
 export interface ISDFVUserInterface {
-    get infoContentContainer(): JQuery<HTMLElement>;
+    get infoContentContainer(): JQuery | undefined;
     init(): void;
     infoClear(hide?: boolean): void;
     infoHide(): void;
@@ -23,22 +25,33 @@ export interface ISDFVUserInterface {
     disableInfoClear(): void;
     enableInfoClear(): void;
     showElementInfo(
-        elem: SDFGElement | DagreGraph | null, renderer: SDFGRenderer
+        elem: SDFGElement | DagreGraph | null | undefined,
+        renderer: SDFGRenderer
     ): void;
+    showActivityIndicatorFor<T>(
+        message: string, fun: (...args: unknown[]) => Promise<T>
+    ): Promise<T>;
 }
 
 export class SDFVWebUI implements ISDFVUserInterface {
 
     private static readonly INSTANCE: SDFVWebUI = new SDFVWebUI();
 
+    private activities: [
+        string, (...args: unknown[]) => unknown
+    ][] = [];
+    private activityIndicator?: JQuery;
+    private activityInfoField?: JQuery;
+
     private constructor() {
+        return;
     }
 
     public static getInstance(): SDFVWebUI {
         return this.INSTANCE;
     }
 
-    public get infoContentContainer(): JQuery<HTMLElement> {
+    public get infoContentContainer(): JQuery | undefined {
         return $('#sidebar-contents');
     }
 
@@ -47,15 +60,12 @@ export class SDFVWebUI implements ISDFVUserInterface {
         const bar = document.getElementById('dragbar');
 
         const drag = (e: MouseEvent) => {
-            if ((document as any).selection)
-                (document as any).selection.empty();
-            else
-                window.getSelection()?.removeAllRanges();
+            window.getSelection()?.removeAllRanges();
 
             if (right) {
                 right.style.width = Math.max(
                     ((e.view ? e.view.innerWidth - e.pageX : 0)), 20
-                ) + 'px';
+                ).toString() + 'px';
             }
         };
 
@@ -80,29 +90,84 @@ export class SDFVWebUI implements ISDFVUserInterface {
 
         // Set up any external interaction mode buttons that may override the
         // renderer.
-        const pan_btn = document.getElementById('pan-btn');
-        const move_btn = document.getElementById('move-btn');
-        const select_btn = document.getElementById('select-btn');
-        const add_btns: HTMLElement[] = [];
-        add_btns.push(document.getElementById('elem_map')!);
-        add_btns.push(document.getElementById('elem_consume')!);
-        add_btns.push(document.getElementById('elem_tasklet')!);
-        add_btns.push(document.getElementById('elem_nested_sdfg')!);
-        add_btns.push(document.getElementById('elem_access_node')!);
-        add_btns.push(document.getElementById('elem_stream')!);
-        add_btns.push(document.getElementById('elem_state')!);
-        if (pan_btn) {
+        const panBtn = $('#pan-btn');
+        const moveBtn = $('#move-btn');
+        const selectBtn = $('#select-btn');
+        const addBtns: JQuery<HTMLButtonElement>[] = [];
+        for (const btnId of [
+            'elem_map',
+            'elem_consume',
+            'elem_tasklet',
+            'elem_nested_sdfg',
+            'elem_access_node',
+            'elem_stream',
+            'elem_state',
+        ]) {
+            const elem = $(`#${btnId}`);
+            if (elem.length)
+                addBtns.push(elem as JQuery<HTMLButtonElement>);
+        }
+        if (panBtn.length && moveBtn.length && selectBtn.length) {
             WebSDFV.getInstance().setModeButtons({
-                pan: pan_btn,
-                move: move_btn,
-                select: select_btn,
-                add_btns: add_btns,
+                pan: panBtn as JQuery<HTMLButtonElement>,
+                move: moveBtn as JQuery<HTMLButtonElement>,
+                select: selectBtn as JQuery<HTMLButtonElement>,
+                addBtns: addBtns,
             });
+        }
+
+        this.activityIndicator = $('#activity-indicator');
+        this.activityInfoField = $('#activity-info-field');
+    }
+
+    private showActivityIndicator(): void {
+        this.hideActivityIndicator();
+        this.activityIndicator?.append($('<div>', {
+            class: 'loader',
+        }));
+    }
+
+    private hideActivityIndicator(): void {
+        this.activityIndicator?.empty();
+    }
+
+    public async showActivityIndicatorFor<T>(
+        message: string, fun: (...args: unknown[]) => (Promise<T> | T)
+    ): Promise<T> {
+        if (this.activities.length === 0)
+            this.showActivityIndicator();
+        this.activities.push([message, fun]);
+        this.activityInfoField?.text(message);
+
+        try {
+            const ret = await fun();
+            this.activities.pop();
+            if (this.activities.length === 0) {
+                this.hideActivityIndicator();
+                this.activityInfoField?.text('');
+            } else {
+                this.activityInfoField?.text(
+                    this.activities[this.activities.length - 1][0]
+                );
+            }
+            return ret;
+        } catch (err) {
+            this.activities.pop();
+            if (this.activities.length === 0) {
+                this.hideActivityIndicator();
+                this.activityInfoField?.text('');
+            } else {
+                this.activityInfoField?.text(
+                    this.activities[this.activities.length - 1][0]
+                );
+            }
+            console.error('Error during activity:', err);
+            throw err;
         }
     }
 
     public infoClear(hide: boolean = true): void {
-        this.infoContentContainer.html('');
+        this.infoContentContainer?.html('');
         if (hide)
             this.infoHide();
     }
@@ -117,7 +182,7 @@ export class SDFVWebUI implements ISDFVUserInterface {
     }
 
     public infoSetTitle(title: string): void {
-        $('#sidebar-header')?.text(title);
+        $('#sidebar-header').text(title);
     }
 
     public disableInfoClear(): void {
@@ -134,14 +199,14 @@ export class SDFVWebUI implements ISDFVUserInterface {
         const contents = SDFVWebUI.getInstance().infoContentContainer;
         if (!contents || !elem || !(elem instanceof SDFGElement))
             return;
-        this.infoSetTitle(elem.type() + ' ' + elem.label());
+        this.infoSetTitle(elem.type + ' ' + elem.label);
 
         contents.html('');
 
         if (elem instanceof Memlet) {
             contents.append($('<p>', {
-                html: 'Connectors: ' + elem.src_connector + ' &rarr; ' +
-                    elem.dst_connector,
+                html: 'Connectors: ' + (elem.srcConnector ?? 'NULL') +
+                    ' &rarr; ' + (elem.dstConnector ?? 'NULL'),
             }));
         }
         contents.append($('<hr>'));
@@ -182,15 +247,18 @@ export class SDFVWebUI implements ISDFVUserInterface {
                 case 'orig_sdfg':
                 case 'transformation_hist':
                 case 'position':
+                case 'possible_reads':
+                case 'possible_writes':
+                case 'certain_reads':
+                case 'certain_writes':
+                case 'debuginfo':
                     continue;
                 default:
                     contents.append($('<b>', {
                         html: attr[0] + ':&nbsp;&nbsp;',
                     }));
                     contents.append($('<span>', {
-                        html: sdfg_property_to_string(
-                            attr[1], renderer.view_settings()
-                        ),
+                        html: sdfgPropertyToString(attr[1]),
                     }));
                     contents.append($('<br>'));
                     break;
@@ -199,57 +267,61 @@ export class SDFVWebUI implements ISDFVUserInterface {
 
         // If access node, add array information too
         if (elem instanceof AccessNode) {
-            const sdfg_array = elem.getDesc();
-            contents.append($('<br>'));
-            contents.append($('<h4>', {
-                text: sdfg_array.type + ' properties:',
-            }));
-            for (const attr of Object.entries(sdfg_array.attributes)) {
-                if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
-                    attr[0].startsWith('_meta_'))
-                    continue;
-                contents.append($('<b>', {
-                    html: attr[0] + ':&nbsp;&nbsp;',
-                }));
-                contents.append($('<span>', {
-                    html: sdfg_property_to_string(
-                        attr[1], renderer.view_settings()
-                    ),
-                }));
+            const sdfgArray = elem.getDesc();
+            const arrAttrs = sdfgArray?.attributes;
+            if (sdfgArray && arrAttrs) {
                 contents.append($('<br>'));
+                contents.append($('<h4>', {
+                    text: (sdfgArray.type ?? '') + ' properties:',
+                }));
+                for (const attr of Object.entries(arrAttrs)) {
+                    if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
+                        attr[0].startsWith('_meta_'))
+                        continue;
+                    contents.append($('<b>', {
+                        html: attr[0] + ':&nbsp;&nbsp;',
+                    }));
+                    contents.append($('<span>', {
+                        html: sdfgPropertyToString(attr[1]),
+                    }));
+                    contents.append($('<br>'));
+                }
             }
         }
 
         // If nested SDFG, add SDFG information too
-        if (elem instanceof NestedSDFG && elem.attributes().sdfg) {
-            const sdfg_sdfg = elem.attributes().sdfg;
-            contents.append($('<br>'));
-            contents.append($('<h4>', {
-                text: 'SDFG properties:',
-            }));
-            for (const attr of Object.entries(sdfg_sdfg.attributes)) {
-                if (attr[0].startsWith('_meta_'))
-                    continue;
-
-                switch (attr[0]) {
-                    case 'layout':
-                    case 'sdfg':
-                    case '_arrays':
-                    case 'orig_sdfg':
-                    case 'transformation_hist':
-                    case 'position':
+        const attrs = elem.attributes();
+        if (elem instanceof NestedSDFG && attrs && 'sdfg' in attrs) {
+            const nSDFG = attrs.sdfg as JsonSDFG | undefined;
+            const sdfgAttrs = nSDFG?.attributes;
+            if (nSDFG && sdfgAttrs) {
+                contents.append($('<br>'));
+                contents.append($('<h4>', {
+                    text: 'SDFG properties:',
+                }));
+                for (const attr of Object.entries(sdfgAttrs)) {
+                    if (attr[0].startsWith('_meta_'))
                         continue;
-                    default:
-                        contents.append($('<b>', {
-                            html: attr[0] + ':&nbsp;&nbsp;',
-                        }));
-                        contents.append($('<span>', {
-                            html: sdfg_property_to_string(
-                                attr[1], renderer.view_settings()
-                            ),
-                        }));
-                        contents.append($('<br>'));
-                        break;
+
+                    switch (attr[0]) {
+                        case 'layout':
+                        case 'sdfg':
+                        case '_arrays':
+                        case 'orig_sdfg':
+                        case 'transformation_hist':
+                        case 'debuginfo':
+                        case 'position':
+                            continue;
+                        default:
+                            contents.append($('<b>', {
+                                html: attr[0] + ':&nbsp;&nbsp;',
+                            }));
+                            contents.append($('<span>', {
+                                html: sdfgPropertyToString(attr[1]),
+                            }));
+                            contents.append($('<br>'));
+                            break;
+                    }
                 }
             }
         }
@@ -257,10 +329,14 @@ export class SDFVWebUI implements ISDFVUserInterface {
         // For SDFGs and nested SDFGs, add information about the SDFG's data
         // descriptors.
         let descriptors = undefined;
-        if (elem instanceof SDFG)
-            descriptors = elem.attributes()._arrays;
-        else if (elem instanceof NestedSDFG)
-            descriptors = elem.attributes().sdfg.attributes._arrays;
+        if (elem instanceof SDFG) {
+            descriptors = elem.attributes()?._arrays as Record<
+                string, JsonSDFGDataDesc
+            > | undefined;
+        } else if (elem instanceof NestedSDFG) {
+            const nsdfg = elem.attributes()?.sdfg as JsonSDFG | undefined;
+            descriptors = nsdfg?.attributes?._arrays;
+        }
 
         if (descriptors) {
             contents.append($('<hr>'));
@@ -273,9 +349,7 @@ export class SDFVWebUI implements ISDFVUserInterface {
                     html: desc + ':&nbsp;&nbsp;',
                 }));
                 contents.append($('<span>', {
-                    html: sdfg_property_to_string(
-                        descriptors[desc], renderer.view_settings()
-                    ),
+                    html: sdfgPropertyToString(descriptors[desc]),
                 }));
                 contents.append($('<br>'));
             }

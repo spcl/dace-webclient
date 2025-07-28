@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import $ from 'jquery';
 
@@ -6,6 +6,8 @@ import EventEmitter from 'events';
 import { Modal } from 'bootstrap';
 import * as settingsManifest from '../settings_manifest.json';
 import { AllFields } from './utils';
+import * as defaultBlueTheme from '../color_themes/default_blue.json';
+import * as defaultGreenTheme from '../color_themes/default_green.json';
 
 export type SDFVSettingValT = boolean | string | number | null;
 
@@ -17,13 +19,20 @@ export type SDFVSettingKey = keyof AllFields<
         SDFVSettingCategories
     ]['settings']
 >;
+export type SDFVColorThemeColor = keyof (
+    typeof
+        settingsManifest.viewerSettings.categories.customizeColorTheme.settings
+);
 
 interface SDFVSetting {
+    type: string;
+    default: SDFVSettingValT;
     label: string;
     hidden?: boolean;
     relayout?: boolean;
     redrawUI?: boolean;
     redraw?: boolean;
+    externalEvent?: boolean;
 }
 
 interface SDFVSettingBoolean extends SDFVSetting {
@@ -40,8 +49,27 @@ interface SDFVSettingRange extends SDFVSetting {
     step?: number;
 }
 
+interface SDFVSettingColor extends SDFVSetting {
+    type: 'color';
+    default: string;
+}
+
+interface SDFVSettingSelect extends SDFVSetting {
+    type: 'select';
+    default: string;
+    choices: {
+        label: string,
+        value: string,
+    }[];
+}
+
+const AVAILABLE_THEMES: Record<string, Record<SDFVColorThemeColor, string>> = {
+    'DefaultBlue': defaultBlueTheme,
+    'DefaultGreen': defaultGreenTheme,
+};
+
 interface SDFVSettingsEvent {
-    'setting_changed': (setting: SDFVSetting) =>  void,
+    'setting_changed': (setting: SDFVSetting, key: SDFVSettingKey) =>  void,
 }
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
@@ -60,9 +88,9 @@ export interface SDFVSettings {
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 export class SDFVSettings extends EventEmitter {
 
-    private readonly _settingsDict: Map<
+    private readonly _settingsDict = new Map<
         SDFVSettingKey, SDFVSettingValT
-    > = new Map();
+    >();
 
     private static readonly INSTANCE: SDFVSettings = new SDFVSettings();
 
@@ -71,7 +99,8 @@ export class SDFVSettings extends EventEmitter {
 
         const categories = settingsManifest.viewerSettings.categories;
         for (const category of Object.values(categories)) {
-            for (const [sName, setting] of Object.entries(category.settings)) {
+            for (const [sName, pSetting] of Object.entries(category.settings)) {
+                const setting = pSetting as SDFVSetting;
                 this._settingsDict.set(
                     sName as SDFVSettingKey, setting.default
                 );
@@ -85,8 +114,117 @@ export class SDFVSettings extends EventEmitter {
 
     private modal: Modal | null = null;
 
+    private addSelect(
+        root: JQuery, category: string, key: SDFVSettingKey,
+        setting: SDFVSettingSelect
+    ): void {
+        const settingRow = $('<div>', {
+            id: 'SDFVSettings-' + category + '_' + key,
+            class: 'row',
+        }).appendTo(root);
+        const settingContainer = $('<div>', {
+            class: 'col-12',
+        }).appendTo(settingRow);
+        const inputContainer = $('<div>', {
+            class: 'input-group input-group-sm',
+        }).appendTo(settingContainer);
+        const inputId = 'SDFVSettings-' + category + '_' + key + '-input';
+        $('<label>', {
+            class: 'input-group-text',
+            for: inputId,
+            text: setting.label,
+        }).appendTo(inputContainer);
+        const input = $('<select>', {
+            class: 'form-select',
+            id: inputId,
+            change: () => {
+                const nVal = input.val();
+                if (nVal !== undefined && typeof nVal === 'string')
+                    this._settingsDict.set(key, nVal);
+                if (setting.externalEvent === false)
+                    this.internalHandler(key, setting);
+                else
+                    this.emit('setting_changed', setting, key);
+            },
+        }).appendTo(inputContainer);
+        for (const choice of setting.choices) {
+            if (choice.value === setting.default) {
+                input.append($('<option>', {
+                    selected: 'selected',
+                    value: choice.value,
+                    text: choice.label,
+                }));
+            } else {
+                input.append($('<option>', {
+                    value: choice.value,
+                    text: choice.label,
+                }));
+            }
+        }
+    }
+
+    private addColorPicker(
+        root: JQuery, category: string, key: SDFVSettingKey,
+        setting: SDFVSettingColor
+    ): void {
+        const settingRow = $('<div>', {
+            id: 'SDFVSettings-' + category + '_' + key,
+            class: 'row',
+        }).appendTo(root);
+        const settingContainer = $('<div>', {
+            class: 'col-12',
+        }).appendTo(settingRow);
+        const inputContainer = $('<div>', {
+            css: {
+                'display': 'flex',
+                'align-items': 'center',
+            },
+        }).appendTo(settingContainer);
+        const input = $('<input>', {
+            class: 'form-control form-control-color',
+            type: 'color',
+            value: this._settingsDict.get(key),
+            css: {
+                'margin-right': '.3rem',
+            },
+            change: () => {
+                const nVal = input.val();
+                if (nVal !== undefined && typeof nVal === 'string')
+                    this._settingsDict.set(key, nVal);
+                if (setting.externalEvent === false)
+                    this.internalHandler(key, setting);
+                else
+                    this.emit('setting_changed', setting, key);
+            },
+        }).appendTo(inputContainer);
+        const resetBtn = $('<span>', {
+            class: 'material-symbols-outlined text-secondary',
+            text: 'reset_settings',
+            title: 'Reset to default value',
+            css: {
+                'margin-right': '.3rem',
+                'user-select': 'none',
+            },
+        }).appendTo(inputContainer);
+        $('<label>', {
+            class: 'form-label',
+            css: {
+                'margin-bottom': '0',
+            },
+            text: setting.label,
+        }).appendTo(inputContainer);
+        resetBtn.on('click', () => {
+            input.val(setting.default);
+            this._settingsDict.set(key, setting.default);
+            if (setting.externalEvent === false)
+                this.internalHandler(key, setting);
+            else
+                this.emit('setting_changed', setting, key);
+        });
+    }
+
     private addSlider(
-        root: JQuery<HTMLElement>, category: string, key: SDFVSettingKey,
+        root: JQuery, category: string, key: SDFVSettingKey,
         setting: SDFVSettingRange
     ): void {
         const settingRow = $('<div>', {
@@ -100,15 +238,9 @@ export class SDFVSettings extends EventEmitter {
             class: 'form-label',
             text: setting.label,
         }).appendTo(settingContainer);
-        const min = (
-            setting.minimum === undefined ? 0 : setting.minimum
-        ).toPrecision(2);
-        const max = (
-            setting.maximum === undefined ? 100 : setting.maximum
-        ).toPrecision(2);
-        const step = (
-            setting.step === undefined ? 1 : setting.step
-        ).toPrecision(2);
+        const min = (setting.minimum ?? 0).toPrecision(2);
+        const max = (setting.maximum ?? 100).toPrecision(2);
+        const step = (setting.step ?? 1).toPrecision(2);
         const inputContainer = $('<div>', {
             class: 'd-flex align-items-center',
         }).appendTo(settingContainer);
@@ -151,7 +283,10 @@ export class SDFVSettings extends EventEmitter {
                 nVal = +nVal;
                 numberInput.val(nVal);
                 this._settingsDict.set(key, nVal);
-                this.emit('setting_changed', setting);
+                if (setting.externalEvent === false)
+                    this.internalHandler(key, setting);
+                else
+                    this.emit('setting_changed', setting, key);
             }
         });
         numberInput.on('change', () => {
@@ -169,19 +304,25 @@ export class SDFVSettings extends EventEmitter {
 
                 sliderInput.val(nVal);
                 this._settingsDict.set(key, nVal);
-                this.emit('setting_changed', setting);
+                if (setting.externalEvent === false)
+                    this.internalHandler(key, setting);
+                else
+                    this.emit('setting_changed', setting, key);
             }
         });
         resetBtn.on('click', () => {
             numberInput.val(setting.default);
             sliderInput.val(setting.default);
             this._settingsDict.set(key, setting.default);
-            this.emit('setting_changed', setting);
+            if (setting.externalEvent === false)
+                this.internalHandler(key, setting);
+            else
+                this.emit('setting_changed', setting, key);
         });
     }
 
     private addToggle(
-        root: JQuery<HTMLElement>, category: string, key: SDFVSettingKey,
+        root: JQuery, category: string, key: SDFVSettingKey,
         setting: SDFVSettingBoolean
     ): void {
         const settingRow = $('<div>', {
@@ -199,7 +340,7 @@ export class SDFVSettings extends EventEmitter {
             type: 'checkbox',
             checked: this._settingsDict.get(key),
             change: () => {
-                const isChecked = input.prop('checked');
+                const isChecked = input.prop('checked') as boolean;
 
                 if (setting.toggleDisabled) {
                     for (const disableEntry of setting.toggleDisabled) {
@@ -217,7 +358,10 @@ export class SDFVSettings extends EventEmitter {
                 }
 
                 this._settingsDict.set(key, isChecked);
-                this.emit('setting_changed', setting);
+                if (setting.externalEvent === false)
+                    this.internalHandler(key, setting);
+                else
+                    this.emit('setting_changed', setting, key);
             },
         }).appendTo(checkContainer);
         $('<label>', {
@@ -227,9 +371,9 @@ export class SDFVSettings extends EventEmitter {
     }
 
     private addSettingsGroup(
-        root: JQuery<HTMLElement>, title: string, idSuffix: string,
+        root: JQuery, title: string, idSuffix: string,
         defaultShow: boolean = false
-    ): JQuery<HTMLElement> {
+    ): JQuery {
         const settingsGroup = $('<div>', {
             class: 'accordion-item',
         }).appendTo(root);
@@ -255,7 +399,7 @@ export class SDFVSettings extends EventEmitter {
         return settingsGroupContainer;
     }
 
-    private constructSettings(root: JQuery<HTMLElement>): void {
+    private constructSettings(root: JQuery): void {
         let first = true;
         const categories = settingsManifest.viewerSettings.categories;
         for (const [cName, category] of Object.entries(categories)) {
@@ -264,8 +408,9 @@ export class SDFVSettings extends EventEmitter {
             );
             first = false;
             let firstSetting = true;
-            for (const [sName, setting] of Object.entries(category.settings)) {
-                if ((setting as SDFVSetting).hidden)
+            for (const [sName, pSetting] of Object.entries(category.settings)) {
+                const setting = pSetting as SDFVSetting;
+                if (setting.hidden)
                     continue;
 
                 if (!firstSetting) {
@@ -288,12 +433,24 @@ export class SDFVSettings extends EventEmitter {
                             setting as SDFVSettingRange
                         );
                         break;
+                    case 'color':
+                        this.addColorPicker(
+                            catContainer, cName, sName as SDFVSettingKey,
+                            setting as SDFVSettingColor
+                        );
+                        break;
+                    case 'select':
+                        this.addSelect(
+                            catContainer, cName, sName as SDFVSettingKey,
+                            setting as SDFVSettingSelect
+                        );
+                        break;
                 }
             }
         }
     }
 
-    private constructModal(): JQuery<HTMLElement> {
+    private constructModal(): JQuery {
         const modalElement = $('<div>', {
             class: 'modal fade',
             tabindex: '-1',
@@ -340,9 +497,35 @@ export class SDFVSettings extends EventEmitter {
         return modalElement;
     }
 
+    private updateColorTheme(
+        key: SDFVSettingKey, setting: SDFVSettingSelect
+    ): void {
+        // Load and set all colors correctly according to the selected theme.
+        const selection = this._settingsDict.get(key)! as string;
+        const theme = AVAILABLE_THEMES[selection];
+        for (const k in theme) {
+            const colorKey = k as SDFVColorThemeColor;
+            const colorVal = theme[colorKey];
+            this._settingsDict.set(colorKey, colorVal);
+            const colorInput = $(
+                '#SDFVSettings-customizeColorTheme_' + colorKey
+            ).find('input');
+            colorInput.val(colorVal);
+        }
+        // Make the event externally visible so the renderer redraws.
+        this.emit('setting_changed', setting, key);
+    }
+
+    private internalHandler(key: SDFVSettingKey, setting: SDFVSetting): void {
+        switch (key) {
+            case 'colorTheme':
+                this.updateColorTheme(key, setting as SDFVSettingSelect);
+                break;
+        }
+    }
+
     public show(): void {
-        if (!this.modal)
-            this.modal = new Modal(this.constructModal()[0], {});
+        this.modal ??= new Modal(this.constructModal()[0], {});
         this.modal.show();
     }
 
@@ -366,14 +549,18 @@ export class SDFVSettings extends EventEmitter {
         return SDFVSettings.getInstance()._settingsDict;
     }
 
+    /* eslint-disable-next-line
+       @typescript-eslint/no-unnecessary-type-parameters */
     public static set<T extends SDFVSettingValT>(
         key: SDFVSettingKey, value: T
-    ) {
+    ): void {
         if (!SDFVSettings.getInstance()._settingsDict.has(key))
             throw Error('Key error, key ' + key + ' not in settings');
         SDFVSettings.getInstance()._settingsDict.set(key, value);
     }
 
+    /* eslint-disable-next-line
+       @typescript-eslint/no-unnecessary-type-parameters */
     public static get<T extends SDFVSettingValT>(key: SDFVSettingKey): T {
         if (!SDFVSettings.getInstance()._settingsDict.has(key))
             throw Error('Key error, key ' + key + ' not in settings');

@@ -1,19 +1,21 @@
-// This file uses CommonJS require instead of ES6 imports because it is not transpiled
+// This file uses CommonJS require instead of ES6 imports because it is not
+// transpiled
 const path = require('path');
 const webpack = require('webpack');
 
-const mainConfig = {
-    name: 'main',
-    entry: {
-        sdfv: './src/sdfv.ts',
-    },
+const coreConfig = {
     module: {
         rules: [
             {
                 test: /\.m?[jt]sx?$/,
                 use: [
                     'babel-loader',
-                    'ts-loader',
+                    {
+                        loader: 'ts-loader',
+                        options: {
+                            configFile: 'tsconfig-build.json',
+                        },
+                    },
                 ],
                 exclude: /node_modules/,
             },
@@ -66,6 +68,14 @@ const mainConfig = {
             process: 'process/browser',
         }),
     ]
+}
+
+const mainConfig = {
+    name: 'main',
+    entry: {
+        sdfv: './src/sdfv.ts',
+    },
+    ...coreConfig,
 };
 
 const jupyterConfig = {
@@ -132,4 +142,3 @@ module.exports = [
     mainConfig,
     jupyterConfig,
 ];
-

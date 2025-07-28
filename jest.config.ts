@@ -148,7 +148,7 @@ const config: Config = {
 
     // The paths to modules that run some code to configure or set up the
     // testing environment before each test
-    setupFiles: ['jest-canvas-mock'],
+    setupFiles: ['jest-canvas-mock', '<rootDir>/jest.setup.ts'],
 
     // A list of paths to modules that run some code to configure or set up the
     // testing framework before each test
@@ -194,7 +194,10 @@ const config: Config = {
     // testRunner: 'jest-circus/runner',
 
     // A map from regular expressions to paths to transformers
-    // transform: undefined,
+    transform: {
+        '^.+\\.(ts|tsx)?$': 'ts-jest',
+        '^.+\\.(js|jsx)$': 'babel-jest',
+    },
 
     // An array of regexp pattern strings that are matched against all source
     // file paths, matched files will skip transformation

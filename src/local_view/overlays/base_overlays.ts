@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { LViewRenderer } from '../lview_renderer';
 
@@ -20,14 +20,14 @@ export abstract class BaseOverlay {
 export abstract class NodeOverlay extends BaseOverlay {
 
     public static availableOverlays: string[] = [];
-    public static overlayMap: Map<string, NodeOverlay> = new Map();
+    public static overlayMap = new Map<string, NodeOverlay>();
 
 }
 
 export abstract class EdgeOverlay extends BaseOverlay {
 
     public static availableOverlays: string[] = [];
-    public static overlayMap: Map<string, EdgeOverlay> = new Map();
+    public static overlayMap = new Map<string, EdgeOverlay>();
 
 }
 

@@ -1,14 +1,19 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
+import { JSDOM } from 'jsdom';
 import path from 'path';
 import fs from 'fs';
 import {
     checkCompatLoad,
-    parse_sdfg,
+    parseSDFG,
 } from '../../src/utils/sdfg/json_serializer';
-import { JsonSDFG, SDFG } from '../../src';
-import { SDFGDiffViewer } from '../../src/sdfg_diff_viewer';
-import { layoutSDFG } from '../../src/layouter/layout';
+import { setCollapseStateRecursive } from '../../src/utils/sdfg/sdfg_utils';
+import { JsonSDFG } from '../../src/types';
+import { SDFG } from '../../src/renderer/sdfg/sdfg_elements';
+import { SDFGDiffViewer, WebSDFGDiffViewer } from '../../src/sdfg_diff_viewer';
+import { layoutSDFG } from '../../src/layout/layout';
+import { SDFGRenderer } from '../../src';
+
 
 function _loadSDFG(name: string): JsonSDFG {
     const file = path.join(
@@ -17,23 +22,67 @@ function _loadSDFG(name: string): JsonSDFG {
     const contents = fs.readFileSync(file, {
         encoding: 'utf-8',
     });
-    return checkCompatLoad(parse_sdfg(contents));
+    return checkCompatLoad(parseSDFG(contents));
 }
 
-async function testDiffTiledGemm(): Promise<void> {
+function testDiffTiledGemm(): void {
+    const dom = new JSDOM();
+    global.document = dom.window.document;
+
+    document.body.innerHTML = `
+<div id="diff-contents-A"></div>
+<div id="diff-contents-B"></div>
+    `;
+
+    const leftContainer = document.getElementById('diff-contents-A');
+    const rightContainer = document.getElementById('diff-contents-B');
+    if (!leftContainer || !rightContainer)
+        throw Error('Failed to find diff renderer containers');
+
+    const viewer = new WebSDFGDiffViewer();
+    const leftRenderer = new SDFGRenderer(
+        leftContainer, viewer, null, null, false, null,
+        undefined, {
+            settings: true,
+            zoomBtns: true,
+            zoomToFit: true,
+            zoomToFitWidth: true,
+            collapse: true,
+            expand: true,
+        }
+    );
+    const rightRenderer = new SDFGRenderer(
+        rightContainer, viewer, null, null, false, null,
+        undefined, {
+            settings: false,
+            zoomBtns: true,
+            zoomToFit: true,
+            zoomToFitWidth: true,
+            collapse: true,
+            expand: true,
+        }
+    );
+
     const sdfgAjson = _loadSDFG('gemm_expanded_pure');
     const sdfgBjson = _loadSDFG('gemm_expanded_pure_tiled');
 
-    const graphA = layoutSDFG(sdfgAjson);
-    const graphB = layoutSDFG(sdfgBjson);
+    setCollapseStateRecursive(sdfgAjson, false);
+    setCollapseStateRecursive(sdfgBjson, false);
 
-    const sdfgA = new SDFG(sdfgAjson);
+    const graphA = layoutSDFG(leftRenderer, sdfgAjson, leftRenderer.ctx);
+    const graphB = layoutSDFG(rightRenderer, sdfgBjson, rightRenderer.ctx);
+
+    const sdfgA = new SDFG(
+        leftRenderer, leftRenderer.ctx, leftRenderer.minimapCtx, sdfgAjson
+    );
     sdfgA.sdfgDagreGraph = graphA;
-    const sdfgB = new SDFG(sdfgBjson);
+    const sdfgB = new SDFG(
+        rightRenderer, rightRenderer.ctx, rightRenderer.ctx, sdfgBjson
+    );
     sdfgB.sdfgDagreGraph = graphB;
 
-    const diff = await SDFGDiffViewer.diff(sdfgA, sdfgB);
-    const diffInverse = await SDFGDiffViewer.diff(sdfgB, sdfgA);
+    const diff = SDFGDiffViewer.diff(sdfgA, sdfgB);
+    const diffInverse = SDFGDiffViewer.diff(sdfgB, sdfgA);
 
     const keysAddedToB = [
         'e562bb57-462f-445d-8ed8-bf9969c757fa',

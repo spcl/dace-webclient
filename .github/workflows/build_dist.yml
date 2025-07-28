@@ -9,10 +9,12 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [22.7.0]
+        node-version: [22.17.0]
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: 'recursive'
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:

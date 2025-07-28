@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+// Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 class ListNode<T> {
 
@@ -96,7 +96,10 @@ export class AccessStack<T> extends LinkedStack<T> {
         while (pivot) {
             if (res !== '[')
                 res += ' => ';
-            res += (pivot.value as any).tag;
+            if (typeof pivot.value === 'string')
+                res += pivot.value;
+            else
+                res += pivot.value?.toString() ?? '';
             pivot = pivot.next;
         }
         res += ']';
