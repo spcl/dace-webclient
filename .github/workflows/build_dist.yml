@@ -12,19 +12,19 @@ jobs:
         node-version: [22.17.0]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: 'recursive'
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
     - run: npm ci
     - run: npm run type-check
     - run: npm run build-prod
-    - run: npm run test
+    - run: npm run tes
     - name: Update dist folder
-      uses: test-room-7/action-update-file@v1
+      uses: test-room-7/action-update-file@v2
       with:
           file-path: |
               dist/*.js
