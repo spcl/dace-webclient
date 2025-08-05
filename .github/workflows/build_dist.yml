@@ -22,7 +22,7 @@ jobs:
     - run: npm ci
     - run: npm run type-check
     - run: npm run build-prod
-    - run: npm run tes
+    - run: npm run test
     - name: Update dist folder
       uses: test-room-7/action-update-file@v2
       with:
