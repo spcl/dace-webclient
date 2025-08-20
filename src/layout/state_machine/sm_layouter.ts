@@ -17,6 +17,7 @@ const dagreOrder = require('@dagrejs/dagre/lib/order') as (
 
 const ARTIFICIAL_START = '__smlayouter_artifical_start';
 const ARTIFICIAL_END = '__smlayouter_artifical_end';
+const DUMMY_PREFIX = '__smlayouter_dummy';
 
 export const LAYER_SPACING = 50;
 export const NODE_SPACING = 50;
@@ -79,6 +80,7 @@ export class SMLayouter {
         string, Set<[string, string]>
     >;
     private readonly backedgesCombined: Set<[string, string]>;
+    private readonly removedBackedges: Set<{ u: string, v: string, data: any }>;
     private readonly rankDict: Map<number, string[]>;
     private readonly rankHeights: Map<number, number>;
     private readonly dummyChains: Set<[SMLayouterEdge, string[]]>;
@@ -184,6 +186,7 @@ export class SMLayouter {
                 this.eclipsedBackedgesDstDict.set(be[1], new Set());
             this.eclipsedBackedgesDstDict.get(be[1])!.add(be);
         }
+        this.removedBackedges = new Set();
     }
 
     /**
@@ -234,9 +237,11 @@ export class SMLayouter {
      * @see {@link SMLayouter.normalizeEdges}
      */
     public doLayout(): void {
+        this.makeAcyclic();
         this.doRanking();
         this.normalizeEdges();
         this.permute();
+        this.undoMakeAcyclic();
         const routedEdges = this.assignPositions();
         const denormalizedEdges = this.denormalizeEdges();
         for (const edge of denormalizedEdges)
@@ -568,7 +573,7 @@ export class SMLayouter {
             const dummyChain: string[] = [];
             const origEdge = this.graph.edge(src, dst)!;
             for (let i = srcRank + 1; i < dstRank; i++) {
-                const dummyNode = `__smlayouter_dummy_${nDummyNode.toString()}`;
+                const dummyNode = `${DUMMY_PREFIX}_${nDummyNode.toString()}`;
                 eDst = dummyNode;
                 nDummyNode++;
                 this.graph.addNode(dummyNode, {
@@ -823,12 +828,23 @@ export class SMLayouter {
         });
         for (const node of this.graph.nodesIter()) {
             const rank = this.graph.get(node)!.rank!;
-            dagreGraph.setNode(node, { rank: rank });
+            // TODO: This appears to have no effect.
+            const weight = node.startsWith(DUMMY_PREFIX) ? 1 : 100;
+            const order = node.startsWith(DUMMY_PREFIX) ? 1 : 100;
+            dagreGraph.setNode(node, {
+                rank: rank,
+                weight: weight,
+                order: order,
+            });
         }
         for (const edge of this.graph.edgesIter()) {
             const src = edge[0];
             const dst = edge[1];
-            dagreGraph.setEdge(src, dst, { weight: 1 });
+            // TODO: This appears to have no effect.
+            if (src.startsWith(DUMMY_PREFIX) || dst.startsWith(DUMMY_PREFIX))
+                dagreGraph.setEdge(src, dst, { weight: 1 });
+            else
+                dagreGraph.setEdge(src, dst, { weight: 1 });
         }
 
         dagreOrder(dagreGraph);
@@ -938,6 +954,25 @@ export class SMLayouter {
         }
 
         return routedEdges;
+    }
+
+    private makeAcyclic(): void {
+        for (const [u, v] of this.backedgesCombined) {
+            this.removedBackedges.add({
+                u: u,
+                v: v,
+                data: this.graph.edge(u, v),
+            });
+            this.graph.removeEdge(u, v);
+        }
+    }
+
+    private undoMakeAcyclic(): void {
+        for (const backedge of this.removedBackedges) {
+            this.graph.addEdge(
+                backedge.u, backedge.v, backedge.data as SMLayouterEdge
+            );
+        }
     }
 
 }

@@ -78,7 +78,7 @@ import {
     boundingBox,
     findLineStartRectIntersection,
 } from 'rendure/src/renderer/core/common/renderer_utils';
-import { graphlib } from '@dagrejs/dagre';
+import { graphlib, layout as dagreLayout } from '@dagrejs/dagre';
 import { SMLayouter } from '../../layout/state_machine/sm_layouter';
 
 
@@ -590,7 +590,10 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     ): Promise<DagreGraph | undefined> {
         const doLayout = () => {
             this._graph = dotGraph as DagreGraph;
-            SMLayouter.layoutDagreCompat(this._graph);
+            if (SDFVSettings.get<boolean>('useVerticalStateMachineLayout'))
+                SMLayouter.layoutDagreCompat(this._graph);
+            else
+                dagreLayout(this._graph as graphlib.Graph);
 
             this.recomputeGraphBoundingBox();
 
