@@ -84,8 +84,8 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         const ioVolumes = [];
         const ioEdges = [];
 
-        const parentBlock = node.sdfg.nodes[node.parentStateId];
-        const edges = parentBlock.edges as
+        const parentBlock = node.sdfg?.nodes[node.parentStateId];
+        const edges = parentBlock?.edges as
             JsonSDFGMultiConnectorEdge[] | undefined;
         for (const e of edges ?? []) {
             if (e.src === node.id.toString() || e.dst === node.id.toString())
@@ -123,7 +123,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
             if (volume !== undefined && volume > 0) {
                 let ioDt = '';
                 if (edge.attributes?.data?.attributes?.data) {
-                    const array = node.sdfg.attributes?._arrays[
+                    const array = node.sdfg?.attributes?._arrays[
                         edge.attributes.data.attributes.data
                     ];
                     ioDt = array?.attributes?.dtype ?? '';

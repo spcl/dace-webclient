@@ -1,6 +1,6 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import dagre from 'dagre';
+import { graphlib, layout as dagreLayout } from '@dagrejs/dagre';
 import { Edge } from './elements/edge';
 import { MapNode } from './elements/map_node';
 import { Node } from './elements/node';
@@ -8,7 +8,7 @@ import { Graph } from './graph/graph';
 
 
 export function layoutGraph(graph: Graph): Graph {
-    const g = new dagre.graphlib.Graph({
+    const g = new graphlib.Graph({
         multigraph: true,
     });
     g.setGraph({
@@ -39,7 +39,7 @@ export function layoutGraph(graph: Graph): Graph {
         });
     });
 
-    dagre.layout(g);
+    dagreLayout(g);
 
     g.nodes().forEach(nid => {
         const node = g.node(nid) as dagre.Node & {

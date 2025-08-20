@@ -17,6 +17,7 @@ import { OverlayManager } from './overlay_manager';
 import { DagreGraph, SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
 import {
     ConditionalBlock,
+    InterstateEdge,
     SDFG,
     SDFGElement,
     State,
@@ -26,6 +27,7 @@ import {
     checkCompatLoad,
     checkCompatSave,
     parseSDFG,
+    readOrDecompress,
     stringifySDFG,
 } from './utils/sdfg/json_serializer';
 import { SDFVSettings } from './utils/sdfv_settings';
@@ -38,6 +40,9 @@ import {
     traverseSDFGScopes,
 } from './utils/sdfg/traversal';
 import { showErrorModal } from './utils/utils';
+import { read as graphlibDotRead } from '@dagrejs/graphlib-dot';
+import { graphlib } from '@dagrejs/dagre';
+
 
 declare const vscode: any;
 
@@ -264,16 +269,26 @@ export class WebSDFV extends SDFV {
             const resultString = e.target?.result;
 
             if (resultString) {
-                const parsedSDFG = await this.UI.showActivityIndicatorFor(
-                    'Parsing SDFG',
-                    () => {
-                        return checkCompatLoad(parseSDFG(
-                            resultString,
-                            !SDFVSettings.get<boolean>('loadGraphsCollapsed')
-                        ));
-                    }
-                );
-                void this.setSDFG(parsedSDFG);
+                if (this.currentSDFGFile?.name.endsWith('.dot')) {
+                    const resString = readOrDecompress(resultString)[0];
+                    const resGraph = graphlibDotRead(
+                        resString
+                    ) as graphlib.Graph;
+                    void this.setDotGraph(resGraph);
+                } else {
+                    const parsedSDFG = await this.UI.showActivityIndicatorFor(
+                        'Parsing SDFG',
+                        () => {
+                            return checkCompatLoad(parseSDFG(
+                                resultString,
+                                !SDFVSettings.get<boolean>(
+                                    'loadGraphsCollapsed'
+                                )
+                            ));
+                        }
+                    );
+                    void this.setSDFG(parsedSDFG);
+                }
             }
         };
         fileReader.readAsArrayBuffer(this.currentSDFGFile);
@@ -592,6 +607,72 @@ export class WebSDFV extends SDFV {
             });
 
             await renderer.setSDFG(sdfg, true, zoomToFit);
+            $('#load-instrumentation-report-btn').prop('disabled', false);
+            $('#load-memory-footprint-file-btn').prop('disabled', false);
+            $('#diff-view-btn').prop('disabled', false);
+        }
+    }
+
+    public async setDotGraph(
+        dotGraph: graphlib.Graph,
+        userTransform: DOMMatrix | null = null,
+        debugDraw: boolean = false,
+        contentsContainerId: string = 'contents',
+        zoomToFit: boolean = true
+    ): Promise<void> {
+        this.renderer?.destroy();
+        const container = document.getElementById(contentsContainerId);
+        this.UI.infoClear();
+        if (container) {
+            const renderer = new SDFGRenderer(
+                container, this, null, userTransform, debugDraw, null,
+                this.modeButtons
+            );
+            this.setRenderer(renderer);
+            renderer.on('selection_changed', () => {
+                const selectedElements = renderer.selectedRenderables;
+                let element;
+                if (selectedElements.size === 0 && renderer.sdfg) {
+                    element = new SDFG(
+                        renderer, renderer.ctx, renderer.minimapCtx,
+                        renderer.sdfg
+                    );
+                } else if (selectedElements.size === 1) {
+                    element = Array.from(selectedElements)[0];
+                } else {
+                    element = null;
+                }
+
+                if (element !== null) {
+                    SDFVWebUI.getInstance().showElementInfo(element, renderer);
+                } else {
+                    SDFVWebUI.getInstance().infoClear();
+                    SDFVWebUI.getInstance().infoSetTitle(
+                        'Multiple elements selected'
+                    );
+                }
+                SDFVWebUI.getInstance().infoShow();
+            });
+
+            for (const node of dotGraph.nodes()) {
+                const state = new State(
+                    renderer, renderer.ctx, renderer.minimapCtx,
+                    { label: node }, +node
+                );
+                state.width = 50;
+                state.height = 50;
+                dotGraph.setNode(node, state);
+            }
+            let i = 0;
+            for (const edge of dotGraph.edges()) {
+                const isedge = new InterstateEdge(
+                    renderer, renderer.ctx, renderer.minimapCtx,
+                    undefined, i++
+                );
+                dotGraph.setEdge(edge, isedge);
+            }
+
+            await renderer.setDotGraph(dotGraph, true, zoomToFit);
             $('#load-instrumentation-report-btn').prop('disabled', false);
             $('#load-memory-footprint-file-btn').prop('disabled', false);
             $('#diff-view-btn').prop('disabled', false);

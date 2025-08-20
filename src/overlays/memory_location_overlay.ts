@@ -192,7 +192,7 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
                 originalType: undefined,
             };
         }
-        const sdfgArray = sdfg.attributes?._arrays[data];
+        const sdfgArray = sdfg?.attributes?._arrays[data];
 
         let storageType = sdfgArray?.attributes?.storage;
         let originalType: StorageType | undefined = undefined;

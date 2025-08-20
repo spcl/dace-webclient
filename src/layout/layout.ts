@@ -1,7 +1,5 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import dagre from 'dagre';
-
 import { SDFVSettings } from '../utils/sdfv_settings';
 import { SMLayouter } from './state_machine/sm_layouter';
 import {
@@ -55,6 +53,7 @@ import type {
 import {
     findLineStartRectIntersection,
 } from 'rendure/src/renderer/core/common/renderer_utils';
+import { graphlib, layout as dagreLayout } from '@dagrejs/dagre';
 
 interface ICFGBlockInfo {
     label?: string,
@@ -187,7 +186,8 @@ function offsetSDFGState(state: State, offs: Point2D): void {
  * @returns     Size of the node.
  */
 function calculateDFNodeSize(
-    sdfg: JsonSDFG, node: JsonSDFGNode, ctx?: CanvasRenderingContext2D
+    sdfg: JsonSDFG | undefined, node: JsonSDFGNode,
+    ctx?: CanvasRenderingContext2D
 ): Size2D {
     node.attributes ??= {
         layout: {},
@@ -198,7 +198,7 @@ function calculateDFNodeSize(
         case SDFGElementType.AccessNode.toString():
             label = node.label;
             if (SDFVSettings.get<boolean>('showDataDescriptorSizes')) {
-                const nodedesc = sdfg.attributes?._arrays[label];
+                const nodedesc = sdfg?.attributes?._arrays[label];
                 if (nodedesc?.attributes?.shape) {
                     label = ' ' + sdfgPropertyToString(
                         nodedesc.attributes.shape
@@ -441,10 +441,10 @@ function layoutSDFGState(
 ): DagreGraph {
     const stateJson = state.jsonData;
     if (!stateJson)
-        return new dagre.graphlib.Graph() as unknown as DagreGraph;
+        return new graphlib.Graph() as unknown as DagreGraph;
 
     // layout the sdfg block as a dagre graph.
-    const g = new dagre.graphlib.Graph({
+    const g = new graphlib.Graph({
         multigraph: true,
     }) as unknown as DagreGraph;
 
@@ -595,7 +595,7 @@ function layoutSDFGState(
     // nodes or edges, but it can - we thus override the type using DagreGraph.
     // These types are consequently reported as incompatible here. This can
     // safely be ignored by casting to unknown first, forcing reinterpretation.
-    dagre.layout(g as unknown as dagre.graphlib.Graph);
+    dagreLayout(g as unknown as graphlib.Graph);
 
     // Layout connectors and nested SDFGs.
     stateJson.nodes.forEach((node: JsonSDFGNode, id: number) => {
@@ -884,7 +884,7 @@ function layoutConditionalBlock(
     const condBlock = condBlockElem.jsonData as JsonSDFGConditionalBlock;
 
     // Layout the state machine as a dagre graph.
-    const g = new dagre.graphlib.Graph() as unknown as DagreGraph;
+    const g = new graphlib.Graph() as unknown as DagreGraph;
     g.setGraph({});
     g.setDefaultEdgeLabel(() => {
         return {};
@@ -981,7 +981,7 @@ function layoutControlFlowRegion(
     const sdfg = cfgElem.sdfg;
 
     // Layout the state machine as a dagre graph.
-    const g = new dagre.graphlib.Graph() as DagreGraph;
+    const g = new graphlib.Graph() as DagreGraph;
     g.setGraph({});
     g.setDefaultEdgeLabel(() => {
         return {};
@@ -1145,10 +1145,10 @@ function layoutControlFlowRegion(
         try {
             SMLayouter.layoutDagreCompat(g, cfg.start_block.toString());
         } catch (_ignored) {
-            dagre.layout(g as unknown as dagre.graphlib.Graph);
+            dagreLayout(g as unknown as graphlib.Graph);
         }
     } else {
-        dagre.layout(g as unknown as dagre.graphlib.Graph);
+        dagreLayout(g as unknown as graphlib.Graph);
     }
 
     // Annotate the sdfg with its layout info

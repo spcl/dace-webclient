@@ -130,7 +130,7 @@ function getOrCreateContainer(
     symbolMap: Map<string, number>, elem?: AccessNode
 ): DataContainer | undefined {
     if (name) {
-        const sdfgContainer = state.sdfg.attributes?._arrays[name];
+        const sdfgContainer = state.sdfg?.attributes?._arrays[name];
         let container = graph.dataContainers.get(name);
         if (!container) {
             const dimensions = [];
@@ -442,11 +442,11 @@ async function promptDefineSymbol(symbol: string): Promise<number> {
 }
 
 async function resolveSymbols(
-    sdfg: JsonSDFG
+    sdfg?: JsonSDFG
 ): Promise<Map<string, number>> {
     const symbolMap = new Map<string, number>();
-    const symbols = sdfg.attributes?.symbols ?? {};
-    const constants = sdfg.attributes?.constants_prop ?? {};
+    const symbols = sdfg?.attributes?.symbols ?? {};
+    const constants = sdfg?.attributes?.constants_prop ?? {};
 
     for (const symbol in symbols) {
         if (constants[symbol][1]) {

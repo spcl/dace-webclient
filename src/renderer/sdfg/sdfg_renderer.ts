@@ -78,12 +78,14 @@ import {
     boundingBox,
     findLineStartRectIntersection,
 } from 'rendure/src/renderer/core/common/renderer_utils';
+import { graphlib } from '@dagrejs/dagre';
+import { SMLayouter } from '../../layout/state_machine/sm_layouter';
 
 
 type MouseModeT = 'pan' | 'move' | 'select' | 'add';
 
 export type DagreGraph =
-    Omit<Omit<dagre.graphlib.Graph<SDFGElement>, 'node'>, 'edge'> & {
+    Omit<Omit<graphlib.Graph<SDFGElement>, 'node'>, 'edge'> & {
         x: number,
         y: number,
         width: number,
@@ -505,6 +507,31 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         });
     }
 
+    public async setDotGraph(
+        graph: graphlib.Graph, layout: boolean = true, zoomToFit: boolean = true
+    ): Promise<void> {
+        return new Promise((resolve) => {
+            if (layout) {
+                this.layoutDotGraph(graph).then(() => {
+                    if (zoomToFit)
+                        this.zoomToFitContents();
+                    else
+                        this.drawAsync();
+                    resolve();
+                }).catch(() => {
+                    console.error('Error while laying out SDFG');
+                    resolve();
+                });
+            } else {
+                if (zoomToFit)
+                    this.zoomToFitContents();
+                else
+                    this.drawAsync();
+                resolve();
+            }
+        });
+    }
+
     public async layout(
         instigator?: SDFGElement
     ): Promise<DagreGraph | undefined> {
@@ -549,6 +576,29 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
         return this.sdfvInstance.linkedUI.showActivityIndicatorFor(
             'Laying out SDFG', () => {
+                return new Promise<DagreGraph | undefined>(
+                    (resolve) => {
+                        resolve(doLayout());
+                    }
+                );
+            }
+        );
+    }
+
+    public async layoutDotGraph(
+        dotGraph: graphlib.Graph
+    ): Promise<DagreGraph | undefined> {
+        const doLayout = () => {
+            this._graph = dotGraph as DagreGraph;
+            SMLayouter.layoutDagreCompat(this._graph);
+
+            this.recomputeGraphBoundingBox();
+
+            return this._graph;
+        };
+
+        return this.sdfvInstance.linkedUI.showActivityIndicatorFor(
+            'Laying out Graph', () => {
                 return new Promise<DagreGraph | undefined>(
                     (resolve) => {
                         resolve(doLayout());
@@ -1701,10 +1751,10 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         // If a scope exit node, use entry instead
         if (sdfgElem && fgElem.type.endsWith('Exit') &&
             fgElem.parentStateId !== undefined) {
-            const parent = sdfg.nodes[fgElem.parentStateId];
+            const parent = sdfg?.nodes[fgElem.parentStateId];
             const scopeEntry = 'scope_entry' in sdfgElem ?
                 sdfgElem.scope_entry as number : undefined;
-            if (parent.nodes && scopeEntry)
+            if (parent?.nodes && scopeEntry)
                 sdfgElem = parent.nodes[scopeEntry];
         }
 
@@ -1783,7 +1833,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                     // Highlight all access nodes with the same name in the
                     // same sdfg / nested SDFG.
                     traverseSDFGScopes(
-                        this.cfgList[obj.sdfg.cfg_list_id].graph!,
+                        this.cfgList[obj.sdfg!.cfg_list_id].graph!,
                         node => {
                             // If node is a state, then visit
                             // sub-scope.
@@ -2051,7 +2101,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                                 // Do not move connectors (individually)
                                 if (el instanceof Connector)
                                     return false;
-                                const cfgId = el.sdfg.cfg_list_id;
+                                const cfgId = el.sdfg!.cfg_list_id;
 
                                 // Do not move element individually if it is
                                 // moved together with a nested SDFG

@@ -161,7 +161,7 @@ export class SDFGElement extends HTMLCanvasRenderable {
         minimapCtx: CanvasRenderingContext2D | undefined,
         data: Record<string, unknown> | undefined,
         id: number,
-        public sdfg: JsonSDFG,
+        public sdfg?: JsonSDFG,
         public cfg?: JsonSDFGControlFlowRegion,
         public parentStateId?: number,
         public parentElem?: SDFGElement
@@ -424,9 +424,9 @@ export class SDFGElement extends HTMLCanvasRenderable {
                     let drawInSummarySymbol = true;
                     const parGraph =
                         this.parentElem?.data?.graph as DagreGraph | undefined;
-                    const preds = parGraph?.predecessors(
+                    const preds = (parGraph?.predecessors(
                         this.id.toString()
-                    ) ?? [];
+                    ) ?? []) as unknown as SDFGElement[];
                     if (preds.length === 1) {
                         const predElem = parGraph!.node(preds[0].id.toString());
                         if (predElem?.summarizeOutEdges &&
@@ -463,9 +463,9 @@ export class SDFGElement extends HTMLCanvasRenderable {
                     let drawOutSummarySymbol = true;
                     const parGraph =
                         this.parentElem?.data?.graph as DagreGraph | undefined;
-                    const succs = parGraph?.successors(
+                    const succs = (parGraph?.successors(
                         this.id.toString()
-                    ) ?? [];
+                    ) ?? []) as unknown as SDFGElement[];
                     if (succs.length === 1) {
                         const succElem = parGraph!.node(succs[0].id.toString());
                         if (succElem?.summarizeInEdges &&
@@ -1245,11 +1245,11 @@ export class InterstateEdge extends Edge {
         renderer: SDFGRenderer,
         ctx: CanvasRenderingContext2D,
         minimapCtx: CanvasRenderingContext2D | undefined,
-        data: Record<string, unknown>,
+        data: Record<string, unknown> | undefined,
         id: number,
-        sdfg: JsonSDFG,
-        cfg: JsonSDFGControlFlowRegion,
-        parentId: number,
+        sdfg?: JsonSDFG,
+        cfg?: JsonSDFGControlFlowRegion,
+        parentId?: number,
         parentElem?: SDFGElement,
         public readonly src?: string,
         public readonly dst?: string
@@ -1652,7 +1652,7 @@ export class AccessNode extends SDFGNode {
     public getDesc(): JsonSDFGDataDesc | undefined {
         const name = this.attributes()?.data as string | undefined;
         const nameParts = name?.split('.');
-        const arrays = this.sdfg.attributes?._arrays;
+        const arrays = this.sdfg?.attributes?._arrays;
         if (!nameParts || !arrays)
             return undefined;
 
@@ -1678,7 +1678,7 @@ export class AccessNode extends SDFGNode {
             }
             return desc;
         } else {
-            return this.sdfg.attributes?._arrays[nameParts[0]];
+            return this.sdfg?.attributes?._arrays[nameParts[0]];
         }
     }
 
@@ -1709,7 +1709,7 @@ export class AccessNode extends SDFGNode {
                 'referenceBackgroundColor'
             );
         } else if (name && nodedesc &&
-            this.sdfg.attributes?.constants_prop?.[name] !== undefined) {
+            this.sdfg?.attributes?.constants_prop?.[name] !== undefined) {
             this.ctx.fillStyle = SDFVSettings.get<string>(
                 'scopedConnectorColor'
             );
@@ -1745,7 +1745,7 @@ export class AccessNode extends SDFGNode {
         const name = this.attributes()?.data as string | undefined;
         let lbl = name ?? '';
         if (SDFVSettings.get<boolean>('showDataDescriptorSizes')) {
-            const nodedesc = this.sdfg.attributes?._arrays[lbl];
+            const nodedesc = this.sdfg?.attributes?._arrays[lbl];
             if (nodedesc?.attributes?.shape)
                 lbl = ' ' + sdfgPropertyToString(nodedesc.attributes.shape);
         }
@@ -2141,7 +2141,7 @@ export class Tasklet extends SDFGNode {
         const code = cBlock?.string_data;
 
         const sdfgSymbols = Object.keys(
-            this.sdfg.attributes?.symbols ?? {}
+            this.sdfg?.attributes?.symbols ?? {}
         );
         const inConnectors = Object.keys(
             this.attributes()?.in_connectors ?? {}

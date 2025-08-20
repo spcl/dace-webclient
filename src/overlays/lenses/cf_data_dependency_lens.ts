@@ -162,7 +162,7 @@ export class CFDataDependencyLens extends GenericSdfgOverlay {
                                 !node.attributes()?.is_collapsed &&
                                 node.graph) {
                                 this.recursiveSetConnectorsGraph(
-                                    node.graph, node.sdfg
+                                    node.graph, node.sdfg!
                                 );
                             }
                         }

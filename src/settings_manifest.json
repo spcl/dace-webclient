@@ -45,7 +45,7 @@
                     "minimap": {
                         "label": "Show minimap",
                         "type": "boolean",
-                        "default": true,
+                        "default": false,
                         "redrawUI": true
                     },
                     "alwaysOnISEdgeLabels": {

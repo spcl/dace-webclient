@@ -1,6 +1,5 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import * as dagre from 'dagre';
 import { allBackedges } from '../graphlib/algorithms/cycles';
 import {
     dominatorTree,
@@ -8,11 +7,12 @@ import {
 } from '../graphlib/algorithms/dominance';
 import { DiGraph } from '../graphlib/di_graph';
 import type { DagreGraph } from '../../renderer/sdfg/sdfg_renderer';
+import { graphlib } from '@dagrejs/dagre';
 
 /* eslint-disable-next-line @typescript-eslint/no-var-requires,
    @typescript-eslint/no-require-imports */
-const dagreOrder = require('dagre/lib/order') as (
-    g: dagre.graphlib.Graph
+const dagreOrder = require('@dagrejs/dagre/lib/order') as (
+    g: graphlib.Graph
 ) => void;
 
 const ARTIFICIAL_START = '__smlayouter_artifical_start';
@@ -816,7 +816,7 @@ export class SMLayouter {
      */
     private permute(): void {
         // TODO: replace this so we do not need to use dagre for this.
-        const dagreGraph = new dagre.graphlib.Graph({
+        const dagreGraph = new graphlib.Graph({
             directed: true,
             multigraph: false,
             compound: false,
