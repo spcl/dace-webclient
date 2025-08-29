@@ -2,15 +2,32 @@
 
 import { GraphI } from './graph_types';
 
+
+type NodeLabelFn<NodeT> = (v: string) => NodeT | null;
+
+const GRAPH_ROOT = '__compound_graph_root__';
+
 export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
 
     protected nodeMap = new Map<string, NodeT | null>();
     protected adjacencyList = new Map<string, Map<string, EdgeT | null>>();
 
+    protected _parent?: Map<string, string | undefined>;
+    protected _children?: Map<string, Map<string, boolean>>;
+
+    protected _data: unknown;
+
+    protected _defaultNodeLabel: NodeLabelFn<NodeT> = () => null;
+
     public constructor(
-        public name: string = ''
+        public name: string = '',
+        private readonly compound: boolean = false
     ) {
-        return;
+        if (compound) {
+            this._parent = new Map<string, string>();
+            this._children = new Map<string, Map<string, boolean>>();
+            this._children.set(GRAPH_ROOT, new Map<string, boolean>());
+        }
     }
 
     public get(id: string): NodeT | null {
@@ -24,10 +41,72 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
         return this.nodeMap.get(id) !== undefined;
     }
 
+    public parent(id: string): string | undefined {
+        if (!this.compound)
+            return undefined;
+        const retval = this._parent!.get(id);
+        if (retval === undefined)
+            throw new Error(`Node ${id} does not exist`);
+        return retval;
+    }
+
+    public setParent(id: string, parent?: string): void {
+        if (!this.compound)
+            throw new Error('Cannot set parent in a non-compound graph');
+        if (parent !== undefined) {
+            let ancestor: string | undefined = parent;
+            while (ancestor !== undefined) {
+                if (ancestor === id)
+                    throw new Error('Setting parent would create a cycle');
+                ancestor = this._parent!.get(ancestor);
+            }
+        }
+
+        const oldParent = this._parent!.get(id);
+        if (oldParent !== undefined)
+            this._children!.get(oldParent)?.delete(id);
+        this._parent!.set(id, parent);
+        if (parent !== undefined) {
+            if (!this._children!.has(parent))
+                this._children!.set(parent, new Map<string, boolean>());
+            this._children!.get(parent)!.set(id, true);
+        }
+    }
+
+    public children(id?: string): string[] {
+        if (!this.compound) {
+            if (id === undefined)
+                return this.nodes();
+            else if (this.nodeMap.has(id))
+                return [];
+        } else if (id !== undefined) {
+            const children = this._children!.get(id);
+            if (children !== undefined)
+                return Array.from(children.keys());
+        }
+        throw new Error(`Node ${id ?? 'undefined'} does not exist`);
+    }
+
+    public setDefaultNodeLabel(label: NodeT | NodeLabelFn<NodeT>): void {
+        if (typeof label !== 'function')
+            this._defaultNodeLabel = () => label;
+        else
+            this._defaultNodeLabel = label as NodeLabelFn<NodeT>;
+    }
+
     public addNode(id: string, node?: NodeT | null): void {
-        this.nodeMap.set(id, node ?? null);
-        if (!this.adjacencyList.has(id))
+        this.nodeMap.set(id, node ?? this._defaultNodeLabel(id));
+        if (!this.adjacencyList.has(id)) {
+            // Node did not exist before.
             this.adjacencyList.set(id, new Map());
+            if (this.compound) {
+                this._parent!.set(id, undefined);
+                this._children!.set(id, new Map());
+                if (!this._children!.has(GRAPH_ROOT))
+                    this._children!.set(GRAPH_ROOT, new Map());
+                this._children!.get(GRAPH_ROOT)!.set(id, true);
+            }
+        }
     }
 
     public addNodesWithAttributes(nodes: [string, NodeT][]): void {
@@ -46,6 +125,23 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
                 this.adjacencyList.get(v)?.delete(id);
             });
             this.adjacencyList.delete(id);
+
+            if (this.compound) {
+                const parent = this._parent!.get(id);
+                if (parent !== undefined)
+                    this._children!.get(parent)?.delete(id);
+                this._parent!.delete(id);
+                const children = this._children!.get(id);
+                if (children !== undefined) {
+                    for (const child of children.keys()) {
+                        this._parent!.set(child, undefined);
+                        if (!this._children!.has(GRAPH_ROOT))
+                            this._children!.set(GRAPH_ROOT, new Map());
+                        this._children!.get(GRAPH_ROOT)!.set(child, true);
+                    }
+                }
+                this._children!.delete(id);
+            }
         }
     }
 
@@ -151,11 +247,16 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
     public clear(): void {
         this.name = '';
         this.nodeMap.clear();
-        this.adjacencyList.clear();
+        if (this.compound) {
+            this._parent = new Map<string, string>();
+            this._children = new Map<string, Map<string, boolean>>();
+            this._children.set(GRAPH_ROOT, new Map<string, boolean>());
+        }
     }
 
     public copy(): Graph<NodeT, EdgeT> {
-        const C = new Graph<NodeT, EdgeT>();
+        // TODO: Adapt to compound graphs.
+        const C = new Graph<NodeT, EdgeT>(this.name, this.compound);
         for (const [nid, node] of this.nodeMap.entries()) {
             C.addNode(nid, node ?? undefined);
             C.adjacencyList.set(nid, new Map(this.adjacencyList.get(nid)));
@@ -164,7 +265,8 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
     }
 
     public subgraph(nodes: Set<string>): Graph<NodeT, EdgeT> {
-        const H = new Graph<NodeT, EdgeT>();
+        // TODO: Adapt to compound graphs.
+        const H = new Graph<NodeT, EdgeT>(undefined, this.compound);
         for (const nId of nodes) {
             const node = this.nodeMap.get(nId);
             H.addNode(nId, node);
@@ -176,6 +278,14 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
         }
 
         return H;
+    }
+
+    public setData(data: unknown): void {
+        this._data = data;
+    }
+
+    public getData(): unknown {
+        return this._data;
     }
 
 }

@@ -8,6 +8,7 @@ import {
 import { DiGraph } from '../graphlib/di_graph';
 import type { DagreGraph } from '../../renderer/sdfg/sdfg_renderer';
 import { graphlib } from '@dagrejs/dagre';
+import { biasedMinCrossing } from './ordering';
 
 /* eslint-disable-next-line @typescript-eslint/no-var-requires,
    @typescript-eslint/no-require-imports */
@@ -60,11 +61,11 @@ export interface SMLayouterEdge {
     points: { x: number, y: number }[];
     src?: string;
     dst?: string;
+    weight?: number;
 }
 
 export class SMLayouter {
 
-    private readonly graph: DiGraph<SMLayouterNode, SMLayouterEdge>;
     private readonly startNode: string;
     private readonly endNode: string;
     private readonly iDoms: Map<string, string>;
@@ -81,15 +82,14 @@ export class SMLayouter {
     >;
     private readonly backedgesCombined: Set<[string, string]>;
     private readonly removedBackedges: Set<{ u: string, v: string, data: any }>;
-    private readonly rankDict: Map<number, string[]>;
+    public readonly rankDict: Map<number, string[]>;
     private readonly rankHeights: Map<number, number>;
     private readonly dummyChains: Set<[SMLayouterEdge, string[]]>;
 
     public constructor(
-        g: DiGraph<SMLayouterNode, SMLayouterEdge>, startState?: string
+        public readonly graph: DiGraph<SMLayouterNode, SMLayouterEdge>,
+        startState?: string
     ) {
-        this.graph = g;
-
         this.rankDict = new Map();
         this.rankHeights = new Map();
         this.dummyChains = new Set();
@@ -237,11 +237,12 @@ export class SMLayouter {
      * @see {@link SMLayouter.normalizeEdges}
      */
     public doLayout(): void {
-        this.makeAcyclic();
+        //this.makeAcyclic();
         this.doRanking();
         this.normalizeEdges();
-        this.permute();
-        this.undoMakeAcyclic();
+        //this.permute();
+        //this.undoMakeAcyclic();
+        this.newPermute();
         const routedEdges = this.assignPositions();
         const denormalizedEdges = this.denormalizeEdges();
         for (const edge of denormalizedEdges)
@@ -396,13 +397,10 @@ export class SMLayouter {
                 throw new Error('Failed to determine exit.');
         }
 
-        if (exitCandidates.size > 1) {
-            throw new Error('Undetermined number of possible exit states.');
-        } else if (exitCandidates.size === 1) {
+        if (exitCandidates.size >= 1) {
             let loopSize = 0;
-            const exitNode = Array.from(exitCandidates)[0];
             for (const s of successors) {
-                if (s !== exitNode) {
+                if (!exitCandidates.has(s)) {
                     loopSize += (this.allDom.get(s)?.size ?? 0) + 1;
                     q.push([s, rank + 1]);
                 }
@@ -840,11 +838,28 @@ export class SMLayouter {
         for (const edge of this.graph.edgesIter()) {
             const src = edge[0];
             const dst = edge[1];
-            // TODO: This appears to have no effect.
-            if (src.startsWith(DUMMY_PREFIX) || dst.startsWith(DUMMY_PREFIX))
-                dagreGraph.setEdge(src, dst, { weight: 1 });
-            else
-                dagreGraph.setEdge(src, dst, { weight: 1 });
+            let isBe = false;
+            for (const be of this.backedgesDstDict.get(dst) ?? []) {
+                if (be[0] === src) {
+                    isBe = true;
+                    break;
+                }
+            }
+            if (isBe)
+                continue;
+            for (const be of this.eclipsedBackedgesDstDict.get(dst) ?? []) {
+                if (be[0] === src) {
+                    isBe = true;
+                    break;
+                }
+            }
+            if (isBe)
+                continue;
+            let tgtWeight = 1;
+            if (src.startsWith('__smlayouter_dummy_') ||
+                dst.startsWith('__smlayouter_dummy_'))
+                tgtWeight = 100;
+            dagreGraph.setEdge(src, dst, { weight: tgtWeight });
         }
 
         dagreOrder(dagreGraph);
@@ -870,6 +885,26 @@ export class SMLayouter {
         }
     }
 
+    private newPermute(): void {
+        // Break cycles.
+        const backedgeData: [string, string, SMLayouterEdge][] = [];
+        for (const be of this.backedgesCombined) {
+            const src = be[0];
+            const dst = be[1];
+            if (this.graph.hasEdge(src, dst)) {
+                const edgeData = this.graph.edge(src, dst)!;
+                backedgeData.push([src, dst, edgeData]);
+                this.graph.removeEdge(src, dst);
+            }
+        }
+
+        biasedMinCrossing(this);
+
+        // Restore backedges.
+        for (const be of backedgeData)
+            this.graph.addEdge(be[0], be[1], be[2]);
+    }
+
     /**
      * Assign concrete coordinate positions to nodes and edges according to
      * the nodes' ranks and order within ranks.
@@ -880,11 +915,23 @@ export class SMLayouter {
     private assignPositions(): Set<SMLayouterEdge> {
         const routedEdges = new Set<SMLayouterEdge>();
 
-        let lastY = 0;
-        let lastHeight = 0;
+
         const sortedRanks = Array.from(this.rankDict.keys()).sort((a, b) => {
             return a - b;
         });
+        const lanes = new Map<number, number>();
+        for (const rank of sortedRanks) {
+            const rankNodes = this.rankDict.get(rank)!;
+            let i = 0;
+            for (const nodeId of rankNodes) {
+                const node = this.graph.get(nodeId)!;
+                lanes.set(i, Math.max(lanes.get(i) ?? 0, node.width));
+                i++;
+            }
+        }
+
+        let lastY = 0;
+        let lastHeight = 0;
         let i = 0;
         for (const rank of sortedRanks) {
             const rankNodes = this.rankDict.get(rank)!;
@@ -902,19 +949,13 @@ export class SMLayouter {
             lastY = thisY;
             lastHeight = thisHeight;
 
-            let lastX = 0;
-            let lastWidth = 0;
+            let thisX = 0;
             let j = 0;
             for (const nodeId of rankNodes) {
                 const node = this.graph.get(nodeId)!;
-                const thisX = (
-                    lastX + (lastWidth / 2) + (j === 0 ? 0 : NODE_SPACING) +
-                    (node.width / 2)
-                );
-                lastX = thisX;
-                lastWidth = node.width;
                 node.x = thisX;
                 node.y = thisY;
+                thisX += (lanes.get(j) ?? 0) + NODE_SPACING;
                 j++;
             }
             i++;

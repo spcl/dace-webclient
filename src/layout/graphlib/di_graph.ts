@@ -7,8 +7,8 @@ export class DiGraph<NodeT, EdgeT> extends Graph<NodeT, EdgeT> {
     private pred = new Map<string, Map<string, EdgeT | null>>();
     private succ = new Map<string, Map<string, EdgeT | null>>();
 
-    public constructor(name: string = '') {
-        super(name);
+    public constructor(name: string = '', compound: boolean = false) {
+        super(name, compound);
     }
 
     public addNode(id: string, node?: NodeT | null): void {
