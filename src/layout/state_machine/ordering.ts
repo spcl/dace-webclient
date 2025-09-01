@@ -10,7 +10,7 @@ import type {
 } from './sm_layouter';
 
 
-const N_IDLE_ITER = 9;
+const N_IDLE_ITER = 4;
 
 interface Barycenter {
     v?: string;
@@ -523,13 +523,15 @@ function barycenter(
             const result = inV.reduce((acc, e) => {
                 const edge = graph.edge(e[0][0], e[0][1])!;
                 const nodeU = graph.get(e[0][0])!;
-                //const nodeWeight = nodeU instanceof DummyState ? 1.01 : 1;
+                //const nodeWeight = nodeU instanceof DummyState ? 3 : 1;
                 const nodeWeight = 1;
+                const edgeWeight = edge.weight ?? 1;
+                //if (nodeU instanceof DummyState)
+                //    edgeWeight = edgeWeight * 2;
+                const nOrder = nodeU.order!;
                 return {
-                    sum: acc.sum + (
-                        (edge.weight ?? 1) * nodeU.order!
-                    ) * nodeWeight,
-                    weight: acc.weight + (edge.weight ?? 1),
+                    sum: acc.sum + (edgeWeight * nOrder) * nodeWeight,
+                    weight: acc.weight + edgeWeight,
                     out: [],
                     in: [],
                     indegree: 0,
@@ -580,6 +582,11 @@ function sortSubgraph(
         else
             movable.push(n);
     }
+    movable.sort((a, b) => {
+        const aOrder = graph.get(a)?.order ?? 0;
+        const bOrder = graph.get(b)?.order ?? 0;
+        return aOrder - bOrder;
+    });
     const subgraphs: Partial<Record<string, Barycenter>> = {};
 
     const barycenters = barycenter(graph, movable);

@@ -10,18 +10,12 @@ import type {
     DagreGraph,
     SDFGRenderer,
 } from '../../renderer/sdfg/sdfg_renderer';
-import { graphlib } from '@dagrejs/dagre';
 import { SMLayouterOrdering } from './ordering';
 import {
     DummyInterstateEdge,
     DummyState,
 } from '../../renderer/sdfg/sdfg_elements';
 
-/* eslint-disable-next-line @typescript-eslint/no-var-requires,
-   @typescript-eslint/no-require-imports */
-const dagreOrder = require('@dagrejs/dagre/lib/order') as (
-    g: graphlib.Graph
-) => void;
 
 const ARTIFICIAL_START = '__smlayouter_artifical_start';
 const ARTIFICIAL_END = '__smlayouter_artifical_end';
@@ -29,7 +23,9 @@ export const DUMMY_PREFIX = '__dummy';
 
 export const LAYER_SPACING = 50;
 export const NODE_SPACING = 50;
-export const BACKEDGE_SPACING = 20;
+export const EDGE_WIDTH = 1;
+export const EDGE_SPACING = 20;
+export const BACKEDGE_SPACING = EDGE_SPACING;
 export const SKIP_EDGES_CENTER_OFFSET = 50; // Given in percent.
 
 enum ScopeType {
@@ -62,6 +58,8 @@ export interface SMLayouterNode {
     y: number;
     order?: number;
     rank?: number;
+    minLane?: number;
+    lane?: number;
 }
 
 export interface SMLayouterEdge {
@@ -259,14 +257,14 @@ export class SMLayouter {
         this.doRanking();
         this.makeAcyclic();
         this.normalizeEdges();
-        this.newPermute();
+        this.permute();
         //this.permute();
         this.undoMakeAcyclic();
         const routedEdges = this.assignPositions();
         //const denormalizedEdges = this.denormalizeEdges();
         //for (const edge of denormalizedEdges)
         //    routedEdges.add(edge);
-        //this.routeBackEdges(routedEdges);
+        this.routeBackEdges(routedEdges);
 
         //this.checkUnroutedEdges(routedEdges);
     }
@@ -557,21 +555,6 @@ export class SMLayouter {
         this.assignInitialRanks();
         // Remove any empty ranks through contracting the ranking.
         this.contractRanks();
-
-        // Explode ranks by inserting a single empty rank between each existing
-        // rank. This ensures that edges spanning multiple ranks span at least
-        // one empty rank, which makes it easier to route them later on.
-        //const tmpRankDict = new Map<number, string[]>();
-        //for (let i = 0, j = 0; i < this.rankDict.size; i++, j += 2) {
-        //    tmpRankDict.set(j, this.rankDict.get(i)!);
-        //    this.rankHeights.set(j, this.rankHeights.get(i) ?? 0);
-        //}
-        //this.rankDict.clear();
-        //for (const k of tmpRankDict.keys()) {
-        //    this.rankDict.set(k, tmpRankDict.get(k)!);
-        //    for (const v of tmpRankDict.get(k)!)
-        //        this.graph.get(v)!.rank = k;
-        //}
     }
 
     /**
@@ -619,7 +602,7 @@ export class SMLayouter {
                     this.renderer, this.renderer.ctx, this.renderer.minimapCtx,
                     { state: { label: dummyNode } }, nDummyNode
                 ) as SMLayouterNode;
-                if (isBackedge && this.debug)
+                if (isBackedge)
                     (dummyNodeData as DummyState).forBackChain = true;
                 dummyNodeData.width = 50;
                 dummyNodeData.height = 50;
@@ -896,51 +879,7 @@ export class SMLayouter {
         }
     }
 
-    /**
-     * Perform in-rank permutations to ensure the number of edge crossings is
-     * minimized.
-     */
     private permute(): void {
-        // TODO: replace this so we do not need to use dagre for this.
-        const dagreGraph = new graphlib.Graph({
-            directed: true,
-            multigraph: false,
-            compound: false,
-        });
-        for (const node of this.graph.nodesIter()) {
-            const rank = this.graph.get(node)!.rank!;
-            dagreGraph.setNode(node, { rank: rank });
-        }
-        for (const edge of this.graph.edgesIter()) {
-            const src = edge[0];
-            const dst = edge[1];
-            dagreGraph.setEdge(src, dst, { weight: 1 });
-        }
-
-        dagreOrder(dagreGraph);
-
-        for (const nId of dagreGraph.nodes()) {
-            const nd = dagreGraph.node(nId);
-            const tgtNode = this.graph.get(nId);
-            if (tgtNode && 'order' in nd)
-                tgtNode.order = nd.order as number;
-        }
-
-        // Sort based on the order assigned by dagre.
-        for (const rank of this.rankDict.keys()) {
-            const nodes = this.rankDict.get(rank)!;
-            nodes.sort((a, b) => {
-                const aOrder = this.graph.get(a)?.order;
-                const bOrder = this.graph.get(b)?.order;
-                if (aOrder === undefined || bOrder === undefined)
-                    return 0;
-                return aOrder - bOrder;
-            });
-            this.rankDict.set(rank, nodes);
-        }
-    }
-
-    private newPermute(): void {
         for (const edge of this.graph.edgesIter())
             this.graph.edge(...edge)!.weight = 1;
         this.orderer.biasedMinCrossing();
@@ -956,18 +895,98 @@ export class SMLayouter {
     private assignPositions(): Set<SMLayouterEdge> {
         const routedEdges = new Set<SMLayouterEdge>();
 
+        // Adjust the order attributes so the first non-backedge node is at 0.
+        const nBePerRank = new Map<number, number>();
+        const nTrailingDummiesPerRank = new Map<number, number>();
+        let maxBeLanes = 0;
+        for (const rank of this.rankDict.keys()) {
+            const rankNodes = this.rankDict.get(rank)!;
+            let offsetLeft = 0;
+            let dummiesSinceLastNonDummy = 0;
+            for (const nodeId of rankNodes) {
+                const node = this.graph.get(nodeId)!;
+                if (node instanceof DummyState) {
+                    if (node.forBackChain)
+                        offsetLeft++;
+                    dummiesSinceLastNonDummy++;
+                } else {
+                    dummiesSinceLastNonDummy = 0;
+                }
+            }
+            for (const nodeId of rankNodes) {
+                const node = this.graph.get(nodeId)!;
+                node.lane = (node.order ?? 0) - offsetLeft;
+            }
+            nBePerRank.set(rank, offsetLeft);
+            nTrailingDummiesPerRank.set(rank, dummiesSinceLastNonDummy);
+            maxBeLanes = Math.max(maxBeLanes, offsetLeft);
+        }
+
+        // Straighten out all edges.
+        const dummyChainLanes = new Map<string, number>();
+        for (const dummyChain of this.dummyChains.keys()) {
+            let posLane = Number.NEGATIVE_INFINITY;
+            let negLane = Number.POSITIVE_INFINITY;
+            for (const nodeId of this.dummyChains.get(dummyChain)![1]) {
+                const nd = this.graph.get(nodeId)!;
+                const lanePre = nd.lane!;
+                if (lanePre < 0)
+                    negLane = Math.min(negLane, lanePre);
+                else
+                    posLane = Math.max(lanePre, posLane);
+            }
+
+            let tgtLane;
+            if (negLane !== Number.POSITIVE_INFINITY)
+                tgtLane = negLane;
+            else
+                tgtLane = posLane;
+            for (const nodeId of this.dummyChains.get(dummyChain)![1])
+                this.graph.get(nodeId)!.minLane = tgtLane;
+            dummyChainLanes.set(dummyChain, tgtLane);
+        }
+
         const sortedRanks = Array.from(this.rankDict.keys()).sort((a, b) => {
             return a - b;
         });
-        const lanes = new Map<number, number>();
+        const laneWidths = new Map<number, number>();
+        const laneXPositions = new Map<number, number>();
         for (const rank of sortedRanks) {
-            const rankNodes = this.rankDict.get(rank)!;
-            let i = 0;
-            for (const nodeId of rankNodes) {
+            let i = 0 - nBePerRank.get(rank)!;
+            for (const nodeId of this.rankDict.get(rank)!) {
                 const node = this.graph.get(nodeId)!;
-                lanes.set(i, Math.max(lanes.get(i) ?? 0, node.width));
-                i++;
+                if (node.minLane !== undefined)
+                    i = node.minLane;
+                node.lane = i;
+
+                let ndWidth = node.width;
+                if (node instanceof DummyState)
+                    ndWidth = EDGE_WIDTH;
+
+                laneWidths.set(i, Math.max(laneWidths.get(i) ?? 0, ndWidth));
+
+                if (i < 0)
+                    i = 0;
+                else
+                    i++;
             }
+        }
+        let x = 0;
+        const inOrderLanes = Array.from(laneWidths.keys()).sort((a, b) => {
+            return a - b;
+        });
+        const minLane = inOrderLanes[0];
+        for (const lane of inOrderLanes) {
+            const lWidth = laneWidths.get(lane)!;
+            if (lane > minLane) {
+                const prevLWidth = laneWidths.get(lane - 1)!;
+                if (lWidth > EDGE_WIDTH && prevLWidth > EDGE_WIDTH)
+                    x += NODE_SPACING;
+                else
+                    x += EDGE_SPACING;
+            }
+            laneXPositions.set(lane, x);
+            x += lWidth;
         }
 
         let lastY = 0;
@@ -989,16 +1008,10 @@ export class SMLayouter {
             lastY = thisY;
             lastHeight = thisHeight;
 
-            let thisX = 0;
-            let j = 0;
             for (const nodeId of rankNodes) {
                 const node = this.graph.get(nodeId)!;
-                node.x = thisX;
+                node.x = laneXPositions.get(node.lane!) ?? 0;
                 node.y = thisY;
-                //if (!(node instanceof DummyState)) {
-                    thisX += (lanes.get(j) ?? 0) + NODE_SPACING;
-                    j++;
-                //}
             }
             i++;
         }
