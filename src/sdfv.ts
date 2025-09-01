@@ -657,7 +657,7 @@ export class WebSDFV extends SDFV {
             for (const node of dotGraph.nodes()) {
                 const state = new State(
                     renderer, renderer.ctx, renderer.minimapCtx,
-                    { label: node }, +node
+                    { state: { label: '%' + node } }, +node
                 );
                 state.width = 50;
                 state.height = 50;

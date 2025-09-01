@@ -1,9 +1,16 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
+import { DummyState } from '../../renderer/sdfg/sdfg_elements';
 import { DiGraph } from '../graphlib/di_graph';
 import { Graph } from '../graphlib/graph';
-import type { SMLayouter, SMLayouterEdge, SMLayouterNode } from './sm_layouter';
+import type {
+    SMLayouter,
+    SMLayouterEdge,
+    SMLayouterNode,
+} from './sm_layouter';
 
+
+const N_IDLE_ITER = 4;
 
 interface Barycenter {
     v?: string;
@@ -18,6 +25,188 @@ interface Barycenter {
     outdegree: number;
 }
 
+export class SMLayouterOrdering {
+
+    private _rootNr = 0;
+
+    public constructor(
+        private readonly layouter: SMLayouter
+    ) {
+    }
+
+    private findNewUniqueRootNode(
+        graph: DiGraph<SMLayouterNode, SMLayouterEdge>
+    ) {
+        let root = '_root';
+        while (graph.has(root))
+            root = '_root' + (++this._rootNr).toString();
+        return root;
+    }
+
+    public buildLayerGraph(
+        rank: number,
+        relationship: 'inEdges' | 'outEdges'
+    ): DiGraph<SMLayouterNode, SMLayouterEdge> {
+        const graph = this.layouter.graph;
+        const root = this.findNewUniqueRootNode(graph);
+        const result = new DiGraph<SMLayouterNode, SMLayouterEdge>(
+            undefined, true
+        );
+
+        result.setData({ root: root });
+        result.setDefaultNodeLabel(
+            (v: string) => graph.getWithDefault(v, undefined)
+        );
+
+        for (const nId of this.layouter.rankDict.get(rank) ?? []) {
+            const parent = graph.parent(nId);
+            result.addNode(nId);
+            result.setParent(nId, parent ?? root);
+
+            // This assumes we have only short edges!
+            for (const edge of graph[relationship](nId)) {
+                const src = edge[0][0] === nId ? edge[0][1] : edge[0][0];
+                const dst = nId;
+                let weight = 0;
+                if (result.hasEdge(src, dst))
+                    weight = result.edge(src, dst)?.weight ?? 0;
+                const nEdge: SMLayouterEdge = {
+                    points: [],
+                    src: src,
+                    dst: dst,
+                    weight: weight + (edge[1]?.weight ?? 0),
+                };
+                result.addEdge(src, nId, nEdge);
+            }
+        }
+
+        return result;
+    }
+
+    public buildLayerGraphs(
+        ranks: number[],
+        relationship: 'inEdges' | 'outEdges'
+    ): DiGraph<SMLayouterNode, SMLayouterEdge>[] {
+        return ranks.map(
+            rank => this.buildLayerGraph(rank, relationship)
+        );
+    }
+
+    public sweepLayerGraphs(
+        layerGraphs: DiGraph<SMLayouterNode, SMLayouterEdge>[],
+        biasRight: boolean
+    ): void {
+        const constraintsGraph = new Graph<SMLayouterNode, SMLayouterEdge>();
+        // eslint-disable-next-line @typescript-eslint/prefer-for-of
+        for (let i = 0; i < layerGraphs.length; i++) {
+            const layerGraph = layerGraphs[i];
+            const root = (layerGraph.getData() as { root?: string }).root ?? '';
+            const sorted = sortSubgraph(
+                layerGraph, root, constraintsGraph, biasRight
+            );
+            sorted.vs?.forEach((nId, i) => layerGraph.get(nId)!.order = i);
+            addSubgraphConstraints(
+                layerGraph, constraintsGraph, sorted.vs ?? []
+            );
+        }
+    }
+
+    public biasedMinCrossing(): void {
+        // Initialize the ordering and assign order attributes accordingly.
+        initializeOrdering(this.layouter.rankDict, this.layouter.graph, true);
+
+        const maxRank = Math.max(...Array.from(this.layouter.rankDict.keys()));
+        const downRanks = Array.from(
+            { length: maxRank }, (_, i) => i + 1
+        );
+        const downLayerGraphs = this.buildLayerGraphs(downRanks, 'inEdges');
+        const upRanks = Array.from(
+            { length: maxRank }, (_, i) => maxRank - 1 - i
+        );
+        const upLayerGraphs = this.buildLayerGraphs(upRanks, 'outEdges');
+
+        let bestCount = Number.POSITIVE_INFINITY;
+        let bestPenalties = Number.POSITIVE_INFINITY;
+        const bestOrdering = new Map<number, string[]>();
+        for (const rank of this.layouter.rankDict.keys()) {
+            bestOrdering.set(
+                rank, [...(this.layouter.rankDict.get(rank) ?? [])]
+            );
+        }
+
+        let iter = 0;
+        let lastBest = 0;
+        while (lastBest < N_IDLE_ITER) {
+            // Perform a sweep to perform permutations.
+            const biasRight = iter % 4 >= 2;
+            this.sweepLayerGraphs(
+                iter % 2 ? downLayerGraphs : upLayerGraphs,
+                biasRight
+            );
+
+            // Re-assign the order attributes according to the new ordering.
+            for (const rank of this.layouter.rankDict.keys()) {
+                const sortedRankNodes = this.layouter.rankDict.get(rank)?.sort(
+                    (a, b) => {
+                        const aOrder = this.layouter.graph.get(a)?.order ?? 0;
+                        const bOrder = this.layouter.graph.get(b)?.order ?? 0;
+                        return aOrder - bOrder;
+                    }
+                ) ?? [];
+                this.layouter.rankDict.set(rank, sortedRankNodes);
+            }
+
+            // Count the crossings.
+            const crossCount = countCrossings(this.layouter);
+            let nDummyPenalties = 0;
+            for (const rnk of this.layouter.rankDict.keys()) {
+                const nodes = this.layouter.rankDict.get(rnk) ?? [];
+                let nDummiesFound = 0;
+                for (const v of nodes) {
+                    const nd = this.layouter.graph.get(v);
+                    if (nd instanceof DummyState && !nd.forBackChain) {
+                        nDummiesFound++;
+                    } else {
+                        if (nDummiesFound > 0)
+                            nDummyPenalties += nDummiesFound;
+                        nDummiesFound = 0;
+                    }
+                }
+            }
+            if (crossCount < bestCount || crossCount === bestCount &&
+                nDummyPenalties < bestPenalties) {
+                bestCount = crossCount;
+                bestPenalties = nDummyPenalties;
+                lastBest = 0;
+                bestOrdering.clear();
+                for (const rank of this.layouter.rankDict.keys()) {
+                    bestOrdering.set(
+                        rank, [...(this.layouter.rankDict.get(rank) ?? [])]
+                    );
+                }
+            }
+
+            iter++;
+            lastBest++;
+        }
+
+        console.log(
+            `Best crossing count: ${bestCount.toString()}`,
+            `(penalties: ${bestPenalties.toString()})`
+        );
+
+        // Apply the best ordering found to the graph.
+        this.layouter.rankDict.clear();
+        for (const rank of bestOrdering.keys())
+            this.layouter.rankDict.set(rank, [...bestOrdering.get(rank)!]);
+        for (const rank of this.layouter.rankDict.keys()) {
+            const nodes = this.layouter.rankDict.get(rank)!;
+            for (let i = 0; i < nodes.length; i++)
+                this.layouter.graph.get(nodes[i])!.order = i;
+        }
+    }
+
+}
 
 function sort(entries: Barycenter[], biasRight: boolean): Barycenter {
     const parts = {
@@ -131,15 +320,13 @@ function resolveConflicts(
         if (entry.v === undefined)
             return;
         const tmp = mappedEntries[entry.v] = {
-            barycenter: 1,
-            weight: 1,
             indegree: 0,
             outdegree: 0,
             in: [],
             out: [],
             vs: [entry.v],
             i: i,
-        };
+        } as Barycenter;
         if (entry.barycenter !== undefined) {
             tmp.barycenter = entry.barycenter;
             tmp.weight = entry.weight ?? 1;
@@ -221,63 +408,6 @@ function mergeEntries(target: Barycenter, source: Barycenter) {
     source.merged = true;
 }
 
-function findNewUniqueRootNode(
-    graph: DiGraph<SMLayouterNode, SMLayouterEdge>
-) {
-    let i = 0;
-    let root = '_root';
-    while (graph.has(root))
-        root = '_root' + (++i).toString();
-    return root;
-}
-
-function buildLayerGraph(
-    layouter: SMLayouter,
-    rank: number,
-    relationship: 'inEdges' | 'outEdges'
-) {
-    const graph = layouter.graph;
-    const root = findNewUniqueRootNode(graph);
-    const result = new DiGraph<SMLayouterNode, SMLayouterEdge>(undefined, true);
-
-    //result.addNode(root);
-    //graph.addNode(root);
-
-    result.setData({ root: root });
-    result.setDefaultNodeLabel((v: string) => graph.get(v));
-
-    for (const nId of layouter.rankDict.get(rank) ?? []) {
-        const parent = graph.parent(nId);
-        result.addNode(nId);
-        result.setParent(nId, parent ?? root);
-
-        // This assumes we have only short edges!
-        for (const edge of graph[relationship](nId)) {
-            const src = edge[0][0] === nId ? edge[0][1] : edge[0][0];
-            const dst = nId;
-            const oEdge = result.hasEdge(src, dst) ?
-                result.edge(src, dst) : undefined;
-            const nEdge: SMLayouterEdge = {
-                points: [],
-                src: src,
-                dst: dst,
-                weight: oEdge?.weight ?? 0,
-            };
-            result.addEdge(src, nId, nEdge);
-        }
-    }
-
-    return result;
-}
-
-function buildLayerGraphs(
-    layouter: SMLayouter,
-    ranks: number[],
-    relationship: 'inEdges' | 'outEdges'
-): DiGraph<SMLayouterNode, SMLayouterEdge>[] {
-    return ranks.map(rank => buildLayerGraph(layouter, rank, relationship));
-}
-
 /**
  * Initialize the ordering of nodes within each rank to the order
  * they appear in the rank dictionary, but pushing any dummy nodes
@@ -296,8 +426,18 @@ function initializeOrdering(
     for (const rank of rankDict.keys()) {
         const nodes = rankDict.get(rank)!;
         nodes.sort((a, b) => {
-            const aIsDummy = a.startsWith('__smlayouter_dummy_') ? 1 : 0;
-            const bIsDummy = b.startsWith('__smlayouter_dummy_') ? 1 : 0;
+            const ndA = graph.get(a);
+            const ndB = graph.get(b);
+            const aIsDummy = ndA instanceof DummyState ? 1 : 0;
+            const bIsDummy = ndB instanceof DummyState ? 1 : 0;
+            const aIsBEDummy = aIsDummy && (ndA as DummyState).forBackChain;
+            const bIsBEDummy = bIsDummy && (ndB as DummyState).forBackChain;
+            if (aIsBEDummy && bIsBEDummy)
+                return 0;
+            else if (aIsBEDummy && !bIsBEDummy)
+                return -1;
+            else if (!aIsBEDummy && bIsBEDummy)
+                return 1;
             return aIsDummy - bIsDummy;
         });
         if (setOrder) {
@@ -383,8 +523,11 @@ function barycenter(
             const result = inV.reduce((acc, e) => {
                 const edge = graph.edge(e[0][0], e[0][1])!;
                 const nodeU = graph.get(e[0][0])!;
+                const nodeWeight = nodeU instanceof DummyState ? 2 : 1;
                 return {
-                    sum: acc.sum + ((edge.weight ?? 1) * nodeU.order!),
+                    sum: acc.sum + (
+                        (edge.weight ?? 1) * nodeU.order!
+                    ) * nodeWeight,
                     weight: acc.weight + (edge.weight ?? 1),
                     out: [],
                     in: [],
@@ -427,7 +570,15 @@ function sortSubgraph(
     constraintsGraph: Graph<unknown, unknown>,
     biasRight: boolean
 ): Barycenter {
-    const movable = graph.children(root);
+    const movable = [];
+    const immovable = [];
+    for (const n of graph.children(root)) {
+        const nd = graph.get(n);
+        if (nd instanceof DummyState && nd.forBackChain)
+            immovable.push(n);
+        else
+            movable.push(n);
+    }
     const subgraphs: Partial<Record<string, Barycenter>> = {};
 
     const barycenters = barycenter(graph, movable);
@@ -450,6 +601,21 @@ function sortSubgraph(
                 return subgraph.vs ?? [];
             return v;
         }) ?? [];
+    }
+
+    let i = -immovable.length;
+    for (const nd of immovable) {
+        entries.push({
+            barycenter: undefined,
+            v: nd,
+            vs: [nd],
+            in: [],
+            out: [],
+            indegree: 0,
+            outdegree: 0,
+            i: i,
+        });
+        i++;
     }
 
     return sort(entries, biasRight);
@@ -483,64 +649,4 @@ function addSubgraphConstraints(
             child = parent;
         }
     });
-}
-
-function sweepLayerGraphs(
-    layerGraphs: DiGraph<SMLayouterNode, SMLayouterEdge>[],
-    biasRight: boolean
-): void {
-    const constraintsGraph = new Graph<SMLayouterNode, SMLayouterEdge>();
-    for (const layerGraph of layerGraphs) {
-        const root = (layerGraph.getData() as { root?: string }).root ?? '';
-        const sorted = sortSubgraph(
-            layerGraph, root, constraintsGraph, biasRight
-        );
-        sorted.vs?.forEach((nId, i) => layerGraph.get(nId)!.order = i);
-        addSubgraphConstraints(layerGraph, constraintsGraph, sorted.vs ?? []);
-    }
-}
-
-export function biasedMinCrossing(layouter: SMLayouter): void {
-    // Initialize the ordering and assign order attributes accordingly.
-    initializeOrdering(layouter.rankDict, layouter.graph, true);
-
-    const maxRank = Math.max(...Array.from(layouter.rankDict.keys()));
-    const downRanks = Array.from({ length: maxRank }, (_, i) => i + 1);
-    const downLayerGraphs = buildLayerGraphs(layouter, downRanks, 'inEdges');
-    const upRanks = Array.from({ length: maxRank }, (_, i) => maxRank - 1 - i);
-    const upLayerGraphs = buildLayerGraphs(layouter, upRanks, 'outEdges');
-
-    let bestCount = Number.POSITIVE_INFINITY;
-    const bestOrdering = new Map<number, string[]>();
-    for (const rank of layouter.rankDict.keys())
-        bestOrdering.set(rank, [...(layouter.rankDict.get(rank) ?? [])]);
-
-    for (let iter = 0, lastBest = 0; lastBest < 4; ++iter, ++lastBest) {
-        sweepLayerGraphs(
-            iter % 2 === 0 ? downLayerGraphs : upLayerGraphs,
-            iter % 4 >= 2
-        );
-
-        const crossCount = countCrossings(layouter);
-        if (crossCount < bestCount) {
-            bestCount = crossCount;
-            lastBest = 0;
-            bestOrdering.clear();
-            for (const rank of layouter.rankDict.keys()) {
-                bestOrdering.set(
-                    rank, [...(layouter.rankDict.get(rank) ?? [])]
-                );
-            }
-        }
-    }
-
-    // Apply the best ordering found to the graph.
-    layouter.rankDict.clear();
-    for (const rank of bestOrdering.keys())
-        layouter.rankDict.set(rank, [...bestOrdering.get(rank)!]);
-    for (const rank of layouter.rankDict.keys()) {
-        const nodes = layouter.rankDict.get(rank)!;
-        for (let i = 0; i < nodes.length; i++)
-            layouter.graph.get(nodes[i])!.order = i;
-    }
 }

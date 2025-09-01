@@ -12,7 +12,6 @@ import {
     JsonSDFGElement,
     JsonSDFGNode,
     JsonSDFGState,
-    Point2D,
     SimpleRect,
 } from '../../types';
 import {
@@ -40,6 +39,7 @@ import {
     TextVAlign,
 } from 'rendure/src/renderer/core/html_canvas/html_canvas_utils';
 import { shadeHexColor } from 'rendure/src/utils/colors';
+import { Point2D } from 'rendure/src/types';
 
 
 interface ElemDrawingOptions {
@@ -610,6 +610,35 @@ export class State extends ControlFlowBlock {
 
     public get type(): string {
         return this.jsonData?.type ?? SDFGElementType.SDFGState;
+    }
+
+}
+
+export class DummyState extends ControlFlowBlock {
+
+    private _forBackChain: boolean = false;
+
+    protected get defaultColorBG(): string {
+        if (this._forBackChain)
+            return '#00cc00';
+        else
+            return '#cc0000';
+    }
+
+    public get jsonData(): JsonSDFGState | undefined {
+        return this.data?.state as JsonSDFGState | undefined;
+    }
+
+    public get type(): string {
+        return this.jsonData?.type ?? SDFGElementType.SDFGState;
+    }
+
+    public set forBackChain(v: boolean) {
+        this._forBackChain = v;
+    }
+
+    public get forBackChain(): boolean {
+        return this._forBackChain;
     }
 
 }
@@ -1191,7 +1220,7 @@ export class Memlet extends Edge {
     }
 
     protected _internalDraw(
-        mousepos?: Point2D, _options?: ElemDrawingOptions
+        _mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
         this._setDrawStyleProperties(this.ctx);
 
@@ -1320,7 +1349,7 @@ export class InterstateEdge extends Edge {
     }
 
     protected _internalDraw(
-        mousepos?: Point2D, _options?: ElemDrawingOptions
+        _mousepos?: Point2D, _options?: ElemDrawingOptions
     ): void {
         this._setDrawStyleProperties(this.ctx);
 
@@ -1489,6 +1518,40 @@ export class InterstateEdge extends Edge {
 
     public drawLabel(): void {
         this._drawLabel();
+    }
+
+}
+
+export class DummyInterstateEdge extends InterstateEdge {
+
+    private _forBackChain: boolean = false;
+
+    public get forBackChain(): boolean {
+        return this._forBackChain;
+    }
+
+    public set forBackChain(v: boolean) {
+        this._forBackChain = v;
+    }
+
+    protected _internalDraw(
+        _mousepos?: Point2D, _options?: ElemDrawingOptions
+    ): void {
+        this._setDrawStyleProperties(this.ctx);
+
+        let style = this.strokeStyle();
+
+        // Interstate edge
+        if (style === SDFVSettings.get<string>('defaultTextColor')) {
+            if (this.forBackChain)
+                style = '#FF8800'; // Orange for back edges
+            else
+                style = SDFVSettings.get<string>('interstateEdgeColor');
+        }
+        this.ctx.fillStyle = this.ctx.strokeStyle = style;
+
+        this._drawShape(this.ctx, true);
+        this._ctxResetLineDash(this.ctx);
     }
 
 }
@@ -2630,6 +2693,8 @@ function batchedDrawEdges(
             continue;
         }
 
+        if (!edge.points.length)
+            continue;
         const lPoint = edge.points[edge.points.length - 1];
         if (viewport && lPoint.x >= viewport.x &&
             lPoint.x <= viewport.x + viewport.w &&
@@ -2776,13 +2841,11 @@ function drawStateMachine(
     renderer: SDFGRenderer, ppp: number, visibleRect?: SimpleRect,
     mousePos?: Point2D
 ): void {
-    if (!renderer.adaptiveHiding || ppp < SDFVSettings.get<number>('edgeLOD')) {
-        batchedDrawEdges(
-            renderer, stateMachineGraph, ctx, visibleRect, mousePos,
-            'interstateEdgeColor',
-            SDFVSettings.get<boolean>('alwaysOnISEdgeLabels')
-        );
-    }
+    batchedDrawEdges(
+        renderer, stateMachineGraph, ctx, visibleRect, mousePos,
+        'interstateEdgeColor',
+        SDFVSettings.get<boolean>('alwaysOnISEdgeLabels')
+    );
 
     for (const nodeId of stateMachineGraph.nodes()) {
         const block = stateMachineGraph.node(nodeId);

@@ -3,7 +3,7 @@
 import { GraphI } from './graph_types';
 
 
-type NodeLabelFn<NodeT> = (v: string) => NodeT | null;
+type NodeLabelFn<NodeT> = (v: string) => NodeT | null | undefined;
 
 const GRAPH_ROOT = '__compound_graph_root__';
 
@@ -37,6 +37,15 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
         return val;
     }
 
+    public getWithDefault<valT>(
+        id: string, def: valT
+    ): NodeT | null | valT {
+        const v = this.nodeMap.get(id);
+        if (v === undefined)
+            return def;
+        return v;
+    }
+
     public has(id: string): boolean {
         return this.nodeMap.get(id) !== undefined;
     }
@@ -44,10 +53,7 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
     public parent(id: string): string | undefined {
         if (!this.compound)
             return undefined;
-        const retval = this._parent!.get(id);
-        if (retval === undefined)
-            throw new Error(`Node ${id} does not exist`);
-        return retval;
+        return this._parent!.get(id);
     }
 
     public setParent(id: string, parent?: string): void {
@@ -60,6 +66,8 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
                     throw new Error('Setting parent would create a cycle');
                 ancestor = this._parent!.get(ancestor);
             }
+            if (!this.has(parent))
+                this.addNode(parent);
         }
 
         const oldParent = this._parent!.get(id);
@@ -95,7 +103,7 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
     }
 
     public addNode(id: string, node?: NodeT | null): void {
-        this.nodeMap.set(id, node ?? this._defaultNodeLabel(id));
+        this.nodeMap.set(id, (node ?? this._defaultNodeLabel(id)) ?? null);
         if (!this.adjacencyList.has(id)) {
             // Node did not exist before.
             this.adjacencyList.set(id, new Map());

@@ -232,11 +232,13 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         });
 
         SDFVSettings.getInstance().on('setting_changed', (setting, key) => {
-            if (key in Object.keys(HTML_CANVAS_RENDERER_DEFAULT_OPTIONS)) {
+            if (key in HTML_CANVAS_RENDERER_DEFAULT_OPTIONS) {
                 const rOptKey = key as HTMLCanvasRendererOptionKey;
                 const nVal = SDFVSettings.get(key);
-                if (nVal !== null)
+                if (nVal !== null) {
                     this._desiredOptions[rOptKey] = nVal as boolean;
+                    this._currentOptions[rOptKey] = nVal as boolean;
+                }
             }
 
             if (setting.relayout) {
@@ -512,16 +514,18 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     ): Promise<void> {
         return new Promise((resolve) => {
             if (layout) {
-                this.layoutDotGraph(graph).then(() => {
-                    if (zoomToFit)
-                        this.zoomToFitContents();
-                    else
-                        this.drawAsync();
-                    resolve();
-                }).catch(() => {
-                    console.error('Error while laying out SDFG');
-                    resolve();
-                });
+                setTimeout(() => {
+                    this.layoutDotGraph(graph).then(() => {
+                        if (zoomToFit)
+                            this.zoomToFitContents();
+                        else
+                            this.drawAsync();
+                        resolve();
+                    }).catch(() => {
+                        console.error('Error while laying out SDFG');
+                        resolve();
+                    });
+                }, 10);
             } else {
                 if (zoomToFit)
                     this.zoomToFitContents();
@@ -591,7 +595,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         const doLayout = () => {
             this._graph = dotGraph as DagreGraph;
             if (SDFVSettings.get<boolean>('useVerticalStateMachineLayout'))
-                SMLayouter.layoutDagreCompat(this._graph);
+                SMLayouter.layoutDagreCompat(this._graph, this);
             else
                 dagreLayout(this._graph as graphlib.Graph);
 
