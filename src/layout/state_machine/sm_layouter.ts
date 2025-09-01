@@ -557,6 +557,21 @@ export class SMLayouter {
         this.assignInitialRanks();
         // Remove any empty ranks through contracting the ranking.
         this.contractRanks();
+
+        // Explode ranks by inserting a single empty rank between each existing
+        // rank. This ensures that edges spanning multiple ranks span at least
+        // one empty rank, which makes it easier to route them later on.
+        //const tmpRankDict = new Map<number, string[]>();
+        //for (let i = 0, j = 0; i < this.rankDict.size; i++, j += 2) {
+        //    tmpRankDict.set(j, this.rankDict.get(i)!);
+        //    this.rankHeights.set(j, this.rankHeights.get(i) ?? 0);
+        //}
+        //this.rankDict.clear();
+        //for (const k of tmpRankDict.keys()) {
+        //    this.rankDict.set(k, tmpRankDict.get(k)!);
+        //    for (const v of tmpRankDict.get(k)!)
+        //        this.graph.get(v)!.rank = k;
+        //}
     }
 
     /**

@@ -10,7 +10,7 @@ import type {
 } from './sm_layouter';
 
 
-const N_IDLE_ITER = 4;
+const N_IDLE_ITER = 9;
 
 interface Barycenter {
     v?: string;
@@ -138,7 +138,7 @@ export class SMLayouterOrdering {
         let lastBest = 0;
         while (lastBest < N_IDLE_ITER) {
             // Perform a sweep to perform permutations.
-            const biasRight = iter % 4 >= 2;
+            const biasRight = iter % N_IDLE_ITER >= N_IDLE_ITER / 2;
             this.sweepLayerGraphs(
                 iter % 2 ? downLayerGraphs : upLayerGraphs,
                 biasRight
@@ -523,7 +523,8 @@ function barycenter(
             const result = inV.reduce((acc, e) => {
                 const edge = graph.edge(e[0][0], e[0][1])!;
                 const nodeU = graph.get(e[0][0])!;
-                const nodeWeight = nodeU instanceof DummyState ? 2 : 1;
+                //const nodeWeight = nodeU instanceof DummyState ? 1.01 : 1;
+                const nodeWeight = 1;
                 return {
                     sum: acc.sum + (
                         (edge.weight ?? 1) * nodeU.order!
