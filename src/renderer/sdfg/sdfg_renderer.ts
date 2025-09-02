@@ -63,6 +63,7 @@ import {
     traverseSDFGScopes,
 } from '../../utils/sdfg/traversal';
 import {
+    SDFVSetting,
     SDFVSettingKey,
     SDFVSettings,
     SDFVSettingValT,
@@ -79,7 +80,9 @@ import {
     findLineStartRectIntersection,
 } from 'rendure/src/renderer/core/common/renderer_utils';
 import { graphlib, layout as dagreLayout } from '@dagrejs/dagre';
-import { SMLayouter } from '../../layout/state_machine/sm_layouter';
+import { SMLayouter, SMLayouterEdge, SMLayouterNode } from '../../layout/state_machine/sm_layouter';
+import { LayoutEvaluator } from '../../layout/layout_evaluator';
+import { DiGraph } from '../../layout/graphlib/di_graph';
 
 
 type MouseModeT = 'pan' | 'move' | 'select' | 'add';
@@ -176,8 +179,10 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         initialUserTransform: DOMMatrix | null = null,
         debugDraw = false,
         backgroundColor: string | null = null,
-        modeButtons?: ModeButtons,
-        enableMaskUI?: Partial<Record<SDFGRendererUIFeature, boolean>>
+        private readonly modeButtons?: ModeButtons,
+        private readonly enableMaskUI?: Partial<
+            Record<SDFGRendererUIFeature, boolean>
+        >
     ) {
         const options = HTML_CANVAS_RENDERER_DEFAULT_OPTIONS;
         for (const key of Object.keys(options)) {
@@ -231,37 +236,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             this.drawAsync();
         });
 
-        SDFVSettings.getInstance().on('setting_changed', (setting, key) => {
-            if (key in HTML_CANVAS_RENDERER_DEFAULT_OPTIONS) {
-                const rOptKey = key as HTMLCanvasRendererOptionKey;
-                const nVal = SDFVSettings.get(key);
-                if (nVal !== null) {
-                    this._desiredOptions[rOptKey] = nVal as boolean;
-                    this._currentOptions[rOptKey] = nVal as boolean;
-                }
-            }
-
-            if (setting.relayout) {
-                this.layout().then(() => {
-                    this.drawAsync();
-                }).catch(() => {
-                    console.error('Error while laying out SDFG');
-                });
-            }
-
-            if (setting.redrawUI) {
-                this.ui?.destroy();
-                const rendererUI = new SDFGRendererUI(
-                    this.container, this, modeButtons, enableMaskUI
-                );
-                this.initUI(rendererUI);
-            }
-
-            if (setting.redraw !== false && !setting.relayout)
-                this.drawAsync();
-
-            this.emit('settings_changed', SDFVSettings.settingsDict);
-        });
+        SDFVSettings.getInstance().on(
+            'setting_changed', this.onSettingChanged.bind(this)
+        );
 
         const rendererUI = new SDFGRendererUI(
             this.container, this, modeButtons, enableMaskUI
@@ -270,6 +247,38 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
         if (initialUserTransform === null)
             this.zoomToFitContents();
+    }
+
+    public onSettingChanged(setting: SDFVSetting, key: SDFVSettingKey): void {
+        if (key in HTML_CANVAS_RENDERER_DEFAULT_OPTIONS) {
+            const rOptKey = key as HTMLCanvasRendererOptionKey;
+            const nVal = SDFVSettings.get(key);
+            if (nVal !== null) {
+                this._desiredOptions[rOptKey] = nVal as boolean;
+                this._currentOptions[rOptKey] = nVal as boolean;
+            }
+        }
+
+        if (setting.relayout) {
+            this.layout().then(() => {
+                this.drawAsync();
+            }).catch(() => {
+                console.error('Error while laying out SDFG');
+            });
+        }
+
+        if (setting.redrawUI) {
+            this.ui?.destroy();
+            const rendererUI = new SDFGRendererUI(
+                this.container, this, this.modeButtons, this.enableMaskUI
+            );
+            this.initUI(rendererUI);
+        }
+
+        if (setting.redraw !== false && !setting.relayout)
+            this.drawAsync();
+
+        this.emit('settings_changed', SDFVSettings.settingsDict);
     }
 
     // ====================
@@ -283,6 +292,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     public destroy(): void {
+        SDFVSettings.getInstance().off(
+            'setting_changed', this.onSettingChanged.bind(this)
+        );
         super.destroy();
         this._mouseFollowElement?.remove();
     }
@@ -594,12 +606,49 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     ): Promise<DagreGraph | undefined> {
         const doLayout = () => {
             this._graph = dotGraph as DagreGraph;
-            if (SDFVSettings.get<boolean>('useVerticalStateMachineLayout'))
-                SMLayouter.layoutDagreCompat(this._graph, this);
-            else
+            let layoutTime = 0;
+            let layouter;
+            if (SDFVSettings.get<boolean>('useVerticalStateMachineLayout')) {
+                layoutTime = SMLayouter.layoutDagreCompat(this._graph, this);
+                layouter = 'VEIL';
+            } else {
+                const startT = performance.now();
                 dagreLayout(this._graph as graphlib.Graph);
+                const endT = performance.now();
+                layoutTime = endT - startT;
+                layouter = 'Dagre.js - network-simplex';
+            }
+
+            const evaluator = new LayoutEvaluator(dotGraph);
+            const edgeLengthStats = evaluator.getEdgeLengthStats();
+            const edgeBendStats = evaluator.getEdgeBendsStats();
 
             this.recomputeGraphBoundingBox();
+            const graphArea = (this.graphBoundingBox?.w ?? 0) *
+                (this.graphBoundingBox?.h ?? 0);
+
+            console.debug('--- Graph Layout Statistics ---');
+            console.debug(`Graph layouter: ${layouter}`);
+            console.debug(`Layout time: ${layoutTime.toString()} ms`);
+            console.debug(`Graph area: ${graphArea.toString()} px^2`);
+            console.debug(
+                `Edge Bends (sum): ${edgeBendStats.total.toString()}`,
+                `(max): ${edgeBendStats.max.toString()}`
+            );
+            console.debug(
+                `Edge Lengths (sum): ${edgeLengthStats.sum.toString()} px`,
+                `(max): ${edgeLengthStats.max.toString()} px`,
+                `(median): ${edgeLengthStats.median.toString()} px`,
+                `(mean): ${edgeLengthStats.mean.toString()} px`
+            );
+            console.debug(
+                'Edge Length Uniformity (variance):',
+                `${edgeLengthStats.variance.toString()} px`
+            );
+            console.debug('------ Graph Statistics -------');
+            console.debug(`Nodes: ${this._graph.nodeCount().toString()}`);
+            console.debug(`Edges: ${this._graph.edgeCount().toString()}`);
+            console.debug('-------------------------------');
 
             return this._graph;
         };

@@ -214,14 +214,14 @@ export class SMLayouter {
      */
     public static layoutDagreCompat(
         dagreGraph: DagreGraph, renderer: SDFGRenderer, startState?: string
-    ): void {
+    ): number {
         const g = new DiGraph<SMLayouterNode, SMLayouterEdge>();
         for (const stateId of dagreGraph.nodes())
             g.addNode(stateId, dagreGraph.node(stateId));
         for (const edge of dagreGraph.edges())
             g.addEdge(edge.v, edge.w, dagreGraph.edge(edge));
 
-        SMLayouter.layout(g, renderer, startState, dagreGraph);
+        return SMLayouter.layout(g, renderer, startState, dagreGraph);
     }
 
     /**
@@ -261,9 +261,9 @@ export class SMLayouter {
         //this.permute();
         this.undoMakeAcyclic();
         const routedEdges = this.assignPositions();
-        //const denormalizedEdges = this.denormalizeEdges();
-        //for (const edge of denormalizedEdges)
-        //    routedEdges.add(edge);
+        const denormalizedEdges = this.denormalizeEdges();
+        for (const edge of denormalizedEdges)
+            routedEdges.add(edge);
         this.routeBackEdges(routedEdges);
 
         //this.checkUnroutedEdges(routedEdges);
@@ -278,16 +278,19 @@ export class SMLayouter {
         renderer: SDFGRenderer,
         startState?: string,
         dagreGraph?: DagreGraph
-    ): void {
+    ): number {
         // Construct a layouter instance (runs preparation phase) and perform
         // the laying out. Clean up afterwards by removing dummy start and end
         // nodes if they were added.
+        const startTime = performance.now();
         const instance = new SMLayouter(g, renderer, startState, dagreGraph);
         instance.doLayout();
         if (instance.startNode === ARTIFICIAL_START)
             g.removeNode(ARTIFICIAL_START);
         if (instance.endNode === ARTIFICIAL_END)
             g.removeNode(ARTIFICIAL_END);
+        const endTime = performance.now();
+        return endTime - startTime;
     }
 
     /**
@@ -656,9 +659,14 @@ export class SMLayouter {
         const routedEdges = new Set<SMLayouterEdge>();
         const skipEdges = new Set<SMLayouterEdge>();
 
-        for (const [oEdge, dummyChain] of this.dummyChains.values()) {
+        const handled = new Set<string>();
+        for (const chain of this.dummyChains.keys()) {
+            const [oEdge, dummyChain] = this.dummyChains.get(chain)!;
             if (dummyChain.length < 1)
                 continue;
+            if (oEdge.wasBackedge)
+                continue;
+            handled.add(chain);
 
             let chainSrc = undefined;
             let chainDst = undefined;
@@ -680,9 +688,6 @@ export class SMLayouter {
                 } else {
                     points.push({ x: node.x, y: node.y });
                 }
-
-                if (this.debug)
-                    this.dagreGraph?.removeNode(dummyNode);
             }
 
             if (chainSrc === undefined || chainDst === undefined)
@@ -691,28 +696,40 @@ export class SMLayouter {
             const sn = this.graph.get(chainSrc)!;
             const dn = this.graph.get(chainDst)!;
             const sourceX = sn.x + (sn.width / 200) * SKIP_EDGES_CENTER_OFFSET;
-            oEdge.points = [
-                { x: sourceX, y: sn.y + (sn.height / 2) },
-                ...points,
-                { x: dn.x, y: dn.y - (dn.height / 2) },
-            ];
+            const firstPoint = points[0];
+            const lastPoint = points[points.length - 1];
+            const nPoints = [];
+            if (firstPoint.x !== sourceX) {
+                const firstY = sn.y + (sn.height / 2);
+                const midY = firstY + (NODE_SPACING / 2);
+                nPoints.push({ x: sourceX, y: firstY });
+                nPoints.push({ x: sourceX, y: midY });
+                nPoints.push({ x: firstPoint.x, y: midY });
+            } else {
+                nPoints.push({ x: sourceX, y: sn.y + (sn.height / 2) });
+            }
+            nPoints.push(...points);
+            if (lastPoint.x !== dn.x) {
+                const lastY = dn.y - (dn.height / 2);
+                const midY = lastY - (NODE_SPACING / 2);
+                nPoints.push({ x: lastPoint.x, y: midY });
+                nPoints.push({ x: dn.x, y: midY });
+                nPoints.push({ x: dn.x, y: lastY });
+            } else {
+                nPoints.push({ x: dn.x, y: dn.y - (dn.height / 2) });
+            }
+            oEdge.points = nPoints;
             this.graph.addEdge(chainSrc, chainDst, oEdge);
 
-            if (this.debug) {
-                this.dagreGraph?.setEdge(
-                    chainSrc, chainDst, new DummyInterstateEdge(
-                        this.renderer, this.renderer.ctx,
-                        this.renderer.minimapCtx, undefined, 0
-                    )
-                );
-            }
-
-            for (const dummyNode of dummyChain)
+            for (const dummyNode of dummyChain) {
                 this.graph.removeNode(dummyNode);
+                if (this.debug)
+                    this.dagreGraph?.removeNode(dummyNode);
+            }
 
             skipEdges.add(oEdge);
         }
-        this.dummyChains.clear();
+        //this.dummyChains.clear();
 
         // Straighten all skip edges out.
         for (const edge of skipEdges) {
@@ -737,7 +754,7 @@ export class SMLayouter {
      * @param {Set<SMLayouterEdge>} routedEdges Set of routed edges after this
      *                                          step.
      */
-    private routeBackEdges(routedEdges: Set<SMLayouterEdge>): void {
+    private routeBackEdgesOld(routedEdges: Set<SMLayouterEdge>): void {
         // -------------------------------------------
         // Determine the scopes for backedges.
         // -------------------------------------------
@@ -876,6 +893,46 @@ export class SMLayouter {
                 ];
                 routedEdges.add(edgeData);
             }
+        }
+    }
+
+    private routeBackEdges(routedEdges: Set<SMLayouterEdge>): void {
+        for (const be of this.backedgesCombined) {
+            const ident = be[0] + '->' + be[1];
+            const oedge = this.removedBackedges.get(ident)!;
+            if (routedEdges.has(oedge))
+                continue;
+
+            const dummyIdent = be[1] + '->' + be[0];
+            if (!this.dummyChains.has(dummyIdent))
+                throw new Error('No dummy chain for backedge found.');
+            const [_, dummyNodes] = this.dummyChains.get(dummyIdent)!;
+
+            const dummyNode = this.graph.get(dummyNodes[0])!;
+            const edgeX = dummyNode.x - (dummyNode.width / 2);
+            const src = this.graph.get(be[0])!;
+            const startX = src.x - (src.width / 2);
+            const startY = src.y;
+            const dst = this.graph.get(be[1])!;
+            const endX = dst.x - (dst.width / 2);
+            const endY = dst.y;
+
+            this.graph.removeEdge(be[1], be[0]);
+            oedge.points = [
+                { x: startX, y: startY },
+                { x: edgeX, y: startY },
+                { x: edgeX, y: endY },
+                { x: endX, y: endY },
+            ];
+            this.graph.addEdge(be[0], be[1], oedge);
+            if (this.debug)
+                this.dagreGraph?.setEdge(be[0], be[1], oedge);
+            for (const dn of dummyNodes) {
+                this.graph.removeNode(dn);
+                if (this.debug)
+                    this.dagreGraph?.removeNode(dn);
+            }
+            routedEdges.add(oedge);
         }
     }
 

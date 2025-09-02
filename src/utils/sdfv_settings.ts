@@ -24,7 +24,7 @@ export type SDFVColorThemeColor = keyof (
         settingsManifest.viewerSettings.categories.customizeColorTheme.settings
 );
 
-interface SDFVSetting {
+export interface SDFVSetting {
     type: string;
     default: SDFVSettingValT;
     label: string;
