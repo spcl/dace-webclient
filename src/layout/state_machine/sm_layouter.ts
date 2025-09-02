@@ -100,7 +100,7 @@ export class SMLayouter {
 
     public constructor(
         public readonly graph: DiGraph<SMLayouterNode, SMLayouterEdge>,
-        private readonly renderer: SDFGRenderer,
+        private readonly renderer?: SDFGRenderer,
         startState?: string,
         private readonly dagreGraph?: DagreGraph,
         private readonly debug: boolean = true
@@ -601,10 +601,12 @@ export class SMLayouter {
                 const dummyNode = `${DUMMY_PREFIX}_${nDummyNode.toString()}`;
                 eDst = dummyNode;
                 nDummyNode++;
-                const dummyNodeData = new DummyState(
+                const dummyNodeData = this.renderer ? new DummyState(
                     this.renderer, this.renderer.ctx, this.renderer.minimapCtx,
                     { state: { label: dummyNode } }, nDummyNode
-                ) as SMLayouterNode;
+                ) as SMLayouterNode : {
+                    x: 0, y: 0, width: 0, height: 0, rank: undefined,
+                };
                 if (isBackedge)
                     (dummyNodeData as DummyState).forBackChain = true;
                 dummyNodeData.width = 50;
@@ -612,7 +614,7 @@ export class SMLayouter {
                 dummyNodeData.rank = i;
                 this.graph.addNode(dummyNode, dummyNodeData);
 
-                if (this.debug) {
+                if (this.debug && this.renderer) {
                     this.dagreGraph?.setNode(dummyNode, dummyNodeData);
                     const rendererEdge = new DummyInterstateEdge(
                         this.renderer, this.renderer.ctx,
@@ -635,7 +637,7 @@ export class SMLayouter {
             this.graph.addEdge(
                 eSrc, eDst, { points: [], wasBackedge: isBackedge }
             );
-            if (this.debug) {
+            if (this.debug && this.renderer) {
                 const rendererEdge = new DummyInterstateEdge(
                     this.renderer, this.renderer.ctx,
                     this.renderer.minimapCtx, undefined, 0
@@ -904,33 +906,49 @@ export class SMLayouter {
                 continue;
 
             const dummyIdent = be[1] + '->' + be[0];
-            if (!this.dummyChains.has(dummyIdent))
-                throw new Error('No dummy chain for backedge found.');
-            const [_, dummyNodes] = this.dummyChains.get(dummyIdent)!;
+            if (!this.dummyChains.has(dummyIdent)) {
+                // This is a self-edge or an edge that only spans one rank.
+                const selfEdge = be[0] === be[1];
+                const src = this.graph.get(be[0])!;
+                const dst = selfEdge ? src : this.graph.get(be[1])!;
+                const startX = src.x + (src.width / 2);
+                const endX = dst.x + (dst.width / 2);
+                const startY = selfEdge ? src.y + 10 : src.y;
+                const endY = selfEdge ? startY + 20 : dst.y;
+                oedge.points = [
+                    { x: startX, y: startY },
+                    { x: startX - BACKEDGE_SPACING, y: startY },
+                    { x: startX - BACKEDGE_SPACING, y: endY },
+                    { x: endX, y: endY },
+                ];
+            } else {
+                const [_, dummyNodes] = this.dummyChains.get(dummyIdent)!;
 
-            const dummyNode = this.graph.get(dummyNodes[0])!;
-            const edgeX = dummyNode.x - (dummyNode.width / 2);
-            const src = this.graph.get(be[0])!;
-            const startX = src.x - (src.width / 2);
-            const startY = src.y;
-            const dst = this.graph.get(be[1])!;
-            const endX = dst.x - (dst.width / 2);
-            const endY = dst.y;
+                const dummyNode = this.graph.get(dummyNodes[0])!;
+                const edgeX = dummyNode.x - (dummyNode.width / 2);
+                const src = this.graph.get(be[0])!;
+                const startX = src.x - (src.width / 2);
+                const startY = src.y;
+                const dst = this.graph.get(be[1])!;
+                const endX = dst.x - (dst.width / 2);
+                const endY = dst.y;
 
-            this.graph.removeEdge(be[1], be[0]);
-            oedge.points = [
-                { x: startX, y: startY },
-                { x: edgeX, y: startY },
-                { x: edgeX, y: endY },
-                { x: endX, y: endY },
-            ];
-            this.graph.addEdge(be[0], be[1], oedge);
-            if (this.debug)
-                this.dagreGraph?.setEdge(be[0], be[1], oedge);
-            for (const dn of dummyNodes) {
-                this.graph.removeNode(dn);
+                this.graph.removeEdge(be[1], be[0]);
+                oedge.points = [
+                    { x: startX, y: startY },
+                    { x: edgeX, y: startY },
+                    { x: edgeX, y: endY },
+                    { x: endX, y: endY },
+                ];
+
+                this.graph.addEdge(be[0], be[1], oedge);
                 if (this.debug)
-                    this.dagreGraph?.removeNode(dn);
+                    this.dagreGraph?.setEdge(be[0], be[1], oedge);
+                for (const dn of dummyNodes) {
+                    this.graph.removeNode(dn);
+                    if (this.debug)
+                        this.dagreGraph?.removeNode(dn);
+                }
             }
             routedEdges.add(oedge);
         }
@@ -1138,7 +1156,7 @@ export class SMLayouter {
             this.removedBackedges.set(ident, this.graph.edge(u, v));
             this.graph.removeEdge(u, v);
             this.graph.addEdge(v, u, { points: [], wasBackedge: true });
-            if (this.debug) {
+            if (this.debug && this.renderer) {
                 this.dagreGraph?.removeEdge(u, v);
                 const rendererEdge = new DummyInterstateEdge(
                     this.renderer, this.renderer.ctx, this.renderer.minimapCtx,
@@ -1158,7 +1176,7 @@ export class SMLayouter {
                 this.graph.addEdge(
                     e[1], e[0], this.removedBackedges.get(e[1] + '->' + e[0])
                 );
-                if (this.debug) {
+                if (this.debug && this.renderer) {
                     this.dagreGraph?.removeEdge(e[0], e[1]);
                     const rendererEdge = new DummyInterstateEdge(
                         this.renderer, this.renderer.ctx,

@@ -1,5 +1,6 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
+import { deepCopy } from '../../utils/utils';
 import { GraphI } from './graph_types';
 
 
@@ -263,11 +264,20 @@ export class Graph<NodeT, EdgeT> implements GraphI<NodeT, EdgeT> {
     }
 
     public copy(): Graph<NodeT, EdgeT> {
-        // TODO: Adapt to compound graphs.
         const C = new Graph<NodeT, EdgeT>(this.name, this.compound);
         for (const [nid, node] of this.nodeMap.entries()) {
             C.addNode(nid, node ?? undefined);
             C.adjacencyList.set(nid, new Map(this.adjacencyList.get(nid)));
+        }
+        C._data = deepCopy(this._data);
+        if (this.compound) {
+            C._parent = new Map(this._parent);
+            C._children = new Map();
+            for (const [nid, children] of this._children!.entries())
+                C._children.set(nid, new Map(children));
+        } else {
+            C._parent = undefined;
+            C._children = undefined;
         }
         return C;
     }
