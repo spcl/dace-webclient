@@ -612,6 +612,10 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 layoutTime = SMLayouter.layoutDagreCompat(this._graph, this);
                 layouter = 'VEIL';
             } else {
+                this._graph.setGraph({
+                    ranksep: 50,
+                    nodesep: 50,
+                });
                 const startT = performance.now();
                 dagreLayout(this._graph as graphlib.Graph);
                 const endT = performance.now();
@@ -622,33 +626,77 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             const evaluator = new LayoutEvaluator(dotGraph);
             const edgeLengthStats = evaluator.getEdgeLengthStats();
             const edgeBendStats = evaluator.getEdgeBendsStats();
+            const symmetryStats = evaluator.getSymmetryScore();
+            const nodeForces = evaluator.calcForces();
+
+            const allForces = Array.from(nodeForces.values());
+            const maxForce = Math.max(...allForces);
+            const sumForces = allForces.reduce((a, b) => a + b, 0);
+            const medianForce = allForces.sort((a, b) => a - b)[
+                Math.floor(allForces.length / 2)
+            ];
 
             this.recomputeGraphBoundingBox();
-            const graphArea = (this.graphBoundingBox?.w ?? 0) *
-                (this.graphBoundingBox?.h ?? 0);
 
-            console.debug('--- Graph Layout Statistics ---');
-            console.debug(`Graph layouter: ${layouter}`);
-            console.debug(`Layout time: ${layoutTime.toString()} ms`);
-            console.debug(`Graph area: ${graphArea.toString()} px^2`);
-            console.debug(
+            const graphArea = (
+                symmetryStats.boundingBox.w * symmetryStats.boundingBox.h
+            );
+
+            console.log('--- Graph Layout Statistics ---');
+            console.log(`
+${edgeBendStats.total.toString()}
+${edgeBendStats.max.toString()}
+${edgeLengthStats.variance.toString()}
+${edgeLengthStats.mad.toString()}
+${edgeLengthStats.sum.toString()}
+${edgeLengthStats.max.toString()}
+${edgeLengthStats.median.toString()}
+${graphArea.toString()}
+${symmetryStats.overall.toString()}
+${symmetryStats.vertical.toString()}
+${symmetryStats.horizontal.toString()}
+${symmetryStats.diagonalTLBR.toString()}
+${symmetryStats.diagonalBLTR.toString()}
+${maxForce.toString()}
+${medianForce.toString()}
+${sumForces.toString()}
+            `);
+            console.log('-------------------------------');
+
+            console.log(`Graph layouter: ${layouter}`);
+            console.log(`Layout time: ${layoutTime.toString()} ms`);
+            console.log(
                 `Edge Bends (sum): ${edgeBendStats.total.toString()}`,
                 `(max): ${edgeBendStats.max.toString()}`
             );
-            console.debug(
+            console.log(
+                'Edge Length Uniformity (variance):',
+                `${edgeLengthStats.variance.toString()} px`,
+                `(mean absolute deviation): ${edgeLengthStats.mad.toString()} px`
+            );
+            console.log(
                 `Edge Lengths (sum): ${edgeLengthStats.sum.toString()} px`,
                 `(max): ${edgeLengthStats.max.toString()} px`,
                 `(median): ${edgeLengthStats.median.toString()} px`,
                 `(mean): ${edgeLengthStats.mean.toString()} px`
             );
-            console.debug(
-                'Edge Length Uniformity (variance):',
-                `${edgeLengthStats.variance.toString()} px`
+            console.log(`Graph area: ${graphArea.toString()} px^2`);
+            console.log(
+                `Symmetry score: ${symmetryStats.overall.toString()} ` +
+                `(vertical) ${symmetryStats.vertical.toString()}, ` +
+                `(horizontal) ${symmetryStats.horizontal.toString()}, ` +
+                `(TLBR) ${symmetryStats.diagonalTLBR.toString()}, ` +
+                `(BLTR) ${symmetryStats.diagonalBLTR.toString()}`
             );
-            console.debug('------ Graph Statistics -------');
-            console.debug(`Nodes: ${this._graph.nodeCount().toString()}`);
-            console.debug(`Edges: ${this._graph.edgeCount().toString()}`);
-            console.debug('-------------------------------');
+            console.log(
+                `Node Forces (max): ${maxForce.toString()}, ` +
+                `(median): ${medianForce.toString()}, ` +
+                `(sum): ${sumForces.toString()}`
+            );
+            console.log('------ Graph Statistics -------');
+            console.log(`Nodes: ${this._graph.nodeCount().toString()}`);
+            console.log(`Edges: ${this._graph.edgeCount().toString()}`);
+            console.log('-------------------------------');
 
             return this._graph;
         };

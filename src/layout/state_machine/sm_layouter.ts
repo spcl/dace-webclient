@@ -103,7 +103,7 @@ export class SMLayouter {
         private readonly renderer?: SDFGRenderer,
         startState?: string,
         private readonly dagreGraph?: DagreGraph,
-        private readonly debug: boolean = true
+        private readonly debug: boolean = false
     ) {
         this.rankDict = new Map();
         this.rankHeights = new Map();
