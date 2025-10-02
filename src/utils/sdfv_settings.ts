@@ -106,6 +106,10 @@ export class SDFVSettings extends EventEmitter {
                 );
             }
         }
+
+        this.on('setting_changed', () => {
+            this.saveToLocalStorage();
+        });
     }
 
     public static getInstance(): SDFVSettings {
@@ -113,6 +117,21 @@ export class SDFVSettings extends EventEmitter {
     }
 
     private modal: Modal | null = null;
+
+    public saveToLocalStorage(): void {
+        const toSave = Object.fromEntries(this._settingsDict);
+        localStorage.setItem('sdfv_settings', JSON.stringify(toSave));
+        console.debug('Saved settings to localStorage', toSave);
+    }
+
+    public tryInitializeFromLocalStorage(): void {
+        const prevSettings = JSON.parse(
+            localStorage.getItem('sdfv_settings') ?? '{}'
+        ) as Record<SDFVSettingKey, SDFVSettingValT>;
+        for (const [k, v] of Object.entries(prevSettings))
+            this._settingsDict.set(k as SDFVSettingKey, v);
+        console.debug('Loaded settings from localStorage', this._settingsDict);
+    }
 
     private addSelect(
         root: JQuery, category: string, key: SDFVSettingKey,

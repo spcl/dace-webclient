@@ -113,7 +113,7 @@ export function readOrDecompress(
     try {
         return [
             new TextDecoder().decode(
-                gunzipSync(Buffer.from(json as Uint8Array))
+                gunzipSync(Buffer.from(json as ArrayBuffer))
             ),
             true,
         ];
