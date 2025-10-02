@@ -235,6 +235,9 @@ export class WebSDFV extends SDFV {
         else
             console.log('Monaco already initialized');
 
+        // Try to load any previous settings state from localStorage.
+        SDFVSettings.getInstance().tryInitializeFromLocalStorage();
+
         this.registerEventListeners();
         this.UI.init();
 
