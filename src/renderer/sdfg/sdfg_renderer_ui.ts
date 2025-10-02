@@ -17,6 +17,7 @@ import { MemoryVolumeOverlay } from '../../overlays/memory_volume_overlay';
 import { cfgToDotGraph } from '../../utils/sdfg/dotgraph';
 import { ModeButtons } from '../../types';
 import { SDFGElementType } from './sdfg_elements';
+import { StatsCollector } from '../../layout/layout_evaluator';
 
 
 export type SDFGRendererUIFeature = (
@@ -101,6 +102,16 @@ export class SDFGRendererUI extends RendererUI {
                             cfgToDotGraph(this.renderer.sdfg)
                         )
                     );
+                }, -1, false
+            );
+            this.addMenuItem(
+                'Clear stats', () => {
+                    StatsCollector.getInstance().clearStats();
+                }, -1, false
+            );
+            this.addMenuItem(
+                'Save stats', () => {
+                    StatsCollector.getInstance().dumpStatsCSV('stats.csv');
                 }, -1, false
             );
             this.addMenuDivider();

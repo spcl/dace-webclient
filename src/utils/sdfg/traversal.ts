@@ -24,6 +24,17 @@ import {
     SDFGElementInfo,
 } from '../../types';
 
+const dummySDFG: JsonSDFG = {
+    id: -1,
+    label: 'unknown',
+    type: 'SDFG',
+    nodes: [],
+    edges: [],
+    start_block: 0,
+    cfg_list_id: 0,
+    error: undefined,
+};
+
 /**
  * Receives a callback that accepts (node, parent graph) and returns a value.
  * This function is invoked recursively per scope (including scope nodes),
@@ -243,13 +254,13 @@ export function doForAllJsonSDFGElements(
  *              SDFG will be traversed.
  */
 export function doForAllDagreGraphElements(
-    func: DagreGraphElemFunction, graph: DagreGraph, sdfg: JsonSDFG,
+    func: DagreGraphElemFunction, graph: DagreGraph, sdfg?: JsonSDFG,
     cfg?: JsonSDFGControlFlowRegion
 ): void {
     // Traverse nested SDFGs recursively
     function doRecursive(
-        rGraph: DagreGraph | null, rCFG: JsonSDFGControlFlowRegion,
-        rSDFG: JsonSDFG
+        rGraph: DagreGraph | null, rCFG?: JsonSDFGControlFlowRegion,
+        rSDFG?: JsonSDFG
     ) {
         if (!rGraph)
             return;
@@ -264,10 +275,10 @@ export function doForAllDagreGraphElements(
                 func(
                     'states',
                     {
-                        sdfg: rSDFG,
+                        sdfg: rSDFG ?? dummySDFG,
                         graph: rGraph,
                         id: blockId,
-                        cfgId: rCFG.cfg_list_id,
+                        cfgId: rCFG?.cfg_list_id ?? -1,
                         stateId: -1,
                     },
                     block
@@ -289,10 +300,10 @@ export function doForAllDagreGraphElements(
                     func(
                         'nodes',
                         {
-                            sdfg: rSDFG,
+                            sdfg: rSDFG ?? dummySDFG,
                             graph: ng,
                             id: nodeId,
-                            cfgId: rCFG.cfg_list_id,
+                            cfgId: rCFG?.cfg_list_id ?? -1,
                             stateId: blockId,
                         },
                         node
@@ -318,10 +329,10 @@ export function doForAllDagreGraphElements(
                         (c: Connector, i: number) => {
                             func(
                                 'connectors', {
-                                    sdfg: rSDFG,
+                                    sdfg: rSDFG ?? dummySDFG,
                                     graph: ng,
                                     id: nodeId,
-                                    cfgId: rCFG.cfg_list_id,
+                                    cfgId: rCFG?.cfg_list_id ?? -1,
                                     stateId: blockId,
                                     connector: i,
                                     conntype: 'in',
@@ -333,10 +344,10 @@ export function doForAllDagreGraphElements(
                         (c: Connector, i: number) => {
                             func(
                                 'connectors', {
-                                    sdfg: rSDFG,
+                                    sdfg: rSDFG ?? dummySDFG,
                                     graph: ng,
                                     id: nodeId,
-                                    cfgId: rCFG.cfg_list_id,
+                                    cfgId: rCFG?.cfg_list_id ?? -1,
                                     stateId: blockId,
                                     connector: i,
                                     conntype: 'out',
@@ -353,10 +364,10 @@ export function doForAllDagreGraphElements(
                         func(
                             'edges',
                             {
-                                sdfg: rSDFG,
+                                sdfg: rSDFG ?? dummySDFG,
                                 graph: ng,
                                 id: edge.id,
-                                cfgId: rCFG.cfg_list_id,
+                                cfgId: rCFG?.cfg_list_id ?? -1,
                                 stateId: blockId,
                             },
                             edge
@@ -368,10 +379,10 @@ export function doForAllDagreGraphElements(
                 func(
                     'controlFlowRegions',
                     {
-                        sdfg: rSDFG,
+                        sdfg: rSDFG ?? dummySDFG,
                         graph: rGraph,
                         id: blockId,
-                        cfgId: rCFG.cfg_list_id,
+                        cfgId: rCFG?.cfg_list_id ?? -1,
                         stateId: -1,
                     },
                     block
@@ -383,10 +394,10 @@ export function doForAllDagreGraphElements(
                 func(
                     'controlFlowBlocks',
                     {
-                        sdfg: rSDFG,
+                        sdfg: rSDFG ?? dummySDFG,
                         graph: rGraph,
                         id: blockId,
-                        cfgId: rCFG.cfg_list_id,
+                        cfgId: rCFG?.cfg_list_id ?? -1,
                         stateId: -1,
                     },
                     block
@@ -395,10 +406,10 @@ export function doForAllDagreGraphElements(
                     func(
                         'controlFlowRegions',
                         {
-                            sdfg: rSDFG,
+                            sdfg: rSDFG ?? dummySDFG,
                             graph: rGraph,
                             id: blockId,
-                            cfgId: rCFG.cfg_list_id,
+                            cfgId: rCFG?.cfg_list_id ?? -1,
                             stateId: -1,
                         },
                         branch
@@ -412,10 +423,10 @@ export function doForAllDagreGraphElements(
                 func(
                     'controlFlowBlocks',
                     {
-                        sdfg: rSDFG,
+                        sdfg: rSDFG ?? dummySDFG,
                         graph: rGraph,
                         id: blockId,
-                        cfgId: rCFG.cfg_list_id,
+                        cfgId: rCFG?.cfg_list_id ?? -1,
                         stateId: -1,
                     },
                     block
@@ -429,10 +440,10 @@ export function doForAllDagreGraphElements(
             func(
                 'interstateEdges',
                 {
-                    sdfg: rSDFG,
+                    sdfg: rSDFG ?? dummySDFG,
                     graph: rGraph,
                     id: isEdge.id,
-                    cfgId: rCFG.cfg_list_id,
+                    cfgId: rCFG?.cfg_list_id ?? -1,
                     stateId: -1,
                 },
                 isEdge

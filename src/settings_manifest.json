@@ -237,12 +237,12 @@
                     "stateBackgroundColor": {
                         "label": "State background",
                         "type": "color",
-                        "default": "#deebf7"
+                        "default": "#597dbf"
                     },
                     "stateBorderColor": {
                         "label": "State border",
                         "type": "color",
-                        "default": "#deebf7"
+                        "default": "#000000"
                     },
                     "breakBlockColor": {
                         "label": "Break block",
@@ -277,7 +277,7 @@
                     "interstateEdgeColor": {
                         "label": "Interstate edge color",
                         "type": "color",
-                        "default": "#86add9"
+                        "default": "#000000"
                     },
                     "errorNodeBackgroundColor": {
                         "label": "Background for nodes with errors",

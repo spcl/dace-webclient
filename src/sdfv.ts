@@ -42,6 +42,7 @@ import {
 import { showErrorModal } from './utils/utils';
 import { read as graphlibDotRead } from '@dagrejs/graphlib-dot';
 import { graphlib } from '@dagrejs/dagre';
+import { DUMMY_NODE_SIZE } from './layout/state_machine/sm_layouter';
 
 
 declare const vscode: any;
@@ -655,12 +656,17 @@ export class WebSDFV extends SDFV {
             });
 
             for (const node of dotGraph.nodes()) {
+                const nObj = dotGraph.node(node);
+                const label = nObj.label ?? node;
+                const cleanedLabel = label.replace(
+                    /\{\%/g, ''
+                ).split('|')[0].replace(/\}/g, '');
                 const state = new State(
                     renderer, renderer.ctx, renderer.minimapCtx,
-                    { state: { label: '%' + node } }, +node
+                    { state: { label: cleanedLabel } }, +node
                 );
-                state.width = 50;
-                state.height = 50;
+                state.width = DUMMY_NODE_SIZE;
+                state.height = DUMMY_NODE_SIZE;
                 dotGraph.setNode(node, state);
             }
             let i = 0;

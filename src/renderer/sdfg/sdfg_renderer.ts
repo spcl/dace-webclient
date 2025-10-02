@@ -80,9 +80,8 @@ import {
     findLineStartRectIntersection,
 } from 'rendure/src/renderer/core/common/renderer_utils';
 import { graphlib, layout as dagreLayout } from '@dagrejs/dagre';
-import { SMLayouter, SMLayouterEdge, SMLayouterNode } from '../../layout/state_machine/sm_layouter';
-import { LayoutEvaluator } from '../../layout/layout_evaluator';
-import { DiGraph } from '../../layout/graphlib/di_graph';
+import { SMLayouter } from '../../layout/state_machine/sm_layouter';
+import { LayoutEvaluator, StatsCollector } from '../../layout/layout_evaluator';
 
 
 type MouseModeT = 'pan' | 'move' | 'select' | 'add';
@@ -416,7 +415,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     protected setTemporaryContext(ctx: CanvasRenderingContext2D): void {
-        if (!this.graph || !this.sdfg)
+        if (!this.graph)
             return;
         doForAllDagreGraphElements((_group, _info, elem) => {
             elem.setTemporaryContext(ctx);
@@ -527,14 +526,11 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         return new Promise((resolve) => {
             if (layout) {
                 setTimeout(() => {
-                    this.layoutDotGraph(graph).then(() => {
+                    void this.layoutDotGraph(graph).then(() => {
                         if (zoomToFit)
                             this.zoomToFitContents();
                         else
                             this.drawAsync();
-                        resolve();
-                    }).catch(() => {
-                        console.error('Error while laying out SDFG');
                         resolve();
                     });
                 }, 10);
@@ -623,11 +619,17 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 layouter = 'Dagre.js - network-simplex';
             }
 
+            this.recomputeGraphBoundingBox();
+
             const evaluator = new LayoutEvaluator(dotGraph);
             const edgeLengthStats = evaluator.getEdgeLengthStats();
             const edgeBendStats = evaluator.getEdgeBendsStats();
             const symmetryStats = evaluator.getSymmetryScore();
             const nodeForces = evaluator.calcForces();
+            const edgeOrthoScore = evaluator.getEdgeOrthoScore();
+            const nodeOrthoScore = evaluator.getNodeOrthoScore(symmetryStats.boundingBox);
+            const nRanks = Math.floor(symmetryStats.boundingBox.h / 100) + 1;
+            const bundlingRes = evaluator.calcBundlingDist();
 
             const allForces = Array.from(nodeForces.values());
             const maxForce = Math.max(...allForces);
@@ -636,14 +638,14 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 Math.floor(allForces.length / 2)
             ];
 
-            this.recomputeGraphBoundingBox();
-
             const graphArea = (
                 symmetryStats.boundingBox.w * symmetryStats.boundingBox.h
             );
 
             console.log('--- Graph Layout Statistics ---');
             console.log(`
+${nodeOrthoScore.toString()}
+${edgeOrthoScore.toString()}
 ${edgeBendStats.total.toString()}
 ${edgeBendStats.max.toString()}
 ${edgeLengthStats.variance.toString()}
@@ -665,6 +667,9 @@ ${sumForces.toString()}
 
             console.log(`Graph layouter: ${layouter}`);
             console.log(`Layout time: ${layoutTime.toString()} ms`);
+            console.log(`Node Orthogonality Score: ${nodeOrthoScore.toString()}`);
+            console.log(`Edge Orthogonality Score: ${edgeOrthoScore.toString()}`);
+            console.log(`n Ranks: ${nRanks.toString()}`);
             console.log(
                 `Edge Bends (sum): ${edgeBendStats.total.toString()}`,
                 `(max): ${edgeBendStats.max.toString()}`
@@ -678,7 +683,8 @@ ${sumForces.toString()}
                 `Edge Lengths (sum): ${edgeLengthStats.sum.toString()} px`,
                 `(max): ${edgeLengthStats.max.toString()} px`,
                 `(median): ${edgeLengthStats.median.toString()} px`,
-                `(mean): ${edgeLengthStats.mean.toString()} px`
+                `(mean): ${edgeLengthStats.mean.toString()} px`,
+                `(log-mad): ${edgeLengthStats.log_mad.toString()}`
             );
             console.log(`Graph area: ${graphArea.toString()} px^2`);
             console.log(
@@ -697,6 +703,24 @@ ${sumForces.toString()}
             console.log(`Nodes: ${this._graph.nodeCount().toString()}`);
             console.log(`Edges: ${this._graph.edgeCount().toString()}`);
             console.log('-------------------------------');
+
+            StatsCollector.getInstance().addStatsColum([
+                nodeOrthoScore,
+                edgeOrthoScore,
+                edgeBendStats.total,
+                edgeLengthStats.variance,
+                edgeLengthStats.mad,
+                edgeLengthStats.log_mad,
+                edgeLengthStats.sum,
+                edgeLengthStats.max,
+                edgeLengthStats.median,
+                graphArea,
+                maxForce,
+                medianForce,
+                sumForces,
+                bundlingRes.medianBw,
+                bundlingRes.medianFw,
+            ]);
 
             return this._graph;
         };

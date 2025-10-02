@@ -94,7 +94,7 @@ export class SMLayouterOrdering {
 
     public sweepLayerGraphs(
         layerGraphs: DiGraph<SMLayouterNode, SMLayouterEdge>[],
-        biasRight: boolean
+        biasRight: boolean, dummyOnly: boolean = false
     ): void {
         const constraintsGraph = new Graph<SMLayouterNode, SMLayouterEdge>();
         // eslint-disable-next-line @typescript-eslint/prefer-for-of
@@ -102,7 +102,7 @@ export class SMLayouterOrdering {
             const layerGraph = layerGraphs[i];
             const root = (layerGraph.getData() as { root?: string }).root ?? '';
             const sorted = sortSubgraph(
-                layerGraph, root, constraintsGraph, biasRight
+                layerGraph, root, constraintsGraph, biasRight, dummyOnly
             );
             sorted.vs?.forEach((nId, i) => layerGraph.get(nId)!.order = i);
             addSubgraphConstraints(
@@ -189,6 +189,64 @@ export class SMLayouterOrdering {
             iter++;
             lastBest++;
         }
+
+        /*
+        iter = 0;
+        lastBest = 0;
+        while (lastBest < N_IDLE_ITER) {
+            // Perform a sweep to perform permutations.
+            const biasRight = iter % N_IDLE_ITER >= N_IDLE_ITER / 2;
+            this.sweepLayerGraphs(
+                iter % 2 ? downLayerGraphs : upLayerGraphs,
+                biasRight, true
+            );
+
+            // Re-assign the order attributes according to the new ordering.
+            for (const rank of this.layouter.rankDict.keys()) {
+                const sortedRankNodes = this.layouter.rankDict.get(rank)?.sort(
+                    (a, b) => {
+                        const aOrder = this.layouter.graph.get(a)?.order ?? 0;
+                        const bOrder = this.layouter.graph.get(b)?.order ?? 0;
+                        return aOrder - bOrder;
+                    }
+                ) ?? [];
+                this.layouter.rankDict.set(rank, sortedRankNodes);
+            }
+
+            // Count the crossings.
+            const crossCount = countCrossings(this.layouter);
+            let nDummyPenalties = 0;
+            for (const rnk of this.layouter.rankDict.keys()) {
+                const nodes = this.layouter.rankDict.get(rnk) ?? [];
+                let nDummiesFound = 0;
+                for (const v of nodes) {
+                    const nd = this.layouter.graph.get(v);
+                    if (nd instanceof DummyState && !nd.forBackChain) {
+                        nDummiesFound++;
+                    } else {
+                        if (nDummiesFound > 0)
+                            nDummyPenalties += nDummiesFound;
+                        nDummiesFound = 0;
+                    }
+                }
+            }
+            if (crossCount < bestCount || crossCount === bestCount &&
+                nDummyPenalties < bestPenalties) {
+                bestCount = crossCount;
+                bestPenalties = nDummyPenalties;
+                lastBest = 0;
+                bestOrdering.clear();
+                for (const rank of this.layouter.rankDict.keys()) {
+                    bestOrdering.set(
+                        rank, [...(this.layouter.rankDict.get(rank) ?? [])]
+                    );
+                }
+            }
+
+            iter++;
+            lastBest++;
+        }
+        */
 
         console.log(
             `Best crossing count: ${bestCount.toString()}`,
@@ -571,10 +629,44 @@ function sortSubgraph(
     graph: DiGraph<SMLayouterNode, SMLayouterEdge>,
     root: string,
     constraintsGraph: Graph<unknown, unknown>,
-    biasRight: boolean
+    biasRight: boolean,
+    dummyOnly: boolean
 ): Barycenter {
     const movable = [];
     const immovable = [];
+    /*
+    const pre_immovable = [];
+    const post_immovable = [];
+    if (dummyOnly) {
+        for (const n of graph.children(root)) {
+            const nd = graph.get(n);
+            if (nd instanceof DummyState && nd.forBackChain)
+                pre_immovable.push(n);
+            else if (!(nd instanceof DummyState))
+                post_immovable.push(n);
+            else
+                movable.push(n);
+            //if (nd instanceof DummyState && nd.forBackChain)
+            //    immovable.push(n);
+            //else
+            //    movable.push(n);
+        }
+    } else {
+        for (const n of graph.children(root)) {
+            const nd = graph.get(n);
+            if (nd instanceof DummyState && nd.forBackChain)
+                pre_immovable.push(n);
+            else if (nd instanceof DummyState)
+                post_immovable.push(n);
+            else
+                movable.push(n);
+            //if (nd instanceof DummyState && nd.forBackChain)
+            //    immovable.push(n);
+            //else
+            //    movable.push(n);
+        }
+    }
+    */
     for (const n of graph.children(root)) {
         const nd = graph.get(n);
         if (nd instanceof DummyState && nd.forBackChain)
@@ -593,7 +685,7 @@ function sortSubgraph(
     barycenters.forEach(entry => {
         if (entry.v && graph.children(entry.v).length) {
             const subgraphResult = sortSubgraph(
-                graph, entry.v, constraintsGraph, biasRight
+                graph, entry.v, constraintsGraph, biasRight, dummyOnly
             );
             subgraphs[entry.v] = subgraphResult;
             if (subgraphResult.barycenter !== undefined)
@@ -610,6 +702,67 @@ function sortSubgraph(
             return v;
         }) ?? [];
     }
+
+    /*
+    if (dummyOnly) {
+        let i = -(pre_immovable.length + post_immovable.length);
+        for (const nd of pre_immovable) {
+            entries.push({
+                barycenter: undefined,
+                v: nd,
+                vs: [nd],
+                in: [],
+                out: [],
+                indegree: 0,
+                outdegree: 0,
+                i: i,
+            });
+            i++;
+        }
+        for (const nd of post_immovable) {
+            entries.push({
+                barycenter: undefined,
+                v: nd,
+                vs: [nd],
+                in: [],
+                out: [],
+                indegree: 0,
+                outdegree: 0,
+                i: i,
+            });
+            i++;
+        }
+    } else {
+        let i = -pre_immovable.length;
+        for (const nd of pre_immovable) {
+            entries.push({
+                barycenter: undefined,
+                v: nd,
+                vs: [nd],
+                in: [],
+                out: [],
+                indegree: 0,
+                outdegree: 0,
+                i: i,
+            });
+            i++;
+        }
+        i = entries.length;
+        for (const nd of post_immovable) {
+            entries.push({
+                barycenter: undefined,
+                v: nd,
+                vs: [nd],
+                in: [],
+                out: [],
+                indegree: 0,
+                outdegree: 0,
+                i: i,
+            });
+            i++;
+        }
+    }
+    */
 
     let i = -immovable.length;
     for (const nd of immovable) {

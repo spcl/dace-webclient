@@ -21,8 +21,12 @@ const ARTIFICIAL_START = '__smlayouter_artifical_start';
 const ARTIFICIAL_END = '__smlayouter_artifical_end';
 export const DUMMY_PREFIX = '__dummy';
 
-export const LAYER_SPACING = 50;
-export const NODE_SPACING = 50;
+export const LAYER_SPACING = 15;
+export const NODE_SPACING = 30;
+export const DUMMY_NODE_SIZE = 35;
+//export const LAYER_SPACING = 50;
+//export const NODE_SPACING = 50;
+//export const DUMMY_NODE_SIZE = 50;
 export const EDGE_WIDTH = 1;
 export const EDGE_SPACING = 20;
 export const BACKEDGE_SPACING = EDGE_SPACING;
@@ -182,8 +186,12 @@ export class SMLayouter {
             this.graph, this.endNode, this.iPostDoms
         );
 
+        const strict =
+            this.graph.nodes().length < 100 && this.graph.edges().length < 500;
+        if (!strict)
+            console.warn('Skipping strict back-edge analysis for large graph.');
         [this.backedges, this.eclipsedBackedges] = allBackedges(
-            this.graph, this.startNode, true
+            this.graph, this.startNode, strict
         );
         this.backedgesCombined = new Set<[string, string]>(this.backedges);
         for (const ebe of this.eclipsedBackedges)
@@ -391,7 +399,9 @@ export class SMLayouter {
         }
 
         if (exitCandidates.size < 1) {
-            throw new Error('No exit candidates found.');
+            console.warn('No exit candidates found.');
+            for (const n of successors)
+                q.push([n, rank + 1]);
         } else if (exitCandidates.size > 1) {
             // Find the exit candidate that sits highest up in the postdominator
             // tree (i.e., has the lowest level). That must be the exit node (it
@@ -477,9 +487,20 @@ export class SMLayouter {
                 if (backedges.size > 0) {
                     // This node is either a loop head or tail, identify the
                     // corresponding other end of the loop and the loop exit.
-                    if (backedges.size > 1)
-                        throw new Error('Node has multiple backedges.');
-                    const oNode = Array.from(backedges)[0][0];
+                    let pickedBackedge: [string, string] | undefined;
+                    if (backedges.size > 1) {
+                        let maxDepth = -1;
+                        for (const be of backedges) {
+                            const cand = be[0];
+                            if (this.domTree.get(cand)!.level > maxDepth) {
+                                maxDepth = this.domTree.get(cand)!.level;
+                                pickedBackedge = be;
+                            }
+                        }
+                    } else {
+                        pickedBackedge = Array.from(backedges)[0];
+                    }
+                    const oNode = pickedBackedge![0];
 
                     // If all successors of the current node are post-dominated
                     // by the source node of the backedge, this is an inverted
@@ -609,8 +630,8 @@ export class SMLayouter {
                 };
                 if (isBackedge)
                     (dummyNodeData as DummyState).forBackChain = true;
-                dummyNodeData.width = 50;
-                dummyNodeData.height = 50;
+                dummyNodeData.width = DUMMY_NODE_SIZE;
+                dummyNodeData.height = DUMMY_NODE_SIZE;
                 dummyNodeData.rank = i;
                 this.graph.addNode(dummyNode, dummyNodeData);
 
