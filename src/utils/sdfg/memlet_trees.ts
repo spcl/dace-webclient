@@ -140,7 +140,7 @@ export function memletTreeNested(
                 if (!nextNode.type.endsWith('Entry') ||
                     !edge.dst_connector?.startsWith('IN_'))
                     return;
-                if (nextNode.attributes?.is_collapsed === false &&
+                if (nextNode.attributes?.is_collapsed === true &&
                     !ignoreCollapsed
                 )
                     return;
@@ -181,7 +181,7 @@ export function memletTreeNested(
                 if (!(nextNode.type.endsWith('Exit')) ||
                     !edge.src_connector?.startsWith('OUT_'))
                     return;
-                if (nextNode.attributes?.is_collapsed === false &&
+                if (nextNode.attributes?.is_collapsed === true &&
                     !ignoreCollapsed
                 )
                     return;
