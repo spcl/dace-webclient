@@ -471,7 +471,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             this._sdfg = sdfg;
 
             this.resetCFGList();
-            this.resetMemletTrees();
+            this.resetMemletTrees(true);
 
             // Update info box
             if (this.selectedRenderables.size === 1) {
@@ -1056,11 +1056,13 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         }
     }
 
-    protected resetMemletTrees(): void {
+    protected resetMemletTrees(ignoreCollapsed: boolean = false): void {
         if (!this.sdfg)
             return;
 
-        this.allMemletTressSDFG = memletTreeComplete(this.sdfg);
+        this.allMemletTressSDFG = memletTreeComplete(
+            this.sdfg, ignoreCollapsed
+        );
         this.updateFastMemletLookup();
     }
 
