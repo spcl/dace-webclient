@@ -12,6 +12,7 @@ import {
     Edge,
     EntryNode,
     InterstateEdge,
+    Memlet,
     NestedSDFG,
     SDFGElement,
     SDFGElementType,
@@ -224,6 +225,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 else
                     this.ui.cutoutBtn.hide();
             }
+
+            this.clearHighlighted();
+            this.recheckMemletTreeHighlighting();
         });
         this.on('graph_edited', () => {
             this.drawAsync();
@@ -1632,6 +1636,31 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         return elements;
     }
 
+    private recheckMemletTreeHighlighting(): void {
+        // If any memlets (Edges) are hovered or selected, highlight their
+        // entire memlet tree.
+        const ppp = this.canvasManager.pointsPerPixel;
+        if (ppp < SDFVSettings.get<number>('edgeLOD')) {
+            for (const obj of this.hoveredRenderables) {
+                if (obj instanceof Memlet)
+                    this.highlightMemletTree(obj);
+            }
+            for (const obj of this.selectedRenderables) {
+                if (obj instanceof Memlet)
+                    this.highlightMemletTree(obj);
+            }
+        }
+    }
+
+    private highlightMemletTree(edge: Memlet): void {
+        // Highlight all edges of the memlet tree
+        const tree = this.getNestedMemletTree(edge);
+        tree.forEach(te => {
+            if (te !== edge)
+                this.highlightRenderable(te);
+        });
+    }
+
     private findElementsUnderCursor(mouseX: number, mouseY: number): {
         totalElements: number,
         elements: Record<SDFGElementGroup, DagreGraphElementInfo[]>,
@@ -1764,6 +1793,9 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         // current hovered elements.
         this.clearHighlighted();
 
+        // Ensure memlet tree highlighting is up to date.
+        this.recheckMemletTreeHighlighting();
+
         // Only do highlighting re-computation if view is close enough to
         // actually see the highlights. Done by points-per-pixel metric using
         // SDFV.NODE_LOD as the threshold. Hence, the highlights only
@@ -1774,14 +1806,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         if (ppp < SDFVSettings.get<number>('nodeLOD')) {
             // Mark highlighted elements as a result of hovered elements.
             for (const obj of this.hoveredRenderables) {
-                if (obj instanceof Edge && obj.parentStateId !== undefined) {
-                    // Highlight all edges of the memlet tree
-                    const tree = this.getNestedMemletTree(obj);
-                    tree.forEach(te => {
-                        if (te !== obj)
-                            this.highlightRenderable(te);
-                    });
-                } else if (obj instanceof AccessNode) {
+                if (obj instanceof AccessNode) {
                     // Highlight all access nodes with the same name in the
                     // same sdfg / nested SDFG.
                     traverseSDFGScopes(

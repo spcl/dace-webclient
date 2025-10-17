@@ -186,25 +186,30 @@ export class SDFGElement extends HTMLCanvasRenderable {
     }
 
     public strokeStyle(): string {
+        let color: string | undefined = undefined;
         if (this.selected) {
             if (this.hovered) {
-                return shadeHexColor(
+                color = shadeHexColor(
                     SDFVSettings.get<string>('selectedColor'), 20
                 );
             } else if (this.highlighted) {
-                return shadeHexColor(
+                color = shadeHexColor(
                     SDFVSettings.get<string>('selectedColor'), -20
                 );
             } else {
-                return SDFVSettings.get<string>('selectedColor');
+                color = SDFVSettings.get<string>('selectedColor');
             }
         } else {
             if (this.hovered)
-                return SDFVSettings.get<string>('hoveredColor');
+                color = SDFVSettings.get<string>('hoveredColor');
             else if (this.highlighted)
-                return SDFVSettings.get<string>('highlightedColor');
+                color = SDFVSettings.get<string>('highlightedColor');
         }
-        return this.defaultColorBorder;
+
+        if (this.faded)
+            color = shadeHexColor(color ?? this.defaultColorBorder, 60);
+
+        return color ?? this.defaultColorBorder;
     }
 
     public get jsonData(): JsonSDFGElement | undefined {
@@ -2604,6 +2609,7 @@ function batchedDrawEdges(
     const arrowEdges: Edge[] = [];
     const labelEdges: Edge[] = [];
     ctx.beginPath();
+    let strokeStyle = undefined;
     for (const e of graph.edges()) {
         const edge = graph.edge(e);
         if (!edge || (
@@ -2645,13 +2651,15 @@ function batchedDrawEdges(
             labelEdges.push(edge);
 
         edge.createArrowLine(ctx);
+        strokeStyle ??= edge.strokeStyle();
     }
     ctx.lineWidth = 1.0;
     if ('pdf' in ctx && ctx.pdf)
         ctx.setLineDash([1, 0]);
     else
         ctx.setLineDash([]);
-    ctx.fillStyle = ctx.strokeStyle = SDFVSettings.get<string>(color);
+    strokeStyle ??= SDFVSettings.get<string>(color);
+    ctx.fillStyle = ctx.strokeStyle = strokeStyle;
     ctx.stroke();
 
     // Only draw Arrowheads when close enough to see them
