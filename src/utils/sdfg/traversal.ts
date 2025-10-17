@@ -180,19 +180,8 @@ export function doForAllJsonSDFGElements(
                     }
                 );
             } else if (
-                'start_block' in block && 'cfg_list_id' in block &&
-                'nodes' in block && 'edges' in block
+                block.type === SDFGElementType.ConditionalBlock.toString()
             ) {
-                // Control flow region.
-                func('controlFlowRegions', {
-                    sdfg: rSDFG,
-                    graph: rCFG,
-                    id: blockId,
-                    cfgId: rCFG.cfg_list_id,
-                    stateId: -1,
-                }, block);
-                doRecursive(block as JsonSDFGControlFlowRegion, rSDFG);
-            } else if ('branches' in block) {
                 func('controlFlowBlocks', {
                     sdfg: rSDFG,
                     graph: rCFG,
@@ -212,6 +201,19 @@ export function doForAllJsonSDFGElements(
                     }, el[1]);
                     doRecursive(el[1], rSDFG);
                 }
+            } else if (
+                'start_block' in block && 'cfg_list_id' in block &&
+                'nodes' in block && 'edges' in block
+            ) {
+                // Control flow region.
+                func('controlFlowRegions', {
+                    sdfg: rSDFG,
+                    graph: rCFG,
+                    id: blockId,
+                    cfgId: rCFG.cfg_list_id,
+                    stateId: -1,
+                }, block);
+                doRecursive(block as JsonSDFGControlFlowRegion, rSDFG);
             }
         });
 
@@ -577,6 +579,24 @@ export function doForIntersectedDagreGraphElements(
                 } else if (block instanceof ControlFlowRegion) {
                     if (block.jsonData)
                         doRecursive(block.graph, block.jsonData, rSDFG);
+                } else if (block instanceof ConditionalBlock) {
+                    for (const [_, branch] of block.branches) {
+                        if (branch.intersect(x, y, w, h) && branch.jsonData) {
+                            const elemInfo = {
+                                sdfg: rSDFG,
+                                graph: block.graph,
+                                id: branch.id,
+                                cfgId: branch.jsonData.cfg_list_id,
+                                stateId: -1,
+                            };
+                            func('controlFlowRegions', elemInfo, branch);
+                            if (branch.graph) {
+                                doRecursive(
+                                    branch.graph, branch.jsonData, rSDFG
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -276,7 +276,7 @@ export class SDFVWebUI implements ISDFVUserInterface {
                 }));
                 for (const attr of Object.entries(arrAttrs)) {
                     if (attr[0] === 'layout' || attr[0] === 'sdfg' ||
-                        attr[0].startsWith('_meta_'))
+                        attr[0].startsWith('_meta_') || attr[0] === 'debuginfo')
                         continue;
                     contents.append($('<b>', {
                         html: attr[0] + ':&nbsp;&nbsp;',
