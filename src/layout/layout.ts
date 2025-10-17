@@ -781,8 +781,6 @@ function layoutSDFGState(
         }
 
         // Reposition first and last points according to connectors.
-        let srcConn = null;
-        let dstConn = null;
         if (edge.src_connector) {
             const srcNode = g.node(edge.src);
             if (srcNode) {
@@ -795,9 +793,17 @@ function layoutSDFGState(
                     }
                 }
                 if (cindex >= 0) {
-                    gedge.points[0].x = srcNode.outConnectors[cindex].x;
-                    gedge.points[0].y = srcNode.outConnectors[cindex].y;
-                    srcConn = srcNode.outConnectors[cindex];
+                    const srcConn = srcNode.outConnectors[cindex];
+                    const connBB = {
+                        x: srcConn.x,
+                        y: srcConn.y,
+                        w: srcConn.width,
+                        h: srcConn.height,
+                    };
+                    const tgtPos = findLineStartRectIntersection(
+                        connBB, gedge.points[1]
+                    );
+                    gedge.points[0] = tgtPos;
                 }
             }
         }
@@ -813,33 +819,22 @@ function layoutSDFGState(
                     }
                 }
                 if (cindex >= 0) {
-                    gedge.points[gedge.points.length - 1].x =
-                        dstNode.inConnectors[cindex].x;
-                    gedge.points[gedge.points.length - 1].y =
-                        dstNode.inConnectors[cindex].y;
-                    dstConn = dstNode.inConnectors[cindex];
+                    const dstConn = dstNode.inConnectors[cindex];
+                    const connBB = {
+                        x: dstConn.x,
+                        y: dstConn.y,
+                        w: dstConn.width,
+                        h: dstConn.height,
+                    };
+                    const tgtPos = findLineStartRectIntersection(
+                        connBB, gedge.points[gedge.points.length - 2]
+                    );
+                    gedge.points[gedge.points.length - 1] = tgtPos;
                 }
             }
         }
 
         const n = gedge.points.length - 1;
-        if (srcConn !== null) {
-            const connRect = {
-                x: srcConn.x, y: srcConn.y, w: srcConn.width, h: srcConn.height,
-            };
-            gedge.points[0] = findLineStartRectIntersection(
-                connRect, gedge.points[n]
-            );
-        }
-        if (dstConn !== null) {
-            const connRect = {
-                x: dstConn.x, y: dstConn.y, w: dstConn.width, h: dstConn.height,
-            };
-            gedge.points[n] = findLineStartRectIntersection(
-                connRect, gedge.points[0]
-            );
-        }
-
         if (gedge.points.length === 3 &&
             gedge.points[0].x === gedge.points[n].x)
             gedge.points = [gedge.points[0], gedge.points[n]];
