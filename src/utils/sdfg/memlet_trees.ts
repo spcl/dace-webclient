@@ -22,7 +22,8 @@ export function memletTreeNested(
     sdfg: JsonSDFG,
     state: JsonSDFGState,
     edge: JsonSDFGMultiConnectorEdge,
-    visitedEdges: JsonSDFGEdge[] = []
+    visitedEdges: JsonSDFGEdge[] = [],
+    ignoreCollapsed: boolean = false
 ): JsonSDFGMultiConnectorEdge[] {
     if (visitedEdges.includes(edge) ||
         edge.attributes?.data?.attributes?.shortcut)
@@ -87,9 +88,9 @@ export function memletTreeNested(
                     ];
                     if (node.type === SDFGElementType.AccessNode.toString() &&
                         node.attributes?.data === name) {
-                        result = result.concat(
-                            memletTreeNested(nsdfg, nstate, e, visitedEdges)
-                        );
+                        result = result.concat(memletTreeNested(
+                            nsdfg, nstate, e, visitedEdges, ignoreCollapsed
+                        ));
                     }
                 }
             } else if (block.type.endsWith('Region')) {
@@ -120,7 +121,10 @@ export function memletTreeNested(
             if (nextNode.type === SDFGElementType.NestedSDFG.toString()) {
                 const name = edge.dst_connector ?? '';
                 const nsdfg = nextNode.attributes?.sdfg;
-                if (nsdfg && nextNode.attributes?.is_collapsed !== true)
+                if (nsdfg && (
+                    nextNode.attributes?.is_collapsed !== true ||
+                    ignoreCollapsed
+                ))
                     checkNested(nsdfg, nsdfg, name, 'in');
             }
 
@@ -136,7 +140,9 @@ export function memletTreeNested(
                 if (!nextNode.type.endsWith('Entry') ||
                     !edge.dst_connector?.startsWith('IN_'))
                     return;
-                if (nextNode.attributes?.is_collapsed)
+                if (nextNode.attributes?.is_collapsed === true &&
+                    !ignoreCollapsed
+                )
                     return;
                 const conn = edge.dst_connector.substring(3);
                 for (const e of state.edges) {
@@ -157,7 +163,10 @@ export function memletTreeNested(
             if (nextNode.type === SDFGElementType.NestedSDFG.toString()) {
                 const name = edge.src_connector ?? '';
                 const nsdfg = nextNode.attributes?.sdfg;
-                if (nsdfg && nextNode.attributes?.is_collapsed !== true)
+                if (nsdfg && (
+                    ignoreCollapsed ||
+                    nextNode.attributes?.is_collapsed !== true
+                ))
                     checkNested(nsdfg, nsdfg, name, 'out');
             }
 
@@ -172,7 +181,9 @@ export function memletTreeNested(
                 if (!(nextNode.type.endsWith('Exit')) ||
                     !edge.src_connector?.startsWith('OUT_'))
                     return;
-                if (nextNode.attributes?.is_collapsed)
+                if (nextNode.attributes?.is_collapsed === true &&
+                    !ignoreCollapsed
+                )
                     return;
 
                 const conn = edge.src_connector.substring(4);
@@ -202,7 +213,8 @@ export function memletTreeNested(
  * outer SDFGs to inner SDFGs) a memlet can be split into several arrays.
  */
 export function memletTreeRecursive(
-    cfg: JsonSDFGControlFlowRegion, sdfg: JsonSDFG
+    cfg: JsonSDFGControlFlowRegion, sdfg: JsonSDFG,
+    ignoreCollapsed: boolean = false
 ): JsonSDFGMultiConnectorEdge[][] {
     let trees: JsonSDFGMultiConnectorEdge[][] = [];
     const visitedEdges: JsonSDFGMultiConnectorEdge[] = [];
@@ -211,26 +223,34 @@ export function memletTreeRecursive(
         if (block.type === SDFGElementType.SDFGState.toString()) {
             const state: JsonSDFGState = block as JsonSDFGState;
             for (const e of state.edges) {
-                const tree = memletTreeNested(sdfg, state, e, visitedEdges);
+                const tree = memletTreeNested(
+                    sdfg, state, e, visitedEdges, ignoreCollapsed
+                );
                 if (tree.length > 1)
                     trees.push(tree);
             }
 
             for (const n of state.nodes) {
                 if (n.type === SDFGElementType.NestedSDFG.toString() &&
-                    n.attributes?.is_collapsed !== true && n.attributes?.sdfg) {
-                    const t = memletTreeRecursive(n.attributes.sdfg, sdfg);
+                    (n.attributes?.is_collapsed !== true || ignoreCollapsed) &&
+                    n.attributes?.sdfg) {
+                    const t = memletTreeRecursive(
+                        n.attributes.sdfg, sdfg, ignoreCollapsed
+                    );
                     trees = trees.concat(t);
                 }
             }
         } else if (block.type.endsWith('Region')) {
             trees = trees.concat(memletTreeRecursive(
-                block as JsonSDFGControlFlowRegion, sdfg
+                block as JsonSDFGControlFlowRegion, sdfg, ignoreCollapsed
             ));
         } else if (block.type === SDFGElementType.ConditionalBlock.toString()) {
             const condBlock = block as JsonSDFGConditionalBlock;
-            for (const [_, branch] of condBlock.branches)
-                trees = trees.concat(memletTreeRecursive(branch, sdfg));
+            for (const [_, branch] of condBlock.branches) {
+                trees = trees.concat(memletTreeRecursive(
+                    branch, sdfg, ignoreCollapsed
+                ));
+            }
         }
     }
 
@@ -242,10 +262,10 @@ export function memletTreeRecursive(
  * @param sdfg The top level SDFG.
  */
 export function memletTreeComplete(
-    sdfg: JsonSDFG
+    sdfg: JsonSDFG, ignoreCollapsed: boolean = false
 ): Set<JsonSDFGMultiConnectorEdge>[] {
     const allMemletTrees: Set<JsonSDFGMultiConnectorEdge>[] = [];
-    const memletTrees = memletTreeRecursive(sdfg, sdfg);
+    const memletTrees = memletTreeRecursive(sdfg, sdfg, ignoreCollapsed);
 
     // Combine trees as memlet_tree_recursive does not necessarily return the
     // complete trees (they might be split into several trees).
