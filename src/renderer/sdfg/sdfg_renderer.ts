@@ -103,8 +103,8 @@ export interface SDFGRendererEvent {
     'add_element': (
         type: SDFGElementType, parentUUID: string, lib?: string,
         edgeStartUUID?: string, edgeStartConn?: string, edgeDstConn?: string
-    ) => void;
-    'query_libnode': (callback: CallableFunction) => void;
+    ) => void | Promise<void>;
+    'query_libnode': (callback: () => unknown) => void;
     'exit_preview': () => void;
     'collapse_state_changed': (collapsed?: boolean, all?: boolean) => void;
     'element_position_changed': (type?: string) => void;
@@ -147,7 +147,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     protected _mouseMode: MouseModeT = 'pan';
 
     protected boxSelectionRect?: SimpleRect;
-    private addElementPosition?: Point2D;
+    private _addElementPosition?: Point2D;
     private _addEdgeStart?: SDFGElement;
     private _addEdgeStartConnector?: Connector;
     private _ctrlKeySelection: boolean = false;
@@ -950,7 +950,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
     public getSDFGName(): string {
         return (this.sdfg?.attributes && 'name' in this.sdfg.attributes) ?
-            this.sdfg.attributes.name as string : 'program';
+            (this.sdfg.attributes.name ?? 'program') : 'program';
     }
 
     /**
@@ -1346,8 +1346,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                     position ??= initializePositioningInfo(el);
 
                     for (let i = 1; i < points.length - 1; i++) {
-                        position.points[i].x += dx;
-                        position.points[i].y += dy;
+                        position.points![i].x += dx;
+                        position.points![i].y += dy;
                     }
                 }
             } else if (pt === -3 && edgeDPoints) {
@@ -1661,7 +1661,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         });
     }
 
-    private findElementsUnderCursor(mouseX: number, mouseY: number): {
+    public findElementsUnderCursor(mouseX: number, mouseY: number): {
         totalElements: number,
         elements: Record<SDFGElementGroup, DagreGraphElementInfo[]>,
         foregroundElement?: SDFGElement,
@@ -2388,12 +2388,12 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                         const newPoints = new Array(el.points.length);
                         for (let j = 1; j < el.points.length - 1; j++) {
                             newPoints[j] = {
-                                dx: - position.points[j].x,
-                                dy: - position.points[j].y,
+                                dx: - position.points![j].x,
+                                dy: - position.points![j].y,
                             };
                             // Reset the point movement
-                            position.points[j].x = 0;
-                            position.points[j].y = 0;
+                            position.points![j].x = 0;
+                            position.points![j].y = 0;
                         }
 
                         // Move it to original position
@@ -2491,6 +2491,14 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
     public set addModeLib(lib: string | undefined) {
         this._addModeLib = lib;
+    }
+
+    public get addElementPosition(): Point2D | undefined {
+        return this._addElementPosition;
+    }
+
+    public set addElementPosition(pos: Point2D | undefined) {
+        this._addElementPosition = pos;
     }
 
     public get addEdgeStart(): SDFGElement | undefined {

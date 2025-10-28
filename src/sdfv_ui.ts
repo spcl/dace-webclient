@@ -9,10 +9,10 @@ import {
     SDFG,
     SDFGElement,
 } from './renderer/sdfg/sdfg_elements';
-import { WebSDFV } from './sdfv';
-import { sdfgPropertyToString } from './utils/sdfg/display';
 import type { DagreGraph, SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
-import { JsonSDFG, JsonSDFGDataDesc } from './types';
+import { WebSDFV } from './sdfv';
+import { JsonSDFG } from './types';
+import { sdfgPropertyToString } from './utils/sdfg/display';
 
 
 export interface ISDFVUserInterface {
@@ -330,11 +330,9 @@ export class SDFVWebUI implements ISDFVUserInterface {
         // descriptors.
         let descriptors = undefined;
         if (elem instanceof SDFG) {
-            descriptors = elem.attributes()?._arrays as Record<
-                string, JsonSDFGDataDesc
-            > | undefined;
+            descriptors = elem.attributes()?._arrays;
         } else if (elem instanceof NestedSDFG) {
-            const nsdfg = elem.attributes()?.sdfg as JsonSDFG | undefined;
+            const nsdfg = elem.attributes()?.sdfg;
             descriptors = nsdfg?.attributes?._arrays;
         }
 

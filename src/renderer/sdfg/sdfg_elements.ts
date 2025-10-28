@@ -5,12 +5,14 @@ import { SDFV } from '../../sdfv';
 import {
     DataSubset,
     JsonSDFG,
+    JsonSDFGAttributes,
     JsonSDFGBlock,
     JsonSDFGCodeBlock,
     JsonSDFGControlFlowRegion,
     JsonSDFGDataDesc,
     JsonSDFGElement,
     JsonSDFGNode,
+    JsonSDFGNodeAttributes,
     JsonSDFGState,
     Point2D,
     SimpleRect,
@@ -570,7 +572,15 @@ export class SDFG extends SDFGElement {
     }
 
     public get label(): string {
-        return (this.attributes()?.name as string | undefined) ?? '';
+        return this.attributes()?.name ?? '';
+    }
+
+    public attributes(): JsonSDFGAttributes | undefined {
+        return super.attributes() as JsonSDFGAttributes | undefined;
+    }
+
+    public get jsonData(): JsonSDFG | undefined {
+        return this.data as JsonSDFG | undefined;
     }
 
 }
@@ -953,6 +963,10 @@ export class SDFGNode extends SDFGElement {
             this.width = layout.width;
             this.height = layout.height;
         }
+    }
+
+    public attributes(): JsonSDFGNodeAttributes | undefined {
+        return super.attributes() as JsonSDFGNodeAttributes | undefined;
     }
 
 }
@@ -1655,7 +1669,7 @@ export class Connector extends SDFGElement {
 export class AccessNode extends SDFGNode {
 
     public getDesc(): JsonSDFGDataDesc | undefined {
-        const name = this.attributes()?.data as string | undefined;
+        const name = this.attributes()?.data;
         const nameParts = name?.split('.');
         const arrays = this.sdfg.attributes?._arrays;
         if (!nameParts || !arrays)
@@ -1692,7 +1706,7 @@ export class AccessNode extends SDFGNode {
     ): void {
         this._setDrawStyleProperties(this.ctx);
 
-        const name = this.attributes()?.data as string | undefined;
+        const name = this.attributes()?.data;
         const nodedesc = this.getDesc();
         // Streams have dashed edges
         if (nodedesc?.type === 'Stream')
@@ -1747,7 +1761,7 @@ export class AccessNode extends SDFGNode {
     }
 
     public get label(): string {
-        const name = this.attributes()?.data as string | undefined;
+        const name = this.attributes()?.data;
         let lbl = name ?? '';
         if (SDFVSettings.get<boolean>('showDataDescriptorSizes')) {
             const nodedesc = this.sdfg.attributes?._arrays[lbl];
@@ -2019,7 +2033,7 @@ export class ScopeNode extends SDFGNode {
         return false;
     }
 
-    private clearCachedLabels(): void {
+    public clearCachedLabels(): void {
         this.cachedCloseLabel = undefined;
         this.cachedFarLabel = undefined;
     }
@@ -2444,8 +2458,7 @@ export class NestedSDFG extends SDFGNode {
                         'errorNodeBackgroundColor'
                     );
                     let label = 'No SDFG loaded';
-                    const extPath =
-                        this.attributes()?.ext_sdfg_path as string | undefined;
+                    const extPath = this.attributes()?.ext_sdfg_path;
                     if (extPath)
                         label += '\n(' + extPath + ')';
                     const textmetrics = this.ctx.measureText(label);
@@ -2502,8 +2515,8 @@ export class NestedSDFG extends SDFGNode {
         // mapping.
         let findText = super.textForFind();
         const attr = this.attributes();
-        const nsdfg = attr?.sdfg as JsonSDFG | undefined;
-        findText += ' ' + (nsdfg?.attributes?.name as string | undefined ?? '');
+        const nsdfg = attr?.sdfg;
+        findText += ' ' + (nsdfg?.attributes?.name ?? '');
         const symMapping =
             attr?.symbol_mapping as Record<string, string> | undefined;
         if (symMapping) {

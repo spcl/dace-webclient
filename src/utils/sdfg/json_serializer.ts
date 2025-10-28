@@ -1,7 +1,6 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { gunzipSync } from 'zlib';
-import { Buffer } from 'buffer';
 import { JsonSDFG } from '../../types';
 import { Edge } from '../../renderer/sdfg/sdfg_elements';
 import { setCollapseStateRecursive } from './sdfg_utils';
@@ -112,9 +111,7 @@ export function readOrDecompress(
 ): [string, boolean] {
     try {
         return [
-            new TextDecoder().decode(
-                gunzipSync(Buffer.from(json as ArrayBuffer))
-            ),
+            new TextDecoder().decode(gunzipSync(json)),
             true,
         ];
     } catch {

@@ -1,12 +1,7 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { log, mean, median } from 'mathjs';
-import type {
-    DagreGraph,
-    SDFGRenderer,
-} from '../../renderer/sdfg/sdfg_renderer';
 import { OverlayManager, SymbolResolver } from '../../overlay_manager';
-import { SDFVSettings } from '../../utils/sdfv_settings';
 import {
     ConditionalBlock,
     ControlFlowBlock,
@@ -17,7 +12,12 @@ import {
     SDFGNode,
     State,
 } from '../../renderer/sdfg/sdfg_elements';
-import { SimpleRect, OverlayType, JsonSDFG } from '../../types';
+import type {
+    DagreGraph,
+    SDFGRenderer,
+} from '../../renderer/sdfg/sdfg_renderer';
+import { OverlayType, SimpleRect } from '../../types';
+import { SDFVSettings } from '../../utils/sdfv_settings';
 
 declare const vscode: any;
 
@@ -100,9 +100,8 @@ export class GenericSdfgOverlay {
                         continue;
 
                     const attrs = node.attributes();
-                    if (node instanceof NestedSDFG && (
-                        attrs?.sdfg as JsonSDFG | undefined
-                    )?.type !== 'SDFGShell') {
+                    if (node instanceof NestedSDFG &&
+                        attrs?.sdfg?.type !== 'SDFGShell') {
                         if (shadeIfNestedVisible && predicate(node))
                             this.shadeNode(node, ctx, args);
 
