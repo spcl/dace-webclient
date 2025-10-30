@@ -15,7 +15,7 @@ import {
     OverlayType,
 } from '../types';
 import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
-import { KELLY_COLORS } from 'rendure/src/utils/colors';
+import { KELLY_COLORS } from 'rendure';
 
 
 // Available data storage types in the SDFG.
@@ -185,7 +185,7 @@ export class MemoryLocationOverlay extends GenericSdfgOverlay {
         originalType?: StorageType,
     } {
         const sdfg = node.sdfg;
-        const data = node.attributes()?.data as string | undefined;
+        const data = node.attributes()?.data;
         if (!data) {
             return {
                 type: StorageType.Default,

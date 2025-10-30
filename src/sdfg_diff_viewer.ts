@@ -2,14 +2,9 @@
 
 import $ from 'jquery';
 
-import { DiffOverlay } from './overlays/diff_overlay';
 import _ from 'lodash';
-import { Modal } from 'bootstrap';
-import { graphFindRecursive, ISDFV, WebSDFV } from './sdfv';
-import { ISDFVUserInterface, SDFVWebUI } from './sdfv_ui';
+import type { ISDFVUserInterface } from './sdfv_ui';
 import { htmlSanitize } from './utils/sanitization';
-import { JsonSDFG } from './types';
-import { traverseSDFGScopes } from './utils/sdfg/traversal';
 import {
     ConditionalBlock,
     ControlFlowBlock,
@@ -20,8 +15,11 @@ import {
     SDFGNode,
     State,
 } from './renderer/sdfg/sdfg_elements';
-import { DagreGraph, SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
+import type { DagreGraph, SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
+import type { ISDFV } from './sdfv';
+import { graphFindRecursive, traverseSDFGScopes } from './utils/sdfg/traversal';
 import { SDFVSettings } from './utils/sdfv_settings';
+import type { JsonSDFG } from './types';
 
 type ChangeState = 'nodiff' | 'changed' | 'added' | 'removed';
 
@@ -150,328 +148,29 @@ export abstract class SDFGDiffViewer implements ISDFV {
 
     public abstract get linkedUI(): ISDFVUserInterface;
     public abstract exitDiff(): void;
-    public abstract outline(): void;
 
-    protected findInDiffGraphPredicate(
-        predicate: (g: DagreGraph, el: SDFGElement) => boolean
-    ): void {
-        const lGraph = this.leftRenderer?.graph;
-        const rGraph = this.rightRenderer?.graph;
-        if (!lGraph || !rGraph)
-            return;
-
-        SDFVWebUI.getInstance().infoSetTitle('Search Results');
-
-        const lResults: SDFGElement[] = [];
-        graphFindRecursive(lGraph, predicate, lResults);
-        const rResults: SDFGElement[] = [];
-        graphFindRecursive(rGraph, predicate, rResults);
-
-        // Zoom to bounding box of all results first
-        if (lResults.length > 0)
-            this.leftRenderer!.zoomToFit(lResults);
-        if (rResults.length > 0)
-            this.rightRenderer!.zoomToFit(rResults);
-
-        const addedIDs = new Map<string, [SDFGElement, SDFGRenderer][]>();
-        const mergedResults: string[] = [];
-        for (const res of lResults) {
-            const existing = addedIDs.get(res.guid);
-            if (existing) {
-                existing.push([res, this.leftRenderer!]);
-            } else {
-                const newEntry: [SDFGElement, SDFGRenderer][] =
-                    [[res, this.leftRenderer!]];
-                addedIDs.set(res.guid, newEntry);
-                mergedResults.push(res.guid);
-            }
-        }
-        for (const res of rResults) {
-            const existing = addedIDs.get(res.guid);
-            if (existing) {
-                existing.push([res, this.rightRenderer!]);
-            } else {
-                const newEntry: [SDFGElement, SDFGRenderer][] =
-                    [[res, this.rightRenderer!]];
-                addedIDs.set(res.guid, newEntry);
-                mergedResults.push(res.guid);
-            }
-        }
-
-        // Show clickable results in sidebar
-        const sidebar = SDFVWebUI.getInstance().infoContentContainer;
-        if (sidebar) {
-            sidebar.html('');
-            for (const resId of mergedResults) {
-                const res = addedIDs.get(resId);
-                if (!res)
-                    continue;
-
-                let status: ChangeState = 'nodiff';
-                const guid = res[0][0].guid;
-                if (this.diffMap?.changedKeys.has(guid))
-                    status = 'changed';
-                else if (this.diffMap?.removedKeys.has(guid))
-                    status = 'removed';
-                else if (this.diffMap?.addedKeys.has(guid))
-                    status = 'added';
-
-                const d = $('<div>', {
-                    class: `diff-outline-entry ${status}`,
-                    html: htmlSanitize`${res[0][0].type} ${res[0][0].label}`,
-                    click: () => {
-                        for (const entry of res)
-                            entry[1].zoomToFit([entry[0]]);
-                    },
-                });
-                d.on('mouseenter', () => {
-                    for (const entry of res) {
-                        if (!entry[0].highlighted) {
-                            entry[0].renderer.highlightRenderable(entry[0]);
-                            entry[1].drawAsync();
-                        }
-                    }
-                });
-                d.on('mouseleave', () => {
-                    for (const entry of res) {
-                        if (entry[0].highlighted) {
-                            entry[0].renderer.highlightRenderable(entry[0]);
-                            entry[1].drawAsync();
-                        }
-                    }
-                });
-
-                sidebar.append(d);
-            }
-        }
-
-        SDFVWebUI.getInstance().infoShow();
-    }
-
-}
-
-export class WebSDFGDiffViewer extends SDFGDiffViewer {
-
-    private readonly UI: SDFVWebUI = SDFVWebUI.getInstance();
-
-    public get linkedUI(): SDFVWebUI {
-        return this.UI;
-    }
-
-    private initUI(): void {
-        $('#sdfg-file-input').prop('disabled', true);
-        $('#reload').prop('disabled', true);
-        $('#load-instrumentation-report-btn').prop('disabled', true);
-        $('#load-memory-footprint-file-btn').prop('disabled', true);
-        $('#diff-view-btn-container').hide();
-
-        $('#exit-diff-view-btn-container').show();
-    }
-
-    private deconstructUI(): void {
-        $('#sdfg-file-input').prop('disabled', false);
-        $('#reload').prop('disabled', false);
-        $('#load-instrumentation-report-btn').prop('disabled', false);
-        $('#load-memory-footprint-file-btn').prop('disabled', false);
-        $('#diff-view-btn-container').show();
-
-        $('#exit-diff-view-btn-container').hide();
-    }
-
-    private registerEventListeners(): void {
-        $(document).on(
-            'click.sdfv-diff', '#exit-diff-view-btn', this.exitDiff.bind(this)
-        );
-        $(document).on(
-            'click.sdfv-diff', '#outline', this.outline.bind(this)
-        );
-        $(document).on(
-            'click.sdfv-diff', '#search-btn', (e) => {
-                e.preventDefault();
-                this.runSearch(false);
-                return false;
-            }
-        );
-        $(document).on(
-            'click.sdfv-diff', '#advsearch-btn', (e) => {
-                e.preventDefault();
-                this.runSearch(true);
-                return false;
-            }
-        );
-        $(document).on(
-            'keydown.sdfv-diff', '#search', (e) => {
-                if (e.key === 'Enter' || e.which === 13) {
-                    this.runSearch(false);
-                    e.preventDefault();
-                }
-            }
-        );
-    }
-
-    private deregisterEventListeners(): void {
-        $(document).off('.sdfv-diff');
-    }
-
-    public exitDiff(): void {
-        $('#diff-container').hide();
-
-        this.destroy();
-
-        this.deregisterEventListeners();
-        this.deconstructUI();
-
-        // Re-instantiate the regular SDFG viewer (SDFV).
-        $('#contents').show();
-        WebSDFV.getInstance().registerEventListeners();
-        void WebSDFV.getInstance().setSDFG(
-            this.rightRenderer?.sdfg,
-            this.rightRenderer?.canvasManager.getUserTransform()
-        );
-    }
-
-    public static init(
-        graphA: JsonSDFG, graphB: JsonSDFG, precomputedDiff?: DiffMap
-    ): WebSDFGDiffViewer {
-        const leftContainer = document.getElementById('diff-contents-A');
-        const rightContainer = document.getElementById('diff-contents-B');
-        if (!leftContainer || !rightContainer)
-            throw Error('Failed to find diff renderer containers');
-
-        const viewer = new WebSDFGDiffViewer();
-        const leftRenderer = new SDFGRenderer(
-            leftContainer, viewer, null, null, false, null,
-            undefined, {
-                settings: true,
-                zoomToFit: true,
-                zoomToFitWidth: true,
-                collapse: true,
-                expand: true,
-            }
-        );
-        const rightRenderer = new SDFGRenderer(
-            rightContainer, viewer, null, null, false, null,
-            undefined, {
-                zoomToFit: true,
-                zoomToFitWidth: true,
-                collapse: true,
-                expand: true,
-            }
-        );
-        viewer.leftRenderer = leftRenderer;
-        viewer.rightRenderer = rightRenderer;
-
-        void leftRenderer.setSDFG(graphA);
-        void rightRenderer.setSDFG(graphB);
-
-        viewer.registerEventListeners();
-        viewer.initUI();
-
-        const rendererSelectionChange = (renderer: SDFGRenderer) => {
-            const selectedElements = renderer.selectedRenderables;
-            let element;
-            if (selectedElements.size === 0 && renderer.sdfg) {
-                element = new SDFG(
-                    renderer, renderer.ctx, renderer.minimapCtx, renderer.sdfg
+    protected sortChildrenByGUID(entry: localGraphDiffStackEntry): void {
+        entry.children.sort((a, b) => {
+            if (a && b) {
+                return (
+                    DIFF_ORDER.indexOf(a.changeStatus) -
+                    DIFF_ORDER.indexOf(b.changeStatus)
                 );
-            } else if (selectedElements.size === 1) {
-                element = Array.from(selectedElements)[0];
-            } else {
-                element = null;
+            } else if (a) {
+                return -1;
+            } else if (b) {
+                return 1;
             }
-
-            if (element !== null) {
-                viewer.UI.showElementInfo(element, renderer);
-            } else {
-                SDFVWebUI.getInstance().infoClear();
-                SDFVWebUI.getInstance().infoSetTitle(
-                    'Multiple elements selected'
-                );
-            }
-            SDFVWebUI.getInstance().infoShow();
-        };
-        leftRenderer.on('selection_changed', () => {
-            rightRenderer.deselect();
-            rendererSelectionChange(leftRenderer);
-        });
-        rightRenderer.on('selection_changed', () => {
-            leftRenderer.deselect();
-            rendererSelectionChange(rightRenderer);
+            return 0;
         });
 
-        // Warn if one or both of the SDFGs are probably not diff-ready yet.
-        if (!graphA.dace_version || graphA.dace_version < '0.16.2' ||
-            !graphB.dace_version || graphB.dace_version < '0.16.2') {
-            const warnModalHtml = `
-<div class="modal-dialog">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h5 class="modal-title">Incompatibility Warning</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-        <div class="modal-body">
-            <p>
-                One or both of the SDFGs you are trying to compare have been
-                generated with a version of DaCe that does not yet officially
-                support SDFG diffs. SDFG diffs are supported for SDFGs created
-                from DaCe version 0.16.2 or newer. The resulting diff may be
-                incorrect.
-            </p>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        </div>
-    </div>
-</div>
-            `;
-            const warnModal = $('<div>', {
-                class: 'modal',
-                tabindex: '-1',
-                html: warnModalHtml,
-            });
-
-            $('body.sdfv').append(warnModal);
-            const modalObj = new Modal(warnModal[0]);
-            modalObj.show();
-            warnModal[0].addEventListener('hidden.bs.modal', () => {
-                warnModal.remove();
-            });
+        for (const child of entry.children) {
+            if (child)
+                this.sortChildrenByGUID(child);
         }
-
-        const lSDFG = new SDFG(
-            leftRenderer, leftRenderer.ctx, leftRenderer.minimapCtx, graphA
-        );
-        lSDFG.sdfgDagreGraph = leftRenderer.graph ?? undefined;
-        const rSDFG = new SDFG(
-            rightRenderer, rightRenderer.ctx, rightRenderer.minimapCtx, graphB
-        );
-        rSDFG.sdfgDagreGraph = rightRenderer.graph ?? undefined;
-
-        const onDiffCreated = (diff: DiffMap) => {
-            viewer.diffMap = diff;
-            const leftOverlay = new DiffOverlay(leftRenderer, diff);
-            const rightOverlay = new DiffOverlay(rightRenderer, diff);
-            leftRenderer.overlayManager.registerOverlayInstance(
-                leftOverlay
-            );
-            rightRenderer.overlayManager.registerOverlayInstance(
-                rightOverlay
-            );
-        };
-
-        if (precomputedDiff) {
-            onDiffCreated(precomputedDiff);
-        } else {
-            const diff = SDFGDiffViewer.diff(lSDFG, rSDFG);
-            onDiffCreated(diff);
-        }
-
-        return viewer;
     }
 
-    private constructGraphOutlineBase(
+    protected constructGraphOutlineBase(
         graph: DagreGraph
     ): (localGraphDiffStackEntry | null)[] {
         const elemClass = (elem: SDFGElement | JsonSDFG): ChangeState => {
@@ -570,39 +269,18 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         return stack;
     }
 
-    private sortChildrenByGUID(entry: localGraphDiffStackEntry): void {
-        entry.children.sort((a, b) => {
-            if (a && b) {
-                return (
-                    DIFF_ORDER.indexOf(a.changeStatus) -
-                    DIFF_ORDER.indexOf(b.changeStatus)
-                );
-            } else if (a) {
-                return -1;
-            } else if (b) {
-                return 1;
-            }
-            return 0;
-        });
-
-        for (const child of entry.children) {
-            if (child)
-                this.sortChildrenByGUID(child);
-        }
-    }
-
     public outline(): void {
-        const infoContainer = SDFVWebUI.getInstance().infoContentContainer;
+        const infoContainer = this.linkedUI.infoContentContainer;
         if (!infoContainer)
             return;
 
         infoContainer.html('');
         if (!this.diffMap) {
-            SDFVWebUI.getInstance().infoSetTitle('SDFG Diff Outline');
+            this.linkedUI.infoSetTitle('SDFG Diff Outline');
             infoContainer.text(
                 'Error: No diff computed yet, please retry in a few seconds.'
             );
-            SDFVWebUI.getInstance().infoShow();
+            this.linkedUI.infoShow();
             return;
         }
 
@@ -613,7 +291,7 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         if (!lGraph || !rGraph)
             return;
 
-        SDFVWebUI.getInstance().infoSetTitle('SDFG Diff Outline');
+        this.linkedUI.infoSetTitle('SDFG Diff Outline');
 
         const container = $('<div>', {
             class: 'container-fluid',
@@ -783,33 +461,103 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
             rIdx++;
         }
 
-        SDFVWebUI.getInstance().infoShow();
+        this.linkedUI.infoShow();
     }
 
-    public runSearch(advanced: boolean = false): void {
-        // Make sure the UI is not blocked during search.
-        setTimeout(() => {
-            const query = advanced ? $('#advsearch').val() : $('#search').val();
-            if (query) {
-                if (advanced) {
-                    const predicate = eval(query.toString()) as (
-                        g: DagreGraph, elem: SDFGElement
-                    ) => boolean;
-                    this.findInDiffGraphPredicate(predicate);
-                } else {
-                    const caseSensitive = $('#search-case').is(':checked');
-                    const queryString = caseSensitive ?
-                        query.toString() : query.toString().toLowerCase();
-                    this.findInDiffGraphPredicate(
-                        (g: DagreGraph, elem: SDFGElement) => {
-                            const text = caseSensitive ? elem.textForFind() :
-                                elem.textForFind().toLowerCase();
-                            return text.includes(queryString);
-                        }
-                    );
-                }
+    protected findInDiffGraphPredicate(
+        predicate: (g: DagreGraph, el: SDFGElement) => boolean
+    ): void {
+        const lGraph = this.leftRenderer?.graph;
+        const rGraph = this.rightRenderer?.graph;
+        if (!lGraph || !rGraph)
+            return;
+
+        this.linkedUI.infoSetTitle('Search Results');
+
+        const lResults: SDFGElement[] = [];
+        graphFindRecursive(lGraph, predicate, lResults);
+        const rResults: SDFGElement[] = [];
+        graphFindRecursive(rGraph, predicate, rResults);
+
+        // Zoom to bounding box of all results first
+        if (lResults.length > 0)
+            this.leftRenderer!.zoomToFit(lResults);
+        if (rResults.length > 0)
+            this.rightRenderer!.zoomToFit(rResults);
+
+        const addedIDs = new Map<string, [SDFGElement, SDFGRenderer][]>();
+        const mergedResults: string[] = [];
+        for (const res of lResults) {
+            const existing = addedIDs.get(res.guid);
+            if (existing) {
+                existing.push([res, this.leftRenderer!]);
+            } else {
+                const newEntry: [SDFGElement, SDFGRenderer][] =
+                    [[res, this.leftRenderer!]];
+                addedIDs.set(res.guid, newEntry);
+                mergedResults.push(res.guid);
             }
-        }, 1);
+        }
+        for (const res of rResults) {
+            const existing = addedIDs.get(res.guid);
+            if (existing) {
+                existing.push([res, this.rightRenderer!]);
+            } else {
+                const newEntry: [SDFGElement, SDFGRenderer][] =
+                    [[res, this.rightRenderer!]];
+                addedIDs.set(res.guid, newEntry);
+                mergedResults.push(res.guid);
+            }
+        }
+
+        // Show clickable results in sidebar
+        const sidebar = this.linkedUI.infoContentContainer;
+        if (sidebar) {
+            sidebar.html('');
+            for (const resId of mergedResults) {
+                const res = addedIDs.get(resId);
+                if (!res)
+                    continue;
+
+                let status: ChangeState = 'nodiff';
+                const guid = res[0][0].guid;
+                if (this.diffMap?.changedKeys.has(guid))
+                    status = 'changed';
+                else if (this.diffMap?.removedKeys.has(guid))
+                    status = 'removed';
+                else if (this.diffMap?.addedKeys.has(guid))
+                    status = 'added';
+
+                const d = $('<div>', {
+                    class: `diff-outline-entry ${status}`,
+                    html: htmlSanitize`${res[0][0].type} ${res[0][0].label}`,
+                    click: () => {
+                        for (const entry of res)
+                            entry[1].zoomToFit([entry[0]]);
+                    },
+                });
+                d.on('mouseenter', () => {
+                    for (const entry of res) {
+                        if (!entry[0].highlighted) {
+                            entry[0].renderer.highlightRenderable(entry[0]);
+                            entry[1].drawAsync();
+                        }
+                    }
+                });
+                d.on('mouseleave', () => {
+                    for (const entry of res) {
+                        if (entry[0].highlighted) {
+                            entry[0].renderer.highlightRenderable(entry[0]);
+                            entry[1].drawAsync();
+                        }
+                    }
+                });
+
+                sidebar.append(d);
+            }
+        }
+
+        this.linkedUI.infoShow();
     }
 
 }

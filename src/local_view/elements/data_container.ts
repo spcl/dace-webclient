@@ -1,12 +1,10 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { StorageType } from '../../overlays/memory_location_overlay';
+import type { StorageType } from '../../overlays/memory_location_overlay';
 import { DataDimension } from './dimensions';
 
-export class AccessMap extends Map<DataContainer, [
-    AccessMode, (number | undefined)[]
-][]> {
-}
+export type AccessMap =
+    Map<DataContainer, [AccessMode, (number | undefined)[]][]>;
 
 export enum AccessMode {
     ReadOnly,

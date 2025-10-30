@@ -3,7 +3,7 @@
 import { DisplayObject, Graphics } from 'pixi.js';
 import { StorageType } from '../../overlays/memory_location_overlay';
 import { ComputationNode } from '../elements/computation_node';
-import {
+import type {
     AccessMap,
     AccessMode,
     ConcreteDataAccess,
@@ -16,7 +16,7 @@ import { MapNode } from '../elements/map_node';
 import { MemoryMovementEdge } from '../elements/memory_movement_edge';
 import { MemoryNode } from '../elements/memory_node';
 import { Node } from '../elements/node';
-import { LViewRenderer } from '../lview_renderer';
+import type { LViewRenderer } from '../lview_renderer';
 
 type MemoryNodeMap = Map<DataContainer, Set<[AccessMode, MemoryNode]>>;
 
@@ -146,7 +146,7 @@ export class Graph extends Graphics {
     public getAccessesFor(
         scope: Map<string, number>, updateParameters: boolean = false
     ): [AccessMap, ConcreteDataAccess[]] {
-        const idxMap = new AccessMap();
+        const idxMap: AccessMap = new Map();
         const resolvedAccessOrder: ConcreteDataAccess[] = [];
 
         for (const child of this.children) {
@@ -174,7 +174,7 @@ export class Graph extends Graphics {
         source: DataContainer,
         index: number[]
     ): AccessMap {
-        const idxMap = new AccessMap();
+        const idxMap: AccessMap = new Map();
 
         for (const child of this.children) {
             if (child instanceof MapNode || child instanceof ComputationNode) {

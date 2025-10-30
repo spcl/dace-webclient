@@ -3,9 +3,9 @@
 import CoffeeQuate from 'coffeequate';
 import * as math from 'mathjs';
 import { Text } from 'pixi.js';
-import { Graph } from '../graph/graph';
-import { LViewRenderer } from '../lview_renderer';
-import {
+import type { Graph } from '../graph/graph';
+import type { LViewRenderer } from '../lview_renderer';
+import type {
     AccessMap,
     ConcreteDataAccess,
     DataContainer,
@@ -64,7 +64,7 @@ export class ComputationNode extends Node {
     public getAccessesFor(
         scope: Record<string, any>
     ): [AccessMap, ConcreteDataAccess[]] {
-        const idxMap = new AccessMap();
+        const idxMap: AccessMap = new Map();
         const resolvedAccessOrder: ConcreteDataAccess[] = [];
 
         for (const val of this.accessOrder) {
@@ -155,7 +155,7 @@ export class ComputationNode extends Node {
     public getRelatedAccesses(
         source: DataContainer, index: number[], _origin?: Node
     ): AccessMap {
-        const idxMap = new AccessMap();
+        const idxMap: AccessMap = new Map();
 
         // Find out what symbolic accesses the numeric indices to the source
         // relate to.
@@ -179,7 +179,7 @@ export class ComputationNode extends Node {
                     /* eslint-disable
                        @typescript-eslint/no-unsafe-member-access */
                     const equation = CoffeeQuate(
-                        leftHand.toString() + ' = ' + rightHand.toString()
+                        leftHand + ' = ' + rightHand.toString()
                     );
                     const variables = equation.getAllVariables();
                     if (variables.length === 1) {

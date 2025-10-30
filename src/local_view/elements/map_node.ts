@@ -6,14 +6,16 @@ import { evaluate as mathEvaluate } from 'mathjs';
 import { Text } from 'pixi.js';
 import { AccessStack } from '../../utils/collections';
 import { showErrorModal } from '../../utils/utils';
-import { Graph } from '../graph/graph';
+import type { Graph } from '../graph/graph';
 import { Button } from '../gui/button';
 import { Slider } from '../gui/slider';
-import { LViewGraphParseError } from '../lview_parser';
-import { LViewRenderer } from '../lview_renderer';
-import { AccessMap, ConcreteDataAccess, DataContainer } from './data_container';
+import type { LViewRenderer } from '../lview_renderer';
+import type {
+    AccessMap,
+    ConcreteDataAccess,
+    DataContainer,
+} from './data_container';
 import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from './element';
-import { MemoryNode } from './memory_node';
 import { Node } from './node';
 
 interface Range {
@@ -333,7 +335,7 @@ export class MapNode extends Node {
             return;
 
         if (nRange.step === 0) {
-            throw new LViewGraphParseError(
+            throw new Error(
                 'This graph cannot be simulated due to a map step of 0'
             );
         }
@@ -395,13 +397,15 @@ export class MapNode extends Node {
                                 tile.coldMisses++;
 
                             const mnPrev =
-                                MemoryNode.reuseDistanceHistogram.get(distance);
+                                this.renderer?.reuseDistanceHistogram.get(
+                                    distance
+                                );
                             if (mnPrev !== undefined) {
-                                MemoryNode.reuseDistanceHistogram.set(
+                                this.renderer?.reuseDistanceHistogram.set(
                                     distance, mnPrev + 1
                                 );
                             } else {
-                                MemoryNode.reuseDistanceHistogram.set(
+                                this.renderer?.reuseDistanceHistogram.set(
                                     distance, 1
                                 );
                             }
@@ -409,33 +413,32 @@ export class MapNode extends Node {
                             if (distance < 0 || distance >= distThreshold) {
                                 if (tile) {
                                     const missPrev =
-                                        MemoryNode.missesHistogram.get(
+                                        this.renderer?.missesHistogram.get(
                                             tile.totalMisses
                                         );
                                     if (missPrev !== undefined &&
                                         missPrev >= 0) {
                                         if (missPrev > 1) {
-                                            MemoryNode.missesHistogram.set(
+                                            this.renderer?.missesHistogram.set(
                                                 tile.totalMisses, missPrev - 1
                                             );
                                         } else {
-                                            MemoryNode.missesHistogram.delete(
-                                                tile.totalMisses
-                                            );
+                                            this.renderer?.missesHistogram
+                                                .delete(tile.totalMisses);
                                         }
                                     }
                                     tile.totalMisses++;
 
                                     const nMissPrev =
-                                        MemoryNode.missesHistogram.get(
+                                        this.renderer?.missesHistogram.get(
                                             tile.totalMisses
                                         );
                                     if (nMissPrev !== undefined) {
-                                        MemoryNode.missesHistogram.set(
+                                        this.renderer?.missesHistogram.set(
                                             tile.totalMisses, nMissPrev + 1
                                         );
                                     } else {
-                                        MemoryNode.missesHistogram.set(
+                                        this.renderer?.missesHistogram.set(
                                             tile.totalMisses, 1
                                         );
                                     }
@@ -449,7 +452,8 @@ export class MapNode extends Node {
     }
 
     public playbackReset(): void {
-        MemoryNode.MAX_ACCESSES = 1;
+        if (this.renderer)
+            this.renderer.MAX_ACCESSES = 1;
         this.playbackPlaying = false;
         this.playbackTicker = 0;
 
@@ -638,7 +642,7 @@ export class MapNode extends Node {
     public getAccessesFor(
         scope: Map<string, number>, updateParameters: boolean = false
     ): [AccessMap, ConcreteDataAccess[]] {
-        const idxMap = new AccessMap();
+        const idxMap: AccessMap = new Map();
 
         if (updateParameters) {
             this.extScope.clear();

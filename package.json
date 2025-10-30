@@ -1,6 +1,6 @@
 {
     "name": "@spcl/sdfv",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "description": "A standalone viewer for SDFGs",
     "homepage": "https://github.com/spcl/dace-webclient",
     "main": "out/index.js",
@@ -26,10 +26,10 @@
         "start": "npm run serve",
         "clean": "rimraf dist && rimraf out",
         "type-check": "tsc --noEmit",
-        "build-dev": "npm run clean && webpack --config-name=main --mode=development",
+        "dev": "npm run clean && webpack --config-name=main --mode=development",
         "watch": "npm run clean && webpack --watch --config-name=main --mode=development",
         "serve": "npm run clean && webpack serve --config-name=main --mode=development",
-        "build-prod": "npm run clean && webpack --mode=production",
+        "build": "npm run clean && webpack --mode=production",
         "postinstall": "patch-package",
         "test": "jest"
     },
@@ -97,10 +97,7 @@
         "pixi-viewport": "4.24",
         "pixi.js": "6.1.3",
         "process": "^0.11.10",
-        "rendure": "0.1.1",
+        "rendure": "^0.1.8",
         "stream-browserify": "^3.0.0"
-    },
-    "workspaces": [
-        "packages/*"
-    ]
+    }
 }

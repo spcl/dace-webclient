@@ -12,9 +12,9 @@ import {
     NestedSDFG,
     State,
 } from '../../renderer/sdfg/sdfg_elements';
-import { SDFV } from '../../sdfv';
 import { JsonSDFG, OverlayType } from '../../types';
 import { GenericSdfgOverlay } from '../common/generic_sdfg_overlay';
+import { SDFV_CONNECTOR_LOD } from '../../constants';
 
 export class CFDataDependencyLens extends GenericSdfgOverlay {
 
@@ -185,7 +185,7 @@ export class CFDataDependencyLens extends GenericSdfgOverlay {
     protected shadeBlock(block: ControlFlowBlock, ..._args: any[]): void {
         // Only draw connectors when close enough to see them.
         const ppp = this.renderer.canvasManager.pointsPerPixel;
-        if (!this.renderer.adaptiveHiding || ppp < SDFV.CONNECTOR_LOD) {
+        if (!this.renderer.adaptiveHiding || ppp < SDFV_CONNECTOR_LOD) {
             const mPos = this.renderer.getMousePos() ?? undefined;
             const connectors = this.connectorMap.get(block);
             if (connectors) {

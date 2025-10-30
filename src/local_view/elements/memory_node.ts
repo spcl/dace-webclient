@@ -5,23 +5,27 @@ import $ from 'jquery';
 import { max, median, min } from 'mathjs';
 import { Graphics, InteractionEvent, Text } from 'pixi.js';
 import { getTempColorHEX } from '../../utils/utils';
-import { Graph } from '../graph/graph';
-import { LViewRenderer } from '../lview_renderer';
+import type { Graph } from '../graph/graph';
+import type { LViewRenderer } from '../lview_renderer';
 import { AccessPatternOverlay } from '../overlays/access_pattern_overlay';
 import { CacheLineOverlay } from '../overlays/cache_line_overlay';
 import { ReuseDistanceOverlay } from '../overlays/reuse_distance_overlay';
 import { ComputationNode } from './computation_node';
-import { AccessMap, AccessMode, DataContainer } from './data_container';
-import { DataDimension } from './dimensions';
+import type {
+    AccessMap,
+    AccessMode,
+    DataContainer,
+} from './data_container';
+import type { DataDimension } from './dimensions';
 import { DEFAULT_LINE_STYLE, DEFAULT_TEXT_STYLE } from './element';
 import { MapNode } from './map_node';
 import { Node } from './node';
-import { KELLY_COLORS } from 'rendure/src/utils/colors';
+import { KELLY_COLORS } from 'rendure';
 
 const INTERNAL_PADDING = 30;
 const TILE_SIZE = 10;
 
-class MemoryTile extends Graphics {
+export class MemoryTile extends Graphics {
 
     private hoverMarkedTiles: Set<MemoryTile> = new Set<MemoryTile>();
     private accessMarkedTiles: Set<MemoryTile> = new Set<MemoryTile>();
@@ -50,7 +54,8 @@ class MemoryTile extends Graphics {
         public readonly elementY: number,
         public readonly elementWidth: number,
         public readonly elementHeight: number,
-        public readonly index: number[]
+        public readonly index: number[],
+        public readonly renderer?: LViewRenderer
     ) {
         super();
 
@@ -96,7 +101,7 @@ class MemoryTile extends Graphics {
     }
 
     private markRelatedAccesses(asAccess: boolean = false): void {
-        const relatedAccesses = new AccessMap();
+        const relatedAccesses: AccessMap = new Map();
         const neighborhood =
             this.memoryNode.parentGraph.neighborhood(this.memoryNode);
         for (const neighbor of neighborhood) {
@@ -323,12 +328,14 @@ class MemoryTile extends Graphics {
 
     private removeFromGlobalHist(): void {
         if (this.stackedAccesses > 0) {
-            const prev = MemoryNode.accessHistogram.get(this.stackedAccesses);
+            const prev = this.renderer?.accessHistogram.get(
+                this.stackedAccesses
+            );
             if (prev !== undefined) {
                 if (prev <= 1) {
-                    MemoryNode.accessHistogram.delete(this.stackedAccesses);
+                    this.renderer!.accessHistogram.delete(this.stackedAccesses);
                 } else {
-                    MemoryNode.accessHistogram.set(
+                    this.renderer!.accessHistogram.set(
                         this.stackedAccesses, prev - 1
                     );
                 }
@@ -338,11 +345,16 @@ class MemoryTile extends Graphics {
 
     private addToGlobalHist(): void {
         if (this.stackedAccesses > 0) {
-            const prev = MemoryNode.accessHistogram.get(this.stackedAccesses);
-            if (prev !== undefined && prev !== 0)
-                MemoryNode.accessHistogram.set(this.stackedAccesses, prev + 1);
-            else
-                MemoryNode.accessHistogram.set(this.stackedAccesses, 1);
+            const prev = this.renderer?.accessHistogram.get(
+                this.stackedAccesses
+            );
+            if (prev !== undefined && prev !== 0) {
+                this.renderer!.accessHistogram.set(
+                    this.stackedAccesses, prev + 1
+                );
+            } else {
+                this.renderer!.accessHistogram.set(this.stackedAccesses, 1);
+            }
         }
     }
 
@@ -352,10 +364,12 @@ class MemoryTile extends Graphics {
         this.removeFromGlobalHist();
 
         this.stackedAccesses++;
-        MemoryNode.MAX_ACCESSES = Math.max(
-            MemoryNode.MAX_ACCESSES, this.stackedAccesses
-        );
-        MemoryNode.accessMap.set(this, this.stackedAccesses);
+        if (this.renderer) {
+            this.renderer.MAX_ACCESSES = Math.max(
+                this.renderer.MAX_ACCESSES, this.stackedAccesses
+            );
+        }
+        this.renderer?.accessMap.set(this, this.stackedAccesses);
 
         this.addToGlobalHist();
 
@@ -371,7 +385,7 @@ class MemoryTile extends Graphics {
         this.stackedAccesses--;
         if (this.stackedAccesses < 0)
             this.stackedAccesses = 0;
-        MemoryNode.accessMap.set(this, this.stackedAccesses);
+        this.renderer?.accessMap.set(this, this.stackedAccesses);
 
         this.addToGlobalHist();
 
@@ -384,7 +398,7 @@ class MemoryTile extends Graphics {
         this.removeFromGlobalHist();
 
         this.stackedAccesses = 0;
-        MemoryNode.accessMap.set(this, this.stackedAccesses);
+        this.renderer?.accessMap.set(this, this.stackedAccesses);
 
         this.draw();
     }
@@ -420,7 +434,7 @@ class MemoryTile extends Graphics {
             else
                 this.beginFill(0xA0A0FF);
         } else if (this.stackedAccesses > 0) {
-            const keys = [...MemoryNode.accessHistogram.keys()];
+            const keys = [...(this.renderer?.accessHistogram.keys() ?? [])];
             keys.sort((a, b) => {
                 return a - b;
             });
@@ -455,26 +469,27 @@ class MemoryTile extends Graphics {
             // TODO: Improve using OOP.
             if (this.stackDistancesFlattened.length > 0) {
                 let v;
-                let keys;
+                let dict;
                 switch (this.memoryNode.reuseDistanceMetric) {
                     case 'max':
                         v = max(this.stackDistancesFlattened);
-                        keys = [...MemoryNode.maxReuseDistanceHistogram.keys()];
+                        dict = this.renderer?.maxReuseDistanceHistogram;
                         break;
                     case 'min':
                         v = min(this.stackDistancesFlattened);
-                        keys = [...MemoryNode.minReuseDistanceHistogram.keys()];
+                        dict = this.renderer?.minReuseDistanceHistogram;
                         break;
                     case 'misses':
                         v = this.totalMisses;
-                        keys = [...MemoryNode.missesHistogram.keys()];
+                        dict = this.renderer?.missesHistogram;
                         break;
                     case 'median':
                     default:
                         v = median(this.stackDistancesFlattened);
-                        keys = [...MemoryNode.reuseDistanceHistogram.keys()];
+                        dict = this.renderer?.reuseDistanceHistogram;
                         break;
                 }
+                const keys = [...(dict?.keys() ?? [])];
 
                 keys.sort((a, b) => {
                     return a - b;
@@ -528,22 +543,11 @@ class MemoryTile extends Graphics {
 
 export class MemoryNode extends Node {
 
-    public static MAX_ACCESSES: number = 1;
-
     public readonly _unscaledWidth: number;
     public readonly _unscaledHeight: number;
 
     private readonly tiles: MemoryTile[];
     private readonly gfxText: Text;
-
-    public static readonly accessMap = new Map<MemoryTile, number>();
-    public static readonly accessHistogram = new Map<number, number>();
-    public static readonly reuseDistanceHistogram = new Map<number, number>();
-    public static readonly minReuseDistanceHistogram =
-        new Map<number, number>();
-    public static readonly maxReuseDistanceHistogram =
-        new Map<number, number>();
-    public static readonly missesHistogram = new Map<number, number>();
 
     public reuseDistanceOverlayActive: boolean = false;
     public reuseDistanceMetric: string = 'median';
@@ -867,9 +871,9 @@ export class MemoryNode extends Node {
             const elY = horizontal ? y : y + i * elHeight;
 
             const rect = new MemoryTile(
-                this, elX, elY, elWidth, elHeight, nTargetIndexes
+                this, elX, elY, elWidth, elHeight, nTargetIndexes, this.renderer
             );
-            MemoryNode.accessMap.set(rect, 0);
+            this.renderer?.accessMap.set(rect, 0);
 
             this.addChild(rect);
 

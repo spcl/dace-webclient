@@ -1,8 +1,8 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { LViewRenderer } from '../lview_renderer';
+import type { LViewRenderer } from '../lview_renderer';
 import { Element } from './element';
-import { Node } from './node';
+import type { Node } from './node';
 
 export class Edge extends Element {
 

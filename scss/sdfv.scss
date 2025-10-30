@@ -10,6 +10,8 @@ $material-symbols-font-path: "~material-symbols/";
 
 .sdfv {
   @import "~bootstrap/scss/bootstrap";
+  @import "~rendure/scss/html_canvas_renderer";
+  @import "~rendure/scss/renderer_ui";
 }
 
 html.sdfv {

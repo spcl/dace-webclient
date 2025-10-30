@@ -24,12 +24,12 @@ import { MemoryLocationOverlay } from '../overlays/memory_location_overlay';
 import { ComputationNode } from './elements/computation_node';
 import { MemoryMovementEdge } from './elements/memory_movement_edge';
 import { MemoryNode } from './elements/memory_node';
-import { Element } from './elements/element';
-import { LViewRenderer } from './lview_renderer';
+import type { Element } from './elements/element';
+import type { LViewRenderer } from './lview_renderer';
 import { evaluate } from 'mathjs';
 import type { DagreGraph } from '../renderer/sdfg/sdfg_renderer';
-import { DataSubset, JsonSDFG, JsonSDFGCodeBlock } from '../types';
-import { Node } from './elements/node';
+import type { DataSubset, JsonSDFG, JsonSDFGCodeBlock } from '../types';
+import type { Node } from './elements/node';
 
 export class LViewGraphParseError extends Error {}
 
@@ -136,7 +136,7 @@ function getOrCreateContainer(
             const dimensions = [];
             for (const s of sdfgContainer?.attributes?.shape ?? []) {
                 const val = parseSymbolic(s, symbolMap);
-                dimensions.push(new DataDimension(s.toString(), val));
+                dimensions.push(new DataDimension(s, val));
             }
             elem ??= findAccessNodeForContainer(name, state);
             const storageType = elem ?
@@ -184,7 +184,7 @@ function parseAccessNode(
     const attributes = element.attributes();
     if (attributes) {
         const container = getOrCreateContainer(
-            attributes.data as string, graph, state, symbolMap, element
+            attributes.data ?? '', graph, state, symbolMap, element
         );
         if (container) {
             const node = new MemoryNode(

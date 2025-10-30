@@ -10,8 +10,12 @@ import {
     SDFGElementType,
     State,
 } from '../../renderer/sdfg/sdfg_elements';
-import { DagreGraph } from '../../renderer/sdfg/sdfg_renderer';
-import {
+import type {
+    DagreGraph,
+    SDFGRenderer,
+} from '../../renderer/sdfg/sdfg_renderer';
+import type { ISDFVUserInterface } from '../../sdfv_ui';
+import type {
     JsonSDFG,
     JsonSDFGBlock,
     JsonSDFGConditionalBlock,
@@ -23,6 +27,7 @@ import {
     SDFGElementGroup,
     SDFGElementInfo,
 } from '../../types';
+import { htmlSanitize } from '../sanitization';
 
 /**
  * Receives a callback that accepts (node, parent graph) and returns a value.
@@ -622,4 +627,90 @@ export function doForIntersectedDagreGraphElements(
 
     cfg ??= sdfg;
     doRecursive(graph, cfg, sdfg);
+}
+
+
+export function graphFindRecursive(
+    graph: DagreGraph,
+    predicate: (graph: DagreGraph, element: SDFGElement) => boolean,
+    results: (dagre.Node<SDFGElement> | dagre.GraphEdge)[]
+): void {
+    for (const nodeid of graph.nodes()) {
+        const node = graph.node(nodeid);
+        if (node && predicate(graph, node))
+            results.push(node);
+        // Enter states or nested SDFGs recursively
+        if (node?.graph) {
+            graphFindRecursive(node.graph, predicate, results);
+        } else if (node instanceof ConditionalBlock) {
+            for (const [_, branch] of node.branches) {
+                if (branch.graph)
+                    graphFindRecursive(branch.graph, predicate, results);
+            }
+        }
+    }
+    for (const edgeid of graph.edges()) {
+        const edge = graph.edge(edgeid);
+        if (edge && predicate(graph, edge))
+            results.push(edge);
+    }
+}
+
+export function findInGraphPredicate(
+    ui: ISDFVUserInterface, renderer: SDFGRenderer,
+    predicate: (graph: DagreGraph, element: SDFGElement) => boolean
+): void {
+    if (!renderer.graph)
+        return;
+
+    ui.infoSetTitle('Search Results');
+
+    const results: SDFGElement[] = [];
+    graphFindRecursive(renderer.graph, predicate, results);
+
+    // Zoom to bounding box of all results first
+    if (results.length > 0)
+        renderer.zoomToFit(results);
+
+    // Show clickable results in sidebar
+    const sidebar = ui.infoContentContainer;
+    if (sidebar) {
+        sidebar.html('');
+        for (const result of results) {
+            const d = $('<div>', {
+                class: 'context_menu_option',
+                html: htmlSanitize`${result.type} ${result.label}`,
+                click: () => {
+                    renderer.zoomToFit([result]);
+                },
+            });
+            d.on('mouseenter', () => {
+                if (!result.highlighted)
+                    renderer.drawAsync();
+            });
+            d.on('mouseleave', () => {
+                if (result.highlighted)
+                    renderer.drawAsync();
+            });
+            sidebar.append(d);
+        }
+    }
+
+    ui.infoShow();
+}
+
+export function findInGraph(
+    ui: ISDFVUserInterface, renderer: SDFGRenderer, query: string,
+    caseSensitive: boolean = false
+): void {
+    if (!caseSensitive)
+        query = query.toLowerCase();
+    findInGraphPredicate(
+        ui, renderer, (graph: DagreGraph, element: SDFGElement) => {
+            let text = element.textForFind();
+            if (!caseSensitive)
+                text = text.toLowerCase();
+            return text.includes(query);
+        }
+    );
 }

@@ -73,7 +73,7 @@ const coreConfig = {
 const mainConfig = {
     name: 'main',
     entry: {
-        sdfv: './src/sdfv.ts',
+        sdfv: './src/web_sdfv.ts',
     },
     ...coreConfig,
 };
@@ -81,7 +81,7 @@ const mainConfig = {
 const jupyterConfig = {
     name: 'jupyter',
     entry: {
-        sdfv: './src/sdfv.ts',
+        sdfv: './src/web_sdfv.ts',
     },
     module: {
         rules: [

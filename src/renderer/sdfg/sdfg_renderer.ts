@@ -28,7 +28,7 @@ import {
 import { LViewRenderer } from '../../local_view/lview_renderer';
 import { OverlayManager } from '../../overlay_manager';
 import { LogicalGroupOverlay } from '../../overlays/logical_group_overlay';
-import { ISDFV, SDFV, WebSDFV } from '../../sdfv';
+import type { ISDFV, SDFV } from '../../sdfv';
 import {
     JsonSDFG,
     JsonSDFGControlFlowRegion,
@@ -71,14 +71,15 @@ import {
 import { showErrorModal } from '../../utils/utils';
 import { SDFGRendererUI, SDFGRendererUIFeature } from './sdfg_renderer_ui';
 import {
-    HTML_CANVAS_RENDERER_DEFAULT_OPTIONS,
-    HTMLCanvasRenderer,
-    HTMLCanvasRendererOptionKey,
-} from 'rendure/src/renderer/core/html_canvas/html_canvas_renderer';
-import {
     boundingBox,
     findLineStartRectIntersection,
-} from 'rendure/src/renderer/core/common/renderer_utils';
+    HTML_CANVAS_RENDERER_DEFAULT_OPTIONS,
+    HTMLCanvasRenderer,
+    HTMLCanvasRendererEvent,
+    HTMLCanvasRendererOptionKey,
+    RendererUI,
+} from 'rendure';
+import type { WebSDFV } from '../../web_sdfv';
 
 
 type MouseModeT = 'pan' | 'move' | 'select' | 'add';
@@ -99,7 +100,7 @@ export type CFGListType = Record<string, {
     nsdfgNode?: NestedSDFG,
 }>;
 
-export interface SDFGRendererEvent {
+export interface SDFGRendererEvent extends HTMLCanvasRendererEvent {
     'add_element': (
         type: SDFGElementType, parentUUID: string, lib?: string,
         edgeStartUUID?: string, edgeStartConn?: string, edgeDstConn?: string
@@ -122,12 +123,12 @@ export interface SDFGRendererEvent {
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export interface SDFGRenderer {
 
-    on<U extends keyof SDFGRendererEvent>(
-        event: U, listener: SDFGRendererEvent[U]
+    on<K extends keyof SDFGRendererEvent>(
+        event: K, listener: SDFGRendererEvent[K]
     ): this;
 
-    emit<U extends keyof SDFGRendererEvent>(
-        event: U, ...args: Parameters<SDFGRendererEvent[U]>
+    emit<K extends keyof SDFGRendererEvent>(
+        event: K, ...args: Parameters<SDFGRendererEvent[K]>
     ): boolean;
 
 }
@@ -304,7 +305,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         );
     }
 
-    protected initUI(ui?: SDFGRendererUI): void {
+    protected initUI(ui?: RendererUI): void {
         this._ui = ui;
 
         this._mouseFollowSVGs = {};
@@ -731,15 +732,12 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     public async exitLocalView(): Promise<void> {
-        if (!(this.sdfvInstance instanceof SDFV))
-            return;
-
-        if (this.sdfvInstance instanceof WebSDFV)
-            await this.sdfvInstance.setSDFG(this.sdfg);
+        if ('setSDFG' in this.sdfvInstance && this.sdfg)
+            await (this.sdfvInstance as WebSDFV).setSDFG(this.sdfg);
     }
 
     public async localViewSelection(): Promise<void> {
-        if (!this.graph || !this.sdfg || !(this.sdfvInstance instanceof SDFV))
+        if (!this.graph || !this.sdfg)
             return;
 
         // Transition to the local view by first cutting out the selection.
@@ -747,7 +745,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             const origSdfg = stringifySDFG(this.sdfg);
             await this.cutoutSelection(true);
             const lRenderer =
-                new LViewRenderer(this.sdfvInstance, this.container[0]);
+                new LViewRenderer(this.sdfvInstance as SDFV, this.container[0]);
             const lGraph = await parseGraph(this.graph, lRenderer);
             if (lGraph) {
                 layoutGraph(lGraph);
@@ -773,7 +771,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 });
                 this.container.append(exitBtn);
 
-                this.sdfvInstance.setLocalViewRenderer(lRenderer);
+                (this.sdfvInstance as SDFV).setLocalViewRenderer(lRenderer);
             }
         } catch (e) {
             if (e instanceof LViewGraphParseError)

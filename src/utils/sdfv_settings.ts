@@ -5,7 +5,7 @@ import $ from 'jquery';
 import EventEmitter from 'events';
 import { Modal } from 'bootstrap';
 import * as settingsManifest from '../settings_manifest.json';
-import { AllFields } from './utils';
+import type { AllFields } from './utils';
 import * as defaultBlueTheme from '../color_themes/default_blue.json';
 import * as defaultGreenTheme from '../color_themes/default_green.json';
 
@@ -72,20 +72,20 @@ interface SDFVSettingsEvent {
     'setting_changed': (setting: SDFVSetting, key: SDFVSettingKey) =>  void,
 }
 
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export interface SDFVSettings {
 
-    on<U extends keyof SDFVSettingsEvent>(
-        event: U, listener: SDFVSettingsEvent[U]
+    on<K extends keyof SDFVSettingsEvent>(
+        event: K, listener: SDFVSettingsEvent[K]
     ): this;
 
-    emit<U extends keyof SDFVSettingsEvent>(
-        event: U, ...args: Parameters<SDFVSettingsEvent[U]>
+    emit<K extends keyof SDFVSettingsEvent>(
+        event: K, ...args: Parameters<SDFVSettingsEvent[K]>
     ): boolean;
 
 }
 
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class SDFVSettings extends EventEmitter {
 
     private readonly _settingsDict = new Map<
