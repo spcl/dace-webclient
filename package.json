@@ -92,7 +92,7 @@
         "lodash": "^4.17.21",
         "material-symbols": "^0.40.0",
         "mathjs": "^15.0.0",
-        "monaco-editor": "^0.55.0",
+        "monaco-editor": "^0.54.0",
         "patch-package": "^8.0.0",
         "pixi-viewport": "4.24",
         "pixi.js": "6.1.3",
