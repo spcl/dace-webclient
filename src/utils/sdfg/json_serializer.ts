@@ -1,10 +1,10 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
-import { gunzipSync } from 'zlib';
 import { JsonSDFG } from '../../types';
 import { Edge } from '../../renderer/sdfg/sdfg_elements';
 import { setCollapseStateRecursive } from './sdfg_utils';
 import { SDFVSettings } from '../sdfv_settings';
+import { ungzip } from 'pako';
 
 
 const propertyReplacements_0_16_0: Record<string, {
@@ -101,6 +101,14 @@ export function checkCompatSave(sdfg: JsonSDFG): JsonSDFG {
     return sdfg;
 }
 
+function base64toBytes(base64: string): Uint8Array {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++)
+        bytes[i] = binary.charCodeAt(i);
+    return bytes;
+}
+
 /**
  * Read or decompress a JSON string, or a compressed JSON string.
  * @param json JSON string, as a string or compressed in an ArrayBuffer.
@@ -111,8 +119,13 @@ export function readOrDecompress(
     json: string | ArrayBuffer
 ): [string, boolean] {
     try {
+        let res;
+        if (typeof json === 'string')
+            res = base64toBytes(json);
+        else
+            res = new Uint8Array(json);
         return [
-            new TextDecoder().decode(gunzipSync(json)),
+            ungzip(res, { to: 'string' }),
             true,
         ];
     } catch {

@@ -198,14 +198,12 @@ export class AvgParallelismOverlay extends GenericSdfgOverlay {
             // Show the computed avg_parallelism value if applicable.
             if (avgParallelismString && isNaN(+avgParallelismString) &&
                 avgParallelism !== undefined) {
-                this.renderer.showTooltip(
-                    mousepos.x, mousepos.y,
+                this.renderer.showTooltipAtMouse(
                     'Average Parallelism: ' + avgParallelismString +
                     ' (' + avgParallelism.toString() + ')'
                 );
             } else {
-                this.renderer.showTooltip(
-                    mousepos.x, mousepos.y,
+                this.renderer.showTooltipAtMouse(
                     'Average Parallelism: ' + avgParallelismString
                 );
             }

@@ -60,8 +60,7 @@ export class LogicalGroupOverlay extends GenericSdfgOverlay {
         const mousepos = this.renderer.getMousePos();
         if (allGroups.length > 0 && mousepos &&
             elem.intersect(mousepos.x, mousepos.y)) {
-            this.renderer.showTooltip(
-                mousepos.x, mousepos.y,
+            this.renderer.showTooltipAtMouse(
                 allGroups.length === 1 ?
                     'Group: ' + allGroups[0].name :
                     'Groups: ' + allGroups.map(g => g.name).join(', ')

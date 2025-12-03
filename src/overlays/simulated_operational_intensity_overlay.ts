@@ -190,14 +190,12 @@ export class SimulatedOperationalIntensityOverlay extends GenericSdfgOverlay {
             elem.intersect(mousepos.x, mousepos.y)) {
             // Show the computed op_in value if applicable.
             if (isNaN(+opIntString) && opInt !== undefined) {
-                this.renderer.showTooltip(
-                    mousepos.x, mousepos.y,
+                this.renderer.showTooltipAtMouse(
                     'Operational Intensity: ' + opIntString + ' (' +
                         opInt.toString() + ')'
                 );
             } else {
-                this.renderer.showTooltip(
-                    mousepos.x, mousepos.y,
+                this.renderer.showTooltipAtMouse(
                     'Operational Intensity: ' + opIntString
                 );
             }
