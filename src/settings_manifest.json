@@ -31,10 +31,24 @@
                         "type": "boolean",
                         "default": true
                     },
-                    "loadGraphsCollapsed": {
-                        "label": "Start off newly loaded programs in a collapsed state",
-                        "type": "boolean",
-                        "default": false
+                    "initialGraphState": {
+                        "label": "Start off newly loaded programs with a specific collapse state",
+                        "type": "select",
+                        "default": "asSaved",
+                        "choices": [
+                            {
+                                "label": "As saved in SDFG",
+                                "value": "asSaved"
+                            },
+                            {
+                                "label": "All expanded",
+                                "value": "expanded"
+                            },
+                            {
+                                "label": "All collapsed",
+                                "value": "collapsed"
+                            }
+                        ]
                     },
                     "toolbar": {
                         "label": "Show toolbar",

@@ -118,7 +118,6 @@ export interface JsonSDFGBlock extends JsonSDFGElement {
     attributes?: Record<string, unknown> & {
         is_collapsed?: boolean,
     };
-    collapsed?: boolean,
     edges?: JsonSDFGEdge[],
     nodes?: (JsonSDFGBlock | JsonSDFGNode)[],
     id: number,

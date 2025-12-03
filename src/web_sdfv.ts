@@ -692,10 +692,7 @@ export class WebSDFV extends SDFV {
                 const parsedSDFG = await this.linkedUI.showActivityIndicatorFor(
                     'Parsing SDFG',
                     () => {
-                        return checkCompatLoad(parseSDFG(
-                            resultString,
-                            !SDFVSettings.get<boolean>('loadGraphsCollapsed')
-                        ));
+                        return checkCompatLoad(parseSDFG(resultString));
                     }
                 );
                 console.log(parsedSDFG);
@@ -729,10 +726,7 @@ export class WebSDFV extends SDFV {
         fileReader.onload = (e) => {
             const sdfgB = this.renderer?.sdfg;
             if (e.target?.result && sdfgB) {
-                const sdfgA = checkCompatLoad(parseSDFG(
-                    e.target.result,
-                    !SDFVSettings.get<boolean>('loadGraphsCollapsed')
-                ));
+                const sdfgA = checkCompatLoad(parseSDFG(e.target.result));
                 this.enterDiffView(sdfgA, sdfgB);
             }
         };

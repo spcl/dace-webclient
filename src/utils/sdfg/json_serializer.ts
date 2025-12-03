@@ -4,6 +4,7 @@ import { gunzipSync } from 'zlib';
 import { JsonSDFG } from '../../types';
 import { Edge } from '../../renderer/sdfg/sdfg_elements';
 import { setCollapseStateRecursive } from './sdfg_utils';
+import { SDFVSettings } from '../sdfv_settings';
 
 
 const propertyReplacements_0_16_0: Record<string, {
@@ -135,7 +136,11 @@ export function parseSDFG(
     const sdfgString = readOrDecompress(sdfgJson)[0];
     if (sdfgString.length > AUTOCOLLAPSE_BYTES_CUTOFF && !skipAutocollapse) {
         const sdfgObj = JSON.parse(sdfgString, reviver) as JsonSDFG;
-        setCollapseStateRecursive(sdfgObj, true);
+        const loadSetting = SDFVSettings.get<string>('initialGraphState');
+        if (loadSetting === 'collapsed')
+            setCollapseStateRecursive(sdfgObj, true);
+        else if (loadSetting === 'expanded')
+            setCollapseStateRecursive(sdfgObj, false);
         return sdfgObj;
     } else {
         return JSON.parse(sdfgString, reviver) as JsonSDFG;
