@@ -78,8 +78,7 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
         if (mousepos && elem.intersect(mousepos.x, mousepos.y)) {
             // Show the measured runtime.
             if (runtimeSummary.min === runtimeSummary.max) {
-                this.renderer.showTooltip(
-                    mousepos.x, mousepos.y,
+                this.renderer.showTooltipAtMouse(
                     this.prettyPrintMicroSections(runtimeSummary.min)
                 );
             } else {
@@ -95,7 +94,7 @@ export class RuntimeMicroSecondsOverlay extends RuntimeReportOverlay {
                     '\nCount: ' +
                     runtimeSummary.count.toString()
                 );
-                this.renderer.showTooltip(mousepos.x, mousepos.y, tooltipText);
+                this.renderer.showTooltipAtMouse(tooltipText);
             }
         }
 

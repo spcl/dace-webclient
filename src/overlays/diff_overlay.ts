@@ -3,13 +3,13 @@
 import type {
     SDFGRenderer,
 } from '../renderer/sdfg/sdfg_renderer';
-import {
+import type {
     SDFGNode,
     SDFGElement,
     Edge,
     ControlFlowBlock,
 } from '../renderer/sdfg/sdfg_elements';
-import { DiffMap } from '../sdfg_diff_viewer';
+import type { DiffMap } from '../sdfg_diff_viewer';
 import { OverlayType } from '../types';
 import { GenericSdfgOverlay } from './common/generic_sdfg_overlay';
 import { SDFVSettings } from '../utils/sdfv_settings';

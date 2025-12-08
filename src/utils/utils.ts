@@ -7,7 +7,7 @@ import {
     hsl2string,
     rgb2hex,
     tempColor,
-} from 'rendure/src/utils/colors';
+} from 'rendure';
 
 
 /**

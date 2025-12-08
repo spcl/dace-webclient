@@ -191,14 +191,11 @@ export class StaticFlopsOverlay extends GenericSdfgOverlay {
             // Show the computed FLOPS value if applicable.
             if (flopsString && isNaN(+flopsString) &&
                 flops !== undefined) {
-                this.renderer.showTooltip(
-                    mousepos.x, mousepos.y,
+                this.renderer.showTooltipAtMouse(
                     'FLOPS: ' + flopsString + ' (' + flops.toString() + ')'
                 );
             } else {
-                this.renderer.showTooltip(
-                    mousepos.x, mousepos.y, 'FLOPS: ' + flopsString
-                );
+                this.renderer.showTooltipAtMouse('FLOPS: ' + flopsString);
             }
         }
 

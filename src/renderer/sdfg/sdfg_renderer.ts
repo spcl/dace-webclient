@@ -28,7 +28,7 @@ import {
 import { LViewRenderer } from '../../local_view/lview_renderer';
 import { OverlayManager } from '../../overlay_manager';
 import { LogicalGroupOverlay } from '../../overlays/logical_group_overlay';
-import { ISDFV, SDFV, WebSDFV } from '../../sdfv';
+import type { ISDFV, SDFV } from '../../sdfv';
 import {
     JsonSDFG,
     JsonSDFGControlFlowRegion,
@@ -71,14 +71,15 @@ import {
 import { showErrorModal } from '../../utils/utils';
 import { SDFGRendererUI, SDFGRendererUIFeature } from './sdfg_renderer_ui';
 import {
-    HTML_CANVAS_RENDERER_DEFAULT_OPTIONS,
-    HTMLCanvasRenderer,
-    HTMLCanvasRendererOptionKey,
-} from 'rendure/src/renderer/core/html_canvas/html_canvas_renderer';
-import {
     boundingBox,
     findLineStartRectIntersection,
-} from 'rendure/src/renderer/core/common/renderer_utils';
+    HTML_CANVAS_RENDERER_DEFAULT_OPTIONS,
+    HTMLCanvasRenderer,
+    HTMLCanvasRendererEvent,
+    HTMLCanvasRendererOptionKey,
+    RendererUI,
+} from 'rendure';
+import type { WebSDFV } from '../../web_sdfv';
 
 
 type MouseModeT = 'pan' | 'move' | 'select' | 'add';
@@ -99,12 +100,12 @@ export type CFGListType = Record<string, {
     nsdfgNode?: NestedSDFG,
 }>;
 
-export interface SDFGRendererEvent {
+export interface SDFGRendererEvent extends HTMLCanvasRendererEvent {
     'add_element': (
         type: SDFGElementType, parentUUID: string, lib?: string,
         edgeStartUUID?: string, edgeStartConn?: string, edgeDstConn?: string
-    ) => void;
-    'query_libnode': (callback: CallableFunction) => void;
+    ) => void | Promise<void>;
+    'query_libnode': (callback: () => unknown) => void;
     'exit_preview': () => void;
     'collapse_state_changed': (collapsed?: boolean, all?: boolean) => void;
     'element_position_changed': (type?: string) => void;
@@ -122,12 +123,12 @@ export interface SDFGRendererEvent {
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export interface SDFGRenderer {
 
-    on<U extends keyof SDFGRendererEvent>(
-        event: U, listener: SDFGRendererEvent[U]
+    on<K extends keyof SDFGRendererEvent>(
+        event: K, listener: SDFGRendererEvent[K]
     ): this;
 
-    emit<U extends keyof SDFGRendererEvent>(
-        event: U, ...args: Parameters<SDFGRendererEvent[U]>
+    emit<K extends keyof SDFGRendererEvent>(
+        event: K, ...args: Parameters<SDFGRendererEvent[K]>
     ): boolean;
 
 }
@@ -147,7 +148,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     protected _mouseMode: MouseModeT = 'pan';
 
     protected boxSelectionRect?: SimpleRect;
-    private addElementPosition?: Point2D;
+    private _addElementPosition?: Point2D;
     private _addEdgeStart?: SDFGElement;
     private _addEdgeStartConnector?: Connector;
     private _ctrlKeySelection: boolean = false;
@@ -304,7 +305,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         );
     }
 
-    protected initUI(ui?: SDFGRendererUI): void {
+    protected initUI(ui?: RendererUI): void {
         this._ui = ui;
 
         this._mouseFollowSVGs = {};
@@ -731,15 +732,12 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
     }
 
     public async exitLocalView(): Promise<void> {
-        if (!(this.sdfvInstance instanceof SDFV))
-            return;
-
-        if (this.sdfvInstance instanceof WebSDFV)
-            await this.sdfvInstance.setSDFG(this.sdfg);
+        if ('setSDFG' in this.sdfvInstance && this.sdfg)
+            await (this.sdfvInstance as WebSDFV).setSDFG(this.sdfg);
     }
 
     public async localViewSelection(): Promise<void> {
-        if (!this.graph || !this.sdfg || !(this.sdfvInstance instanceof SDFV))
+        if (!this.graph || !this.sdfg)
             return;
 
         // Transition to the local view by first cutting out the selection.
@@ -747,7 +745,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
             const origSdfg = stringifySDFG(this.sdfg);
             await this.cutoutSelection(true);
             const lRenderer =
-                new LViewRenderer(this.sdfvInstance, this.container[0]);
+                new LViewRenderer(this.sdfvInstance as SDFV, this.container[0]);
             const lGraph = await parseGraph(this.graph, lRenderer);
             if (lGraph) {
                 layoutGraph(lGraph);
@@ -773,7 +771,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                 });
                 this.container.append(exitBtn);
 
-                this.sdfvInstance.setLocalViewRenderer(lRenderer);
+                (this.sdfvInstance as SDFV).setLocalViewRenderer(lRenderer);
             }
         } catch (e) {
             if (e instanceof LViewGraphParseError)
@@ -950,7 +948,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
     public getSDFGName(): string {
         return (this.sdfg?.attributes && 'name' in this.sdfg.attributes) ?
-            this.sdfg.attributes.name as string : 'program';
+            (this.sdfg.attributes.name ?? 'program') : 'program';
     }
 
     /**
@@ -1346,8 +1344,8 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                     position ??= initializePositioningInfo(el);
 
                     for (let i = 1; i < points.length - 1; i++) {
-                        position.points[i].x += dx;
-                        position.points[i].y += dy;
+                        position.points![i].x += dx;
+                        position.points![i].y += dy;
                     }
                 }
             } else if (pt === -3 && edgeDPoints) {
@@ -1661,7 +1659,7 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
         });
     }
 
-    private findElementsUnderCursor(mouseX: number, mouseY: number): {
+    public findElementsUnderCursor(mouseX: number, mouseY: number): {
         totalElements: number,
         elements: Record<SDFGElementGroup, DagreGraphElementInfo[]>,
         foregroundElement?: SDFGElement,
@@ -2388,12 +2386,12 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
                         const newPoints = new Array(el.points.length);
                         for (let j = 1; j < el.points.length - 1; j++) {
                             newPoints[j] = {
-                                dx: - position.points[j].x,
-                                dy: - position.points[j].y,
+                                dx: - position.points![j].x,
+                                dy: - position.points![j].y,
                             };
                             // Reset the point movement
-                            position.points[j].x = 0;
-                            position.points[j].y = 0;
+                            position.points![j].x = 0;
+                            position.points![j].y = 0;
                         }
 
                         // Move it to original position
@@ -2491,6 +2489,14 @@ export class SDFGRenderer extends HTMLCanvasRenderer {
 
     public set addModeLib(lib: string | undefined) {
         this._addModeLib = lib;
+    }
+
+    public get addElementPosition(): Point2D | undefined {
+        return this._addElementPosition;
+    }
+
+    public set addElementPosition(pos: Point2D | undefined) {
+        this._addElementPosition = pos;
     }
 
     public get addEdgeStart(): SDFGElement | undefined {

@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { Graphics, TextStyle } from 'pixi.js';
-import { LViewRenderer } from '../lview_renderer';
+import type { LViewRenderer } from '../lview_renderer';
 
 export const DEFAULT_LINE_STYLE = {
     color: 0x000000,

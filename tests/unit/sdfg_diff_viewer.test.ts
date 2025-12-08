@@ -10,9 +10,10 @@ import {
 import { setCollapseStateRecursive } from '../../src/utils/sdfg/sdfg_utils';
 import { JsonSDFG } from '../../src/types';
 import { SDFG } from '../../src/renderer/sdfg/sdfg_elements';
-import { SDFGDiffViewer, WebSDFGDiffViewer } from '../../src/sdfg_diff_viewer';
+import { SDFGDiffViewer } from '../../src/sdfg_diff_viewer';
 import { layoutSDFG } from '../../src/layout/layout';
 import { SDFGRenderer } from '../../src';
+import { WebSDFGDiffViewer } from '../../src/web_sdfv';
 
 
 function _loadSDFG(name: string): JsonSDFG {

@@ -14,11 +14,11 @@ import annotationPlugin from 'chartjs-plugin-annotation';
 import $ from 'jquery';
 import { Viewport } from 'pixi-viewport';
 import { Application, InteractionManager } from 'pixi.js';
-import { SDFV } from '../sdfv';
+import type { SDFV } from '../sdfv';
 import { MapNode } from './elements/map_node';
 import { MemoryMovementEdge } from './elements/memory_movement_edge';
-import { MemoryNode } from './elements/memory_node';
-import { Graph } from './graph/graph';
+import { MemoryNode, MemoryTile } from './elements/memory_node';
+import type { Graph } from './graph/graph';
 import { AccessPatternOverlay } from './overlays/access_pattern_overlay';
 import {
     EdgeOverlay,
@@ -29,7 +29,7 @@ import {
 import { CacheLineOverlay } from './overlays/cache_line_overlay';
 import { PhysicalMovementOverlay } from './overlays/physical_movement_overlay';
 import { ReuseDistanceOverlay } from './overlays/reuse_distance_overlay';
-import { SDFGRenderer } from '../renderer/sdfg/sdfg_renderer';
+import type { SDFGRenderer } from '../renderer/sdfg/sdfg_renderer';
 import { SDFVSettings } from '../utils/sdfv_settings';
 
 export class LViewRenderer {
@@ -45,7 +45,7 @@ export class LViewRenderer {
     protected sidebarTitle?: JQuery<HTMLDivElement>;
     protected chartContainer?: JQuery<HTMLDivElement>;
     protected reuseDistanceHistogramCanvas?: JQuery<HTMLCanvasElement>;
-    protected reuseDistanceHistogram?: Chart;
+    protected reuseDistanceHistogramChart?: Chart;
 
     protected nViewModeSelector?: JQuery<HTMLSelectElement>;
     protected nViewModeSelectorAdditional?: JQuery<HTMLDivElement>;
@@ -54,6 +54,16 @@ export class LViewRenderer {
 
     protected nOverlay?: NodeOverlay;
     protected eOverlay?: EdgeOverlay;
+
+    public readonly accessMap = new Map<MemoryTile, number>();
+    public readonly accessHistogram = new Map<number, number>();
+    public readonly reuseDistanceHistogram = new Map<number, number>();
+    public readonly minReuseDistanceHistogram =
+        new Map<number, number>();
+    public readonly maxReuseDistanceHistogram =
+        new Map<number, number>();
+    public readonly missesHistogram = new Map<number, number>();
+    public MAX_ACCESSES = 1;
 
     public globalMemoryMovementHistogram = new Map<number, number>();
 
@@ -333,7 +343,7 @@ export class LViewRenderer {
             BarController, BarElement, CategoryScale, Tooltip, Legend,
             LinearScale
         );
-        this.reuseDistanceHistogram = new Chart(
+        this.reuseDistanceHistogramChart = new Chart(
             this.reuseDistanceHistogramCanvas,
             {
                 type: 'bar',
@@ -403,9 +413,9 @@ export class LViewRenderer {
 
     public showReuseDistanceHist(data?: ChartData): void {
         this.chartContainer?.show();
-        if (data && this.reuseDistanceHistogram) {
-            this.reuseDistanceHistogram.data = data;
-            this.reuseDistanceHistogram.update();
+        if (data && this.reuseDistanceHistogramChart) {
+            this.reuseDistanceHistogramChart.data = data;
+            this.reuseDistanceHistogramChart.update();
         }
     }
 
@@ -448,10 +458,10 @@ export class LViewRenderer {
 
         this.graphClearCalculatedValue(this._graph);
 
-        MemoryNode.reuseDistanceHistogram.clear();
-        MemoryNode.minReuseDistanceHistogram.clear();
-        MemoryNode.maxReuseDistanceHistogram.clear();
-        MemoryNode.missesHistogram.clear();
+        this.reuseDistanceHistogram.clear();
+        this.minReuseDistanceHistogram.clear();
+        this.maxReuseDistanceHistogram.clear();
+        this.missesHistogram.clear();
 
         this.recalculateForGraph(this._graph);
 

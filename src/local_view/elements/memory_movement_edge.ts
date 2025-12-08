@@ -4,13 +4,13 @@ import $ from 'jquery';
 import { cos, sin, tanh } from 'mathjs';
 import { Text } from 'pixi.js';
 import { getTempColorHEX } from '../../utils/utils';
-import { Graph } from '../graph/graph';
-import { LViewRenderer } from '../lview_renderer';
+import type { Graph } from '../graph/graph';
+import type { LViewRenderer } from '../lview_renderer';
 import { Edge } from './edge';
 import { DEFAULT_TEXT_STYLE } from './element';
 import { MemoryNode } from './memory_node';
-import { Node } from './node';
-import { Point2D } from '../../types';
+import type { Node } from './node';
+import type { Point2D } from '../../types';
 
 export class MemoryMovementEdge extends Edge {
 

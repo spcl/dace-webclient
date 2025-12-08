@@ -16,6 +16,7 @@ import {
     JsonSDFGConditionalBlock,
     JsonSDFGControlFlowRegion,
     JsonSDFGEdge,
+    JsonSDFGElement,
     JsonSDFGNode,
     JsonSDFGState,
     Point2D,
@@ -152,7 +153,7 @@ export function findGraphElementByUUID(
 }
 
 interface IElemPosition {
-    points: Point2D[];
+    points?: Point2D[];
     dx?: number;
     dy?: number;
     scopeDx?: number;
@@ -165,7 +166,9 @@ interface IElemPosition {
  * @param elem The element to be initialized
  * @returns    Initially created positioning information
  */
-export function initializePositioningInfo(elem: SDFGElement): IElemPosition {
+export function initializePositioningInfo(
+    elem: JsonSDFGElement | SDFGElement
+): IElemPosition {
     const position: IElemPosition = {
         points: [],
         dx: 0,
@@ -173,9 +176,9 @@ export function initializePositioningInfo(elem: SDFGElement): IElemPosition {
         scopeDx: 0,
         scopeDy: 0,
     };
-    if (elem instanceof Edge) {
-        for (const _ignored of elem.points)
-            position.points.push({ x: 0, y: 0 });
+    if ('points' in elem) {
+        for (const _ignored of elem.points as Point2D[])
+            position.points?.push({ x: 0, y: 0 });
     }
 
     setPositioningInfo(elem, position);
@@ -191,11 +194,16 @@ export function initializePositioningInfo(elem: SDFGElement): IElemPosition {
  * @param position The positioning information
  */
 export function setPositioningInfo(
-    elem: SDFGElement, position: IElemPosition
+    elem: JsonSDFGElement | SDFGElement, position: IElemPosition
 ): void {
-    const attr = elem.attributes();
-    if (attr)
-        attr.position = position;
+    if (elem instanceof SDFGElement) {
+        const attrs = elem.attributes();
+        if (attrs)
+            attrs.position = position;
+    } else {
+        if (elem.attributes)
+            elem.attributes.position = position;
+    }
 }
 
 /**

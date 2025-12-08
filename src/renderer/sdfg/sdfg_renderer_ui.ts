@@ -5,7 +5,7 @@ import $ from 'jquery';
 import {
     RendererUI,
     RendererUIFeature,
-} from 'rendure/src/renderer/core/common/renderer_ui';
+} from 'rendure';
 import type { SDFGRenderer } from './sdfg_renderer';
 import { SDFVSettings } from '../../utils/sdfv_settings';
 import type {
@@ -323,7 +323,7 @@ export class SDFGRendererUI extends RendererUI {
         if (this.moveModeBtn) {
             if (this._featuresMask.moveMode) {
                 this.moveModeBtn.prop('disabled', false);
-                this.moveModeBtn.on('click', (e): void => {
+                this.moveModeBtn.on('click', (e) => {
                     // shift_click is false if shift key has been released
                     // and undefined if it has been a normal mouse click.
                     if (this.renderer.shiftKeyMovement && !e.shiftKey)

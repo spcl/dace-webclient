@@ -9,7 +9,6 @@ import {
     SDFGElementType,
     SDFGNode,
 } from '../../renderer/sdfg/sdfg_elements';
-import { SDFV } from '../../sdfv';
 import {
     JsonSDFG,
     JsonSDFGConditionalBlock,
@@ -19,6 +18,10 @@ import {
 } from '../../types';
 import { SDFVSettings } from '../../utils/sdfv_settings';
 import { GenericSdfgOverlay } from '../common/generic_sdfg_overlay';
+import {
+    SDFV_DEFAULT_CANVAS_FONTSIZE,
+    SDFV_LABEL_MARGIN_V,
+} from '../../constants';
 
 
 interface ControlFlowEntry {
@@ -299,14 +302,14 @@ export class LoopNestLens extends GenericSdfgOverlay {
 
         ctx.fillStyle = SDFVSettings.get<string>('defaultTextColor');
         const oldFont = ctx.font;
-        const fontSize = SDFV.DEFAULT_CANVAS_FONTSIZE * 0.5;
+        const fontSize = SDFV_DEFAULT_CANVAS_FONTSIZE * 0.5;
         ctx.font = fontSize.toString() + 'px sans-serif';
         const labelMeasurements = ctx.measureText(loop.label);
         ctx.fillText(
             loop.label,
-            loop.position.x - (labelMeasurements.width + SDFV.LABEL_MARGIN_V),
+            loop.position.x - (labelMeasurements.width + SDFV_LABEL_MARGIN_V),
             loop.position.y + (
-                labelMeasurements.fontBoundingBoxAscent + SDFV.LABEL_MARGIN_V
+                labelMeasurements.fontBoundingBoxAscent + SDFV_LABEL_MARGIN_V
             )
         );
         ctx.font = oldFont;

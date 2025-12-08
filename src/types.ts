@@ -64,11 +64,20 @@ export interface JsonSDFGMemletAttributes {
 }
 
 export interface JsonSDFGElement extends JsonSDFGSerializedAtom {
+    id?: number | string;
     attributes?: Record<string, unknown>;
     type: string,
 }
 
+interface JsonSDFGEdgeData {
+    type?: string;
+    attributes?: Record<string, unknown>;
+}
+
 export interface JsonSDFGEdge extends JsonSDFGElement {
+    attributes?: {
+        data?: JsonSDFGEdgeData & Record<string, unknown>,
+    } & Record<string, unknown>;
     dst: string;
     dst_connector?: string;
     src: string;
@@ -81,22 +90,24 @@ export interface JsonSDFGEdge extends JsonSDFGElement {
 
 export interface JsonSDFGMultiConnectorEdge extends JsonSDFGEdge {
     attributes?: {
-        data?: {
+        data?: JsonSDFGEdgeData & {
             edge?: unknown,
             volume?: number,
             attributes?: JsonSDFGMemletAttributes,
-        },
+        } & Record<string, unknown>,
     };
 }
 
+export interface JsonSDFGNodeAttributes extends Record<string, unknown> {
+    is_collapsed?: boolean,
+    data?: string;
+    sdfg?: JsonSDFG;
+    ext_sdfg_path?: string;
+    layout?: Record<string, unknown>;
+}
+
 export interface JsonSDFGNode extends JsonSDFGElement {
-    attributes?: Record<string, unknown> & {
-        is_collapsed?: boolean,
-        data?: string;
-        sdfg?: JsonSDFG;
-        ext_sdfg_path?: string;
-        layout?: Record<string, unknown>;
-    };
+    attributes?: JsonSDFGNodeAttributes;
     id: number;
     label: string;
     scope_entry?: string;
@@ -107,7 +118,6 @@ export interface JsonSDFGBlock extends JsonSDFGElement {
     attributes?: Record<string, unknown> & {
         is_collapsed?: boolean,
     };
-    collapsed?: boolean,
     edges?: JsonSDFGEdge[],
     nodes?: (JsonSDFGBlock | JsonSDFGNode)[],
     id: number,
@@ -149,12 +159,15 @@ export interface JsonSDFGState extends JsonSDFGBlock {
     edges: JsonSDFGMultiConnectorEdge[],
 }
 
+export interface JsonSDFGAttributes extends Record<string, unknown> {
+    name?: string;
+    _arrays: Record<string, JsonSDFGDataDesc>,
+    constants_prop?: Record<string, [JsonSDFGDataDesc, (number | string)]>,
+    symbols: Record<string, JsonSDFGSymExpr>,
+}
+
 export interface JsonSDFG extends JsonSDFGControlFlowRegion {
-    attributes?: Record<string, unknown> & {
-        _arrays: Record<string, JsonSDFGDataDesc>,
-        constants_prop?: Record<string, [JsonSDFGDataDesc, (number | string)]>,
-        symbols?: Record<string, unknown>,
-    };
+    attributes?: JsonSDFGAttributes;
     dace_version?: string;
     error: InvalidSDFGError | undefined;
 }

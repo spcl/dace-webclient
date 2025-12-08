@@ -188,14 +188,11 @@ export class DepthOverlay extends GenericSdfgOverlay {
             elem.intersect(mousepos.x, mousepos.y)) {
             // Show the computed Depth value if applicable.
             if (depthString && isNaN(+depthString) && depth !== undefined) {
-                this.renderer.showTooltip(
-                    mousepos.x, mousepos.y,
+                this.renderer.showTooltipAtMouse(
                     'Depth: ' + depthString + ' (' + depth.toString() + ')'
                 );
             } else {
-                this.renderer.showTooltip(
-                    mousepos.x, mousepos.y, 'Depth: ' + depthString
-                );
+                this.renderer.showTooltipAtMouse('Depth: ' + depthString);
             }
         }
 

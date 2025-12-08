@@ -4,7 +4,7 @@ import dagre from 'dagre';
 
 import { SDFVSettings } from '../utils/sdfv_settings';
 import { SMLayouter } from './state_machine/sm_layouter';
-import {
+import type {
     JsonSDFG,
     JsonSDFGBlock,
     JsonSDFGCodeBlock,
@@ -34,7 +34,6 @@ import {
     State,
 } from '../renderer/sdfg/sdfg_elements';
 import { sdfgPropertyToString } from '../utils/sdfg/display';
-import { SDFV } from '../sdfv';
 import {
     checkAndRedirectEdge,
     findExitForEntry,
@@ -52,9 +51,8 @@ import type {
     DagreGraph,
     SDFGRenderer,
 } from '../renderer/sdfg/sdfg_renderer';
-import {
-    findLineStartRectIntersection,
-} from 'rendure/src/renderer/core/common/renderer_utils';
+import { findLineStartRectIntersection } from 'rendure';
+import { SDFV_LABEL_MARGIN_H, SDFV_LINE_HEIGHT } from '../constants';
 
 interface ICFGBlockInfo {
     label?: string,
@@ -156,7 +154,7 @@ function offsetSDFGState(state: State, offs: Point2D): void {
         if (node instanceof NestedSDFG && nAttr?.sdfg && node.graph &&
             !('is_collapsed' in nAttr && nAttr.is_collapsed)
         )
-            offsetControlFlowRegion(nAttr.sdfg as JsonSDFG, node.graph, offs);
+            offsetControlFlowRegion(nAttr.sdfg, node.graph, offs);
     });
     jsonState.edges.forEach((e, eid) => {
         const ne = checkAndRedirectEdge(e, drawnNodes, jsonState);
@@ -212,22 +210,22 @@ function calculateDFNodeSize(
     }
 
     const labelsize = ctx ? ctx.measureText(label).width : 1;
-    const inconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
+    const inconnsize = 2 * SDFV_LINE_HEIGHT * Object.keys(
         node.attributes.layout?.in_connectors ?? {}
-    ).length - SDFV.LINEHEIGHT;
-    const outconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
+    ).length - SDFV_LINE_HEIGHT;
+    const outconnsize = 2 * SDFV_LINE_HEIGHT * Object.keys(
         node.attributes.layout?.out_connectors ?? {}
-    ).length - SDFV.LINEHEIGHT;
+    ).length - SDFV_LINE_HEIGHT;
     const maxwidth = Math.max(labelsize, inconnsize, outconnsize);
-    let maxheight = 2 * SDFV.LINEHEIGHT;
-    maxheight += 4 * SDFV.LINEHEIGHT;
+    let maxheight = 2 * SDFV_LINE_HEIGHT;
+    maxheight += 4 * SDFV_LINE_HEIGHT;
 
     const size: Size2D = { w: maxwidth, h: maxheight };
 
     // add something to the size based on the shape of the node
     switch (node.type) {
         case SDFGElementType.AccessNode.toString():
-            size.h -= 4 * SDFV.LINEHEIGHT;
+            size.h -= 4 * SDFV_LINE_HEIGHT;
             size.w += size.h;
             break;
         case SDFGElementType.MapEntry.toString():
@@ -248,7 +246,7 @@ function calculateDFNodeSize(
             size.h /= 1.75;
             break;
         case SDFGElementType.Reduce.toString():
-            size.h -= 4 * SDFV.LINEHEIGHT;
+            size.h -= 4 * SDFV_LINE_HEIGHT;
             size.w *= 2;
             size.h = size.w / 3.0;
             break;
@@ -336,9 +334,9 @@ function layoutDFNode(
                 );
                 const sdfgInfo = calculateBoundingBox(nestedGraph);
                 node.attributes.layout.width =
-                    sdfgInfo.width + 2 * SDFV.LINEHEIGHT;
+                    sdfgInfo.width + 2 * SDFV_LINE_HEIGHT;
                 node.attributes.layout.height =
-                    sdfgInfo.height + 2 * SDFV.LINEHEIGHT;
+                    sdfgInfo.height + 2 * SDFV_LINE_HEIGHT;
             }
         } else {
             let emptyNSDFGLabel = 'No SDFG loaded';
@@ -346,8 +344,8 @@ function layoutDFNode(
                 emptyNSDFGLabel += '\n(' + node.attributes.ext_sdfg_path + ')';
             const textMetrics = ctx.measureText(emptyNSDFGLabel);
             node.attributes.layout.width =
-                textMetrics.width + 2 * SDFV.LINEHEIGHT;
-            node.attributes.layout.height = 4 * SDFV.LINEHEIGHT;
+                textMetrics.width + 2 * SDFV_LINE_HEIGHT;
+            node.attributes.layout.height = 4 * SDFV_LINE_HEIGHT;
         }
     }
 
@@ -612,8 +610,8 @@ function layoutSDFGState(
             !('is_collapsed' in node.attributes && node.attributes.is_collapsed)
         ) {
             offsetControlFlowRegion(node.attributes.sdfg, gnode.graph, {
-                x: topleft.x + SDFV.LINEHEIGHT,
-                y: topleft.y + SDFV.LINEHEIGHT,
+                x: topleft.x + SDFV_LINE_HEIGHT,
+                y: topleft.y + SDFV_LINE_HEIGHT,
             });
         }
         // Write back layout information.
@@ -622,28 +620,28 @@ function layoutSDFGState(
         node.attributes.layout.x = gnode.x;
         node.attributes.layout.y = gnode.y;
         // Connector management.
-        const SPACING = SDFV.LINEHEIGHT;
-        const iConnLength = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
+        const SPACING = SDFV_LINE_HEIGHT;
+        const iConnLength = (SDFV_LINE_HEIGHT + SPACING) * Object.keys(
             node.attributes.layout.in_connectors ?? {}
         ).length - SPACING;
-        const oConnLength = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
+        const oConnLength = (SDFV_LINE_HEIGHT + SPACING) * Object.keys(
             node.attributes.layout.out_connectors ?? {}
         ).length - SPACING;
-        let iConnX = gnode.x - iConnLength / 2.0 + SDFV.LINEHEIGHT / 2.0;
-        let oConnX = gnode.x - oConnLength / 2.0 + SDFV.LINEHEIGHT / 2.0;
+        let iConnX = gnode.x - iConnLength / 2.0 + SDFV_LINE_HEIGHT / 2.0;
+        let oConnX = gnode.x - oConnLength / 2.0 + SDFV_LINE_HEIGHT / 2.0;
 
         for (const c of gnode.inConnectors) {
-            c.width = SDFV.LINEHEIGHT;
-            c.height = SDFV.LINEHEIGHT;
+            c.width = SDFV_LINE_HEIGHT;
+            c.height = SDFV_LINE_HEIGHT;
             c.x = iConnX;
-            iConnX += SDFV.LINEHEIGHT + SPACING;
+            iConnX += SDFV_LINE_HEIGHT + SPACING;
             c.y = topleft.y;
         }
         for (const c of gnode.outConnectors) {
-            c.width = SDFV.LINEHEIGHT;
-            c.height = SDFV.LINEHEIGHT;
+            c.width = SDFV_LINE_HEIGHT;
+            c.height = SDFV_LINE_HEIGHT;
             c.x = oConnX;
-            oConnX += SDFV.LINEHEIGHT + SPACING;
+            oConnX += SDFV_LINE_HEIGHT + SPACING;
             c.y = topleft.y + gnode.height;
         }
     });
@@ -672,13 +670,13 @@ function layoutSDFGState(
                 }
             }
         }
-        const SPACING = SDFV.LINEHEIGHT;
+        const SPACING = SDFV_LINE_HEIGHT;
         node.attributes ??= {};
         node.attributes.layout ??= {};
-        const iConnLength = (SDFV.LINEHEIGHT + SPACING) * Object.keys(
+        const iConnLength = (SDFV_LINE_HEIGHT + SPACING) * Object.keys(
             node.attributes.layout.in_connectors ?? {}
         ).length - SPACING;
-        let iConnX = gnode.x - iConnLength / 2.0 + SDFV.LINEHEIGHT / 2.0;
+        let iConnX = gnode.x - iConnLength / 2.0 + SDFV_LINE_HEIGHT / 2.0;
 
         // Dictionary that saves the x coordinates of each connector's source
         // node or source connector. This is later used to reorder the
@@ -737,7 +735,7 @@ function layoutSDFGState(
             for (const c of gnode.inConnectors) {
                 if (c.data?.name === element[0]) {
                     c.x = iConnX;
-                    iConnX += SDFV.LINEHEIGHT + SPACING;
+                    iConnX += SDFV_LINE_HEIGHT + SPACING;
                     continue;
                 }
             }
@@ -874,7 +872,7 @@ function layoutConditionalBlock(
     cfgList?: CFGListType, stateParentList?: any[],
     omitAccessNodes: boolean = false
 ): DagreGraph {
-    const BLOCK_MARGIN = 3 * SDFV.LINEHEIGHT;
+    const BLOCK_MARGIN = 3 * SDFV_LINE_HEIGHT;
     const sdfg = condBlockElem.sdfg;
     const condBlock = condBlockElem.jsonData as JsonSDFGConditionalBlock;
 
@@ -908,7 +906,7 @@ function layoutConditionalBlock(
             blockInfo.width = ctx.measureText(
                 condition?.string_data ?? 'else'
             ).width;
-            blockInfo.height = SDFV.LINEHEIGHT;
+            blockInfo.height = SDFV_LINE_HEIGHT;
         } else {
             const blockGraph = layoutControlFlowRegion(
                 renderer, block, blockEl, ctx, minimapCtx, cfgList,
@@ -972,7 +970,7 @@ function layoutControlFlowRegion(
     minimapCtx?: CanvasRenderingContext2D, cfgList?: CFGListType,
     stateParentList?: any[], omitAccessNodes: boolean = false
 ): DagreGraph {
-    const BLOCK_MARGIN = 3 * SDFV.LINEHEIGHT;
+    const BLOCK_MARGIN = 3 * SDFV_LINE_HEIGHT;
     const sdfg = cfgElem.sdfg;
 
     // Layout the state machine as a dagre graph.
@@ -1017,7 +1015,7 @@ function layoutControlFlowRegion(
             );
         }
         if (block.attributes?.is_collapsed) {
-            blockInfo.height = SDFV.LINEHEIGHT;
+            blockInfo.height = SDFV_LINE_HEIGHT;
             if (blockElem instanceof LoopRegion) {
                 const oldFont = ctx.font;
                 ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
@@ -1043,7 +1041,7 @@ function layoutControlFlowRegion(
                 blockInfo.width = Math.max(
                     maxLabelWidth, ctx.measureText(block.label).width,
                     minWidth
-                ) + 3 * SDFV.LABEL_MARGIN_H;
+                ) + 3 * SDFV_LABEL_MARGIN_H;
             } else if (blockElem instanceof ConditionalBlock) {
                 const maxLabelWidth = Math.max(...blockElem.branches.map(
                     br => ctx.measureText(
@@ -1053,7 +1051,7 @@ function layoutControlFlowRegion(
                 blockInfo.width = Math.max(
                     maxLabelWidth, ctx.measureText(block.label).width,
                     minWidth
-                ) + 3 * SDFV.LABEL_MARGIN_H;
+                ) + 3 * SDFV_LABEL_MARGIN_H;
                 blockInfo.height += LoopRegion.CONDITION_SPACING;
             } else {
                 blockInfo.width = Math.max(

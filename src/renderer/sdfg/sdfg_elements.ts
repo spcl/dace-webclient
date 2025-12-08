@@ -1,16 +1,17 @@
 // Copyright 2019-2025 ETH Zurich and the DaCe authors. All rights reserved.
 
 import { editor } from 'monaco-editor';
-import { SDFV } from '../../sdfv';
-import {
+import type {
     DataSubset,
     JsonSDFG,
+    JsonSDFGAttributes,
     JsonSDFGBlock,
     JsonSDFGCodeBlock,
     JsonSDFGControlFlowRegion,
     JsonSDFGDataDesc,
     JsonSDFGElement,
     JsonSDFGNode,
+    JsonSDFGNodeAttributes,
     JsonSDFGState,
     Point2D,
     SimpleRect,
@@ -25,21 +26,27 @@ import {
 import { SDFVColorThemeColor, SDFVSettings } from '../../utils/sdfv_settings';
 import type { DagreGraph, SDFGRenderer } from './sdfg_renderer';
 import {
-    HTMLCanvasRenderable,
-} from 'rendure/src/renderer/core/html_canvas/html_canvas_renderable';
-import {
-    ptLineDistance,
-} from 'rendure/src/renderer/core/common/renderer_utils';
+    SDFV_ARROW_LOD,
+    SDFV_CONNECTOR_LOD,
+    SDFV_DEFAULT_CANVAS_FONTSIZE,
+    SDFV_DEFAULT_FAR_FONT_MULTIPLIER,
+    SDFV_DEFAULT_MAX_FONTSIZE,
+    SDFV_LABEL_MARGIN_H,
+    SDFV_LABEL_MARGIN_V,
+    SDFV_LINE_HEIGHT,
+} from '../../constants';
 import {
     drawAdaptiveText,
     drawEllipse,
     drawHexagon,
     drawOctagon,
     drawTrapezoid,
+    HTMLCanvasRenderable,
+    ptLineDistance,
+    shadeHexColor,
     TextHAlign,
     TextVAlign,
-} from 'rendure/src/renderer/core/html_canvas/html_canvas_utils';
-import { shadeHexColor } from 'rendure/src/utils/colors';
+} from 'rendure';
 
 
 interface ElemDrawingOptions {
@@ -252,9 +259,9 @@ export class SDFGElement extends HTMLCanvasRenderable {
                 SDFVSettings.get<string>(colorOverrideText) :
                 this.defaultColorText;
             this.ctx.fillText(
-                this.label, topleft.x + SDFV.LABEL_MARGIN_H,
-                topleft.y + SDFV.LINEHEIGHT + (
-                    overrideTopMargin ?? SDFV.LABEL_MARGIN_V
+                this.label, topleft.x + SDFV_LABEL_MARGIN_H,
+                topleft.y + SDFV_LINE_HEIGHT + (
+                    overrideTopMargin ?? SDFV_LABEL_MARGIN_V
                 )
             );
         }
@@ -268,10 +275,10 @@ export class SDFGElement extends HTMLCanvasRenderable {
         const centerY = contentBox ?
             contentBox.y + contentBox.h / 2 : topleft.y + this.height / 2;
         this.ctx.beginPath();
-        this.ctx.moveTo(centerX, centerY - SDFV.LINEHEIGHT);
-        this.ctx.lineTo(centerX, centerY + SDFV.LINEHEIGHT);
-        this.ctx.moveTo(centerX - SDFV.LINEHEIGHT, centerY);
-        this.ctx.lineTo(centerX + SDFV.LINEHEIGHT, centerY);
+        this.ctx.moveTo(centerX, centerY - SDFV_LINE_HEIGHT);
+        this.ctx.lineTo(centerX, centerY + SDFV_LINE_HEIGHT);
+        this.ctx.moveTo(centerX - SDFV_LINE_HEIGHT, centerY);
+        this.ctx.lineTo(centerX + SDFV_LINE_HEIGHT, centerY);
         this.ctx.stroke();
     }
 
@@ -381,7 +388,7 @@ export class SDFGElement extends HTMLCanvasRenderable {
         if (!tooFarForText(this.renderer) || overrideTooFarForText) {
             if (this.attributes()?.maxFootprintBytes !== undefined) {
                 const oldFont = this.ctx.font;
-                const fontSize = SDFV.DEFAULT_CANVAS_FONTSIZE * 0.8;
+                const fontSize = SDFV_DEFAULT_CANVAS_FONTSIZE * 0.8;
                 this.ctx.font = fontSize.toString() + 'px sans-serif';
                 const footprintText = bytesToString(
                     this.attributes()!.maxFootprintBytes as number, true, 2
@@ -390,11 +397,11 @@ export class SDFGElement extends HTMLCanvasRenderable {
                 const txtY = (
                     (topleft.y + this.height +
                         measurements.fontBoundingBoxAscent) -
-                        (SDFV.LINEHEIGHT + SDFV.LABEL_MARGIN_V)
+                        (SDFV_LINE_HEIGHT + SDFV_LABEL_MARGIN_V)
                 );
                 const txtX = (
                     (topleft.x + this.width) -
-                    (measurements.width + SDFV.LABEL_MARGIN_H)
+                    (measurements.width + SDFV_LABEL_MARGIN_H)
                 );
                 this.ctx.fillStyle = this.defaultColorText;
                 this.ctx.fillText(footprintText, txtX, txtY);
@@ -570,7 +577,15 @@ export class SDFG extends SDFGElement {
     }
 
     public get label(): string {
-        return (this.attributes()?.name as string | undefined) ?? '';
+        return this.attributes()?.name ?? '';
+    }
+
+    public attributes(): JsonSDFGAttributes | undefined {
+        return super.attributes() as JsonSDFGAttributes | undefined;
+    }
+
+    public get jsonData(): JsonSDFG | undefined {
+        return this.data as JsonSDFG | undefined;
     }
 
 }
@@ -582,7 +597,7 @@ export class ControlFlowBlock extends SDFGElement {
     public readonly COLLAPSIBLE: boolean = true;
 
     public static get BLOCK_MARGIN(): number {
-        return 3 * SDFV.LINEHEIGHT;
+        return 3 * SDFV_LINE_HEIGHT;
     }
 
     public get jsonData(): JsonSDFGBlock | undefined {
@@ -656,7 +671,7 @@ export class ConditionalBlock extends ControlFlowBlock {
     }
 
     public static get CONDITION_SPACING(): number {
-        return 4 * SDFV.LINEHEIGHT;
+        return 4 * SDFV_LINE_HEIGHT;
     }
 
     public branches: [JsonSDFGCodeBlock | null, ControlFlowRegion][] = [];
@@ -677,7 +692,7 @@ export class ConditionalBlock extends ControlFlowBlock {
         if (!tooFarForText(this.renderer)) {
             const topleft = this.topleft();
             this.ctx.fillStyle = this.defaultColorText;
-            const labelHeight = 1.5 * SDFV.LINEHEIGHT;
+            const labelHeight = 1.5 * SDFV_LINE_HEIGHT;
             this.ctx.beginPath();
             this.ctx.moveTo(topleft.x, topleft.y + labelHeight);
             this.ctx.lineTo(topleft.x + this.width, topleft.y + labelHeight);
@@ -695,7 +710,7 @@ export class ConditionalBlock extends ControlFlowBlock {
                 this.ctx.lineTo(nextX, nextY + condHeight);
                 this.ctx.stroke();
 
-                const condTextY = nextY + condHeight / 2 + SDFV.LINEHEIGHT / 4;
+                const condTextY = nextY + condHeight / 2 + SDFV_LINE_HEIGHT / 4;
                 const condText = condition?.string_data ?
                     'if ' + condition.string_data : 'else';
                 const condTextMetrics = this.ctx.measureText(condText);
@@ -729,19 +744,19 @@ export class LoopRegion extends ControlFlowRegion {
     }
 
     public static get CONDITION_SPACING(): number {
-        return 3 * SDFV.LINEHEIGHT;
+        return 3 * SDFV_LINE_HEIGHT;
     }
 
     public static get INIT_SPACING(): number {
-        return 3 * SDFV.LINEHEIGHT;
+        return 3 * SDFV_LINE_HEIGHT;
     }
 
     public static get UPDATE_SPACING(): number {
-        return 3 * SDFV.LINEHEIGHT;
+        return 3 * SDFV_LINE_HEIGHT;
     }
 
     public static get LOOP_STATEMENT_FONT(): string {
-        return (SDFV.DEFAULT_CANVAS_FONTSIZE * 1.5).toString() +
+        return (SDFV_DEFAULT_CANVAS_FONTSIZE * 1.5).toString() +
             'px sans-serif';
     }
 
@@ -755,7 +770,7 @@ export class LoopRegion extends ControlFlowRegion {
 
         const oldFont = this.ctx.font;
         const topleft = this.topleft();
-        let topSpacing = options?.topMargin ?? SDFV.LABEL_MARGIN_V;
+        let topSpacing = options?.topMargin ?? SDFV_LABEL_MARGIN_V;
         let remainingHeight = this.height;
         this.ctx.fillStyle = this.defaultColorText;
         this.ctx.strokeStyle = this.defaultColorText;
@@ -775,7 +790,7 @@ export class LoopRegion extends ControlFlowRegion {
                 this.ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
                 const initTextY = (
                     (topleft.y + (LoopRegion.INIT_SPACING / 2)) +
-                    (SDFV.LINEHEIGHT / 2)
+                    (SDFV_LINE_HEIGHT / 2)
                 );
                 const initTextMetrics = this.ctx.measureText(
                     initStatement.string_data
@@ -787,7 +802,7 @@ export class LoopRegion extends ControlFlowRegion {
 
                 this.ctx.font = oldFont;
                 this.ctx.fillText(
-                    'init', topleft.x + SDFV.LABEL_MARGIN_H, initTextY
+                    'init', topleft.x + SDFV_LABEL_MARGIN_H, initTextY
                 );
             }
         }
@@ -819,7 +834,7 @@ export class LoopRegion extends ControlFlowRegion {
                 JsonSDFGCodeBlock | undefined;
             const condTextY = (
                 (condTopY + (LoopRegion.CONDITION_SPACING / 2)) +
-                (SDFV.LINEHEIGHT / 2)
+                (SDFV_LINE_HEIGHT / 2)
             );
             if (condStatement?.string_data) {
                 const condTextMetrics = this.ctx.measureText(
@@ -831,7 +846,7 @@ export class LoopRegion extends ControlFlowRegion {
                 );
                 this.ctx.font = oldFont;
                 this.ctx.fillText(
-                    'while', topleft.x + SDFV.LABEL_MARGIN_H, condTextY
+                    'while', topleft.x + SDFV_LABEL_MARGIN_H, condTextY
                 );
             }
         }
@@ -854,7 +869,7 @@ export class LoopRegion extends ControlFlowRegion {
                 this.ctx.font = LoopRegion.LOOP_STATEMENT_FONT;
                 const updateTextY = (
                     (updateTopY + (LoopRegion.UPDATE_SPACING / 2)) +
-                    (SDFV.LINEHEIGHT / 2)
+                    (SDFV_LINE_HEIGHT / 2)
                 );
                 const updateTextMetrics = this.ctx.measureText(
                     updateStatement.string_data
@@ -865,7 +880,7 @@ export class LoopRegion extends ControlFlowRegion {
                 );
                 this.ctx.font = oldFont;
                 this.ctx.fillText(
-                    'update', topleft.x + SDFV.LABEL_MARGIN_H,
+                    'update', topleft.x + SDFV_LABEL_MARGIN_H,
                     updateTextY
                 );
             }
@@ -933,7 +948,7 @@ export class SDFGNode extends SDFGElement {
                 this.ctx.fillText(
                     this.label, this.x - textw / 2,
                     overrideTopMargin ? topleft.y + overrideTopMargin :
-                        this.y + SDFV.LINEHEIGHT / 4
+                        this.y + SDFV_LINE_HEIGHT / 4
                 );
             }
         }
@@ -953,6 +968,10 @@ export class SDFGNode extends SDFGElement {
             this.width = layout.width;
             this.height = layout.height;
         }
+    }
+
+    public attributes(): JsonSDFGNodeAttributes | undefined {
+        return super.attributes() as JsonSDFGNodeAttributes | undefined;
     }
 
 }
@@ -1074,7 +1093,7 @@ export abstract class Edge extends SDFGElement {
             return;
 
         const ppp = this.renderer.canvasManager.pointsPerPixel;
-        if (!this.renderer.adaptiveHiding || (ppp && ppp < SDFV.ARROW_LOD)) {
+        if (!this.renderer.adaptiveHiding || (ppp && ppp < SDFV_ARROW_LOD)) {
             this.drawArrow(ctx, this.points[this.points.length - 2],
                 this.points[this.points.length - 1], 3);
         }
@@ -1338,7 +1357,7 @@ export class InterstateEdge extends Edge {
 
         const ppp = this.renderer.canvasManager.pointsPerPixel;
         const drawArrow = !this.renderer.adaptiveHiding ||
-            (ppp && ppp < SDFV.ARROW_LOD);
+            (ppp && ppp < SDFV_ARROW_LOD);
 
         this._drawShape(this.ctx, !drawArrow);
 
@@ -1424,7 +1443,7 @@ export class InterstateEdge extends Edge {
         const labelH = labelHs.reduce((pv, cv) => {
             if (!cv)
                 return pv;
-            return cv + SDFV.LINEHEIGHT + pv;
+            return cv + SDFV_LINE_HEIGHT + pv;
         });
 
         // The label is positioned at the origin of the interstate edge, offset
@@ -1486,7 +1505,7 @@ export class InterstateEdge extends Edge {
             this.ctx.fillText(
                 labelLines[i],
                 srcP.x + offsetX,
-                (srcP.y + offsetY) - (i * (labelHs[0] + SDFV.LINEHEIGHT))
+                (srcP.y + offsetY) - (i * (labelHs[0] + SDFV_LINE_HEIGHT))
             );
         }
         this.ctx.font = oldFont;
@@ -1655,7 +1674,7 @@ export class Connector extends SDFGElement {
 export class AccessNode extends SDFGNode {
 
     public getDesc(): JsonSDFGDataDesc | undefined {
-        const name = this.attributes()?.data as string | undefined;
+        const name = this.attributes()?.data;
         const nameParts = name?.split('.');
         const arrays = this.sdfg.attributes?._arrays;
         if (!nameParts || !arrays)
@@ -1692,7 +1711,7 @@ export class AccessNode extends SDFGNode {
     ): void {
         this._setDrawStyleProperties(this.ctx);
 
-        const name = this.attributes()?.data as string | undefined;
+        const name = this.attributes()?.data;
         const nodedesc = this.getDesc();
         // Streams have dashed edges
         if (nodedesc?.type === 'Stream')
@@ -1747,7 +1766,7 @@ export class AccessNode extends SDFGNode {
     }
 
     public get label(): string {
-        const name = this.attributes()?.data as string | undefined;
+        const name = this.attributes()?.data;
         let lbl = name ?? '';
         if (SDFVSettings.get<boolean>('showDataDescriptorSizes')) {
             const nodedesc = this.sdfg.attributes?._arrays[lbl];
@@ -1871,8 +1890,8 @@ export class ScopeNode extends SDFGNode {
                 this.ctx, this.renderer, '', this.getScheduleLabel(), this.x,
                 this.y + topMargin, this.width, this.height,
                 SDFVSettings.get<number>('scopeLOD'),
-                SDFV.DEFAULT_MAX_FONTSIZE, 0.7,
-                SDFV.DEFAULT_FAR_FONT_MULTIPLIER, true,
+                SDFV_DEFAULT_MAX_FONTSIZE, 0.7,
+                SDFV_DEFAULT_FAR_FONT_MULTIPLIER, true,
                 TextVAlign.BOTTOM, TextHAlign.RIGHT, {
                     bottom: 2.0,
                     right: this.height,
@@ -2019,7 +2038,7 @@ export class ScopeNode extends SDFGNode {
         return false;
     }
 
-    private clearCachedLabels(): void {
+    public clearCachedLabels(): void {
         this.cachedCloseLabel = undefined;
         this.cachedFarLabel = undefined;
     }
@@ -2217,7 +2236,7 @@ export class Tasklet extends SDFGNode {
         const textmetrics = this.ctx.measureText(this.longestCodeLine);
 
         // Fit font size to 80% height and width of tasklet
-        const height = this.highlightedCode.length * SDFV.LINEHEIGHT * 1.05;
+        const height = this.highlightedCode.length * SDFV_LINE_HEIGHT * 1.05;
         const width = textmetrics.width;
         const TASKLET_WRATIO = 0.9, TASKLET_HRATIO = 0.5;
         const hr = height / (this.height * TASKLET_HRATIO);
@@ -2444,15 +2463,14 @@ export class NestedSDFG extends SDFGNode {
                         'errorNodeBackgroundColor'
                     );
                     let label = 'No SDFG loaded';
-                    const extPath =
-                        this.attributes()?.ext_sdfg_path as string | undefined;
+                    const extPath = this.attributes()?.ext_sdfg_path;
                     if (extPath)
                         label += '\n(' + extPath + ')';
                     const textmetrics = this.ctx.measureText(label);
                     this.ctx.fillStyle = errColor;
                     this.ctx.fillText(
                         label, this.x - textmetrics.width / 2.0,
-                        this.y + SDFV.LINEHEIGHT / 4.0
+                        this.y + SDFV_LINE_HEIGHT / 4.0
                     );
                 }
             }
@@ -2463,16 +2481,16 @@ export class NestedSDFG extends SDFGNode {
         const attr = this.attributes();
         if (attr?.is_collapsed) {
             const labelsize =
-                (attr.label as string).length * SDFV.LINEHEIGHT * 0.8;
-            const inconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
+                (attr.label as string).length * SDFV_LINE_HEIGHT * 0.8;
+            const inconnsize = 2 * SDFV_LINE_HEIGHT * Object.keys(
                 attr.in_connectors ?? {}
-            ).length - SDFV.LINEHEIGHT;
-            const outconnsize = 2 * SDFV.LINEHEIGHT * Object.keys(
+            ).length - SDFV_LINE_HEIGHT;
+            const outconnsize = 2 * SDFV_LINE_HEIGHT * Object.keys(
                 attr.out_connectors ?? {}
-            ).length - SDFV.LINEHEIGHT;
+            ).length - SDFV_LINE_HEIGHT;
             const maxwidth = Math.max(labelsize, inconnsize, outconnsize);
-            let maxheight = 2 * SDFV.LINEHEIGHT;
-            maxheight += 4 * SDFV.LINEHEIGHT;
+            let maxheight = 2 * SDFV_LINE_HEIGHT;
+            maxheight += 4 * SDFV_LINE_HEIGHT;
 
             const size = { width: maxwidth, height: maxheight };
             size.width += 2.0 * (size.height / 3.0);
@@ -2502,8 +2520,8 @@ export class NestedSDFG extends SDFGNode {
         // mapping.
         let findText = super.textForFind();
         const attr = this.attributes();
-        const nsdfg = attr?.sdfg as JsonSDFG | undefined;
-        findText += ' ' + (nsdfg?.attributes?.name as string | undefined ?? '');
+        const nsdfg = attr?.sdfg;
+        findText += ' ' + (nsdfg?.attributes?.name ?? '');
         const symMapping =
             attr?.symbol_mapping as Record<string, string> | undefined;
         if (symMapping) {
@@ -2664,7 +2682,7 @@ function batchedDrawEdges(
 
     // Only draw Arrowheads when close enough to see them
     const ppp = renderer.canvasManager.pointsPerPixel;
-    if (!renderer.adaptiveHiding || (ppp && ppp < SDFV.ARROW_LOD)) {
+    if (!renderer.adaptiveHiding || (ppp && ppp < SDFV_ARROW_LOD)) {
         for (const e of arrowEdges) {
             e.drawArrow(
                 ctx,
@@ -2729,7 +2747,7 @@ function drawStateContents(
         node.debugDraw();
 
         // Only draw connectors when close enough to see them
-        if (!renderer.adaptiveHiding || ppp < SDFV.CONNECTOR_LOD) {
+        if (!renderer.adaptiveHiding || ppp < SDFV_CONNECTOR_LOD) {
             node.inConnectors.forEach(c => {
                 // Only draw connectors if actually visible. This is needed for
                 // large nodes in the background like NestedSDFGs, that are

@@ -256,8 +256,7 @@ export class OperationalIntensityOverlay extends GenericSdfgOverlay {
         if (opint !== undefined && mousepos &&
             elem.intersect(mousepos.x, mousepos.y)) {
             // Show the computed OP-INT value if applicable.
-            this.renderer.showTooltip(
-                mousepos.x, mousepos.y,
+            this.renderer.showTooltipAtMouse(
                 'Operational Intensity: ' + opint.toString()
             );
         }
