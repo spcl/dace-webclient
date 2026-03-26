@@ -28,6 +28,7 @@ import type {
     SDFGElementInfo,
 } from '../../types';
 import { htmlSanitize } from '../sanitization';
+import $ from 'jquery';
 
 /**
  * Receives a callback that accepts (node, parent graph) and returns a value.
