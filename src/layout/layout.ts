@@ -199,7 +199,7 @@ function calculateDFNodeSize(
                 const nodedesc = sdfg.attributes?._arrays[label];
                 if (nodedesc?.attributes?.shape) {
                     label = ' ' + sdfgPropertyToString(
-                        nodedesc.attributes.shape
+                        nodedesc.attributes.shape, sdfg.dace_version
                     );
                 }
             }

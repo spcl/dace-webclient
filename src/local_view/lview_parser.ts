@@ -299,7 +299,7 @@ function parseEdge(
         const eAttrs = edge.attributes();
         if (eAttrs?.data) {
             const text = (eAttrs.data as string) + sdfgPropertyToString(
-                edge.attributes()?.subset
+                edge.attributes()?.subset, state.sdfg.dace_version
             );
             const elem = new MemoryMovementEdge(
                 text, graph, edge.points,

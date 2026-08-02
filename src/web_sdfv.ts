@@ -266,7 +266,9 @@ export class SDFVWebUI implements ISDFVUserInterface {
                         html: attr[0] + ':&nbsp;&nbsp;',
                     }));
                     contents.append($('<span>', {
-                        html: sdfgPropertyToString(attr[1]),
+                        html: sdfgPropertyToString(
+                            attr[1], elem.sdfg.dace_version
+                        ),
                     }));
                     contents.append($('<br>'));
                     break;
@@ -290,7 +292,9 @@ export class SDFVWebUI implements ISDFVUserInterface {
                         html: attr[0] + ':&nbsp;&nbsp;',
                     }));
                     contents.append($('<span>', {
-                        html: sdfgPropertyToString(attr[1]),
+                        html: sdfgPropertyToString(
+                            attr[1], elem.sdfg.dace_version
+                        ),
                     }));
                     contents.append($('<br>'));
                 }
@@ -325,7 +329,9 @@ export class SDFVWebUI implements ISDFVUserInterface {
                                 html: attr[0] + ':&nbsp;&nbsp;',
                             }));
                             contents.append($('<span>', {
-                                html: sdfgPropertyToString(attr[1]),
+                                html: sdfgPropertyToString(
+                                    attr[1], nSDFG.dace_version
+                                ),
                             }));
                             contents.append($('<br>'));
                             break;
@@ -337,11 +343,13 @@ export class SDFVWebUI implements ISDFVUserInterface {
         // For SDFGs and nested SDFGs, add information about the SDFG's data
         // descriptors.
         let descriptors = undefined;
+        let descriptorVersion = elem.sdfg.dace_version;
         if (elem instanceof SDFG) {
             descriptors = elem.attributes()?._arrays;
         } else if (elem instanceof NestedSDFG) {
             const nsdfg = elem.attributes()?.sdfg;
             descriptors = nsdfg?.attributes?._arrays;
+            descriptorVersion = nsdfg?.dace_version;
         }
 
         if (descriptors) {
@@ -355,7 +363,9 @@ export class SDFVWebUI implements ISDFVUserInterface {
                     html: desc + ':&nbsp;&nbsp;',
                 }));
                 contents.append($('<span>', {
-                    html: sdfgPropertyToString(descriptors[desc]),
+                    html: sdfgPropertyToString(
+                        descriptors[desc], descriptorVersion
+                    ),
                 }));
                 contents.append($('<br>'));
             }
