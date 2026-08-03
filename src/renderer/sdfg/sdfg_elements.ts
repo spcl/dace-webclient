@@ -1258,7 +1258,7 @@ export class Memlet extends Edge {
         const attr = this.attributes();
         if (attr?.data) {
             this.renderer.showTooltipAtMouse(
-                memletToHtml(attr, this.sdfg.dace_version), true
+                memletToHtml(attr), true
             );
         }
     }
@@ -1618,12 +1618,12 @@ export class Connector extends SDFGElement {
                 Record<string, unknown> | undefined;
             if (access) {
                 customTooltipHtml += sdfgPropertyToString(
-                    access.subset, this.sdfg.dace_version
+                    access.subset
                 );
 
                 if (access.volume !== undefined) {
                     let numAccesses = sdfgPropertyToString(
-                        access.volume ?? '0', this.sdfg.dace_version
+                        access.volume ?? '0'
                     );
                     if (access.dynamic) {
                         if (numAccesses === '0' || numAccesses === '-1') {
@@ -1644,7 +1644,7 @@ export class Connector extends SDFGElement {
             if (certainAccess) {
                 if (access?.subset !== certainAccess.subset) {
                     const certainHtml = sdfgPropertyToString(
-                        certainAccess.subset, this.sdfg.dace_version
+                        certainAccess.subset
                     );
                     customTooltipHtml += '<p>Certain:<p>';
                     customTooltipHtml += certainHtml;
@@ -1779,7 +1779,7 @@ export class AccessNode extends SDFGNode {
             const nodedesc = this.sdfg.attributes?._arrays[lbl];
             if (nodedesc?.attributes?.shape) {
                 lbl = ' ' + sdfgPropertyToString(
-                    nodedesc.attributes.shape, this.sdfg.dace_version
+                    nodedesc.attributes.shape
                 );
             }
         }
@@ -1982,7 +1982,7 @@ export class ScopeNode extends SDFGNode {
             for (let i = 0; i < (params?.length ?? 0); ++i) {
                 if (range?.ranges?.[i] !== undefined) {
                     result += sdfgRangeElemToString(
-                        range.ranges[i], this.sdfg.dace_version
+                        range.ranges[i]
                     ) + ', ';
                 }
             }
@@ -2036,7 +2036,7 @@ export class ScopeNode extends SDFGNode {
                 result += params![i] + '=';
                 if (range?.ranges?.[i] !== undefined) {
                     result += sdfgRangeElemToString(
-                        range.ranges[i], this.sdfg.dace_version
+                        range.ranges[i]
                     ) + ', ';
                 }
             }

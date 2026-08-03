@@ -31,7 +31,7 @@ import type { DagreGraph } from '../renderer/sdfg/sdfg_renderer';
 import type { DataSubset, JsonSDFG, JsonSDFGCodeBlock } from '../types';
 import type { Node } from './elements/node';
 
-export class LViewGraphParseError extends Error {}
+export class LViewGraphParseError extends Error { }
 
 function parseSymbolic(
     symbol: string | number, symbolMap: Map<string, number>
@@ -290,7 +290,7 @@ function parseEdge(
         src = state.graph.node(src.jsonData?.scope_entry ?? '') as SDFGNode;
     const dst = state.graph.node(el.w);
     const edge = state.graph.edge(el);
-    if  (!dst || !edge)
+    if (!dst || !edge)
         return undefined;
     const srcAttrs = src.attributes();
     const dstAttrs = dst.attributes();
@@ -299,7 +299,7 @@ function parseEdge(
         const eAttrs = edge.attributes();
         if (eAttrs?.data) {
             const text = (eAttrs.data as string) + sdfgPropertyToString(
-                edge.attributes()?.subset, state.sdfg.dace_version
+                edge.attributes()?.subset
             );
             const elem = new MemoryMovementEdge(
                 text, graph, edge.points,

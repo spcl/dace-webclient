@@ -15,30 +15,6 @@ import { SDFVSettings } from '../sdfv_settings';
 import { htmlSanitize } from '../sanitization';
 
 
-const SYMBOLIC_SERIALIZATION_VERSION = [2, 0, 0] as const;
-const SYMBOLIC_SERIALIZATION_PRERELEASE = 4;
-
-function supportsTypedSymbolicSerialization(version?: string): boolean {
-    if (!version)
-        return true;
-
-    const match = /^(\d+)\.(\d+)\.(\d+)(?:(a|b|rc)(\d+))?/.exec(version);
-    if (!match)
-        return true;
-
-    const current = [match[1], match[2], match[3]].map(Number);
-    for (let i = 0; i < SYMBOLIC_SERIALIZATION_VERSION.length; i++) {
-        if (current[i] !== SYMBOLIC_SERIALIZATION_VERSION[i])
-            return current[i] > SYMBOLIC_SERIALIZATION_VERSION[i];
-    }
-
-    if (!match[4])
-        return true;
-    if (match[4] !== 'a')
-        return true;
-    return Number(match[5]) >= SYMBOLIC_SERIALIZATION_PRERELEASE;
-}
-
 function findSymbolCall(
     expression: string, start: number
 ): { argumentEnd: number, callEnd: number, argumentStart: number } | null {
@@ -120,11 +96,8 @@ function simplifySerializedSymbolicExpression(expression: string): string {
     return result;
 }
 
-function symbolicExpressionToString(
-    expression: string, daceVersion?: string
-): string {
-    if (!SDFVSettings.get<boolean>('simplifySymbolicExpressions') ||
-        !supportsTypedSymbolicSerialization(daceVersion))
+function symbolicExpressionToString(expression: string): string {
+    if (!SDFVSettings.get<boolean>('simplifySymbolicExpressions'))
         return expression;
     return simplifySerializedSymbolicExpression(expression);
 }
@@ -133,36 +106,33 @@ function symbolicExpressionToString(
 /**
  * Convert an SDFG range element to a string.
  * @param range    Range element to convert.
- * @param daceVersion DaCe version that serialized the expression.
  * @returns        String representation of `range`.
  */
-export function sdfgRangeElemToString(
-    range: SDFGRange, daceVersion?: string
-): string {
+export function sdfgRangeElemToString(range: SDFGRange): string {
     let preview = '';
     const step = parseInt(range.step);
     const tile = parseInt(range.tile);
     if (range.start === range.end && step === 1 && tile === 1) {
-        preview += sdfgPropertyToString(range.start, daceVersion);
+        preview += sdfgPropertyToString(range.start);
     } else {
         if (SDFVSettings.get<boolean>('inclusiveRanges')) {
-            preview += sdfgPropertyToString(range.start, daceVersion) + '..' +
-                sdfgPropertyToString(range.end, daceVersion);
+            preview += sdfgPropertyToString(range.start) + '..' +
+                sdfgPropertyToString(range.end);
         } else {
-            let endp1 = sdfgPropertyToString(range.end, daceVersion) + ' + 1';
+            let endp1 = sdfgPropertyToString(range.end) + ' + 1';
             try {
                 endp1 = simplify(endp1).toString();
             } catch (_e) {}
-            preview += sdfgPropertyToString(range.start, daceVersion) + ':' +
+            preview += sdfgPropertyToString(range.start) + ':' +
                 endp1;
         }
 
         if (step !== 1) {
-            preview += ':' + sdfgPropertyToString(range.step, daceVersion);
+            preview += ':' + sdfgPropertyToString(range.step);
             if (tile !== 1)
-                preview += ':' + sdfgPropertyToString(range.tile, daceVersion);
+                preview += ':' + sdfgPropertyToString(range.tile);
         } else if (tile !== 1) {
-            preview += '::' + sdfgPropertyToString(range.tile, daceVersion);
+            preview += '::' + sdfgPropertyToString(range.tile);
         }
     }
     return preview;
@@ -192,12 +162,9 @@ function dictionaryToString(dict: unknown): string {
 /**
  * Convert SDFG properties to their string representation.
  * @param prop      SDFG property.
- * @param daceVersion DaCe version that serialized the property.
  * @returns         A string representation of the property `prop`.
  */
-export function sdfgPropertyToString(
-    prop: unknown, daceVersion?: string
-): string {
+export function sdfgPropertyToString(prop: unknown): string {
     if (prop === null || prop === undefined)
         return '';
     if (typeof prop === 'boolean') {
@@ -205,7 +172,7 @@ export function sdfgPropertyToString(
             return 'True';
         return 'False';
     } else if (typeof prop === 'string') {
-        return symbolicExpressionToString(prop, daceVersion);
+        return symbolicExpressionToString(prop);
     } else if (typeof prop === 'number') {
         return prop.toString();
     } else if (Object.hasOwn(prop, 'type')) {
@@ -216,7 +183,7 @@ export function sdfgPropertyToString(
                 const indices = (prop as DataSubset).indices;
                 let preview = '[';
                 for (const index of indices ?? [])
-                    preview += sdfgPropertyToString(index, daceVersion) + ', ';
+                    preview += sdfgPropertyToString(index) + ', ';
                 return preview.slice(0, -2) + ']';
             }
             case 'Range':
@@ -225,7 +192,7 @@ export function sdfgPropertyToString(
                 const ranges = (prop as DataSubset).ranges;
                 let preview = '[';
                 for (const range of ranges ?? [])
-                    preview += sdfgRangeElemToString(range, daceVersion) + ', ';
+                    preview += sdfgRangeElemToString(range) + ', ';
                 return preview.slice(0, -2) + ']';
             }
             case 'SubsetUnion':
@@ -233,10 +200,10 @@ export function sdfgPropertyToString(
             {
                 const subsList = (prop as DataSubset).subset_list ?? [];
                 if (subsList.length < 2)
-                    return sdfgPropertyToString(subsList[0], daceVersion);
+                    return sdfgPropertyToString(subsList[0]);
                 let preview = '{';
                 for (const subs of subsList)
-                    preview += sdfgPropertyToString(subs, daceVersion) + '\n';
+                    preview += sdfgPropertyToString(subs) + '\n';
                 return preview + '}';
             }
             case 'LogicalGroup':
@@ -274,9 +241,7 @@ export function sdfgPropertyToString(
         Object.hasOwn(prop, 'approx') &&
         (prop as JsonSDFGSymExpr).main !== undefined &&
         (prop as JsonSDFGSymExpr).approx !== undefined) {
-        return symbolicExpressionToString(
-            (prop as JsonSDFGSymExpr).main!, daceVersion
-        );
+        return symbolicExpressionToString((prop as JsonSDFGSymExpr).main!);
     } else if (prop.constructor === Object) {
         // General dictionary / object.
         return dictionaryToString(prop);
@@ -287,7 +252,7 @@ export function sdfgPropertyToString(
         for (const subsProp of prop as unknown[]) {
             if (!first)
                 result += ', ';
-            result += sdfgPropertyToString(subsProp, daceVersion);
+            result += sdfgPropertyToString(subsProp);
             first = false;
         }
         return result + ' ]';
@@ -299,42 +264,41 @@ export function sdfgPropertyToString(
 /**
  * Create an HTML representation of an SDFG memlet.
  * @param memletAttributes Attributes of the SDFG memlet.
- * @param daceVersion      DaCe version that serialized the memlet.
  * @returns                String containing the memlet's HTML representation.
  */
 export function memletToHtml(
-    memletAttributes: JsonSDFGMemletAttributes, daceVersion?: string
+    memletAttributes: JsonSDFGMemletAttributes
 ): string {
     let htmlStr = memletAttributes.data ?? '';
-    htmlStr += sdfgPropertyToString(memletAttributes.subset, daceVersion);
+    htmlStr += sdfgPropertyToString(memletAttributes.subset);
 
     if (memletAttributes.other_subset) {
         // TODO: Obtain other data name, if possible
         if (memletAttributes.is_data_src) {
             htmlStr += ' -> ' + sdfgPropertyToString(
-                memletAttributes.other_subset, daceVersion
+                memletAttributes.other_subset
             );
         } else {
             htmlStr = sdfgPropertyToString(
-                memletAttributes.other_subset, daceVersion
+                memletAttributes.other_subset
             ) + ' -> ' + htmlStr;
         }
     }
 
     if (memletAttributes.wcr) {
         htmlStr += '<br /><b>CR: ' + sdfgPropertyToString(
-            memletAttributes.wcr, daceVersion
+            memletAttributes.wcr
         ) + '</b>';
     }
 
     let numAccesses = null;
     if (memletAttributes.volume) {
         numAccesses = sdfgPropertyToString(
-            memletAttributes.volume, daceVersion
+            memletAttributes.volume
         );
     } else {
         numAccesses = sdfgPropertyToString(
-            memletAttributes.num_accesses, daceVersion
+            memletAttributes.num_accesses
         );
     }
 

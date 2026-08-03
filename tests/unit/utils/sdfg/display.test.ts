@@ -13,14 +13,14 @@ describe('SDFG symbolic expression display', () => {
         const expression = 'SymExpr(symbol($N, integer=True) + $i * 9f32, ' +
             'Max($N, symbol($M, dtype=dace.uint64)))';
 
-        expect(sdfgPropertyToString(expression, '2.0.0a4')).toBe(
+        expect(sdfgPropertyToString(expression)).toBe(
             'SymExpr(N + i * 9f32, Max(N, M))'
         );
     });
 
     test('preserves quoted contents', () => {
         expect(sdfgPropertyToString(
-            'f("$N", symbol($N, integer=True))', '2.0.0a4'
+            'f("$N", symbol($N, integer=True))'
         )).toBe('f("$N", N)');
     });
 
@@ -28,23 +28,12 @@ describe('SDFG symbolic expression display', () => {
         SDFVSettings.set('simplifySymbolicExpressions', false);
         const expression = 'symbol($N, integer=True) + 1i16';
 
-        expect(sdfgPropertyToString(expression, '2.0.0a4')).toBe(expression);
+        expect(sdfgPropertyToString(expression)).toBe(expression);
     });
 
-    test.each(['1.9.9', '2.0.0a3'])(
-        'always preserves expressions from DaCe %s', version => {
-            SDFVSettings.set('simplifySymbolicExpressions', true);
-            const expression = 'symbol($N, integer=True) + $i';
-
-            expect(sdfgPropertyToString(expression, version)).toBe(expression);
-        }
-    );
-
-    test.each(['2.0.0a4', '2.0.0b1', '2.0.0', '2.1.0'])(
-        'simplifies expressions from DaCe %s', version => {
-            expect(sdfgPropertyToString('$N + 8.0f64', version)).toBe(
-                'N + 8.0f64'
-            );
-        }
-    );
+    test('leaves legacy symbolic expressions unchanged', () => {
+        expect(sdfgPropertyToString('Max(N, M) + i**2')).toBe(
+            'Max(N, M) + i**2'
+        );
+    });
 });
