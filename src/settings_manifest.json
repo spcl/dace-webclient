@@ -95,6 +95,12 @@
                         "default": false,
                         "relayout": true
                     },
+                    "simplifySymbolicExpressions": {
+                        "label": "Display simplified symbolic expressions",
+                        "type": "boolean",
+                        "default": true,
+                        "relayout": true
+                    },
                     "useVerticalStateMachineLayout": {
                         "label": "Use vertical state machine layout",
                         "type": "boolean",

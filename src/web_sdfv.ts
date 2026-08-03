@@ -266,7 +266,9 @@ export class SDFVWebUI implements ISDFVUserInterface {
                         html: attr[0] + ':&nbsp;&nbsp;',
                     }));
                     contents.append($('<span>', {
-                        html: sdfgPropertyToString(attr[1]),
+                        html: sdfgPropertyToString(
+                            attr[1]
+                        ),
                     }));
                     contents.append($('<br>'));
                     break;
@@ -290,7 +292,9 @@ export class SDFVWebUI implements ISDFVUserInterface {
                         html: attr[0] + ':&nbsp;&nbsp;',
                     }));
                     contents.append($('<span>', {
-                        html: sdfgPropertyToString(attr[1]),
+                        html: sdfgPropertyToString(
+                            attr[1]
+                        ),
                     }));
                     contents.append($('<br>'));
                 }
@@ -325,7 +329,9 @@ export class SDFVWebUI implements ISDFVUserInterface {
                                 html: attr[0] + ':&nbsp;&nbsp;',
                             }));
                             contents.append($('<span>', {
-                                html: sdfgPropertyToString(attr[1]),
+                                html: sdfgPropertyToString(
+                                    attr[1]
+                                ),
                             }));
                             contents.append($('<br>'));
                             break;
@@ -355,7 +361,9 @@ export class SDFVWebUI implements ISDFVUserInterface {
                     html: desc + ':&nbsp;&nbsp;',
                 }));
                 contents.append($('<span>', {
-                    html: sdfgPropertyToString(descriptors[desc]),
+                    html: sdfgPropertyToString(
+                        descriptors[desc]
+                    ),
                 }));
                 contents.append($('<br>'));
             }

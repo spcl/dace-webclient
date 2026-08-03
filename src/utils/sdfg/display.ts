@@ -15,6 +15,94 @@ import { SDFVSettings } from '../sdfv_settings';
 import { htmlSanitize } from '../sanitization';
 
 
+function findSymbolCall(
+    expression: string, start: number
+): { argumentEnd: number, callEnd: number, argumentStart: number } | null {
+    const callMatch = /^symbol\s*\(/.exec(expression.slice(start));
+    if (!callMatch)
+        return null;
+
+    const openParen = start + callMatch[0].length - 1;
+    let argumentEnd = -1;
+    let depth = 1;
+    let quote = '';
+    for (let i = openParen + 1; i < expression.length; i++) {
+        const char = expression[i];
+        if (quote) {
+            if (char === '\\')
+                i++;
+            else if (char === quote)
+                quote = '';
+            continue;
+        }
+        if (char === '\'' || char === '"') {
+            quote = char;
+        } else if (char === '(' || char === '[' || char === '{') {
+            depth++;
+        } else if (char === ')' || char === ']' || char === '}') {
+            depth--;
+            if (depth === 0) {
+                return {
+                    argumentStart: openParen + 1,
+                    argumentEnd: argumentEnd < 0 ? i : argumentEnd,
+                    callEnd: i + 1,
+                };
+            }
+        } else if (char === ',' && depth === 1 && argumentEnd < 0) {
+            argumentEnd = i;
+        }
+    }
+    return null;
+}
+
+function simplifySerializedSymbolicExpression(expression: string): string {
+    let result = '';
+    for (let i = 0; i < expression.length;) {
+        const char = expression[i];
+        if (char === '\'' || char === '"') {
+            const quote = char;
+            const start = i++;
+            while (i < expression.length) {
+                if (expression[i] === '\\')
+                    i += 2;
+                else if (expression[i++] === quote)
+                    break;
+            }
+            result += expression.slice(start, i);
+            continue;
+        }
+
+        const previous = i > 0 ? expression[i - 1] : '';
+        if ((i === 0 || !/[\w$]/.test(previous)) &&
+            expression.startsWith('symbol', i)) {
+            const symbolCall = findSymbolCall(expression, i);
+            if (symbolCall) {
+                const argument = expression.slice(
+                    symbolCall.argumentStart, symbolCall.argumentEnd
+                ).trim();
+                result += simplifySerializedSymbolicExpression(argument);
+                i = symbolCall.callEnd;
+                continue;
+            }
+        }
+
+        if (char === '$' && /[A-Za-z_]/.test(expression[i + 1] ?? '')) {
+            i++;
+            continue;
+        }
+        result += char;
+        i++;
+    }
+    return result;
+}
+
+function symbolicExpressionToString(expression: string): string {
+    if (!SDFVSettings.get<boolean>('simplifySymbolicExpressions'))
+        return expression;
+    return simplifySerializedSymbolicExpression(expression);
+}
+
+
 /**
  * Convert an SDFG range element to a string.
  * @param range    Range element to convert.
@@ -84,7 +172,7 @@ export function sdfgPropertyToString(prop: unknown): string {
             return 'True';
         return 'False';
     } else if (typeof prop === 'string') {
-        return prop;
+        return symbolicExpressionToString(prop);
     } else if (typeof prop === 'number') {
         return prop.toString();
     } else if (Object.hasOwn(prop, 'type')) {
@@ -153,7 +241,7 @@ export function sdfgPropertyToString(prop: unknown): string {
         Object.hasOwn(prop, 'approx') &&
         (prop as JsonSDFGSymExpr).main !== undefined &&
         (prop as JsonSDFGSymExpr).approx !== undefined) {
-        return (prop as JsonSDFGSymExpr).main!;
+        return symbolicExpressionToString((prop as JsonSDFGSymExpr).main!);
     } else if (prop.constructor === Object) {
         // General dictionary / object.
         return dictionaryToString(prop);
@@ -204,10 +292,15 @@ export function memletToHtml(
     }
 
     let numAccesses = null;
-    if (memletAttributes.volume)
-        numAccesses = sdfgPropertyToString(memletAttributes.volume);
-    else
-        numAccesses = sdfgPropertyToString(memletAttributes.num_accesses);
+    if (memletAttributes.volume) {
+        numAccesses = sdfgPropertyToString(
+            memletAttributes.volume
+        );
+    } else {
+        numAccesses = sdfgPropertyToString(
+            memletAttributes.num_accesses
+        );
+    }
 
     if (memletAttributes.dynamic) {
         if (numAccesses === '0' || numAccesses === '-1') {

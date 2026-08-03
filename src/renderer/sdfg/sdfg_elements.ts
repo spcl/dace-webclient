@@ -1256,8 +1256,11 @@ export class Memlet extends Edge {
 
     public showTooltip(): void {
         const attr = this.attributes();
-        if (attr?.data)
-            this.renderer.showTooltipAtMouse(memletToHtml(attr), true);
+        if (attr?.data) {
+            this.renderer.showTooltipAtMouse(
+                memletToHtml(attr), true
+            );
+        }
     }
 
 }
@@ -1614,10 +1617,14 @@ export class Connector extends SDFGElement {
             const access = this.data?.access as
                 Record<string, unknown> | undefined;
             if (access) {
-                customTooltipHtml += sdfgPropertyToString(access.subset);
+                customTooltipHtml += sdfgPropertyToString(
+                    access.subset
+                );
 
                 if (access.volume !== undefined) {
-                    let numAccesses = (access.volume ?? '0') as string;
+                    let numAccesses = sdfgPropertyToString(
+                        access.volume ?? '0'
+                    );
                     if (access.dynamic) {
                         if (numAccesses === '0' || numAccesses === '-1') {
                             numAccesses = '<b>Dynamic (unbounded)</b>';
@@ -1770,8 +1777,11 @@ export class AccessNode extends SDFGNode {
         let lbl = name ?? '';
         if (SDFVSettings.get<boolean>('showDataDescriptorSizes')) {
             const nodedesc = this.sdfg.attributes?._arrays[lbl];
-            if (nodedesc?.attributes?.shape)
-                lbl = ' ' + sdfgPropertyToString(nodedesc.attributes.shape);
+            if (nodedesc?.attributes?.shape) {
+                lbl = ' ' + sdfgPropertyToString(
+                    nodedesc.attributes.shape
+                );
+            }
         }
         return lbl;
     }
@@ -1970,8 +1980,11 @@ export class ScopeNode extends SDFGNode {
             const params = attrs?.params as string[] | undefined;
             const range = attrs?.range as DataSubset | undefined;
             for (let i = 0; i < (params?.length ?? 0); ++i) {
-                if (range?.ranges?.[i] !== undefined)
-                    result += sdfgRangeElemToString(range.ranges[i]) + ', ';
+                if (range?.ranges?.[i] !== undefined) {
+                    result += sdfgRangeElemToString(
+                        range.ranges[i]
+                    ) + ', ';
+                }
             }
             // Remove trailing comma
             result = result.substring(0, result.length - 2);
@@ -2021,8 +2034,11 @@ export class ScopeNode extends SDFGNode {
             const range = attrs.range as DataSubset | undefined;
             for (let i = 0; i < (params?.length ?? 0); ++i) {
                 result += params![i] + '=';
-                if (range?.ranges?.[i] !== undefined)
-                    result += sdfgRangeElemToString(range.ranges[i]) + ', ';
+                if (range?.ranges?.[i] !== undefined) {
+                    result += sdfgRangeElemToString(
+                        range.ranges[i]
+                    ) + ', ';
+                }
             }
             // Remove trailing comma
             result = result.substring(0, result.length - 2);

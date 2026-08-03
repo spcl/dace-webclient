@@ -939,9 +939,9 @@ function layoutConditionalBlock(
         if (!branch.attributes()?.is_collapsed) {
             offsetControlFlowRegion(
                 branch.jsonData!, branch.graph!, {
-                    x: offsetAmount + BLOCK_MARGIN,
-                    y: BLOCK_MARGIN + ConditionalBlock.CONDITION_SPACING,
-                }
+                x: offsetAmount + BLOCK_MARGIN,
+                y: BLOCK_MARGIN + ConditionalBlock.CONDITION_SPACING,
+            }
             );
         }
         offsetAmount += branch.width;
@@ -1213,9 +1213,9 @@ function layoutControlFlowRegion(
                 }
                 offsetControlFlowRegion(
                     block as JsonSDFGControlFlowRegion, gBlock.graph!, {
-                        x: topleft.x + BLOCK_MARGIN,
-                        y: topleft.y + topSpacing,
-                    }
+                    x: topleft.x + BLOCK_MARGIN,
+                    y: topleft.y + topSpacing,
+                }
                 );
             }
         }
