@@ -1,0 +1,3 @@
+[submodule "packages/rendure"]
+	path = packages/rendure
+	url = git@github.com:spcl/rendure.git

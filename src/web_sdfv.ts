@@ -36,6 +36,7 @@ import type { ISDFVUserInterface } from './sdfv_ui';
 import { sdfgPropertyToString } from './utils/sdfg/display';
 import { Modal } from 'bootstrap';
 import { DiffOverlay } from './overlays/diff_overlay';
+import { AllocationOverlay } from './overlays/allocation_overlay';
 
 
 declare const vscode: any;
@@ -298,6 +299,19 @@ export class SDFVWebUI implements ISDFVUserInterface {
                     }));
                     contents.append($('<br>'));
                 }
+
+                if (renderer.overlayManager.isOverlayActive(AllocationOverlay)) {
+                    const ol = renderer.overlayManager.getOverlay(AllocationOverlay);
+                    if (ol instanceof AllocationOverlay &&
+                        ol.hasKey(elem.attributes()?.guid)) {
+                        contents.append($('<button>', {
+                            text: 'show allocation overlay',
+                            click: () => {
+                                ol.setFocusedNode(elem.attributes()?.guid);
+                            },
+                        }));
+                    }
+                }
             }
         }
 
@@ -386,6 +400,7 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         $('#reload').prop('disabled', true);
         $('#load-instrumentation-report-btn').prop('disabled', true);
         $('#load-memory-footprint-file-btn').prop('disabled', true);
+        $('#load-allocation-report-btn').prop('disabled', true);
         $('#diff-view-btn-container').hide();
 
         $('#exit-diff-view-btn-container').show();
@@ -396,6 +411,7 @@ export class WebSDFGDiffViewer extends SDFGDiffViewer {
         $('#reload').prop('disabled', false);
         $('#load-instrumentation-report-btn').prop('disabled', false);
         $('#load-memory-footprint-file-btn').prop('disabled', false);
+        $('#load-allocation-report-btn').prop('disabled', false);
         $('#diff-view-btn-container').show();
 
         $('#exit-diff-view-btn-container').hide();
@@ -792,6 +808,30 @@ export class WebSDFV extends SDFV {
         fileReader.readAsText(target!.files![0]);
     }
 
+    private loadAllocationReport(e: JQuery.TriggeredEvent): void {
+        const target = e.target as { files?: File[] } | undefined;
+        if ((target?.files?.length ?? 0) < 1 || !target!.files![0])
+            return;
+
+        const fileReader = new FileReader();
+        fileReader.onload = (e: ProgressEvent<FileReader>) => {
+            let resultString = '';
+            const res = e.target?.result;
+            if (res) {
+                if (res instanceof ArrayBuffer) {
+                    const decoder = new TextDecoder('utf-8');
+                    resultString = decoder.decode(new Uint8Array(res));
+                } else {
+                    resultString = res;
+                }
+            }
+            this.onLoadedAllocationReport(
+                JSON.parse(resultString) as Record<string, string[]>
+            );
+        };
+        fileReader.readAsText(target!.files![0]);
+    }
+
     public registerEventListeners(): void {
         $(document).on(
             'change.sdfv', '#sdfg-file-input', this.loadSDFG.bind(this)
@@ -803,6 +843,10 @@ export class WebSDFV extends SDFV {
         $(document).on(
             'change.sdfv', '#memory-footprint-file-input',
             this.loadMemoryFootprintFile.bind(this)
+        );
+        $(document).on(
+            'change.sdfv', '#allocation-report-file-input',
+            this.loadAllocationReport.bind(this)
         );
         $(document).on(
             'change.sdfv', '#second-sdfg-file-input',
@@ -1024,6 +1068,7 @@ export class WebSDFV extends SDFV {
             await renderer.setSDFG(sdfg, true, zoomToFit);
             $('#load-instrumentation-report-btn').prop('disabled', false);
             $('#load-memory-footprint-file-btn').prop('disabled', false);
+            $('#load-allocation-report-btn').prop('disabled', false);
             $('#diff-view-btn').prop('disabled', false);
         }
     }

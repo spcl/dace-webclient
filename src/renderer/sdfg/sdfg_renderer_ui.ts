@@ -17,11 +17,14 @@ import { MemoryVolumeOverlay } from '../../overlays/memory_volume_overlay';
 import { cfgToDotGraph } from '../../utils/sdfg/dotgraph';
 import { ModeButtons } from '../../types';
 import { SDFGElementType } from './sdfg_elements';
+import { AllocationOverlay } from '../../overlays/allocation_overlay';
+import { Position } from 'monaco-editor';
 
 
 export type SDFGRendererUIFeature = (
     'settings' | 'overlaysMenu' | 'collapse' | 'expand' | 'addMode' |
-    'panMode' | 'moveMode' | 'boxSelectMode' | 'cutoutSelection' | 'localView'
+    'panMode' | 'moveMode' | 'boxSelectMode' | 'cutoutSelection' |
+    'localView' | 'allocationLegend' //does this make sense? QUESTION
 ) | RendererUIFeature;
 
 export class SDFGRendererUI extends RendererUI {
@@ -32,6 +35,7 @@ export class SDFGRendererUI extends RendererUI {
     public readonly panModeBtn?: JQuery<HTMLButtonElement>;
     public readonly moveModeBtn?: JQuery<HTMLButtonElement>;
     public readonly addModeButtons: JQuery<HTMLButtonElement>[] = [];
+    public allocationLegend?: JQuery<HTMLDivElement>;
     private modeBtnSelectedBGColor: string = '#CCCCCC';
 
     public constructor(
@@ -56,6 +60,7 @@ export class SDFGRendererUI extends RendererUI {
             boxSelectMode: true,
             cutoutSelection: true,
             localView: true,
+            allocationLegend: true,
         }
     ) {
         _featuresMask.minimap = SDFVSettings.get<boolean>('minimap');
@@ -398,6 +403,19 @@ export class SDFGRendererUI extends RendererUI {
             }).appendTo(this.toolbar) as JQuery<HTMLButtonElement>;
         }
 
+        // Allocation overlay legend
+        if (this._featuresMask.allocationLegend) {
+            this.allocationLegend = $('<div>', {
+                id: 'allocation-legend',
+                css: {
+                    'display': 'flex',
+                    'flex-direction': 'column',
+                    'position': 'absolute',
+                    'bottom': '10px',
+                    'left': '10px'
+                },
+            }).appendTo(this.container) as JQuery<HTMLDivElement>;
+        }
         // Exit previewing mode.
         if (this.renderer.inVSCode) {
             const exitPreviewBtn = $('<button>', {

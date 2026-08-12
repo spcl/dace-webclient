@@ -2,6 +2,8 @@
 
 import type { SDFGElement } from './renderer/sdfg/sdfg_elements';
 import type { DagreGraph, SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
+import { JsonSDFG, JsonSDFGDataDesc } from './types';
+import { AllocationOverlay } from './overlays/allocation_overlay';
 
 
 export interface ISDFVUserInterface {

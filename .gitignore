@@ -1,3 +1,6 @@
+#prettier config
+.prettierrc
+
 # Logs
 logs
 *.log

@@ -10,9 +10,32 @@ import type { LViewRenderer } from './local_view/lview_renderer';
 import {
     RuntimeMicroSecondsOverlay,
 } from './overlays/runtime_micro_seconds_overlay';
-import type { SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
-import type { ISDFVUserInterface } from './sdfv_ui';
-import { doForAllJsonSDFGElements } from './utils/sdfg/traversal';
+import { OverlayManager } from './overlay_manager';
+import { DagreGraph, SDFGRenderer } from './renderer/sdfg/sdfg_renderer';
+import {
+    ConditionalBlock,
+    SDFG,
+    SDFGElement,
+    State,
+} from './renderer/sdfg/sdfg_elements';
+import { htmlSanitize } from './utils/sanitization';
+import {
+    checkCompatLoad,
+    checkCompatSave,
+    parseSDFG,
+    stringifySDFG,
+} from './utils/sdfg/json_serializer';
+import { SDFVSettings } from './utils/sdfv_settings';
+import { DiffMap } from './sdfg_diff_viewer';
+import { ISDFVUserInterface } from './sdfv_ui';
+import { GenericSdfgOverlay } from './overlays/common/generic_sdfg_overlay';
+import { JsonSDFG, ModeButtons } from './types';
+import {
+    doForAllJsonSDFGElements,
+    traverseSDFGScopes,
+} from './utils/sdfg/traversal';
+import { showErrorModal } from './utils/utils';
+import { AllocationOverlay } from './overlays/allocation_overlay';
 
 
 export interface ISDFV {
@@ -119,6 +142,21 @@ export abstract class SDFV extends EventEmitter implements ISDFV {
         }, renderer.sdfg);
 
         renderer.drawAsync();
+    }
+
+    public onLoadedAllocationReport(
+        report: Record<string, string[]>,
+        renderer?: SDFGRenderer,
+    ): void {
+        renderer = this.renderer;
+        if (!renderer?.overlayManager.isOverlayActive(AllocationOverlay))
+            renderer?.overlayManager.registerOverlay(AllocationOverlay);
+
+        const ol = renderer?.overlayManager.getOverlay(AllocationOverlay);
+        if (ol && ol instanceof AllocationOverlay) {
+            ol.setAllocationMap(report);
+            ol.refresh();
+        }
     }
 
     public abstract outline(): void;
